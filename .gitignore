@@ -1,0 +1,11 @@
+# Compiled Python files
+*.pyc
+
+# Setuptools local dev stuff
+.eggs
+*.egg-info
+build/
+dist/
+
+# Swap files
+*.swp
