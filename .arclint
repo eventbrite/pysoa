@@ -1,0 +1,17 @@
+{
+  "linters": {
+    "eb-strict-flake8": {
+      "type": "flake8",
+      "include": "(\\.py$)",
+      "exclude": "(^order_service/vendor/)",
+      "flags" : [
+        "--max-line-length=120"
+      ],
+      "severity.rules": {
+        "(^E)": "warning",
+        "(^F)": "warning",
+        "(^W)": "advice"
+      }
+    }
+  }
+}
