@@ -5,7 +5,9 @@ The base Client class provides the core workflow for request sending and receivi
 Requests are passed and returned as dicts, and the format of the request depends on the
 implementation.
 
-TODO: Add pre-request and post-response hooks that implementations can use for logging etc.
+The on_request and on_response methods provide hooks for any actions that need to be
+taken after a successful request or response. These may include, for example, logging
+all requests and responses or raising exceptions on error responses.
 """
 
 
@@ -50,6 +52,26 @@ class Client(object):
         """
         return message_dict
 
+    def on_request(self, request_id, meta, message_dict):
+        """
+        Hook for any actions that occur after a request is sent on the transport.
+
+        request_id: int
+        meta: dict
+        message_dict: dict
+        """
+        pass
+
+    def on_response(self, request_id, meta, message_dict):
+        """
+        Hook for any actions that occur after a response is received on the transport.
+
+        request_id: int
+        meta: dict
+        message_dict: dict
+        """
+        pass
+
     def send_request(self, message_dict):
         """
         Serialize and send a request message, and return a request ID.
@@ -61,7 +83,9 @@ class Client(object):
         message_dict = self.prepare_request(message_dict)
         meta = self.prepare_metadata()
         message = self.serializer.dict_to_blob(message_dict)
-        return self.transport.send_request_message(meta, message)
+        request_id = self.transport.send_request_message(meta, message)
+        self.on_request(request_id, meta, message_dict)
+        return request_id
 
     def get_all_responses(self):
         """
@@ -78,4 +102,5 @@ class Client(object):
             else:
                 message_dict = self.serializer.blob_to_dict(message)
                 message_dict = self.prepare_response(message_dict)
+                self.on_response(request_id, meta, message_dict)
                 yield request_id, message_dict
