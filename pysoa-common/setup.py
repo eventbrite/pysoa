@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 import os
 
 
@@ -10,7 +10,7 @@ __version__ = open(__version_file_path).read()  # noqa
 setup(
     name='pysoa-common',
     version=__version__,
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+    packages=['soacommon'],
     include_package_data=True,
     install_requires=[],
     tests_require=[],
