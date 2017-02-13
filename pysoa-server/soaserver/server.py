@@ -1,6 +1,14 @@
+from soaserver.schemas import JobRequestSchema
+
+
 class Server(object):
     """
-    Base class from which all SOA Service Servers inherit
+    Base class from which all SOA Service Servers inherit.
+
+    Required Attributes for Subclasses:
+        service_name: a string name of the service.
+        action_class_map: a dictionary mapping action name strings
+            to Action subclasses.
     """
     service_name = None
     action_class_map = {}
@@ -10,7 +18,10 @@ class Server(object):
             raise AttributeError('Server subclass must set service_name')
 
     def process_request(self):
-        pass
+        job_request = self.transport.receive()
+
+        # Validate JobRequest message
+        JobRequestSchema.errors(job_request)
 
     def run(self):
         while not self.shutting_down:

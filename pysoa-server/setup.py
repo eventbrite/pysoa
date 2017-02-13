@@ -13,8 +13,12 @@ setup(
     description='SOA Server reference Python implementation',
     packages=['soaserver'],
     install_requires=[
+        'conformity',
         'msgpack-python>=0.4',
         'six>=1.10',
+    ],
+    dependency_links=[
+        'git+ssh://git@github.com/eventbrite/conformity.git@1.2.0#egg=conformity',
     ],
     tests_require=[
         'mock>=2.0',
