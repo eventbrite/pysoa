@@ -16,6 +16,7 @@ setup(
         'conformity',
         'msgpack-python>=0.4',
         'six>=1.10',
+        'attrs>=16.3',
     ],
     dependency_links=[
         'git+ssh://git@github.com/eventbrite/conformity.git@1.2.0#egg=conformity',
