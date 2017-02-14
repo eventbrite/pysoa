@@ -68,21 +68,22 @@ class ServerTransport(object):
 
     def receive_request_message(self):
         """
-        Receive a request message from the backend and return a tuple of
-        (meta, message). The metadata may include client reply-to information
+        Receive a request message from the backend and return a 3-tuple of
+        (request_id, meta, message). The metadata may include client reply-to information
         that should be passed back to send_response_message.
 
-        returns: dict, string
+        returns: int, dict, string
         raises: ConnectionError, MessageReceiveError, MessageReceiveTimeout
         """
         raise NotImplementedError
 
-    def send_response_message(self, meta, message_string):
+    def send_response_message(self, request_id, meta, message_string):
         """
         Send a response message. The meta dict returned by
         receive_request_message should be passed verbatim as the second
         argument.
 
+        request_id: int
         meta: dict
         message_string: bytes (string)
 
