@@ -1,5 +1,6 @@
 class JobError(Exception):
-    pass
+    def __init__(self, errors):
+        self.errors = errors
 
 
 class ActionError(Exception):

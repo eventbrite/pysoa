@@ -7,9 +7,11 @@ from soaserver.constants import (
 from soaserver.schemas import JobRequestSchema
 from soaserver.types import (
     JobResponse,
+    ActionRequest,
     ActionResponse,
     Error,
 )
+from soaserver.internal.types import RequestSwitchSet
 from soaserver.errors import (
     JobError,
     ActionError,
@@ -26,13 +28,20 @@ class Server(object):
             to Action subclasses.
     """
     service_name = None
+    serializer = None
+    transport = None
     action_class_map = {}
     middleware_classes = []
 
     def __init__(self):
         if not self.service_name:
             raise AttributeError('Server subclass must set service_name')
+        if not self.serializer:
+            raise AttributeError('Server subclass must set serializer instance')
+        if not self.transport:
+            raise AttributeError('Server subclass must set transport instance')
 
+        # Set initial state
         self.shutting_down = False
 
         # Instantiate middleware
@@ -58,16 +67,22 @@ class Server(object):
 
         # Run the Job's Actions
         job_response = JobResponse()
-        for i, action_request in enumerate(job_request['actions']):
-            action_name = action_request['action']
-            if action_name in self.action_class_map:
+        job_switches = RequestSwitchSet(job_request['control']['switches'])
+        for i, raw_action_request in enumerate(job_request['actions']):
+            action_request = ActionRequest(
+                action=raw_action_request['action'],
+                body=raw_action_request.get('body', None),
+                switches=job_switches,
+            )
+            if action_request.action in self.action_class_map:
                 # Run process ActionRequest middleware
                 try:
                     for middleware in self.middleware:
                         middleware.process_action_request(action_request)
 
                     # Run action
-                    action_response = self.action_class_map[action_name](action_request)
+                    action_class = self.action_class_map[action_request.action]()
+                    action_response = action_class.run(action_request)
 
                     # Run process ActionResponse middleware
                     for middleware in self.middleware:
@@ -75,16 +90,16 @@ class Server(object):
                 except ActionError as e:
                     # Error: an error was thrown while running the Action (or Action middleware)
                     action_response = ActionResponse(
-                        action=action_name,
+                        action=action_request.action,
                         errors=e.errors,
                     )
             else:
                 # Error: Action not found.
                 action_response = ActionResponse(
-                    action=action_name,
+                    action=action_request.action,
                     errors=[Error(
                         code=ERROR_CODE_UNKNOWN,
-                        message='The action "{}" was not found on this server.'.format(action_name),
+                        message='The action "{}" was not found on this server.'.format(action_request.action),
                         field='action',
                     )],
                 )
@@ -100,6 +115,9 @@ class Server(object):
         return job_response
 
     def run(self):
+        """
+        Start the SOA Server run loop.
+        """
         while not self.shutting_down:
             # Get the next JobRequest
             request_id, meta, request_message = self.transport.receive_request_message()

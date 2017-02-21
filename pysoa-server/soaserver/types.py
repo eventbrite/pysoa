@@ -9,13 +9,20 @@ class Error(object):
 
 
 @attr.s
+class ActionRequest(object):
+    action = attr.ib()
+    body = attr.ib()
+    switches = attr.ib()
+
+
+@attr.s
 class ActionResponse(object):
     action = attr.ib()
-    errors = attr.ib()
-    body = attr.ib()
+    errors = attr.ib(default=attr.Factory(list))
+    body = attr.ib(default=None)
 
 
 @attr.s
 class JobResponse(object):
-    errors = attr.ib()
-    actions = attr.ib(default=[])
+    errors = attr.ib(default=attr.Factory(list))
+    actions = attr.ib(default=attr.Factory(list))
