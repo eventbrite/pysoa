@@ -38,6 +38,10 @@ class ConnectionError(Exception):
     pass
 
 
+class InvalidMessageError(Exception):
+    pass
+
+
 class ClientTransport(object):
 
     def send_request_message(self, meta, message_string):
