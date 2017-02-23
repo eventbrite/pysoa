@@ -1,8 +1,8 @@
 from unittest import TestCase
 
-from soaserver.server import Server
-from soacommon.serializer import Serializer
-from soacommon.transport import ServerTransport
+from pysoa.server.server import Server
+from pysoa.common.serializer import Serializer
+from pysoa.common.transport import ServerTransport
 
 
 class BaseTestServiceServer(Server):

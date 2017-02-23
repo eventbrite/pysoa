@@ -1,18 +1,18 @@
 import attr
 
-from soaserver.constants import (
+from .constants import (
     ERROR_CODE_INVALID,
     ERROR_CODE_UNKNOWN,
 )
-from soaserver.schemas import JobRequestSchema
-from soaserver.types import (
+from .schemas import JobRequestSchema
+from .types import (
     JobResponse,
     ActionRequest,
     ActionResponse,
     Error,
 )
-from soaserver.internal.types import RequestSwitchSet
-from soaserver.errors import (
+from .internal.types import RequestSwitchSet
+from .errors import (
     JobError,
     ActionError,
 )

@@ -2,7 +2,7 @@ import six
 import uuid
 from unittest import TestCase
 
-from soaserver.schemas import (
+from pysoa.server.schemas import (
     ActionRequestSchema,
     ControlHeaderSchema,
     JobRequestSchema,

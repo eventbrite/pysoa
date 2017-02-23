@@ -1,15 +1,15 @@
 from unittest import TestCase
 from mock import MagicMock
 
-from soaserver.server import Server
-from soaserver.errors import (
+from pysoa.server.server import Server
+from pysoa.server.errors import (
     JobError,
     ActionError,
 )
-from soaserver.types import Error
-from soaserver.constants import ERROR_CODE_INVALID
-from soacommon.serializer import Serializer
-from soacommon.transport import ServerTransport
+from pysoa.server.types import Error
+from pysoa.server.constants import ERROR_CODE_INVALID
+from pysoa.common.serializer import Serializer
+from pysoa.common.transport import ServerTransport
 
 
 class TestServiceServer(Server):
