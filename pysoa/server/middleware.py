@@ -1,4 +1,4 @@
-class Middleware(object):
+class ServerMiddleware(object):
     def process_job_request(self, job_request):
         """
         Process JobRequest messages before they are run by the Server.

@@ -13,12 +13,17 @@ all requests and responses or raising exceptions on error responses.
 
 class Client(object):
 
+    middleware_classes = []
+
     def __init__(self, service_name, transport, serializer):
         self.service_name = service_name
         self.transport = transport
         self.serializer = serializer
+        self.middleware = [
+            middleware_class() for middleware_class in self.middleware_classes
+        ]
 
-    def prepare_request(self, message_dict):
+    def prepare_request(self, request_dict):
         """
         Pre-process the message dict. Returns metadata and the processed message dict.
         Implementations may override this method to inject necessary metadata, format
@@ -28,7 +33,8 @@ class Client(object):
 
         returns: dict
         """
-        return message_dict
+        for middleware in self.middleware:
+            middleware.process_request_dict(request_dict)
 
     def prepare_metadata(self):
         """
@@ -40,7 +46,7 @@ class Client(object):
         """
         return {}
 
-    def prepare_response(self, message_dict):
+    def prepare_response(self, response_dict):
         """
         Pre-process and return the response. Implementations may override this to, for
         example, format response messages or raise exceptions on error responses.
@@ -50,7 +56,8 @@ class Client(object):
 
         returns: dict
         """
-        return message_dict
+        for middleware in self.middleware:
+            middleware.process_response_dict(response_dict)
 
     def on_request(self, request_id, meta, message_dict):
         """
@@ -80,7 +87,7 @@ class Client(object):
         raises: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout,
             MessageTooLarge
         """
-        message_dict = self.prepare_request(message_dict)
+        self.prepare_request(message_dict)
         meta = self.prepare_metadata()
         message = self.serializer.dict_to_blob(message_dict)
         request_id = self.transport.send_request_message(meta, message)
@@ -101,6 +108,6 @@ class Client(object):
                 break
             else:
                 message_dict = self.serializer.blob_to_dict(message)
-                message_dict = self.prepare_response(message_dict)
+                self.prepare_response(message_dict)
                 self.on_response(request_id, meta, message_dict)
                 yield request_id, message_dict
