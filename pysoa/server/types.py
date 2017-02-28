@@ -17,7 +17,7 @@ class ActionRequest(object):
 
 @attr.s
 class ActionResponse(object):
-    action = attr.ib()
+    action = attr.ib(default=None)
     errors = attr.ib(default=attr.Factory(list))
     body = attr.ib(default=None)
 

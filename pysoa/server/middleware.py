@@ -47,3 +47,17 @@ class ServerMiddleware(object):
             None
         """
         pass
+
+    def process_job_exception(self, job_request, exception):
+        """
+        Process exceptions that are raised while processing JobRequests.
+
+        Args:
+            job_request: a JobRequest dictionary.
+            exception: the exception that was raised while processing
+                job_request.
+
+        Returns:
+            None
+        """
+        pass

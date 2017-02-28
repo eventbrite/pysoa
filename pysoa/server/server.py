@@ -1,3 +1,12 @@
+import argparse
+import os
+import sys
+from signal import (
+    signal,
+    SIGINT,
+    SIGTERM,
+)
+
 import attr
 
 from .constants import (
@@ -83,6 +92,7 @@ class Server(object):
                     # Run action
                     action_class = self.action_class_map[action_request.action]()
                     action_response = action_class.run(action_request)
+                    action_response.action = action_request.action
 
                     # Run process ActionResponse middleware
                     for middleware in self.middleware:
@@ -114,6 +124,10 @@ class Server(object):
 
         return job_response
 
+    def handle_shutdown_signal(self, signal, sf):
+        print('Shutting down...')
+        self.shutting_down = True
+
     def run(self):
         """
         Start the SOA Server run loop.
@@ -138,7 +152,40 @@ class Server(object):
                 job_response = JobResponse(
                     errors=e.errors,
                 )
+            except Exception as e:
+                for middleware in self.middleware:
+                    middleware.process_job_exception(job_request, e)
 
             # Send the JobResponse
             response_message = self.serializer.dict_to_blob(attr.asdict(job_response))
             self.transport.send_response_message(request_id, meta, response_message)
+
+    @classmethod
+    def main(cls):
+        """
+        Command-line entrypoint for running a PySOA service Server.
+        """
+        parser = argparse.ArgumentParser(
+            description='Server for the {} SOA service'.format(cls.service_name),
+        )
+        parser.add_argument(
+            '-d', '--daemon',
+            action='store_true',
+            help='run the server process as a daemon',
+        )
+        cmd_options = parser.parse_args(sys.argv[1:])
+
+        # Optionally daemonize
+        if cmd_options.daemon:
+            pid = os.fork()
+            if pid > 0:
+                print('PID={}'.format(pid))
+                sys.exit()
+
+        # Set up server and signal handling
+        server = cls()
+        signal(SIGINT, server.handle_shutdown_signal)
+        signal(SIGTERM, server.handle_shutdown_signal)
+
+        # Start server event loop
+        server.run()
