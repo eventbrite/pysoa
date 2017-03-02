@@ -1,4 +1,5 @@
 import argparse
+import importlib
 import os
 import sys
 from signal import (
@@ -25,6 +26,7 @@ from .errors import (
     JobError,
     ActionError,
 )
+from .settings import ServerSettings
 
 
 class Server(object):
@@ -36,26 +38,33 @@ class Server(object):
         action_class_map: a dictionary mapping action name strings
             to Action subclasses.
     """
+
+    settings_class = ServerSettings
+
     service_name = None
-    serializer = None
-    transport = None
     action_class_map = {}
     middleware_classes = []
 
-    def __init__(self):
+    def __init__(self, settings):
+        # Check subclassing setup
         if not self.service_name:
             raise AttributeError('Server subclass must set service_name')
-        if not self.serializer:
-            raise AttributeError('Server subclass must set serializer instance')
-        if not self.transport:
-            raise AttributeError('Server subclass must set transport instance')
+
+        # Store settings and extract serializer and transport
+        self.settings = settings
+        self.transport = self.settings['transport']['object'](
+            service_name=self.service_name,
+            **self.settings['transport']['kwargs']
+        )
+        self.serializer = self.settings['serializer']['object'](**self.settings['serializer']['kwargs'])
 
         # Set initial state
         self.shutting_down = False
 
         # Instantiate middleware
         self.middleware = [
-            middleware_class() for middleware_class in self.middleware_classes
+            obj(**kwargs)
+            for obj, kwargs in self.settings['middleware']
         ]
 
     def process_request(self, job_request):
@@ -82,6 +91,7 @@ class Server(object):
                 action=raw_action_request['action'],
                 body=raw_action_request.get('body', None),
                 switches=job_switches,
+                settings=self.settings,
             )
             if action_request.action in self.action_class_map:
                 # Run process ActionRequest middleware
@@ -125,8 +135,12 @@ class Server(object):
         return job_response
 
     def handle_shutdown_signal(self, signal, sf):
-        print('Shutting down...')
-        self.shutting_down = True
+        if self.shutting_down:
+            print('Received double interrupt, forcing shutdown...')
+            sys.exit(1)
+        else:
+            print('Shutting down...')
+            self.shutting_down = True
 
     def run(self):
         """
@@ -173,7 +187,23 @@ class Server(object):
             action='store_true',
             help='run the server process as a daemon',
         )
+        parser.add_argument(
+            '-s', '--settings',
+            help='The settings file to use',
+            required=True,
+        )
         cmd_options = parser.parse_args(sys.argv[1:])
+
+        # Load settings from the given file
+        try:
+            settings_module = importlib.import_module(cmd_options.settings)
+        except ImportError:
+            raise ValueError("Cannot import settings module %s" % cmd_options.settings)
+        try:
+            settings_dict = getattr(settings_module, "settings")
+        except AttributeError:
+            raise ValueError("Cannot find settings variable in settings module %s" % cmd_options.settings)
+        settings = cls.settings_class(settings_dict)
 
         # Optionally daemonize
         if cmd_options.daemon:
@@ -183,7 +213,7 @@ class Server(object):
                 sys.exit()
 
         # Set up server and signal handling
-        server = cls()
+        server = cls(settings)
         signal(SIGINT, server.handle_shutdown_signal)
         signal(SIGTERM, server.handle_shutdown_signal)
 
