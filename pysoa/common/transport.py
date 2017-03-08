@@ -44,6 +44,9 @@ class InvalidMessageError(Exception):
 
 class ClientTransport(object):
 
+    def __init__(self, service_name):
+        self.service_name = service_name
+
     def send_request_message(self, meta, message_string):
         """
         Send a serialized request message and return a request ID.
@@ -69,6 +72,9 @@ class ClientTransport(object):
 
 
 class ServerTransport(object):
+
+    def __init__(self, service_name):
+        self.service_name = service_name
 
     def receive_request_message(self):
         """

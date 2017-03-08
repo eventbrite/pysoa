@@ -13,15 +13,13 @@ all requests and responses or raising exceptions on error responses.
 
 class Client(object):
 
-    middleware_classes = []
-
-    def __init__(self, service_name, transport, serializer):
+    def __init__(self, service_name, transport, serializer, middleware=None):
+        if middleware is None:
+            middleware = []
         self.service_name = service_name
         self.transport = transport
         self.serializer = serializer
-        self.middleware = [
-            middleware_class() for middleware_class in self.middleware_classes
-        ]
+        self.middleware = middleware
 
     def prepare_request(self, request_dict):
         """
@@ -30,11 +28,9 @@ class Client(object):
         requests and so on.
 
         message_dict: dict
-
-        returns: dict
         """
         for middleware in self.middleware:
-            middleware.process_request_dict(request_dict)
+            middleware.process_request_dict(request_dict, self)
 
     def prepare_metadata(self):
         """
@@ -53,11 +49,9 @@ class Client(object):
 
         meta: dict
         message_dict: dict
-
-        returns: dict
         """
         for middleware in self.middleware:
-            middleware.process_response_dict(response_dict)
+            middleware.process_response_dict(response_dict, self)
 
     def on_request(self, request_id, meta, message_dict):
         """

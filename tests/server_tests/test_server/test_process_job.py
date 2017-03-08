@@ -15,7 +15,7 @@ from pysoa.common.transport import ServerTransport
 class TestServiceServer(Server):
     service_name = 'test_service'
     serializer = Serializer()
-    transport = ServerTransport()
+    transport = ServerTransport(service_name)
 
     action_class_map = {
         u'test_action': MagicMock(),

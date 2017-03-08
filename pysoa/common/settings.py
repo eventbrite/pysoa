@@ -82,14 +82,20 @@ class SOASettings(Settings):
     """
     schema = {
         # Paths to the classes to use and then kwargs to pass
-        "transport": fields.Dictionary({
-            "path": fields.UnicodeString(),
-            "kwargs": fields.SchemalessDictionary(key_type=fields.UnicodeString()),
-        }),
-        "serializer": fields.Dictionary({
-            "path": fields.UnicodeString(),
-            "kwargs": fields.SchemalessDictionary(key_type=fields.UnicodeString()),
-        }),
+        "transport": fields.Dictionary(
+            {
+                "path": fields.UnicodeString(),
+                "kwargs": fields.SchemalessDictionary(key_type=fields.UnicodeString()),
+            },
+            optional_keys="kwargs",
+        ),
+        "serializer": fields.Dictionary(
+            {
+                "path": fields.UnicodeString(),
+                "kwargs": fields.SchemalessDictionary(key_type=fields.UnicodeString()),
+            },
+            optional_keys="kwargs",
+        ),
 
         # Middleware is a list of ("path.to.class", {"setting_name": ...}) tuples
         # The same format is applied for both server and client, though the middleware
