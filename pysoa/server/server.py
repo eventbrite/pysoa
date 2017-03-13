@@ -53,10 +53,12 @@ class Server(object):
         # Store settings and extract serializer and transport
         self.settings = settings
         self.transport = self.settings['transport']['object'](
-            service_name=self.service_name,
-            **self.settings['transport']['kwargs']
+            self.service_name,
+            **self.settings['transport'].get('kwargs', {})
         )
-        self.serializer = self.settings['serializer']['object'](**self.settings['serializer']['kwargs'])
+        self.serializer = self.settings['serializer']['object'](
+            **self.settings['serializer'].get('kwargs', {})
+        )
 
         # Set initial state
         self.shutting_down = False
@@ -91,7 +93,6 @@ class Server(object):
                 action=raw_action_request['action'],
                 body=raw_action_request.get('body', None),
                 switches=job_switches,
-                settings=self.settings,
             )
             if action_request.action in self.action_class_map:
                 # Run process ActionRequest middleware
@@ -100,8 +101,8 @@ class Server(object):
                         middleware.process_action_request(action_request)
 
                     # Run action
-                    action_class = self.action_class_map[action_request.action]()
-                    action_response = action_class.run(action_request)
+                    action = self.action_class_map[action_request.action](self.settings)
+                    action_response = action(action_request)
                     action_response.action = action_request.action
 
                     # Run process ActionResponse middleware

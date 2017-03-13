@@ -8,15 +8,11 @@ from pysoa.server.errors import (
 )
 from pysoa.server.types import Error
 from pysoa.server.constants import ERROR_CODE_INVALID
-from pysoa.common.serializer import Serializer
-from pysoa.common.transport import ServerTransport
+from pysoa.test import factories
 
 
 class TestServiceServer(Server):
     service_name = 'test_service'
-    serializer = Serializer()
-    transport = ServerTransport(service_name)
-
     action_class_map = {
         u'test_action': MagicMock(),
     }
@@ -37,7 +33,9 @@ class ProcessJobTests(TestCase):
                 },
             }],
         }
-        self.server = TestServiceServer()
+        self.server = TestServiceServer(
+            settings=factories.ServerSettingsFactory(),
+        )
 
     def test_invalid_job_request_raises_job_error(self):
         # Invalidate the ControlHeader
@@ -59,7 +57,7 @@ class ProcessJobTests(TestCase):
 
     def test_action_error_returns_action_response_with_error(self):
         # Make the Action return an ActionError
-        self.server.action_class_map[u'test_action'].return_value.run.side_effect = ActionError(errors=[Error(
+        self.server.action_class_map[u'test_action'].return_value.side_effect = ActionError(errors=[Error(
             code=ERROR_CODE_INVALID,
             message='This field is invalid.',
             field='body.field',

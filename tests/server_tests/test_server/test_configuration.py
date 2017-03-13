@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from pysoa.server.server import Server
 from pysoa.common.serializer import Serializer
-from pysoa.common.transport import ServerTransport
+from pysoa.test import factories
 
 
 class BaseTestServiceServer(Server):
@@ -10,8 +10,11 @@ class BaseTestServiceServer(Server):
 
 
 class ServerInitializationTests(TestCase):
+    def setUp(self):
+        self.settings = factories.ServerSettingsFactory()
+
     def test_valid_configuration(self):
-        BaseTestServiceServer()
+        BaseTestServiceServer(self.settings)
 
     def test_service_name_not_set(self):
         TestServiceServer = type(
@@ -23,4 +26,4 @@ class ServerInitializationTests(TestCase):
         )
 
         with self.assertRaises(AttributeError):
-            TestServiceServer()
+            TestServiceServer(self.settings)

@@ -13,7 +13,6 @@ class ActionRequest(object):
     action = attr.ib()
     body = attr.ib()
     switches = attr.ib()
-    settings = attr.ib(default=None)
 
 
 @attr.s
