@@ -32,3 +32,8 @@ class TestClientRouter(TestCase):
         self.assertTrue(isinstance(client, Client))
         client_again = router.get_client('test')
         self.assertTrue(client is client_again)
+
+    def test_unknown_service(self):
+        router = ClientRouter(self.config)
+        with self.assertRaises(router.ImproperlyConfigured):
+            router.get_client('foo')

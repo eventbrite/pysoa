@@ -1,7 +1,18 @@
 import importlib
 import six
+import copy
+
 from conformity import fields
 from conformity.validator import validate
+
+
+class_schema = fields.Dictionary(
+    {
+        "path": fields.UnicodeString(),
+        "kwargs": fields.SchemalessDictionary(key_type=fields.UnicodeString()),
+    },
+    optional_keys=["kwargs"],
+)
 
 
 class SettingsMetaclass(type):
@@ -51,26 +62,44 @@ class Settings(object):
         """
         Sets the value of this settings object in its entirety.
         """
-        for key, value in data.items():
-            if key in self.schema:
-                # Validate the value
-                validate(self.schema[key], value, "setting '%s'" % key)
-                # See if it has a custom setting method
-                converter = getattr(self, "convert_%s" % key, None)
-                if converter:
-                    value = converter(value)
-                self._data[key] = value
+        data = copy.deepcopy(data)
         # Make sure all values were populated
         unpopulated_keys = set(self.schema.keys()) - set(data.keys())
         for key in unpopulated_keys:
             if key in self.defaults:
-                self._data[key] = self.defaults[key]
+                data[key] = copy.deepcopy(self.defaults[key])
             else:
                 raise ValueError("No value was provided for required setting %s" % key)
-        # See if any keys were not consumed
         unconsumed_keys = set(data.keys()) - set(self.schema.keys())
         if unconsumed_keys:
             raise ValueError("Unknown setting(s): %s" % (", ".join(unconsumed_keys)))
+        for key, value in data.items():
+            # Validate the value
+            validate(self.schema[key], value, "setting '%s'" % key)
+            # See if it has a custom setting method
+            converter = getattr(self, "convert_%s" % key, None)
+            if converter:
+                value = converter(value)
+            self._data[key] = value
+
+    def resolve_python_path(self, path):
+        """
+        Turns a python path like module.name.here:ClassName.SubClass into an object
+        """
+        # Get the module
+        module_path, local_path = path.split(":", 1)
+        thing = importlib.import_module(module_path)
+        # Traverse the local sections
+        local_bits = local_path.split(".")
+        for bit in local_bits:
+            thing = getattr(thing, bit)
+        return thing
+
+    def standard_convert_path(self, value):
+        """Import the object the 'path' value in a class specifier."""
+        if "object" not in value:
+            value["object"] = self.resolve_python_path(value["path"])
+        return value
 
     def __getitem__(self, key):
         return self._data[key]
@@ -82,21 +111,8 @@ class SOASettings(Settings):
     """
     schema = {
         # Paths to the classes to use and then kwargs to pass
-        "transport": fields.Dictionary(
-            {
-                "path": fields.UnicodeString(),
-                "kwargs": fields.SchemalessDictionary(key_type=fields.UnicodeString()),
-            },
-            optional_keys="kwargs",
-        ),
-        "serializer": fields.Dictionary(
-            {
-                "path": fields.UnicodeString(),
-                "kwargs": fields.SchemalessDictionary(key_type=fields.UnicodeString()),
-            },
-            optional_keys="kwargs",
-        ),
-
+        "transport": class_schema,
+        "serializer": class_schema,
         # Middleware is a list of ("path.to.class", {"setting_name": ...}) tuples
         # The same format is applied for both server and client, though the middleware
         # classes they use are different
@@ -112,26 +128,11 @@ class SOASettings(Settings):
         "middleware": [],
     }
 
-    def resolve_python_path(self, path):
-        """
-        Turns a python path like module.name.here:ClassName.SubClass into an object
-        """
-        # Get the module
-        module_path, local_path = path.split(":", 1)
-        thing = importlib.import_module(module_path)
-        # Traverse the local sections
-        local_bits = local_path.split(".")
-        for bit in local_bits:
-            thing = getattr(thing, bit)
-        return thing
-
     def convert_transport(self, value):
-        value["object"] = self.resolve_python_path(value["path"])
-        return value
+        return self.standard_convert_path(value)
 
     def convert_serializer(self, value):
-        value["object"] = self.resolve_python_path(value["path"])
-        return value
+        return self.standard_convert_path(value)
 
     def convert_middleware(self, value):
         return [
