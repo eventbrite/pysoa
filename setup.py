@@ -1,12 +1,6 @@
 from setuptools import setup, find_packages
-import os
+from pysoa import __version__
 
-
-__version_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                   'pysoa',
-                                   'version.txt'
-                                   )
-__version__ = open(__version_file_path).read()  # noqa
 
 setup(
     name='pysoa',
