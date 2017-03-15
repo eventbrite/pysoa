@@ -143,10 +143,18 @@ class Server(object):
             print('Shutting down...')
             self.shutting_down = True
 
+    def setup(self):
+        """
+        Runs just before the server starts, if you need to do one-time loads or
+        cache warming.
+        """
+        pass
+
     def run(self):
         """
         Start the SOA Server run loop.
         """
+        self.setup()
         while not self.shutting_down:
             # Get the next JobRequest
             request_id, meta, request_message = self.transport.receive_request_message()
