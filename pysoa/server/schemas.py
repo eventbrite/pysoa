@@ -11,7 +11,7 @@ from conformity.fields import (
 ActionRequestSchema = Dictionary(
     {
         'action': UnicodeString(),
-        'body': SchemalessDictionary(),
+        'body': SchemalessDictionary(key_type=UnicodeString()),
     },
     optional_keys=['body'],
 )
@@ -21,12 +21,14 @@ ControlHeaderSchema = Dictionary(
         'switches': List(Integer()),
         'continue_on_error': Boolean(),
         'correllation_id': UnicodeString(),
-    }
+    },
+    allow_extra_keys=True,
 )
 
 JobRequestSchema = Dictionary(
     {
         'control': ControlHeaderSchema,
+        'context': SchemalessDictionary(key_type=UnicodeString()),
         'actions': List(ActionRequestSchema),
     }
 )
