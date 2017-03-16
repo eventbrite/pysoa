@@ -30,5 +30,6 @@ JobRequestSchema = Dictionary(
         'control': ControlHeaderSchema,
         'context': SchemalessDictionary(key_type=UnicodeString()),
         'actions': List(ActionRequestSchema),
-    }
+    },
+    optional_keys=['context'],
 )
