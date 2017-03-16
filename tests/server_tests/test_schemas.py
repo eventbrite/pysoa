@@ -74,8 +74,8 @@ class ActionRequestSchemaTests(TestCase):
         self.action = {
             'action': u'test_action_name',
             'body': {
-                'first_name': 'Bob',
-                'last_name': 'Mueller',
+                u'first_name': u'Bob',
+                u'last_name': u'Mueller',
             },
         }
 
@@ -118,8 +118,8 @@ class JobRequestSchemaTests(TestCase):
             'actions': [{
                 'action': u'test_action_name',
                 'body': {
-                    'first_name': 'Bob',
-                    'last_name': 'Mueller',
+                    u'first_name': 'Bob',
+                    u'last_name': 'Mueller',
                 },
             }],
         }

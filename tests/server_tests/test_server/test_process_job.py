@@ -29,7 +29,7 @@ class ProcessJobTests(TestCase):
             'actions': [{
                 'action': u'test_action',
                 'body': {
-                    'field': 'value',
+                    u'field': u'value',
                 },
             }],
         }
