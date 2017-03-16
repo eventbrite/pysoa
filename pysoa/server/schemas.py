@@ -20,7 +20,7 @@ ControlHeaderSchema = Dictionary(
     {
         'switches': List(Integer()),
         'continue_on_error': Boolean(),
-        'correllation_id': UnicodeString(),
+        'correlation_id': UnicodeString(),
     },
     allow_extra_keys=True,
 )

@@ -24,7 +24,7 @@ class ProcessJobTests(TestCase):
             'control': {
                 'switches': [],
                 'continue_on_error': False,
-                'correllation_id': u'1',
+                'correlation_id': u'1',
             },
             'actions': [{
                 'action': u'test_action',

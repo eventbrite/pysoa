@@ -14,7 +14,7 @@ class ControlHeaderSchemaTests(TestCase):
         self.control_header = {
             'switches': [1, 2, 3],
             'continue_on_error': False,
-            'correllation_id': unicode(uuid.uuid4()),
+            'correlation_id': unicode(uuid.uuid4()),
         }
 
     def test_valid_control_header(self):
@@ -57,16 +57,16 @@ class ControlHeaderSchemaTests(TestCase):
         self.assertEqual(errors[0].pointer, 'continue_on_error')
 
     def test_missing_correlation_id(self):
-        del self.control_header['correllation_id']
+        del self.control_header['correlation_id']
         errors = ControlHeaderSchema.errors(self.control_header)
         self.assertEqual(len(errors), 1)
-        self.assertEqual(errors[0].pointer, 'correllation_id')
+        self.assertEqual(errors[0].pointer, 'correlation_id')
 
-    def test_invalid_correllation_id(self):
-        self.control_header['correllation_id'] = 1
+    def test_invalid_correlation_id(self):
+        self.control_header['correlation_id'] = 1
         errors = ControlHeaderSchema.errors(self.control_header)
         self.assertEqual(len(errors), 1)
-        self.assertEqual(errors[0].pointer, 'correllation_id')
+        self.assertEqual(errors[0].pointer, 'correlation_id')
 
 
 class ActionRequestSchemaTests(TestCase):
@@ -113,7 +113,7 @@ class JobRequestSchemaTests(TestCase):
             'control': {
                 'switches': [1, 2, 3],
                 'continue_on_error': False,
-                'correllation_id': unicode(uuid.uuid4()),
+                'correlation_id': unicode(uuid.uuid4()),
             },
             'actions': [{
                 'action': u'test_action_name',

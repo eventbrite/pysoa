@@ -12,10 +12,30 @@ class ServerSettings(SOASettings):
 
     schema = {
         "client_routing": fields.SchemalessDictionary(),
+        "logging": fields.SchemalessDictionary(),
     }
 
     defaults = {
         "client_routing": {},
+        "logging": {
+            "version": 1,
+            "formatters": {
+                'console': {
+                    'format': ('%(asctime)s %(levelname)7s: %(message)s')
+                },
+            },
+            'handlers': {
+                'console': {
+                    'level': 'INFO',
+                    'class': 'logging.StreamHandler',
+                    'formatter': 'console',
+                },
+            },
+            'root': {
+                'handlers': ['console'],
+                'level': 'INFO',
+            },
+        }
     }
 
     def convert_client_routing(self, value):

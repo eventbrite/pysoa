@@ -1,7 +1,10 @@
 import argparse
 import importlib
+import logging
+import logging.config
 import os
 import sys
+import traceback
 from signal import (
     signal,
     SIGINT,
@@ -68,6 +71,10 @@ class Server(object):
             obj(**kwargs)
             for obj, kwargs in self.settings['middleware']
         ]
+
+        # Set up logger
+        self.logger = logging.getLogger("pysoa.server")
+        self.job_logger = logging.getLogger("pysoa.server.job")
 
     def process_request(self, job_request):
         """
@@ -137,10 +144,10 @@ class Server(object):
 
     def handle_shutdown_signal(self, signal, sf):
         if self.shutting_down:
-            print('Received double interrupt, forcing shutdown...')
+            self.logger.warning("Received double interrupt, forcing shutdown")
             sys.exit(1)
         else:
-            print('Shutting down...')
+            self.logger.warning("Received interrupt, initiating shutdown")
             self.shutting_down = True
 
     def setup(self):
@@ -154,34 +161,50 @@ class Server(object):
         """
         Start the SOA Server run loop.
         """
+        self.logger.info("Server starting up, listening on %s", self.transport)
         self.setup()
-        while not self.shutting_down:
-            # Get the next JobRequest
-            request_id, meta, request_message = self.transport.receive_request_message()
-            job_request = self.serializer.blob_to_dict(request_message)
+        try:
+            while not self.shutting_down:
+                # Get the next JobRequest
+                request_id, meta, request_message = self.transport.receive_request_message()
+                job_request = self.serializer.blob_to_dict(request_message)
+                self.job_logger.info("Job request: %s", job_request)
 
-            try:
-                # Run process JobRequest middleware
-                for middleware in self.middleware:
-                    middleware.process_job_request(job_request)
+                try:
+                    # Run process JobRequest middleware
+                    for middleware in self.middleware:
+                        middleware.process_job_request(job_request)
 
-                # Run the Job
-                job_response = self.process_request(job_request)
+                    # Run the Job
+                    job_response = self.process_request(job_request)
 
-                # Run process JobResponse middleware
-                for middleware in self.middleware:
-                    middleware.process_job_response(job_response)
-            except JobError as e:
-                job_response = JobResponse(
-                    errors=e.errors,
-                )
-            except Exception as e:
-                for middleware in self.middleware:
-                    middleware.process_job_exception(job_request, e)
+                    # Run process JobResponse middleware
+                    for middleware in self.middleware:
+                        middleware.process_job_response(job_response)
+                except JobError as e:
+                    job_response = JobResponse(
+                        errors=e.errors,
+                    )
+                except Exception as e:
+                    for middleware in self.middleware:
+                        middleware.process_job_exception(job_request, e)
+                    # Send an error response
+                    job_response = JobResponse(
+                        errors=[{
+                            'code': 'SERVER_ERROR',
+                            'message': 'Internal server error: %s' % e,
+                            'traceback': traceback.format_exc(),
+                        }],
+                    )
+                    self.logger.error("Unhandled error: %s", traceback.format_exc())
 
-            # Send the JobResponse
-            response_message = self.serializer.dict_to_blob(attr.asdict(job_response))
-            self.transport.send_response_message(request_id, meta, response_message)
+                # Send the JobResponse
+                response_dict = attr.asdict(job_response)
+                response_message = self.serializer.dict_to_blob(response_dict)
+                self.transport.send_response_message(request_id, meta, response_message)
+                self.job_logger.info("Job response: %s", response_dict)
+        finally:
+            self.logger.info("Server shutting down")
 
     @classmethod
     def main(cls):
@@ -213,6 +236,9 @@ class Server(object):
         except AttributeError:
             raise ValueError("Cannot find settings variable in settings module %s" % cmd_options.settings)
         settings = cls.settings_class(settings_dict)
+
+        # Set up logging
+        logging.config.dictConfig(settings['logging'])
 
         # Optionally daemonize
         if cmd_options.daemon:
