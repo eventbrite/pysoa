@@ -1,23 +1,29 @@
 class ClientMiddleware(object):
 
-    def process_request_dict(self, request_dict, client):
+    def process_job_request(self, request_id, meta, job_request):
         """
-        Mutate the raw request dict before it is serialized and sent to a Server.
+        Process a job request before it is sent by the Client.
 
-        request_dict: dict
-        client: Client object
+        Args:
+            request_id: int
+            meta: transport metadata dict
+            job_request: JobRequest dict
 
-        returns: None
+        Returns:
+            None
         """
         pass
 
-    def process_response_dict(self, response_dict, client):
+    def process_job_response(self, request_id, meta, job_response):
         """
-        Mutate the raw response dict after deserialization and before returning to the caller.
+        Process a job response after it is received by the Client.
 
-        response_dict: dict
-        client: Client object
+        Args:
+            request_id: int
+            meta: transport metadata dict
+            job_request: JobRequest dict
 
-        returns: None
+        Returns:
+            None
         """
         pass

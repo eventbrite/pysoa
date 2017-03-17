@@ -14,23 +14,11 @@ all requests and responses or raising exceptions on error responses.
 class Client(object):
 
     def __init__(self, service_name, transport, serializer, middleware=None):
-        if middleware is None:
-            middleware = []
         self.service_name = service_name
         self.transport = transport
         self.serializer = serializer
-        self.middleware = middleware
-
-    def prepare_request(self, request_dict):
-        """
-        Pre-process the message dict. Returns metadata and the processed message dict.
-        Implementations may override this method to inject necessary metadata, format
-        requests and so on.
-
-        message_dict: dict
-        """
-        for middleware in self.middleware:
-            middleware.process_request_dict(request_dict, self)
+        self.middleware = middleware or []
+        self.request_counter = 0
 
     def prepare_metadata(self):
         """
@@ -38,62 +26,39 @@ class Client(object):
         Transport.send_request_message. Implementations should override this method to
         include any metadata required by their Transport classes.
 
-        returns: dict
+        Returns: dict
         """
         return {}
 
-    def prepare_response(self, response_dict):
-        """
-        Pre-process and return the response. Implementations may override this to, for
-        example, format response messages or raise exceptions on error responses.
-
-        meta: dict
-        message_dict: dict
-        """
-        for middleware in self.middleware:
-            middleware.process_response_dict(response_dict, self)
-
-    def on_request(self, request_id, meta, message_dict):
-        """
-        Hook for any actions that occur after a request is sent on the transport.
-
-        request_id: int
-        meta: dict
-        message_dict: dict
-        """
-        pass
-
-    def on_response(self, request_id, meta, message_dict):
-        """
-        Hook for any actions that occur after a response is received on the transport.
-
-        request_id: int
-        meta: dict
-        message_dict: dict
-        """
-        pass
-
-    def send_request(self, message_dict):
+    def send_request(self, job_request):
         """
         Serialize and send a request message, and return a request ID.
 
-        returns: int
-        raises: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout,
+        Args:
+            job_request: JobRequest dict
+        Returns:
+            int
+        Raises:
+            ConnectionError, InvalidField, MessageSendError, MessageSendTimeout,
             MessageTooLarge
         """
-        self.prepare_request(message_dict)
+        request_id = self.request_counter
+        self.request_counter += 1
         meta = self.prepare_metadata()
-        message = self.serializer.dict_to_blob(message_dict)
-        request_id = self.transport.send_request_message(meta, message)
-        self.on_request(request_id, meta, message_dict)
+        for middleware in self.middleware:
+            middleware.process_job_request(request_id, meta, job_request)
+        message = self.serializer.dict_to_blob(job_request)
+        self.transport.send_request_message(request_id, meta, message)
         return request_id
 
     def get_all_responses(self):
         """
         Receive all available responses from the trasnport as a generator.
 
-        yields: (int, dict)
-        raises: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage,
+        Yields:
+            (int, dict)
+        Raises:
+            ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage,
             StopIteration
         """
         while True:
@@ -101,7 +66,7 @@ class Client(object):
             if message is None:
                 break
             else:
-                message_dict = self.serializer.blob_to_dict(message)
-                self.prepare_response(message_dict)
-                self.on_response(request_id, meta, message_dict)
-                yield request_id, message_dict
+                job_response = self.serializer.blob_to_dict(message)
+                for middleware in self.middleware:
+                    middleware.process_job_response(request_id, meta, job_response)
+                yield request_id, job_response

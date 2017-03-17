@@ -14,8 +14,10 @@ class Serializer(object):
         Take a message in the form of a dict and return a serialized message
         in the form of bytes (string).
 
-        returns: string
-        raises: InvalidField
+        Returns:
+            string
+        Raises:
+            InvalidField
         """
         raise NotImplementedError
 
@@ -24,7 +26,9 @@ class Serializer(object):
         Take a serialized message in the form of bytes (string) and return a
         dict.
 
-        returns: dict
-        raises: InvalidMessage
+        Returns:
+            dict
+        Raises:
+            InvalidMessage
         """
         raise NotImplementedError

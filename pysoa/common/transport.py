@@ -47,16 +47,18 @@ class ClientTransport(object):
     def __init__(self, service_name):
         self.service_name = service_name
 
-    def send_request_message(self, meta, message_string):
+    def send_request_message(self, request_id, meta, message_string):
         """
-        Send a serialized request message and return a request ID.
+        Send a serialized request message.
 
-        meta: dict
-        message_string: bytes (string)
-
-        returns: int
-        raises: ConnectionError, MessageSendError, MessageSendTimeout,
-            MessageTooLarge
+        Args:
+            request_id: int
+            meta: dict
+            message_string: bytes (string)
+        Returns:
+            None
+        Raises:
+            ConnectionError, MessageSendError, MessageSendTimeout, MessageTooLarge
         """
         raise NotImplementedError
 
@@ -65,8 +67,10 @@ class ClientTransport(object):
         Receive a response message from the backend and return a 3-tuple of
         (request_id, meta, message).
 
-        returns: int, dict, string
-        raises: ConnectionError, MessageReceiveError, MessageReceiveTimeout
+        Returns:
+            (int, string)
+        Raises:
+            ConnectionError, MessageReceiveError, MessageReceiveTimeout
         """
         raise NotImplementedError
 
@@ -82,8 +86,10 @@ class ServerTransport(object):
         (request_id, meta, message). The metadata may include client reply-to information
         that should be passed back to send_response_message.
 
-        returns: int, dict, string
-        raises: ConnectionError, MessageReceiveError, MessageReceiveTimeout
+        Returns:
+            (int, dict, string)
+        Raises:
+            ConnectionError, MessageReceiveError, MessageReceiveTimeout
         """
         raise NotImplementedError
 
@@ -93,11 +99,13 @@ class ServerTransport(object):
         receive_request_message should be passed verbatim as the second
         argument.
 
-        request_id: int
-        meta: dict
-        message_string: bytes (string)
-
-        raises: ConnectionError, MessageSendError, MessageSendTimeout,
-            MessageTooLarge
+        Args:
+            request_id: int
+            meta: dict
+            message_string: bytes (string)
+        Returns:
+            None
+        Raises:
+            ConnectionError, MessageSendError, MessageSendTimeout, MessageTooLarge
         """
         raise NotImplementedError
