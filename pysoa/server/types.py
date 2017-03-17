@@ -11,8 +11,10 @@ class Error(object):
 @attr.s
 class ActionRequest(object):
     action = attr.ib()
-    body = attr.ib()
-    switches = attr.ib()
+    body = attr.ib(default=attr.Factory(dict))
+    switches = attr.ib(default=attr.Factory(list))
+    context = attr.ib(default=attr.Factory(dict))
+    control = attr.ib(default=attr.Factory(dict))
 
 
 @attr.s

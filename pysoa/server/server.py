@@ -100,6 +100,8 @@ class Server(object):
                 action=raw_action_request['action'],
                 body=raw_action_request.get('body', None),
                 switches=job_switches,
+                context=job_request.get('context', {}),
+                control=job_request['control'],
             )
             if action_request.action in self.action_class_map:
                 # Run process ActionRequest middleware
