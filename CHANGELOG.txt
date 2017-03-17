@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.2.0 (2017-03-17)
+------------------
+- Update Client middleware interface.
+- Client now keeps track of request IDs and passes them to Transport.send_request_message
+
 0.1.dev2 (2017-03-16)
 ---------------------
 - Updated JobRequest and related schemas
