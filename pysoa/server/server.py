@@ -191,15 +191,19 @@ class Server(object):
                     for middleware in self.middleware:
                         middleware.process_job_exception(job_request, e)
                     # Send an error response
+                    # Formatting the error might itself error, so try to catch that
+                    try:
+                        error_str, traceback_str = str(e), traceback.format_exc()
+                    except Exception:
+                        error_str, traceback_str = "Error formatting error", traceback.format_exc()
                     job_response = JobResponse(
                         errors=[{
                             'code': 'SERVER_ERROR',
-                            'message': 'Internal server error: %s' % e,
-                            'traceback': traceback.format_exc(),
+                            'message': 'Internal server error: %s' % error_str,
+                            'traceback': traceback_str,
                         }],
                     )
-                    self.logger.error("Unhandled error: %s", traceback.format_exc())
-
+                    self.logger.error("Unhandled error: %s", traceback_str)
                 # Send the JobResponse
                 response_dict = attr.asdict(job_response)
                 response_message = self.serializer.dict_to_blob(response_dict)
