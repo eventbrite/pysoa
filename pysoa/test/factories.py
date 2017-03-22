@@ -11,10 +11,10 @@ class ServerSettingsFactory(factory.Factory):
 
     data = factory.Dict({
         'transport': {
-            'path': u'pysoa.common.transport:ServerTransport',
+            'path': u'pysoa.common.transport.base:ServerTransport',
         },
         'serializer': {
-            'path': u'pysoa.common.serializer:Serializer',
+            'path': u'pysoa.common.serializer.base:Serializer',
         },
     })
 
@@ -25,7 +25,7 @@ class ServerSettingsFactory(factory.Factory):
         kwargs['data'] = dict(
             kwargs['data'],
             transport={
-                'path': u'pysoa.common.transport:ServerTransport',
+                'path': u'pysoa.common.transport.base:ServerTransport',
             },
         )
         return kwargs

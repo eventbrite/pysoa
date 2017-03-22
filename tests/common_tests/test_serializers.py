@@ -3,9 +3,12 @@ import pytest
 from pysoa.common.serializer import (
     JSONSerializer,
     MsgpackSerializer,
+)
+from pysoa.common.serializer.exceptions import (
     InvalidMessage,
     InvalidField,
 )
+
 
 serializer_classes = [JSONSerializer, MsgpackSerializer]
 

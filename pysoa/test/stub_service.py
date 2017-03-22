@@ -1,7 +1,7 @@
 from pysoa.client import Client
 from pysoa.common.types import Error
 from pysoa.common.constants import ERROR_CODE_UNKNOWN
-from pysoa.common.transport import ClientTransport
+from pysoa.common.transport.base import ClientTransport
 
 
 class NoopSerializer:

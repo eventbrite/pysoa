@@ -1,5 +1,5 @@
-from pysoa.common.serializer import Serializer as BaseSerializer
-from pysoa.common.serializer import (
+from pysoa.common.serializer.base import Serializer as BaseSerializer
+from pysoa.common.serializer.exceptions import (
     InvalidMessage,
     InvalidField,
 )

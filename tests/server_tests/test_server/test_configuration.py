@@ -1,7 +1,6 @@
 from unittest import TestCase
 
 from pysoa.server.server import Server
-from pysoa.common.serializer import Serializer
 from pysoa.test import factories
 
 

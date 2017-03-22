@@ -1,12 +1,4 @@
 
-class InvalidMessage(Exception):
-    pass
-
-
-class InvalidField(Exception):
-    pass
-
-
 class Serializer(object):
 
     def dict_to_blob(self, message_dict):

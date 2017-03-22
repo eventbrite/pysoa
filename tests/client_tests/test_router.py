@@ -10,10 +10,10 @@ class TestClientRouter(TestCase):
         self.config = {
             'test': {
                 'transport': {
-                    'path': u'pysoa.common.transport:ClientTransport',
+                    'path': u'pysoa.common.transport.base:ClientTransport',
                 },
                 'serializer': {
-                    'path': u'pysoa.common.serializer:Serializer',
+                    'path': u'pysoa.common.serializer.base:Serializer',
                 },
             }
         }

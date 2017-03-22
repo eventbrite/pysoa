@@ -4,9 +4,10 @@ from pysoa import __version__
 
 install_requires = [
     'conformity',
-    'msgpack-python>=0.4',
+    'msgpack-python>=0.4.8',
     'six>=1.10',
     'attrs>=16.3',
+    'asgi_redis',
 ]
 
 tests_require = [
