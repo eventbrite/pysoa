@@ -1,6 +1,6 @@
-from pysoa.server.constants import ERROR_CODE_INVALID
+from pysoa.common.constants import ERROR_CODE_INVALID
+from pysoa.common.types import ActionResponse, Error
 from pysoa.server.errors import ActionError, ResponseValidationError
-from pysoa.server.types import ActionResponse, Error
 
 
 class Action(object):
