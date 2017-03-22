@@ -19,12 +19,18 @@ class ActionRequest(object):
 
 @attr.s
 class ActionResponse(object):
-    action = attr.ib(default=None)
+    action = attr.ib()
     errors = attr.ib(default=attr.Factory(list))
-    body = attr.ib(default=None)
+    body = attr.ib(default=attr.Factory(dict))
 
 
 @attr.s
 class JobResponse(object):
-    errors = attr.ib(default=attr.Factory(list))
-    actions = attr.ib(default=attr.Factory(list))
+    errors = attr.ib(
+        default=attr.Factory(list),
+        convert=lambda l: [e if isinstance(e, Error) else Error(**e) for e in l],
+    )
+    actions = attr.ib(
+        default=attr.Factory(list),
+        convert=lambda l: [a if isinstance(a, ActionResponse) else ActionResponse(**a) for a in l],
+    )

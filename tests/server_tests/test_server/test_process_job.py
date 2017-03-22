@@ -6,8 +6,8 @@ from pysoa.server.errors import (
     JobError,
     ActionError,
 )
-from pysoa.server.types import Error
-from pysoa.server.constants import ERROR_CODE_INVALID
+from pysoa.common.types import Error
+from pysoa.common.constants import ERROR_CODE_INVALID
 from pysoa.test import factories
 
 

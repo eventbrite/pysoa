@@ -13,17 +13,17 @@ from signal import (
 
 import attr
 
-from .constants import (
-    ERROR_CODE_INVALID,
-    ERROR_CODE_UNKNOWN,
-)
-from .schemas import JobRequestSchema
-from .types import (
+from pysoa.common.types import (
     JobResponse,
     ActionRequest,
     ActionResponse,
     Error,
 )
+from pysoa.common.constants import (
+    ERROR_CODE_INVALID,
+    ERROR_CODE_UNKNOWN,
+)
+from .schemas import JobRequestSchema
 from .internal.types import RequestSwitchSet
 from .errors import (
     JobError,

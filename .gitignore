@@ -9,3 +9,4 @@ dist/
 
 # Swap files
 *.swp
+.cache
