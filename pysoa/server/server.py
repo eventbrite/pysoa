@@ -112,7 +112,6 @@ class Server(object):
                     # Run action
                     action = self.action_class_map[action_request.action](self.settings)
                     action_response = action(action_request)
-                    action_response.action = action_request.action
 
                     # Run process ActionResponse middleware
                     for middleware in self.middleware:

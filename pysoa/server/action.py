@@ -65,6 +65,9 @@ class Action(object):
                 raise ResponseValidationError(action=action_request.action, errors=errors)
         # Make an ActionResponse and return it
         if response_body is not None:
-            return ActionResponse(body=response_body)
+            return ActionResponse(
+                action=action_request.action,
+                body=response_body,
+            )
         else:
-            return ActionResponse()
+            return ActionResponse(action=action_request.action)
