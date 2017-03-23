@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.3.2 (2017-03-23)
+------------------
+- Fixed a bug wherein ActionResponse.action was not being set upon initialization.
+
 0.3.1 (2017-03-22)
 ------------------
 - Fix a few incorrect imports
