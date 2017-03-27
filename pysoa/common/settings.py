@@ -44,8 +44,27 @@ class Settings(object):
     extended, first into a Client and Server variant, and then into
     implementation-specific variants to match subclasses of Client and Server.
 
+    Subclasses may define defaults as a dictionary. Defaults defined on a subclass
+    will be merged with the defaults of its parent, but only to a depth of 1. For
+    example:
+
+        class BaseSettings(Settings):
+            defaults = {
+                'foo': 1,
+                'bar': {'baz': 2},
+            }
+
+        class MySettings(BaseSettings):
+            defaults = {
+                'bar': {'quas': 3}
+            }
+
+    The class MySettings will have the defaults {'foo': 1, 'bar': {'quas': 3}}. This
+    provides a measure of convenience while discouraging deep inheritance structures.
+
     To use Settings, instantiate the class with the raw settings value, and then
-    access the items using dict syntax - e.g. settings_instance["transport"]
+    access the items using dict syntax - e.g. settings_instance["transport"]. The class
+    will merge any passed values into its defaults.
 
     You can override how certain fields are set by defining a method called
     `convert_fieldname`.
@@ -54,26 +73,36 @@ class Settings(object):
     schema = {}
     defaults = {}
 
+    class ImproperlyConfigured(Exception):
+        """Raised when a configuration value cannot be resolved."""
+        pass
+
     def __init__(self, data):
         self._data = {}
         self.set(data)
+
+    def _merge_dicts(self, data, defaults):
+        for key, value in data.items():
+            if key in defaults and isinstance(value, dict) and isinstance(defaults[key], dict):
+                self._merge_dicts(value, defaults[key])
+            else:
+                defaults[key] = value
 
     def set(self, data):
         """
         Sets the value of this settings object in its entirety.
         """
+        settings = copy.deepcopy(self.defaults)
         data = copy.deepcopy(data)
+        self._merge_dicts(data, settings)
         # Make sure all values were populated
-        unpopulated_keys = set(self.schema.keys()) - set(data.keys())
-        for key in unpopulated_keys:
-            if key in self.defaults:
-                data[key] = copy.deepcopy(self.defaults[key])
-            else:
-                raise ValueError("No value was provided for required setting %s" % key)
-        unconsumed_keys = set(data.keys()) - set(self.schema.keys())
+        unpopulated_keys = set(self.schema.keys()) - set(settings.keys())
+        if unpopulated_keys:
+            raise ValueError("No value provided for required setting(s) %s" % unpopulated_keys)
+        unconsumed_keys = set(settings.keys()) - set(self.schema.keys())
         if unconsumed_keys:
             raise ValueError("Unknown setting(s): %s" % (", ".join(unconsumed_keys)))
-        for key, value in data.items():
+        for key, value in settings.items():
             # Validate the value
             validate(self.schema[key], value, "setting '%s'" % key)
             # See if it has a custom setting method
@@ -96,9 +125,13 @@ class Settings(object):
         return thing
 
     def standard_convert_path(self, value):
-        """Import the object the 'path' value in a class specifier."""
+        """Import the object the 'path' value in a class specifier, or raise ImproperlyConfigured."""
         if "object" not in value:
-            value["object"] = self.resolve_python_path(value["path"])
+            try:
+                value["object"] = self.resolve_python_path(value["path"])
+            except ImportError:
+                raise self.ImproperlyConfigured(
+                    "Could not resolve path '{}' for configuration:\n{}".format(value["path"], value))
         return value
 
     def __getitem__(self, key):
