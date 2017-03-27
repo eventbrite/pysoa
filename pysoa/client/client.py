@@ -46,10 +46,11 @@ class Client(object):
     def call_actions(
         self,
         actions,
-        switches=None,
         context=None,
+        switches=None,
         correlation_id=None,
         continue_on_error=False,
+        control_extra=None,
     ):
         """
         Build and send a single job request with one or more actions.
@@ -66,7 +67,7 @@ class Client(object):
             JobResponse
         """
         request = {
-            'control': {},
+            'control': control_extra or {},
             'actions': actions,
         }
         request['control']['correlation_id'] = correlation_id or self.generate_correlation_id()
@@ -89,9 +90,7 @@ class Client(object):
         self,
         action_name,
         body=None,
-        switches=None,
-        context=None,
-        correlation_id=None,
+        **kwargs
     ):
         """
         Build and send a single job request with one action.
@@ -112,9 +111,7 @@ class Client(object):
             action_request['body'] = body
         return self.call_actions(
             [action_request],
-            switches=switches,
-            context=context,
-            correlation_id=correlation_id,
+            **kwargs
         ).actions[0]
 
     def prepare_metadata(self):
