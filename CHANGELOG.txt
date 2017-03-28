@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.3.3 (2017-03-28)
+------------------
+- Make Client.call_actions take extra control arguments
+- Settings merge values with defaults
+
 0.3.2 (2017-03-23)
 ------------------
 - Fixed a bug wherein ActionResponse.action was not being set upon initialization.
