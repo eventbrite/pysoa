@@ -10,6 +10,7 @@ from pysoa.common.transport.exceptions import (
     MessageSendError,
     ConnectionError,
     InvalidMessageError,
+    MessageReceiveTimeout,
 )
 
 from .constants import (
@@ -107,13 +108,13 @@ class ASGITransportCore(object):
             channel=channel, retries=self.channel_full_retries))
 
     def receive_message(self, channel):
-        while True:
-            try:
-                _, message = self.channel_layer.receive([channel], block=True)
-            except Exception as e:
-                raise MessageReceiveError(*e.args)
-            if message is not None:
-                break
+        try:
+            # returns message or None if no new messages within timeout (5s by default)
+            _, message = self.channel_layer.receive([channel], block=True)
+        except Exception as e:
+            raise MessageReceiveError(*e.args)
+        if message is None:
+            raise MessageReceiveTimeout()
         request_id = message.get('request_id')
         if request_id is None:
             raise InvalidMessageError('No request ID')

@@ -5,11 +5,7 @@ import logging.config
 import os
 import sys
 import traceback
-from signal import (
-    signal,
-    SIGINT,
-    SIGTERM,
-)
+import signal
 
 import attr
 
@@ -23,6 +19,9 @@ from pysoa.common.constants import (
     ERROR_CODE_INVALID,
     ERROR_CODE_UNKNOWN,
     ERROR_CODE_SERVER_ERROR,
+)
+from pysoa.common.transport.exceptions import (
+    MessageReceiveTimeout,
 )
 from .schemas import JobRequestSchema
 from .internal.types import RequestSwitchSet
@@ -79,7 +78,11 @@ class Server(object):
 
     def handle_next_request(self):
         # Get the next JobRequest
-        request_id, meta, request_message = self.transport.receive_request_message()
+        try:
+            request_id, meta, request_message = self.transport.receive_request_message()
+        except MessageReceiveTimeout:
+            # no new message, nothing to do
+            return
         job_request = self.serializer.blob_to_dict(request_message)
         self.job_logger.info("Job request: %s", job_request)
 
@@ -211,13 +214,27 @@ class Server(object):
 
         return job_response
 
-    def handle_shutdown_signal(self, signal, sf):
+    def handle_shutdown_signal(self, signum, frame):
         if self.shutting_down:
             self.logger.warning("Received double interrupt, forcing shutdown")
             sys.exit(1)
         else:
             self.logger.warning("Received interrupt, initiating shutdown")
             self.shutting_down = True
+
+    def harakiri(self, signum, frame):
+        if self.shutting_down:
+            self.logger.warning("Graceful shutdown failed after {}s. Exiting now!".format(
+                self.settings["harakiri"]["shutdown_grace"]
+            ))
+            sys.exit(1)
+        else:
+            self.logger.warning("No activity during {}s, triggering harakiri with grace {}s".format(
+                self.settings["harakiri"]["timeout"],
+                self.settings["harakiri"]["shutdown_grace"],
+            ))
+            self.shutting_down = True
+            signal.alarm(self.settings["harakiri"]["shutdown_grace"])
 
     def setup(self):
         """
@@ -230,10 +247,18 @@ class Server(object):
         """
         Start the SOA Server run loop.
         """
+
         self.logger.info("Server starting up, listening on %s", self.transport)
         self.setup()
+
+        signal.signal(signal.SIGINT, self.handle_shutdown_signal)
+        signal.signal(signal.SIGTERM, self.handle_shutdown_signal)
+        signal.signal(signal.SIGALRM, self.harakiri)
+
         try:
             while not self.shutting_down:
+                # reset harakiki timeout
+                signal.alarm(self.settings["harakiri"]["timeout"])
                 # Get, process, and execute the next JobRequest
                 self.handle_next_request()
         finally:
@@ -282,8 +307,6 @@ class Server(object):
 
         # Set up server and signal handling
         server = cls(settings)
-        signal(SIGINT, server.handle_shutdown_signal)
-        signal(SIGTERM, server.handle_shutdown_signal)
 
         # Start server event loop
         server.run()

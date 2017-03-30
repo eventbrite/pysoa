@@ -13,6 +13,10 @@ class ServerSettings(SOASettings):
     schema = {
         "client_routing": fields.SchemalessDictionary(),
         "logging": fields.SchemalessDictionary(),
+        "harakiri": fields.Dictionary({
+            "timeout": fields.Integer(gt=0),  # seconds of inactivity (lock-up) before harakiri is triggered
+            "shutdown_grace": fields.Integer(gt=0),   # seconds to gracefuly shutdown after hararki is triggered
+        }),
     }
 
     defaults = {
@@ -35,7 +39,11 @@ class ServerSettings(SOASettings):
                 'handlers': ['console'],
                 'level': 'INFO',
             },
-        }
+        },
+        "harakiri": {
+            "timeout": 300,
+            "shutdown_grace": 30,
+        },
     }
 
     def convert_client_routing(self, value):
