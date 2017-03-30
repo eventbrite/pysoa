@@ -37,21 +37,20 @@ class ProcessJobTests(TestCase):
             settings=factories.ServerSettingsFactory(),
         )
 
-    def test_invalid_job_request_raises_job_error(self):
+    def test_invalid_job_request_returns_job_response_error(self):
         # Invalidate the ControlHeader
         del self.job_request['control']['switches']
 
-        with self.assertRaises(JobError) as e:
-            self.server.process_request(self.job_request)
+        job_response = self.server.process_job(self.job_request)
 
-        self.assertEqual(len(e.exception.errors), 1)
-        self.assertEqual(e.exception.errors[0].field, 'control.switches')
+        self.assertEqual(len(job_response.errors), 1)
+        self.assertEqual(job_response.errors[0].field, 'control.switches')
 
     def test_invalid_action_name_returns_action_response_with_error(self):
         # Invalidate the Action name
         self.job_request['actions'][0]['action'] = u'invalid_action'
 
-        job_response = self.server.process_request(self.job_request)
+        job_response = self.server.process_job(self.job_request)
         self.assertEqual(len(job_response.actions[0].errors), 1)
         self.assertEqual(job_response.actions[0].errors[0].field, 'action')
 
@@ -63,6 +62,6 @@ class ProcessJobTests(TestCase):
             field='body.field',
         )])
 
-        job_response = self.server.process_request(self.job_request)
+        job_response = self.server.process_job(self.job_request)
         self.assertEqual(len(job_response.actions[0].errors), 1)
         self.assertEqual(job_response.actions[0].errors[0].field, 'body.field')

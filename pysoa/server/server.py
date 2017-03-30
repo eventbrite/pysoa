@@ -22,6 +22,7 @@ from pysoa.common.types import (
 from pysoa.common.constants import (
     ERROR_CODE_INVALID,
     ERROR_CODE_UNKNOWN,
+    ERROR_CODE_SERVER_ERROR,
 )
 from .schemas import JobRequestSchema
 from .internal.types import RequestSwitchSet
@@ -76,22 +77,89 @@ class Server(object):
         self.logger = logging.getLogger("pysoa.server")
         self.job_logger = logging.getLogger("pysoa.server.job")
 
-    def process_request(self, job_request):
-        """
-        Validates the JobRequest and run Job's Actions.
-        """
-        # Validate JobRequest message
-        validation_errors = [
-            Error(
-                code=ERROR_CODE_INVALID,
-                message=error.message,
-                field=error.pointer,
-            )
-            for error in (JobRequestSchema.errors(job_request) or [])
-        ]
-        if validation_errors:
-            raise JobError(errors=validation_errors)
+    def handle_next_request(self):
+        # Get the next JobRequest
+        request_id, meta, request_message = self.transport.receive_request_message()
+        job_request = self.serializer.blob_to_dict(request_message)
+        self.job_logger.info("Job request: %s", job_request)
 
+        # Process and run the Job
+        job_response = self.process_job(job_request)
+
+        # Send the JobResponse
+        response_dict = attr.asdict(job_response)
+        response_message = self.serializer.dict_to_blob(response_dict)
+        self.transport.send_response_message(request_id, meta, response_message)
+        self.job_logger.info("Job response: %s", response_dict)
+
+    def process_job(self, job_request):
+        """
+        Validate, execute, and run Job-level middleware for JobRequests.
+
+        Args:
+            job_request: a JobRequest dictionary.
+        Returns:
+            A JobResponse instance.
+        """
+
+        try:
+            # Validate JobRequest message
+            validation_errors = [
+                Error(
+                    code=ERROR_CODE_INVALID,
+                    message=error.message,
+                    field=error.pointer,
+                )
+                for error in (JobRequestSchema.errors(job_request) or [])
+            ]
+            if validation_errors:
+                raise JobError(errors=validation_errors)
+
+            # Run process JobRequest middleware
+            for middleware in self.middleware:
+                middleware.process_job_request(job_request)
+
+            # Run the Job
+            job_response = self.execute_job(job_request)
+
+            # Run process JobResponse middleware
+            for middleware in self.middleware:
+                middleware.process_job_response(job_response)
+        except JobError as e:
+            job_response = JobResponse(
+                errors=e.errors,
+            )
+        except Exception as e:
+            try:
+                for middleware in self.middleware:
+                    middleware.process_job_exception(job_request, e)
+            except Exception as e:
+                # NOTE: This effectively mutes the original exception in favor
+                #       of exceptions raised by the middleware.
+                pass
+
+            # Send an error response
+            # Formatting the error might itself error, so try to catch that
+            try:
+                error_str, traceback_str = str(e), traceback.format_exc()
+            except Exception:
+                error_str, traceback_str = "Error formatting error", traceback.format_exc()
+
+            job_response = JobResponse(
+                errors=[{
+                    'code': ERROR_CODE_SERVER_ERROR,
+                    'message': 'Internal server error: %s' % error_str,
+                    'traceback': traceback_str,
+                }],
+            )
+            self.logger.error("Unhandled error: %s", traceback_str)
+
+        return job_response
+
+    def execute_job(self, job_request):
+        """
+        Processes and runs the ActionRequests on the Job.
+        """
         # Run the Job's Actions
         job_response = JobResponse()
         job_switches = RequestSwitchSet(job_request['control']['switches'])
@@ -166,48 +234,8 @@ class Server(object):
         self.setup()
         try:
             while not self.shutting_down:
-                # Get the next JobRequest
-                request_id, meta, request_message = self.transport.receive_request_message()
-                job_request = self.serializer.blob_to_dict(request_message)
-                self.job_logger.info("Job request: %s", job_request)
-
-                try:
-                    # Run process JobRequest middleware
-                    for middleware in self.middleware:
-                        middleware.process_job_request(job_request)
-
-                    # Run the Job
-                    job_response = self.process_request(job_request)
-
-                    # Run process JobResponse middleware
-                    for middleware in self.middleware:
-                        middleware.process_job_response(job_response)
-                except JobError as e:
-                    job_response = JobResponse(
-                        errors=e.errors,
-                    )
-                except Exception as e:
-                    for middleware in self.middleware:
-                        middleware.process_job_exception(job_request, e)
-                    # Send an error response
-                    # Formatting the error might itself error, so try to catch that
-                    try:
-                        error_str, traceback_str = str(e), traceback.format_exc()
-                    except Exception:
-                        error_str, traceback_str = "Error formatting error", traceback.format_exc()
-                    job_response = JobResponse(
-                        errors=[{
-                            'code': 'SERVER_ERROR',
-                            'message': 'Internal server error: %s' % error_str,
-                            'traceback': traceback_str,
-                        }],
-                    )
-                    self.logger.error("Unhandled error: %s", traceback_str)
-                # Send the JobResponse
-                response_dict = attr.asdict(job_response)
-                response_message = self.serializer.dict_to_blob(response_dict)
-                self.transport.send_response_message(request_id, meta, response_message)
-                self.job_logger.info("Job response: %s", response_dict)
+                # Get, process, and execute the next JobRequest
+                self.handle_next_request()
         finally:
             self.logger.info("Server shutting down")
 
