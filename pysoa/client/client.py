@@ -11,7 +11,12 @@ all requests and responses or raising exceptions on error responses.
 """
 import uuid
 import six
-from pysoa.common.types import JobResponse
+import attr
+
+from pysoa.common.types import (
+    JobRequest,
+    JobResponse,
+)
 
 
 class Client(object):
@@ -59,6 +64,7 @@ class Client(object):
         error.
 
         Args:
+            actions: list of ActionRequest
             switches: list
             context: dict
             correlation_id: string
@@ -66,15 +72,11 @@ class Client(object):
         Returns:
             JobResponse
         """
-        request = {
-            'control': control_extra or {},
-            'actions': actions,
-        }
-        request['control']['correlation_id'] = correlation_id or self.generate_correlation_id()
-        request['control']['switches'] = switches or []
-        request['control']['continue_on_error'] = continue_on_error
-        if context:
-            request['context'] = context
+        control = control_extra or {}
+        control['correlation_id'] = correlation_id or self.generate_correlation_id()
+        control['switches'] = switches or []
+        control['continue_on_error'] = continue_on_error
+        request = JobRequest(actions=actions, control=control, context=context or {})
         request_id = self.send_request(request)
         # Dump everything from the generator. There should only be one response.
         responses = list(self.get_all_responses())
@@ -100,7 +102,7 @@ class Client(object):
         Args:
             action_name: string
             body: dict
-            switches: list
+            switches: list of ints
             context: dict
             correlation_id: string
         Returns:
@@ -129,13 +131,15 @@ class Client(object):
         Serialize and send a request message, and return a request ID.
 
         Args:
-            job_request: JobRequest dict
+            job_request: JobRequest or dict
         Returns:
             int
         Raises:
             ConnectionError, InvalidField, MessageSendError, MessageSendTimeout,
             MessageTooLarge
         """
+        if isinstance(job_request, JobRequest):
+            job_request = attr.asdict(job_request)
         request_id = self.request_counter
         self.request_counter += 1
         meta = self.prepare_metadata()

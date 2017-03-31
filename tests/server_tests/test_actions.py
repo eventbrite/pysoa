@@ -1,9 +1,7 @@
 from conformity import fields
 
-from pysoa.common.types import (
-    ActionRequest,
-    ActionResponse,
-)
+from pysoa.common.types import ActionResponse
+from pysoa.server.types import EnrichedActionRequest
 from pysoa.server.action import Action
 from pysoa.server.errors import ActionError
 
@@ -22,7 +20,7 @@ class TestAction(Action):
 class TestActionValidation(object):
     def setup_method(self, method):
         self.action = TestAction()
-        self.action_request = ActionRequest(
+        self.action_request = EnrichedActionRequest(
             action='test_action',
             body={
                 'string_field': u'a unicode string',

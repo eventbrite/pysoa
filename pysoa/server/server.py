@@ -11,7 +11,6 @@ import attr
 
 from pysoa.common.types import (
     JobResponse,
-    ActionRequest,
     ActionResponse,
     Error,
 )
@@ -23,6 +22,7 @@ from pysoa.common.constants import (
 from pysoa.common.transport.exceptions import (
     MessageReceiveTimeout,
 )
+from .types import EnrichedActionRequest
 from .schemas import JobRequestSchema
 from .internal.types import RequestSwitchSet
 from .errors import (
@@ -167,7 +167,7 @@ class Server(object):
         job_response = JobResponse()
         job_switches = RequestSwitchSet(job_request['control']['switches'])
         for i, raw_action_request in enumerate(job_request['actions']):
-            action_request = ActionRequest(
+            action_request = EnrichedActionRequest(
                 action=raw_action_request['action'],
                 body=raw_action_request.get('body', None),
                 switches=job_switches,
@@ -175,7 +175,7 @@ class Server(object):
                 control=job_request['control'],
             )
             if action_request.action in self.action_class_map:
-                # Run process ActionRequest middleware
+                # Run process EnrichedActionRequest middleware
                 try:
                     for middleware in self.middleware:
                         middleware.process_action_request(action_request)
