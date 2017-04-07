@@ -28,6 +28,23 @@ class Client(object):
         self.middleware = middleware or []
         self.request_counter = 0
 
+    class JobError(Exception):
+        """
+        Raised by Client.call_action(s) when a job response contains one or more job errors.
+
+        Args:
+            job: JobResponse
+        """
+        def __init__(self, errors=None):
+            self.errors = errors or []
+
+        def __repr__(self):
+            return self.__str__()
+
+        def __str__(self):
+            errors_string = '\n'.join([str(e) for e in self.errors])
+            return 'Error executing job:\n{}'.format(errors_string)
+
     class CallActionError(Exception):
         """
         Raised by Client.call_action(s) when a job response contains one or more action errors.
@@ -48,6 +65,22 @@ class Client(object):
     def generate_correlation_id():
         return six.u(uuid.uuid1().hex)
 
+    def make_control_header(
+        self,
+        switches=None,
+        correlation_id=None,
+        continue_on_error=False,
+        control_extra=None,
+    ):
+        control = {
+            'correlation_id': correlation_id or self.generate_correlation_id(),
+            'switches': switches or [],
+            'continue_on_error': continue_on_error,
+        }
+        if control_extra:
+            control.update(control_extra)
+        return control
+
     def call_actions(
         self,
         actions,
@@ -60,8 +93,11 @@ class Client(object):
         """
         Build and send a single job request with one or more actions.
 
-        Returns a list of action responses, one for each action, or raise an exception if any action response is an
+        Returns a list of action responses, one for each action, or raises an exception if any action response is an
         error.
+
+        The control_extra argument will be merged into the control header, overwriting any duplicate keys. It should be
+        used to add implementation-specific control parameters to the request.
 
         Args:
             actions: list of ActionRequest
@@ -69,13 +105,16 @@ class Client(object):
             context: dict
             correlation_id: string
             continue_on_error: bool
+            control_extra: dict
         Returns:
             JobResponse
         """
-        control = control_extra or {}
-        control['correlation_id'] = correlation_id or self.generate_correlation_id()
-        control['switches'] = switches or []
-        control['continue_on_error'] = continue_on_error
+        control = self.make_control_header(
+            switches=switches,
+            correlation_id=correlation_id,
+            continue_on_error=continue_on_error,
+            control_extra=control_extra,
+        )
         request = JobRequest(actions=actions, control=control, context=context or {})
         request_id = self.send_request(request)
         # Dump everything from the generator. There should only be one response.
@@ -83,6 +122,8 @@ class Client(object):
         response_id, response = responses[0]
         if response_id != request_id:
             raise Exception('Got response with ID {} for request with ID {}'.format(response_id, request_id))
+        if response.errors:
+            raise self.JobError(response.errors)
         error_actions = [action for action in response.actions if action.errors]
         if error_actions:
             raise self.CallActionError(error_actions)

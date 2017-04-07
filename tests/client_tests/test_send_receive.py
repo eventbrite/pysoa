@@ -27,11 +27,6 @@ class TestClientSendReceive:
 
     def test_send_request_get_response(self, client_transport, serializer):
         request_dict = {
-            'control': {
-                'switches': [],
-                'correlation_id': '1235',
-                'continue_on_error': False,
-            },
             'actions': [
                 {
                     'action': 'action_1',
@@ -46,6 +41,7 @@ class TestClientSendReceive:
         client_transport.stub_action('action_1', body={'foo': 'bar'})
         client_transport.stub_action('action_2', body={'baz': 3})
         client = Client(SERVICE_NAME, client_transport, serializer)
+        request_dict['control'] = client.make_control_header()
 
         for request in (request_dict, JobRequest(**request_dict)):
             responses = list(client.get_all_responses())
