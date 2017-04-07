@@ -2,4 +2,14 @@ from .asgi import (
     ASGIClientTransport,
     ASGIServerTransport,
 )
-__all__ = ['ASGIClientTransport', 'ASGIServerTransport']
+from .local import (
+    ThreadlocalClientTransport,
+    ThreadlocalServerTransport,
+)
+
+__all__ = [
+    'ASGIClientTransport',
+    'ASGIServerTransport',
+    'ThreadlocalClientTransport',
+    'ThreadlocalServerTransport',
+]

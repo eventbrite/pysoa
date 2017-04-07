@@ -1,7 +1,37 @@
+from __future__ import unicode_literals
+
+import re
+
 from pysoa.client import Client
 from pysoa.common.types import Error
-from pysoa.common.constants import ERROR_CODE_UNKNOWN
-from pysoa.common.transport.base import ClientTransport
+from pysoa.common.transport.local import ThreadlocalClientTransport
+from pysoa.server import Server
+from pysoa.server.settings import ServerSettings
+from pysoa.server.action import (
+    Action,
+    ActionError,
+)
+
+
+class StubAction(Action):
+    """An Action that simply returns a preset value or error."""
+
+    body = {}
+    errors = []
+
+    def run(self, request):
+        if self.errors:
+            raise ActionError(
+                errors=[
+                    Error(
+                        code=e['code'],
+                        message=e['message'],
+                        field=e['field'],
+                    ) if not isinstance(e, Error) else e for e in self.errors
+                ]
+            )
+        else:
+            return self.body
 
 
 class NoopSerializer:
@@ -16,81 +46,62 @@ class NoopSerializer:
 
 class StubClient(Client):
     """
-    A Client for use in testing code that calls service actions.
+    A Client for testing code that calls service actions.
 
-    Allows the user to define "stubbed" actions that will return pre-defined values.
-    Stubs can be passed either as a dictionary mapping action names to values, or added
-    one by one by calling stub_action().
+    Uses StubClientTransport, which incorporates a server for handling requests. Uses the real Server
+    code path, so that developers needing to test their code against particular service responses can
+    test against a genuine service in a unit testing environment.
     """
 
-    def __init__(self, stubbed_actions=None, *args, **kwargs):
-        self.transport = StubTransport(stubbed_actions=stubbed_actions)
-        self.serializer = NoopSerializer()
+    def __init__(self, service_name='test', action_class_map=None, **kwargs):
+        transport = StubClientTransport(service_name=service_name, action_class_map=action_class_map)
+        serializer = NoopSerializer()
+        super(StubClient, self).__init__(service_name, transport, serializer)
 
     def stub_action(self, action, body=None, errors=None):
         self.transport.stub_action(action, body=body, errors=errors)
 
 
-class StubTransport(ClientTransport):
-    """
-    A transport for use in testing Clients.
+class StubClientTransport(ThreadlocalClientTransport):
+    """A transport that incorporates an automatically-configured server for handling requests."""
 
-    Incorporates a StubServer that imitates action responses.
-    """
-
-    def __init__(self, stubbed_actions=None):
-        self.stub_server = StubServer(actions=stubbed_actions)
-        self.messages = []
-
-    def stub_action(self, action, body=None, errors=None):
-        self.stub_server.stub_action(action, body=body, errors=errors)
-
-    def send_request_message(self, request_id, meta, request):
-        self.messages.append((request_id, meta, request))
-        return request_id
-
-    def receive_response_message(self):
-        if self.messages:
-            request_id, meta, request = self.messages.pop(0)
-            response = self.stub_server.process_message(request)
-            return (request_id, meta, response)
-        return (None, None, None)
-
-
-class StubServer():
-    """
-    Imitates a server, for testing clients.
-
-    Stores a mapping of stubbed actions that can be either raw responses or callables,
-    and can be called by the StubTransport to return these responses.
-    """
-
-    def __init__(self, actions=None):
-        self.serializer = NoopSerializer()
-        self.actions = actions or {}
+    def __init__(self, service_name='test', action_class_map=None):
+        server_settings = ServerSettings({
+            'transport': {
+                'path': 'pysoa.common.transport.local:ThreadlocalServerTransport',
+            },
+            'serializer': {
+                'path': 'pysoa.test.stub_service:NoopSerializer',
+            },
+        })
+        self.server = StubServer(server_settings, service_name=service_name, action_class_map=action_class_map)
 
     def stub_action(self, action, body=None, errors=None):
-        self.actions[action] = {
-            'body': body or {},
-            'errors': errors or [],
-        }
+        self.server.stub_action(action, body=body, errors=errors)
 
-    def process_message(self, request):
-        """Return the stubbed message or the original message if none is available."""
-        request = self.serializer.blob_to_dict(request)
-        response = {'actions': []}
-        for action in request['actions']:
-            action_name = action['action']
-            if action_name not in self.actions:
-                response['actions'].append(Error(
-                    ERROR_CODE_UNKNOWN,
-                    'Unknown action',
-                    'action'
-                ))
-                continue
-            result = self.actions.get(action_name)
-            if callable(result):
-                result = result(action['body'])
-            result['action'] = action_name
-            response['actions'].append(result)
-        return self.serializer.dict_to_blob(response)
+
+class StubServer(Server):
+    """
+    A Server that can be configured entirely on initialization, so that stub services do not require new Server
+    subclasses.
+    """
+
+    def __new__(cls, settings, service_name='test', action_class_map=None):
+        instance = super(StubServer, cls).__new__(cls)
+        instance.service_name = service_name
+        instance.action_class_map = action_class_map or {}
+        return instance
+
+    def __init__(self, settings, **kwargs):
+        super(StubServer, self).__init__(settings)
+
+    def stub_action(self, action, body=None, errors=None):
+        """
+        Make a new StubAction class with the given body and errors, and add it to the action_class_map.
+
+        The name of the action class is the action name converted to camel case. For example, an action
+        called 'update_foo' will have an action class called UpdateFoo.
+        """
+        action_class_name = ''.join([part.capitalize() for part in re.split(r'[^a-zA-Z0-9]+', action)])
+        new_action_class = type(str(action_class_name), (StubAction,), dict(body=body, errors=errors))
+        self.action_class_map[action] = new_action_class

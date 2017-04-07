@@ -1,6 +1,10 @@
 from __future__ import unicode_literals
 import importlib
+from collections import deque
 
+from pysoa.common.transport.exceptions import (
+    MessageReceiveTimeout,
+)
 from .base import (
     ClientTransport,
     ServerTransport,
@@ -8,11 +12,12 @@ from .base import (
 
 
 class ThreadlocalClientTransport(ClientTransport):
-    def __init__(self, service_name, server_class, server_settings):
+
+    def __init__(self, service_name, server_class_path, server_settings):
         super(ThreadlocalClientTransport, self).__init__(service_name)
 
         # Load Server and settings dictionary
-        module_name, class_name = server_class.split(':', 1)
+        module_name, class_name = server_class_path.split(':', 1)
         try:
             server_module = importlib.import_module(module_name)
         except ImportError:
@@ -23,6 +28,12 @@ class ThreadlocalClientTransport(ClientTransport):
             raise ValueError('Cannot find server class "{}" in module {}'.format(
                 class_name,
                 module_name,
+            ))
+        if server_class.service_name != service_name:
+            raise ValueError('Server class {} service name "{}" does not match "{}"'.format(
+                server_class_path,
+                server_class.service_name,
+                service_name,
             ))
         try:
             settings_module = importlib.import_module(server_settings)
@@ -46,31 +57,35 @@ class ThreadlocalClientTransport(ClientTransport):
         self.server.setup()
 
     def send_request_message(self, request_id, meta, message_string):
-        self.server.transport.request_message = (
-            request_id,
-            meta,
-            message_string,
+        self.server.transport.request_messages.append(
+            (
+                request_id,
+                meta,
+                message_string,
+            )
         )
         self.server.handle_next_request()
 
     def receive_response_message(self):
-        if self.server.transport.response_message:
-            response_message = self.server.transport.response_message
-            self.server.transport.response_message = None
-            return response_message
-
+        if self.server.transport.response_messages:
+            return self.server.transport.response_messages.popleft()
         return (None, None, None)
 
 
 class ThreadlocalServerTransport(ServerTransport):
+    request_messages = deque([])
+    response_messages = deque([])
+
     def receive_request_message(self):
-        request_message = self.request_message
-        self.request_message = None
-        return request_message
+        if self.request_messages:
+            return self.request_messages.popleft()
+        raise MessageReceiveTimeout
 
     def send_response_message(self, request_id, meta, message_string):
-        self.response_message = (
-            request_id,
-            meta,
-            message_string,
+        self.response_messages.append(
+            (
+                request_id,
+                meta,
+                message_string,
+            )
         )

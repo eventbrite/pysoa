@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 import pytest
 import mock
 
@@ -48,8 +49,8 @@ class TestASGITranportCore:
 class TestASGIClientTransport:
 
     @mock.patch('pysoa.common.transport.asgi.core.RedisChannelLayer')
-    def test_send_request_returns_valid_id(self, mock_channel_layer):
-        """The transport should return a valid integer request ID on sending a request"""
+    def test_send_request_runs_without_errors(self, mock_channel_layer):
+        """Calling send_request_message with a valid request should produce no exceptions."""
         client_transport = ASGIClientTransport(
             'test',
             asgi_channel_type=ASGI_CHANNEL_TYPE_REDIS,

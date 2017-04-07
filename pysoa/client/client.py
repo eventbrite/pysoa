@@ -1,14 +1,3 @@
-"""
-The Client provides a simple interface for calling actions on Servers.
-
-The base Client class provides the core workflow for request sending and receiving.
-Requests are passed and returned as dicts, and the format of the request depends on the
-implementation.
-
-The on_request and on_response methods provide hooks for any actions that need to be
-taken after a successful request or response. These may include, for example, logging
-all requests and responses or raising exceptions on error responses.
-"""
 import uuid
 import six
 import attr
@@ -20,6 +9,7 @@ from pysoa.common.types import (
 
 
 class Client(object):
+    """The Client provides a simple interface for calling actions on Servers."""
 
     def __init__(self, service_name, transport, serializer, middleware=None):
         self.service_name = service_name

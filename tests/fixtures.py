@@ -1,5 +1,5 @@
 from pysoa.test.stub_service import (
-    StubTransport,
+    StubClientTransport,
     NoopSerializer,
 )
 
@@ -8,7 +8,7 @@ import pytest
 
 @pytest.fixture()
 def client_transport():
-    return StubTransport()
+    return StubClientTransport()
 
 
 @pytest.fixture()
