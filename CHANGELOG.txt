@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.4.1 (2017-04-07)
+------------------
+- Updated ASGI client transport to support latest asgiref channel name syntax
+
 0.4.0 (2017-03-31)
 ------------------
 - Use custom attrs types at all edges, for consistency
