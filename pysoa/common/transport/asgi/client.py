@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import uuid
 
 from pysoa.common.transport.base import ClientTransport
@@ -12,13 +14,19 @@ class ASGIClientTransport(ClientTransport):
         self.service_name = service_name
         self.client_id = uuid.uuid1().hex
         self.send_channel_name = make_channel_name(service_name)
-        self.receive_channel_name = self.send_channel_name + '!client.' + self.client_id
+        self.receive_channel_name = '{}.{}!'.format(
+            self.send_channel_name,
+            self.client_id,
+        )
         self.requests_outstanding = 0
         self.core = ASGITransportCore(asgi_channel_type, **kwargs)
 
     def send_request_message(self, request_id, meta, body):
         self.requests_outstanding += 1
-        meta['reply_to'] = self.receive_channel_name
+        meta['reply_to'] = '{}{}'.format(
+            self.receive_channel_name,
+            request_id,
+        )
         self.core.send_message(self.send_channel_name, request_id, meta, body)
 
     def receive_response_message(self):
