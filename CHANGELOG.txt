@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.5.0 (2017-04-10)
+------------------
+- Make stub service a real service with a real server and real actions, using ThreadlocalClientTransport
+- ActionResponse automatically converts errors to Error type
+- Error type accepts both `field` and `traceback` properties, both optional.
+
 0.4.1 (2017-04-07)
 ------------------
 - Updated ASGI client transport to support latest asgiref channel name syntax
