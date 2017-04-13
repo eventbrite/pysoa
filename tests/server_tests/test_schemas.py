@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import six
 import uuid
 from unittest import TestCase
@@ -14,7 +16,7 @@ class ControlHeaderSchemaTests(TestCase):
         self.control_header = {
             'switches': [1, 2, 3],
             'continue_on_error': False,
-            'correlation_id': unicode(uuid.uuid4()),
+            'correlation_id': six.u(str(uuid.uuid4())),
         }
 
     def test_valid_control_header(self):
@@ -72,10 +74,10 @@ class ControlHeaderSchemaTests(TestCase):
 class ActionRequestSchemaTests(TestCase):
     def setUp(self):
         self.action = {
-            'action': u'test_action_name',
+            'action': 'test_action_name',
             'body': {
-                u'first_name': u'Bob',
-                u'last_name': u'Mueller',
+                'first_name': 'Bob',
+                'last_name': 'Mueller',
             },
         }
 
@@ -90,7 +92,7 @@ class ActionRequestSchemaTests(TestCase):
         self.assertEqual(errors[0].pointer, 'action')
 
     def test_invalid_action(self):
-        self.action['action'] = six.b('non-unicode_action_name')
+        self.action['action'] = b'non-unicode_action_name'
         errors = ActionRequestSchema.errors(self.action)
         self.assertEqual(len(errors), 1)
         self.assertEqual(errors[0].pointer, 'action')
@@ -113,13 +115,13 @@ class JobRequestSchemaTests(TestCase):
             'control': {
                 'switches': [1, 2, 3],
                 'continue_on_error': False,
-                'correlation_id': unicode(uuid.uuid4()),
+                'correlation_id': six.u(str(uuid.uuid4())),
             },
             'actions': [{
-                'action': u'test_action_name',
+                'action': 'test_action_name',
                 'body': {
-                    u'first_name': 'Bob',
-                    u'last_name': 'Mueller',
+                    'first_name': 'Bob',
+                    'last_name': 'Mueller',
                 },
             }],
         }

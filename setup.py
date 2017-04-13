@@ -3,7 +3,7 @@ from pysoa import __version__
 
 
 install_requires = [
-    'conformity',
+    'conformity~=1.3',
     'msgpack-python>=0.4.8',
     'six>=1.10',
     'attrs>=16.3',
@@ -22,9 +22,6 @@ setup(
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,
     install_requires=install_requires,
-    dependency_links=[
-        'git+ssh://git@github.com/eventbrite/conformity.git@1.2.0#egg=conformity-1.2.0',
-    ],
     tests_require=tests_require,
     setup_requires=['pytest-runner'],
     test_suite='tests',

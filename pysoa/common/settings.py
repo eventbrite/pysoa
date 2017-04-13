@@ -1,4 +1,5 @@
 import importlib
+import itertools
 import six
 import copy
 
@@ -29,8 +30,8 @@ class SettingsMetaclass(type):
         cls = type.__new__(mcs, name, bases, body)
         # Merge the schema and defaults objects with their parents
         if bases[0] is not object:
-            cls.schema = dict(bases[0].schema.items() + cls.schema.items())
-            cls.defaults = dict(bases[0].defaults.items() + cls.defaults.items())
+            cls.schema = dict(itertools.chain(bases[0].schema.items(), cls.schema.items()))
+            cls.defaults = dict(itertools.chain(bases[0].defaults.items(), cls.defaults.items()))
         return cls
 
 
