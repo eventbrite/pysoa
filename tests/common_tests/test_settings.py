@@ -1,7 +1,15 @@
+from __future__ import unicode_literals
+
 import pytest
 import six
 
-from pysoa.common.settings import Settings
+from pysoa.common.settings import (
+    Settings,
+    SOASettings,
+)
+from pysoa.common.transport.asgi import ASGIClientTransport
+from pysoa.common.serializer import MsgpackSerializer
+from pysoa.client.middleware import ClientMiddleware
 
 from conformity import fields
 
@@ -33,7 +41,7 @@ class SettingsWithDefaults(Settings):
     defaults = {
         'simple_property': 0,
         'complex_property': {
-            'string_property': six.u('default_string'),
+            'string_property': 'default_string',
             'kwargs': {
                 'foo': 1,
             },
@@ -78,14 +86,14 @@ class TestSettings:
             'complex_property': {
                 'int_property': 2,
                 'kwargs': {
-                    'bar': six.u('four'),
+                    'bar': 'four',
                 },
             },
         })
         assert settings['simple_property'] == 1
-        assert settings['complex_property']['string_property'] == six.u('default_string')
+        assert settings['complex_property']['string_property'] == 'default_string'
         assert settings['complex_property']['kwargs']['foo'] == 1
-        assert settings['complex_property']['kwargs']['bar'] == six.u('four')
+        assert settings['complex_property']['kwargs']['bar'] == 'four'
 
     def test_top_level_defaults_inherited(self):
         """Defaults at the top level of the defaults dict are inherited."""
@@ -126,7 +134,7 @@ class TestSettings:
                 'complex_property': {
                     'kwargs': {
                         'foo': 1,
-                        'bar': six.u('four'),
+                        'bar': 'four',
                     },
                 },
             })
@@ -148,7 +156,7 @@ class TestSettings:
                 'complex_property': {
                     'int_property': 2,
                     'kwargs': {
-                        'bar': six.u('four'),
+                        'bar': 'four',
                     },
                     'another_property': 1,
                 },
@@ -174,3 +182,28 @@ class TestSettings:
         settings = MyCorrectSetting({})
         assert settings['complex_property']['another_property'] == 1
         assert settings['simple_property'] == 0
+
+
+class TestSOASettings:
+    """Tests for the SOASettings class."""
+
+    def test_classes_converted(self):
+        """The settings class resolves classes of transport, serializer and middleware."""
+
+        settings_dict = {
+            'transport': {
+                'path': 'pysoa.common.transport.asgi:ASGIClientTransport',
+            },
+            'serializer': {
+                'path': 'pysoa.common.serializer:MsgpackSerializer',
+            },
+            'middleware': [
+                {
+                    'path': 'pysoa.client.middleware:ClientMiddleware',
+                },
+            ],
+        }
+        settings = SOASettings(settings_dict)
+        assert settings['transport']['object'] == ASGIClientTransport
+        assert settings['serializer']['object'] == MsgpackSerializer
+        assert settings['middleware'][0]['object'] == ClientMiddleware

@@ -391,7 +391,7 @@ Settings subclasses
 
   + ``serializer``: Import path and keyword args for a ``Serializer`` class.
 
-  + ``middleware``: List of 2-tuples, each containing a path and a dict of keyword args for a ``ClientMiddleware`` or ``ServerMiddleware`` class.
+  + ``middleware``: List of dicts containing import path and keyword args for a ``ClientMiddleware`` or ``ServerMiddleware`` class.
 
 Both the ``client`` and ``server`` modules implement their own subclasses that inherit from ``SOASettings``. Developers implementing ``Client`` or ``Server`` subclasses may wish to subclass the respective settings class in order to alter or extend the schema or defaults.
 

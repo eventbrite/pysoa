@@ -150,12 +150,7 @@ class SOASettings(Settings):
         # Middleware is a list of ("path.to.class", {"setting_name": ...}) tuples
         # The same format is applied for both server and client, though the middleware
         # classes they use are different
-        "middleware": fields.List(
-            fields.Tuple(
-                fields.UnicodeString(),
-                fields.SchemalessDictionary(key_type=fields.UnicodeString()),
-            ),
-        ),
+        "middleware": fields.List(class_schema),
     }
 
     defaults = {
@@ -169,7 +164,4 @@ class SOASettings(Settings):
         return self.standard_convert_path(value)
 
     def convert_middleware(self, value):
-        return [
-            (self.resolve_python_path(path), kwargs)
-            for path, kwargs in value
-        ]
+        return [self.standard_convert_path(item) for item in value]
