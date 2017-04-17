@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.6.0 (2017-04-17)
+------------------
+- Make SOASettings middleware schema consistent with transport and serializer schema
+- Updated PySOA to be Python 3 compatible.
+
 0.5.0 (2017-04-10)
 ------------------
 - Make stub service a real service with a real server and real actions, using ThreadlocalClientTransport
