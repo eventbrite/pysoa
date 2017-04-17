@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 from pysoa.common.transport.base import ServerTransport
 from pysoa.common.transport.exceptions import InvalidMessageError
 

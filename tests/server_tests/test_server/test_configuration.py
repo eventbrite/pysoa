@@ -1,3 +1,4 @@
+import mock
 from unittest import TestCase
 
 from pysoa.server.server import Server
@@ -6,7 +7,6 @@ from pysoa.test import factories
 
 class BaseTestServiceServer(Server):
     service_name = 'test_service'
-
 
 class ServerInitializationTests(TestCase):
     def setUp(self):
@@ -26,3 +26,15 @@ class ServerInitializationTests(TestCase):
 
         with self.assertRaises(AttributeError):
             TestServiceServer(self.settings)
+
+    def test_settings_middleware_instantiation(self):
+        test_class = mock.MagicMock()
+        test_kwargs = {
+            'key': 'val',
+        }
+        self.settings['middleware'].append({
+            'object': test_class,
+            'kwargs': test_kwargs,
+        })
+        BaseTestServiceServer(self.settings)
+        test_class.assert_called_once_with(**test_kwargs)

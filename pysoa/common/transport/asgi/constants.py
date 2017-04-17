@@ -1,7 +1,9 @@
+from __future__ import unicode_literals
+
 # Common ASGI constants for discovery and transport classes
-ASGI_CHANNEL_TYPE_LOCAL = u'local'
-ASGI_CHANNEL_TYPE_REDIS = u'redis'
-ASGI_CHANNEL_TYPE_REDIS_SENTINEL = u'redis_sentinel'
+ASGI_CHANNEL_TYPE_LOCAL = 'local'
+ASGI_CHANNEL_TYPE_REDIS = 'redis'
+ASGI_CHANNEL_TYPE_REDIS_SENTINEL = 'redis_sentinel'
 
 ASGI_CHANNEL_TYPES_LOCAL = (
     ASGI_CHANNEL_TYPE_LOCAL,

@@ -147,9 +147,6 @@ class SOASettings(Settings):
         # Paths to the classes to use and then kwargs to pass
         "transport": class_schema,
         "serializer": class_schema,
-        # Middleware is a list of ("path.to.class", {"setting_name": ...}) tuples
-        # The same format is applied for both server and client, though the middleware
-        # classes they use are different
         "middleware": fields.List(class_schema),
     }
 

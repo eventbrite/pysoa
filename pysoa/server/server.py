@@ -68,8 +68,8 @@ class Server(object):
 
         # Instantiate middleware
         self.middleware = [
-            obj(**kwargs)
-            for obj, kwargs in self.settings['middleware']
+            m['object'](**m.get('kwargs', {}))
+            for m in self.settings['middleware']
         ]
 
         # Set up logger
