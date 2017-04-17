@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.7.0 (2017-04-17)
+------------------
+- Changed middleware to work in a callable (new-Django) style
+
 0.6.1 (2017-04-17)
 ------------------
 - Fixed an issue wherein the ASGI transport class was violating the ASGI message protocol requirement for unicode message keys when running under Python 2.
