@@ -1,63 +1,17 @@
 class ServerMiddleware(object):
-    def process_job_request(self, job_request):
-        """
-        Process JobRequest messages before they are run by the Server.
+    """
+    Base middleware class for server middleware. Not required, but gives you
+    some helpful utility functions.
 
-        Args:
-            job_request: a JobRequest dictionary.
+    Middleware must have two callables, `job` and `action`, that when called
+    with the next level down, return a callable that takes a request and
+    either returns a response or errors.
+    """
 
-        Returns:
-            None
-        """
-        pass
+    def job(self, process_job):
+        # Remove ourselves from the stack
+        return process_job
 
-    def process_action_request(self, action_request):
-        """
-        Process ActionRequest messages before they are run by the Server.
-
-        Args:
-            action_request: a ActionRequest dictionary.
-
-        Returns:
-            None
-        """
-        pass
-
-    def process_action_response(self, action_response):
-        """
-        Process ActionResponse messages before they are appended to the
-        JobResponse message.
-
-        Args:
-            action_response: a ActionResponse dictionary.
-
-        Returns:
-            None
-        """
-        pass
-
-    def process_job_response(self, job_response):
-        """
-        Process JobResponse messages before they sent to the Client.
-
-        Args:
-            job_resposne: a JobResponse dictionary.
-
-        Returns:
-            None
-        """
-        pass
-
-    def process_job_exception(self, job_request, exception):
-        """
-        Process exceptions that are raised while processing JobRequests.
-
-        Args:
-            job_request: a JobRequest dictionary.
-            exception: the exception that was raised while processing
-                job_request.
-
-        Returns:
-            None
-        """
-        pass
+    def action(self, process_action):
+        # Remove ourselves from the stack
+        return process_action

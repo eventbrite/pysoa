@@ -3,6 +3,7 @@ import importlib
 
 from pysoa.server import Server
 from pysoa.server.settings import ServerSettings
+from pysoa.server.action import Action
 
 
 class ServerSettingsFactory(factory.Factory):
@@ -42,3 +43,15 @@ class ServerFactory(factory.Factory):
         model = Server
 
     settings = factory.SubFactory(ServerSettingsFactory)
+
+
+def ActionFactory(body=None, exception=None):
+    """
+    Makes an action with the result or exception you specify.
+    """
+    class TestAction(Action):
+        def run(self, request):
+            if exception:
+                raise exception
+            return body or {}
+    return TestAction

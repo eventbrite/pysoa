@@ -46,7 +46,6 @@ class Server(object):
 
     service_name = None
     action_class_map = {}
-    middleware_classes = []
 
     def __init__(self, settings):
         # Check subclassing setup
@@ -95,6 +94,16 @@ class Server(object):
         self.transport.send_response_message(request_id, meta, response_message)
         self.job_logger.info("Job response: %s", response_dict)
 
+    def make_middleware_stack(self, middleware, base):
+        """
+        Given a list of in-order middleware callables `middleware`
+        and a base function `base`, chains them together so each middleware is
+        fed the function below, and returns the top level ready to call.
+        """
+        for ware in reversed(middleware):
+            base = ware(base)
+        return base
+
     def process_job(self, job_request):
         """
         Validate, execute, and run Job-level middleware for JobRequests.
@@ -118,30 +127,18 @@ class Server(object):
             if validation_errors:
                 raise JobError(errors=validation_errors)
 
-            # Run process JobRequest middleware
-            for middleware in self.middleware:
-                middleware.process_job_request(job_request)
-
-            # Run the Job
-            job_response = self.execute_job(job_request)
-
-            # Run process JobResponse middleware
-            for middleware in self.middleware:
-                middleware.process_job_response(job_response)
+            # Build set of middleware + job handler, then run job
+            wrapper = self.make_middleware_stack(
+                [m.job for m in self.middleware],
+                self.execute_job,
+            )
+            job_response = wrapper(job_request)
         except JobError as e:
             job_response = JobResponse(
                 errors=e.errors,
             )
         except Exception as e:
-            try:
-                for middleware in self.middleware:
-                    middleware.process_job_exception(job_request, e)
-            except Exception as e:
-                # NOTE: This effectively mutes the original exception in favor
-                #       of exceptions raised by the middleware.
-                pass
-
-            # Send an error response
+            # Send an error response if no middleware caught this.
             # Formatting the error might itself error, so try to catch that
             try:
                 error_str, traceback_str = str(e), traceback.format_exc()
@@ -175,18 +172,16 @@ class Server(object):
                 control=job_request['control'],
             )
             if action_request.action in self.action_class_map:
-                # Run process EnrichedActionRequest middleware
+                # Get action to run
+                action = self.action_class_map[action_request.action](self.settings)
+                # Wrap it in middleware
+                wrapper = self.make_middleware_stack(
+                    [m.action for m in self.middleware],
+                    action,
+                )
+                # Execute the middleware stack
                 try:
-                    for middleware in self.middleware:
-                        middleware.process_action_request(action_request)
-
-                    # Run action
-                    action = self.action_class_map[action_request.action](self.settings)
-                    action_response = action(action_request)
-
-                    # Run process ActionResponse middleware
-                    for middleware in self.middleware:
-                        middleware.process_action_response(action_response)
+                    action_response = wrapper(action_request)
                 except ActionError as e:
                     # Error: an error was thrown while running the Action (or Action middleware)
                     action_response = ActionResponse(
@@ -287,8 +282,8 @@ class Server(object):
         # Load settings from the given file
         try:
             settings_module = importlib.import_module(cmd_options.settings)
-        except ImportError:
-            raise ValueError("Cannot import settings module %s" % cmd_options.settings)
+        except ImportError as e:
+            raise ValueError("Cannot import settings module %s: %s" % (cmd_options.settings, e))
         try:
             settings_dict = getattr(settings_module, "settings")
         except AttributeError:
