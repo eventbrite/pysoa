@@ -1,5 +1,7 @@
 from __future__ import unicode_literals
+
 from pysoa.client import Client
+from pysoa.client.middleware import ClientMiddleware
 from pysoa.common.constants import (
     ERROR_CODE_INVALID,
     ERROR_CODE_SERVER_ERROR,
@@ -16,12 +18,97 @@ from pysoa.server.errors import JobError
 from ..fixtures import (
     client_transport,
     serializer,
-) # flake8: noqa
+)  # flake8: noqa
 
 import pytest
 import mock
 
 SERVICE_NAME = 'test_service'
+
+
+class MutateRequestMiddleware(ClientMiddleware):
+
+    def request(self, send_request):
+        def handler(request_id, meta, request):
+            if request.control.get('test_request_middleware'):
+                request.actions[0].body['middleware_was_here'] = True
+            return send_request(request_id, meta, request)
+        return handler
+
+
+class RaiseExceptionOnRequestMiddleware(ClientMiddleware):
+
+    class MiddlewareProcessedRequest(Exception):
+        pass
+
+    def request(self, send_request):
+        def handler(request_id, meta, request):
+            if request.actions and request.actions[0].body.get('middleware_was_here') is True:
+                raise self.MiddlewareProcessedRequest()
+            return send_request(request_id, meta, request)
+        return handler
+
+
+class CatchExceptionOnRequestMiddleware(ClientMiddleware):
+
+    def __init__(self, *args, **kwargs):
+        super(CatchExceptionOnRequestMiddleware, self).__init__(*args, **kwargs)
+        self.error_count = 0
+        self.request_count = 0
+
+    def request(self, send_request):
+        def handler(request_id, meta, request):
+            try:
+                return send_request(request_id, meta, request)
+            except:
+                self.error_count += 1
+                raise
+            finally:
+                self.request_count += 1
+        return handler
+
+class MutateResponseMiddleware(ClientMiddleware):
+
+    def response(self, get_response):
+        def handler():
+            request_id, response = get_response()
+            if response and response.actions:
+                response.actions[0].body['middleware_was_here'] = True
+            return request_id, response
+        return handler
+
+
+class RaiseExceptionOnResponseMiddleware(ClientMiddleware):
+
+    class MiddlewareProcessedResponse(Exception):
+        pass
+
+    def response(self, get_response):
+        def handler():
+            request_id, response = get_response()
+            if response and response.actions and response.actions[0].body.get('middleware_was_here') is True:
+                raise self.MiddlewareProcessedResponse()
+            return request_id, response
+        return handler
+
+
+class CatchExceptionOnResponseMiddleware(ClientMiddleware):
+
+    def __init__(self, *args, **kwargs):
+        super(CatchExceptionOnResponseMiddleware, self).__init__(*args, **kwargs)
+        self.error_count = 0
+        self.request_count = 0
+
+    def response(self, get_response):
+        def handler():
+            try:
+                return get_response()
+            except:
+                self.error_count += 1
+                raise
+            finally:
+                self.request_count += 1
+        return handler
 
 
 class TestClientSendReceive:
@@ -36,7 +123,7 @@ class TestClientSendReceive:
         Client.send_request sends a valid request and Client.get_all_responses returns a valid response
         without errors.
         """
-        request_dict = {
+        request_dict={
             'actions': [
                 {
                     'action': 'action_1',
@@ -149,3 +236,73 @@ class TestClientSendReceive:
         assert isinstance(response, ActionResponse)
         assert response.action == 'action_1'
         assert response.body['foo'] == 'bar'
+
+
+class TestClientMiddleware:
+    """Test that the client calls its middleware correctly."""
+
+    def test_request_single_middleware(self, client_transport, serializer):
+        middleware = [RaiseExceptionOnRequestMiddleware()]
+        client = Client(SERVICE_NAME, client_transport, serializer, middleware=middleware)
+        with pytest.raises(RaiseExceptionOnRequestMiddleware.MiddlewareProcessedRequest):
+            client.call_action('action_1', body={'middleware_was_here': True})
+
+    def test_request_multiple_middleware_order(self, client_transport, serializer):
+        client_transport.stub_action('action_1', body={})
+
+        # The first middleware mutates the response so that the second raises an exception
+        middleware = [
+            MutateRequestMiddleware(),
+            RaiseExceptionOnRequestMiddleware(),
+        ]
+        client = Client(SERVICE_NAME, client_transport, serializer, middleware=middleware)
+        with pytest.raises(RaiseExceptionOnRequestMiddleware.MiddlewareProcessedRequest):
+            client.call_action('action_1', control_extra={'test_request_middleware': True})
+
+        # If the order is reversed, no exception is raised
+        middleware = reversed(middleware)
+        client = Client(SERVICE_NAME, client_transport, serializer, middleware=middleware)
+        client.call_action('action_1', control_extra={'test_request_middleware': True})
+
+    def test_request_middleware_handle_exception(self, client_transport, serializer):
+        # the exception handler must be on the outer layer of the onion
+        middleware = [
+            CatchExceptionOnRequestMiddleware(),
+            MutateRequestMiddleware(),
+            RaiseExceptionOnRequestMiddleware(),
+        ]
+        client = Client(SERVICE_NAME, client_transport, serializer, middleware=middleware)
+        with pytest.raises(RaiseExceptionOnRequestMiddleware.MiddlewareProcessedRequest):
+            client.call_action('action_1', control_extra={'test_request_middleware': True})
+        assert client.middleware[0].request_count == 1
+        assert client.middleware[0].error_count == 1
+
+    def test_response_single_middleware(self, client_transport, serializer):
+        middleware = [RaiseExceptionOnResponseMiddleware()]
+        client_transport.stub_action('action_1', body={'middleware_was_here': True})
+        client = Client(SERVICE_NAME, client_transport, serializer, middleware=middleware)
+        with pytest.raises(RaiseExceptionOnResponseMiddleware.MiddlewareProcessedResponse):
+            client.call_action('action_1')
+
+    def test_response_multiple_middleware_order(self, client_transport, serializer):
+        middleware = [
+            RaiseExceptionOnResponseMiddleware(),
+            MutateResponseMiddleware(),
+        ]
+        client_transport.stub_action('action_1', body={})
+        client = Client(SERVICE_NAME, client_transport, serializer, middleware=middleware)
+        with pytest.raises(RaiseExceptionOnResponseMiddleware.MiddlewareProcessedResponse):
+            client.call_action('action_1')
+
+    def test_response_middleware_handle_exception(self, client_transport, serializer):
+        middleware = [
+            CatchExceptionOnResponseMiddleware(),
+            RaiseExceptionOnResponseMiddleware(),
+            MutateResponseMiddleware(),
+        ]
+        client_transport.stub_action('action_1', body={})
+        client = Client(SERVICE_NAME, client_transport, serializer, middleware=middleware)
+        with pytest.raises(RaiseExceptionOnResponseMiddleware.MiddlewareProcessedResponse):
+            client.call_action('action_1')
+        assert client.middleware[0].request_count == 1
+        assert client.middleware[0].error_count == 1

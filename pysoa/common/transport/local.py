@@ -73,8 +73,11 @@ class ThreadlocalClientTransport(ClientTransport):
 
 
 class ThreadlocalServerTransport(ServerTransport):
-    request_messages = deque([])
-    response_messages = deque([])
+
+    def __init__(self, *args, **kwargs):
+        super(ThreadlocalServerTransport, self).__init__(*args, **kwargs)
+        self.request_messages = deque([])
+        self.response_messages = deque([])
 
     def receive_request_message(self):
         if self.request_messages:

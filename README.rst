@@ -191,6 +191,23 @@ Caching
 If the service settings specify that the client is ``cacheable``, subsequent calls to ``get_client`` after the first will return the same ``Client`` instance. Be careful with caching clients that take keyword arguments, as the router will return the ``Client`` instance from the *first* call, regardless of the keyword arguments to subsequent calls.
 
 
+Client middleware
++++++++++++++++++
+
+Client middleware works similarly to server middleware, using an onion calling pattern. Client middleware is built around the client request/response workflow. The ``ClientMiddleware`` class has two methods, ``request`` and ``response``, each of which wraps a callable that does the work of sending or receiving, respectively.
+
+``ClientMiddleware.request``: Args:
+
+- ``send_request``: A callable with the signature ``(request_id, meta, request)``, where ``request`` is a ``JobRequest``, ``meta`` is a dictionary and ``request_id`` is an integer. Sends the ``JobRequest`` and returns ``None``. 
+
+The ``request`` method should return a callable with the same signature as ``send_request``. It should process the ``JobRequest``, call ``send_request(request_id, meta, request)`` and return ``None``.
+
+``ClientMiddleware.response``: Args:
+
+- ``get_response``: A callable that takes no arguments and returns a tuple of ``(request_id, response)`` where ``response`` is a  ``JobResponse`` and ``request_id`` is an integer.
+
+The ``response`` method should return a callable with the same signature as ``get_response``. It should call ``get_response()``, process the ``JobResponse`` and return ``(request_id, response)``.
+
 
 The Common module
 -----------------

@@ -71,6 +71,16 @@ class Client(object):
             control.update(control_extra)
         return control
 
+    def make_middleware_stack(self, middleware, base):
+        """
+        Given a list of in-order middleware callables `middleware`
+        and a base function `base`, chains them together so each middleware is
+        fed the function below, and returns the top level ready to call.
+        """
+        for ware in reversed(middleware):
+            base = ware(base)
+        return base
+
     def call_actions(
         self,
         actions,
@@ -157,6 +167,12 @@ class Client(object):
         """
         return {'mime_type': self.serializer.mime_type}
 
+    def _send_request(self, request_id, meta, job_request):
+        if isinstance(job_request, JobRequest):
+            job_request = attr.asdict(job_request)
+        message = self.serializer.dict_to_blob(job_request)
+        self.transport.send_request_message(request_id, meta, message)
+
     def send_request(self, job_request):
         """
         Serialize and send a request message, and return a request ID.
@@ -169,16 +185,24 @@ class Client(object):
             ConnectionError, InvalidField, MessageSendError, MessageSendTimeout,
             MessageTooLarge
         """
-        if isinstance(job_request, JobRequest):
-            job_request = attr.asdict(job_request)
         request_id = self.request_counter
         self.request_counter += 1
         meta = self.prepare_metadata()
-        for middleware in self.middleware:
-            middleware.process_job_request(request_id, meta, job_request)
-        message = self.serializer.dict_to_blob(job_request)
-        self.transport.send_request_message(request_id, meta, message)
+        wrapper = self.make_middleware_stack(
+            [m.request for m in self.middleware],
+            self._send_request,
+        )
+        wrapper(request_id, meta, job_request)
         return request_id
+
+    def _get_response(self):
+        request_id, meta, message = self.transport.receive_response_message()
+        if message is None:
+            return (None, None)
+        else:
+            raw_response = self.serializer.blob_to_dict(message)
+            job_response = JobResponse(**raw_response)
+            return request_id, job_response
 
     def get_all_responses(self):
         """
@@ -190,13 +214,12 @@ class Client(object):
             ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage,
             StopIteration
         """
+        wrapper = self.make_middleware_stack(
+            [m.response for m in self.middleware],
+            self._get_response,
+        )
         while True:
-            request_id, meta, message = self.transport.receive_response_message()
-            if message is None:
+            request_id, response = wrapper()
+            if response is None:
                 break
-            else:
-                raw_response = self.serializer.blob_to_dict(message)
-                job_response = JobResponse(**raw_response)
-                for middleware in self.middleware:
-                    middleware.process_job_response(request_id, meta, job_response)
-                yield request_id, job_response
+            yield request_id, response
