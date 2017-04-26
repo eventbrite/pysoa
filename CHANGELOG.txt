@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.8.0 (2017-04-26)
+------------------
+- Client middleware uses onion calling pattern
+
 0.7.0 (2017-04-17)
 ------------------
 - Changed middleware to work in a callable (new-Django) style
