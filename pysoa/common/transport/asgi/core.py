@@ -39,7 +39,7 @@ class ASGITransportCore(object):
     channel_full_retries = attr.ib(default=10)
 
     EXPONENTIAL_BACKOFF_FACTOR = 4.0
-    BODY_MAX_SIZE = 1024
+    BODY_MAX_SIZE = 1024 * 100
 
     _channel_layer = None
 

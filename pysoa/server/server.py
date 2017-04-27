@@ -44,6 +44,7 @@ class Server(object):
 
     settings_class = ServerSettings
 
+    use_django = False
     service_name = None
     action_class_map = {}
 
@@ -89,10 +90,16 @@ class Server(object):
         job_response = self.process_job(job_request)
 
         # Send the JobResponse
-        response_dict = attr.asdict(job_response)
-        response_message = self.serializer.dict_to_blob(response_dict)
+        try:
+            response_dict = attr.asdict(job_response)
+            response_message = self.serializer.dict_to_blob(response_dict)
+        except Exception as e:
+            job_response = self.handle_error(e)
+            response_dict = attr.asdict(job_response)
+            response_message = self.serializer.dict_to_blob(response_dict)
         self.transport.send_response_message(request_id, meta, response_message)
         self.job_logger.info("Job response: %s", response_dict)
+
 
     def make_middleware_stack(self, middleware, base):
         """
@@ -140,20 +147,29 @@ class Server(object):
         except Exception as e:
             # Send an error response if no middleware caught this.
             # Formatting the error might itself error, so try to catch that
-            try:
-                error_str, traceback_str = str(e), traceback.format_exc()
-            except Exception:
-                error_str, traceback_str = "Error formatting error", traceback.format_exc()
+            return self.handle_error(e)
 
-            job_response = JobResponse(
-                errors=[{
-                    'code': ERROR_CODE_SERVER_ERROR,
-                    'message': 'Internal server error: %s' % error_str,
-                    'traceback': traceback_str,
-                }],
-            )
-            self.logger.error("Unhandled error: %s", traceback_str)
+        return job_response
 
+    def handle_error(self, error):
+        """
+        Makes a last-ditch error response
+        """
+        # Get the error and traceback if we can
+        try:
+            error_str, traceback_str = str(error), traceback.format_exc()
+        except Exception:
+            error_str, traceback_str = "Error formatting error", traceback.format_exc()
+        # Log what happened
+        self.logger.error("Unhandled error: %s", traceback_str)
+        # Make a barebones job response
+        job_response = JobResponse(
+            errors=[{
+                'code': ERROR_CODE_SERVER_ERROR,
+                'message': 'Internal server error: %s' % error_str,
+                'traceback': traceback_str,
+            }],
+        )
         return job_response
 
     def execute_job(self, job_request):
@@ -272,23 +288,33 @@ class Server(object):
             action='store_true',
             help='run the server process as a daemon',
         )
-        parser.add_argument(
-            '-s', '--settings',
-            help='The settings file to use',
-            required=True,
-        )
+        if not cls.use_django:
+            # If Django mode is turned on, we use the Django settings framework
+            # to get our settings, so the caller needs to set DJANGO_SETTINGS_MODULE.
+            parser.add_argument(
+                '-s', '--settings',
+                help='The settings file to use',
+                required=True,
+            )
         cmd_options = parser.parse_args(sys.argv[1:])
 
-        # Load settings from the given file
-        try:
-            settings_module = importlib.import_module(cmd_options.settings)
-        except ImportError as e:
-            raise ValueError("Cannot import settings module %s: %s" % (cmd_options.settings, e))
-        try:
-            settings_dict = getattr(settings_module, "settings")
-        except AttributeError:
-            raise ValueError("Cannot find settings variable in settings module %s" % cmd_options.settings)
-        settings = cls.settings_class(settings_dict)
+        # Load settings from the given file (or use Django and grab from its settings)
+        if cls.use_django:
+            from django.conf import settings as django_settings
+            try:
+                settings = cls.settings_class(django_settings.SOA_SERVER_SETTINGS)
+            except AttributeError:
+                raise ValueError("Cannot find SOA_SERVER_SETTINGS in the Django settings")
+        else:
+            try:
+                settings_module = importlib.import_module(cmd_options.settings)
+            except ImportError as e:
+                raise ValueError("Cannot import settings module %s: %s" % (cmd_options.settings, e))
+            try:
+                settings_dict = getattr(settings_module, "settings")
+            except AttributeError:
+                raise ValueError("Cannot find settings variable in settings module %s" % cmd_options.settings)
+            settings = cls.settings_class(settings_dict)
 
         # Set up logging
         logging.config.dictConfig(settings['logging'])
