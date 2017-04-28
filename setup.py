@@ -8,6 +8,7 @@ install_requires = [
     'six>=1.10',
     'attrs>=16.3',
     'asgi_redis~=1.3',
+    'currint~=1.6',
 ]
 
 tests_require = [

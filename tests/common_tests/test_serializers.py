@@ -1,3 +1,6 @@
+from __future__ import unicode_literals
+import currint
+import datetime
 import pytest
 
 from pysoa.common.serializer import (
@@ -36,9 +39,8 @@ class TestSerializers():
         message = serializer.dict_to_blob(data)
         deserialized_message = serializer.blob_to_dict(message)
         for key, val in data.items():
-            assert (
-                deserialized_message[key] == val,
-                u'{} != {} for {}'.format(deserialized_message[key], val, serializer)
+            assert (deserialized_message[key] == val), u'{} != {} for {}'.format(
+                deserialized_message[key], val, serializer
             )
 
     @pytest.mark.parametrize('invalid_input', [
@@ -84,16 +86,42 @@ class TestSerializers():
         assert all(result_tuple[i] == input_tuple[i] for i in range(len(result_tuple)))
 
 
-def test_msgpack_bytes_converted_to_string():
+class TestMsgpackSerializer():
     """
-    Messagepack will happily encode bytes, but will always decode byte arrays as utf-8 strings.
-    This only matters in Python 3, where bytes and string are treated differently.
+    Tests specifically for the MessagePack serializer.
     """
-    data = {
-        b'bytes_key': b'this is a byte array',
-    }
-    serializer = MsgpackSerializer()
-    output = serializer.blob_to_dict(serializer.dict_to_blob(data))
-    key, val = list(output.items())[0]
-    assert key == 'bytes_key'
-    assert val == 'this is a byte array'
+
+    def test_bytes_preservation(self):
+        """
+        Tests that bytestrings and unicode strings' types are preserved.
+        """
+        data = {
+            b'bytes_key': b'this is a byte array',
+            u'unicode_key': u'unicode string!',
+        }
+        serializer = MsgpackSerializer()
+        output = serializer.blob_to_dict(serializer.dict_to_blob(data))
+        assert b'bytes_key' in output
+        assert u'unicode_key' in output
+        assert output[b'bytes_key'] == b'this is a byte array'
+        assert output[u'unicode_key'] == u'unicode string!'
+
+    @pytest.mark.parametrize('value', [
+        datetime.datetime(2011, 1, 24),
+        datetime.datetime(1970, 1, 1),
+        datetime.datetime(2017, 4, 28, 14, 30, 21, 231),
+        datetime.datetime(3, 1, 1, 5, 30),
+        datetime.datetime(9998, 3, 27, 1, 45),
+    ])
+    def test_datetime(self, value):
+        serializer = MsgpackSerializer()
+        assert serializer.blob_to_dict(serializer.dict_to_blob({'v': value}))['v'] == value
+
+    @pytest.mark.parametrize('value', [
+        currint.Amount.from_code_and_minor('EUR', 453),
+        currint.Amount.from_code_and_minor('JPY', 10000),
+        currint.Amount.from_code_and_minor('USD', -98329048),
+    ])
+    def test_currint(self, value):
+        serializer = MsgpackSerializer()
+        assert serializer.blob_to_dict(serializer.dict_to_blob({'v': value}))['v'] == value
