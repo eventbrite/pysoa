@@ -16,6 +16,20 @@ class_schema = fields.Dictionary(
 )
 
 
+def resolve_python_path(path):
+    """
+    Turns a python path like module.name.here:ClassName.SubClass into an object
+    """
+    # Get the module
+    module_path, local_path = path.split(":", 1)
+    thing = importlib.import_module(module_path)
+    # Traverse the local sections
+    local_bits = local_path.split(".")
+    for bit in local_bits:
+        thing = getattr(thing, bit)
+    return thing
+
+
 class SettingsMetaclass(type):
     """
     Metaclass that gathers fields defined on settings objects into a single
@@ -112,24 +126,11 @@ class Settings(object):
                 value = converter(value)
             self._data[key] = value
 
-    def resolve_python_path(self, path):
-        """
-        Turns a python path like module.name.here:ClassName.SubClass into an object
-        """
-        # Get the module
-        module_path, local_path = path.split(":", 1)
-        thing = importlib.import_module(module_path)
-        # Traverse the local sections
-        local_bits = local_path.split(".")
-        for bit in local_bits:
-            thing = getattr(thing, bit)
-        return thing
-
     def standard_convert_path(self, value):
         """Import the object the 'path' value in a class specifier, or raise ImproperlyConfigured."""
         if "object" not in value:
             try:
-                value["object"] = self.resolve_python_path(value["path"])
+                value["object"] = resolve_python_path(value["path"])
             except ImportError:
                 raise self.ImproperlyConfigured(
                     "Could not resolve path '{}' for configuration:\n{}".format(value["path"], value))

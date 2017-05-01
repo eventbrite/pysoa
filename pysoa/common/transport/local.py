@@ -1,10 +1,10 @@
 from __future__ import unicode_literals
-import importlib
 from collections import deque
 
 from pysoa.common.transport.exceptions import (
     MessageReceiveTimeout,
 )
+from pysoa.common.settings import resolve_python_path
 from .base import (
     ClientTransport,
     ServerTransport,
@@ -13,38 +13,30 @@ from .base import (
 
 class ThreadlocalClientTransport(ClientTransport):
 
-    def __init__(self, service_name, server_class_path, server_settings):
+    def __init__(self, service_name, server_class_or_path, server_settings):
         super(ThreadlocalClientTransport, self).__init__(service_name)
+        if isinstance(server_class_or_path, basestring):
+            try:
+                server_class = resolve_python_path(server_class_or_path)
+            except (ImportError, AttributeError) as e:
+                raise type(e)('Could not resolve server class path {}: {}'.format(server_class_or_path, e))
+        else:
+            server_class = server_class_or_path
 
-        # Load Server and settings dictionary
-        module_name, class_name = server_class_path.split(':', 1)
-        try:
-            server_module = importlib.import_module(module_name)
-        except ImportError:
-            raise ValueError('Cannot import server module {}'.format(module_name))
-        try:
-            server_class = getattr(server_module, class_name)
-        except AttributeError:
-            raise ValueError('Cannot find server class "{}" in module {}'.format(
-                class_name,
-                module_name,
-            ))
         if server_class.service_name != service_name:
-            raise ValueError('Server class {} service name "{}" does not match "{}"'.format(
-                server_class_path,
+            raise Exception('Server {} service name "{}" does not match "{}"'.format(
+                server_class,
                 server_class.service_name,
                 service_name,
             ))
-        try:
-            settings_module = importlib.import_module(server_settings)
-        except ImportError:
-            raise ValueError('Cannot import settings module {}'.format(server_settings))
-        try:
-            settings_dict = getattr(settings_module, 'settings')
-        except AttributeError:
-            raise ValueError('Cannot find settings variable in settings module {}'.format(
-                server_settings,
-            ))
+
+        if isinstance(server_settings, basestring):
+            try:
+                settings_dict = resolve_python_path(server_settings)
+            except (ImportError, AttributeError) as e:
+                raise type(e)('Could not resolve settings path {}: {}'.format(server_settings, e))
+        else:
+            settings_dict = server_settings
 
         # Patch settings_dict to use ThreadlocalServerTransport
         settings_dict['transport'] = {
@@ -86,9 +78,5 @@ class ThreadlocalServerTransport(ServerTransport):
 
     def send_response_message(self, request_id, meta, message_string):
         self.response_messages.append(
-            (
-                request_id,
-                meta,
-                message_string,
-            )
+            (request_id, meta, message_string,)
         )
