@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.8.1 (2017-05-01)
+------------------
+- Update ThreadlocalClientTransport to support both import paths and objects at initialization
+- Make Server class somewhat Django-compatible
+
 0.8.0 (2017-04-26)
 ------------------
 - Client middleware uses onion calling pattern
