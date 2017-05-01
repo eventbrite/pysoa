@@ -8,6 +8,7 @@ class Error(object):
     message = attr.ib()
     field = attr.ib(default=None)
     traceback = attr.ib(default=None)
+    variables = attr.ib(default=None)
 
 
 @attr.s

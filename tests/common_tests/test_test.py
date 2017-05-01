@@ -84,6 +84,7 @@ class TestStubClient:
                         'message': 'Invalid input',
                         'field': 'quas.wex',
                         'traceback': None,
+                        'variables': None,
                     },
                 ],
             },

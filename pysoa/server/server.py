@@ -94,7 +94,7 @@ class Server(object):
             response_dict = attr.asdict(job_response)
             response_message = self.serializer.dict_to_blob(response_dict)
         except Exception as e:
-            job_response = self.handle_error(e)
+            job_response = self.handle_error(e, variables={'job_response': response_dict})
             response_dict = attr.asdict(job_response)
             response_message = self.serializer.dict_to_blob(response_dict)
         self.transport.send_response_message(request_id, meta, response_message)
@@ -151,7 +151,7 @@ class Server(object):
 
         return job_response
 
-    def handle_error(self, error):
+    def handle_error(self, error, variables=None):
         """
         Makes a last-ditch error response
         """
@@ -163,13 +163,17 @@ class Server(object):
         # Log what happened
         self.logger.error("Unhandled error: %s", traceback_str)
         # Make a barebones job response
-        job_response = JobResponse(
-            errors=[{
-                'code': ERROR_CODE_SERVER_ERROR,
-                'message': 'Internal server error: %s' % error_str,
-                'traceback': traceback_str,
-            }],
-        )
+        error_dict = {
+            'code': ERROR_CODE_SERVER_ERROR,
+            'message': 'Internal server error: %s' % error_str,
+            'traceback': traceback_str,
+        }
+        if variables is not None:
+            try:
+                error_dict['variables'] = {key: repr(value) for key, value in variables.items()}
+            except Exception:
+                error_dict['variables'] = 'Error formatting variables'
+        job_response = JobResponse(errors=[error_dict])
         return job_response
 
     def execute_job(self, job_request):
