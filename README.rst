@@ -18,7 +18,7 @@ The basic tenets of the framework are:
   You can call actions individually, or bundle multiple action calls into a Job to
   be run serially (either aborting or continuing on error).
 
-* Requests and responses are simply Python ``dict``s, using our validation framework
+* Requests and responses are simply Python ``dicts``, using our validation framework
   `conformity <https://github.com/eventbrite/conformity>`_ in order to verify their
   schema on the way in and out.
 
