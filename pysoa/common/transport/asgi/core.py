@@ -46,11 +46,11 @@ class SentinelMasterConnectionList(object):
         self._maybe_refresh_masters()
 
     def _maybe_refresh_masters(self):
-        if self._should_maybe_refresh_masters():
+        if self._should_refresh_masters():
             hosts = self._get_master_info()
             self._master_connection_list = [redis.Redis.from_url(host, **self.redis_kwargs) for host in hosts]
 
-    def _should_maybe_refresh_masters(self):
+    def _should_refresh_masters(self):
         return (time.time() - self._last_sentinel_refresh) > self.sentinel_refresh_interval
 
     def _get_master_info(self):
