@@ -21,7 +21,7 @@ setup(
     name='pysoa',
     version=__version__,
     author='Eventbrite, Inc.',
-    author_email='andrewgodwin@eventbrite.com',
+    author_email='opensource@eventbrite.com',
     url='http://github.com/eventbrite/pysoa',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,
