@@ -6,6 +6,8 @@ class ClientRouter(object):
     Manages creating clients per service.
 
     Pass in a dictionary mapping service names to settings dicts for those services.
+
+    You may also pass in a `context` dictionary to pre-populate clients with it.
     """
 
     settings_class = ClientSettings
@@ -13,11 +15,12 @@ class ClientRouter(object):
     class ImproperlyConfigured(Exception):
         pass
 
-    def __init__(self, config, settings_class=None):
+    def __init__(self, config, settings_class=None, context=None):
         if settings_class:
             self.settings_class = settings_class
         self.cached_clients = {}
         self.settings = {}
+        self.context = context
         # We load the settings now, but do not make clients until requested
         for service_name, service_settings in config.items():
             self.settings[service_name] = self.settings_class(service_settings)
@@ -47,5 +50,6 @@ class ClientRouter(object):
             serializer=serializer_class(**settings['serializer'].get('kwargs', {})),
             middleware=[middleware_class(**middleware_kwargs)
                         for middleware_class, middleware_kwargs in settings['middleware']],
+            context=self.context,
             **client_kwargs
         )

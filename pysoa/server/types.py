@@ -14,3 +14,4 @@ class EnrichedActionRequest(ActionRequest):
     switches = attr.ib(default=attr.Factory(list))
     context = attr.ib(default=attr.Factory(dict))
     control = attr.ib(default=attr.Factory(dict))
+    client_router = attr.ib(default=None)
