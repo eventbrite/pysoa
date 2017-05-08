@@ -83,7 +83,8 @@ class SentinelMasterConnectionList(object):
         if self._master_connection_list and len(self._master_connection_list) != len(master_info_list):
             # If this happens, you have an Ops problem
             logger.warning('Number of Redis masters changed since last refresh! Messages may be lost.')
-        return sorted(['redis://{}:{}/0'.format(info['ip'], info['port']) for info in master_info_list])
+        self._master_connection_list = sorted(
+            ['redis://{}:{}/0'.format(info['ip'], info['port']) for info in master_info_list])
 
     def __iter__(self):
         self._refresh_masters()
