@@ -1,5 +1,8 @@
-Changelog
-=========
+0.9.0 (2017-05-08)
+------------------
+
+- New ServerTestCase for writing tests against Servers and their actions
+- Allow variables to be included with errors and then sends the response down with failed serialization
 
 0.8.1 (2017-05-01)
 ------------------

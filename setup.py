@@ -20,6 +20,9 @@ tests_require = [
 setup(
     name='pysoa',
     version=__version__,
+    author='Eventbrite, Inc.',
+    author_email='andrewgodwin@eventbrite.com',
+    url='http://github.com/eventbrite/pysoa',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,
     install_requires=install_requires,
