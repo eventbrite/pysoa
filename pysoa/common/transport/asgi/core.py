@@ -43,14 +43,14 @@ class SentinelMasterConnectionList(object):
         self.redis_kwargs = redis_kwargs
         self._master_connection_list = []
         self._last_sentinel_refresh = 0
-        self._refresh_masters()
+        self._maybe_refresh_masters()
 
-    def _refresh_masters(self):
-        if self._should_refresh_masters():
+    def _maybe_refresh_masters(self):
+        if self._should_maybe_refresh_masters():
             hosts = self._get_master_info()
             self._master_connection_list = [redis.Redis.from_url(host, **self.redis_kwargs) for host in hosts]
 
-    def _should_refresh_masters(self):
+    def _should_maybe_refresh_masters(self):
         return (time.time() - self._last_sentinel_refresh) > self.sentinel_refresh_interval
 
     def _get_master_info(self):
@@ -85,25 +85,22 @@ class SentinelMasterConnectionList(object):
             logger.warning('Number of Redis masters changed since last refresh! Messages may be lost.')
         self._master_connection_list = sorted(
             ['redis://{}:{}/0'.format(info['ip'], info['port']) for info in master_info_list])
+        self.ring_size = len(master_info_list)
 
     def __iter__(self):
-        self._refresh_masters()
+        self._maybe_refresh_masters()
         return iter(self._master_connection_list)
 
     def __getitem__(self, key):
-        self._refresh_masters()
+        self._maybe_refresh_masters()
         return self._master_connection_list[key]
 
     def __len__(self):
-        self._refresh_masters()
+        self._maybe_refresh_masters()
         return len(self._master_connection_list)
 
 
 class SentinelRedisChannelLayer(RedisChannelLayer):
-
-    def __init__(self, *args, **kwargs):
-        super(SentinelRedisChannelLayer, self).__init__(*args, **kwargs)
-        self.ring_size = len(self._connection_list)
 
     def _generate_connections(self, redis_kwargs):
         return SentinelMasterConnectionList(self.hosts, redis_kwargs)
