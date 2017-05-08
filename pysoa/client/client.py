@@ -11,11 +11,12 @@ from pysoa.common.types import (
 class Client(object):
     """The Client provides a simple interface for calling actions on Servers."""
 
-    def __init__(self, service_name, transport, serializer, middleware=None):
+    def __init__(self, service_name, transport, serializer, middleware=None, context=None):
         self.service_name = service_name
         self.transport = transport
         self.serializer = serializer
         self.middleware = middleware or []
+        self.context = context
         self.request_counter = 0
 
     class JobError(Exception):
@@ -57,19 +58,38 @@ class Client(object):
 
     def make_control_header(
         self,
-        switches=None,
-        correlation_id=None,
         continue_on_error=False,
         control_extra=None,
     ):
         control = {
-            'correlation_id': correlation_id or self.generate_correlation_id(),
-            'switches': switches or [],
             'continue_on_error': continue_on_error,
         }
         if control_extra:
             control.update(control_extra)
         return control
+
+    def make_context_header(
+        self,
+        switches=None,
+        correlation_id=None,
+        context_extra=None,
+    ):
+        # Copy the underlying context object, if it was provided
+        context = dict(self.context.items()) if self.context else {}
+        # Either add on, reuse or generate a correlation ID
+        if correlation_id is not None:
+            context['correlation_id'] = correlation_id
+        elif 'correlation_id' not in context:
+            context['correlation_id'] = self.generate_correlation_id()
+        # Optionally add switches
+        if switches is not None:
+            context['switches'] = switches
+        elif 'switches' not in context:
+            context['switches'] = []
+        # Add any extra stuff
+        if context_extra:
+            context.update(context_extra)
+        return context
 
     def make_middleware_stack(self, middleware, base):
         """
@@ -110,10 +130,13 @@ class Client(object):
             JobResponse
         """
         control = self.make_control_header(
-            switches=switches,
-            correlation_id=correlation_id,
             continue_on_error=continue_on_error,
             control_extra=control_extra,
+        )
+        context = self.make_context_header(
+            switches=switches,
+            correlation_id=correlation_id,
+            context_extra=context,
         )
         request = JobRequest(actions=actions, control=control, context=context or {})
         request_id = self.send_request(request)

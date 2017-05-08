@@ -18,8 +18,14 @@ ActionRequestSchema = Dictionary(
 
 ControlHeaderSchema = Dictionary(
     {
-        'switches': List(Integer()),
         'continue_on_error': Boolean(),
+    },
+    allow_extra_keys=True,
+)
+
+ContextHeaderSchema = Dictionary(
+    {
+        'switches': List(Integer()),
         'correlation_id': UnicodeString(),
     },
     allow_extra_keys=True,
@@ -28,8 +34,7 @@ ControlHeaderSchema = Dictionary(
 JobRequestSchema = Dictionary(
     {
         'control': ControlHeaderSchema,
-        'context': SchemalessDictionary(key_type=UnicodeString()),
+        'context': ContextHeaderSchema,
         'actions': List(ActionRequestSchema),
     },
-    optional_keys=['context'],
 )

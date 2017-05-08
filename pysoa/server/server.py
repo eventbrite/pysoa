@@ -9,6 +9,7 @@ import signal
 
 import attr
 
+from pysoa.client.router import ClientRouter
 from pysoa.common.types import (
     JobResponse,
     ActionResponse,
@@ -100,6 +101,12 @@ class Server(object):
         self.transport.send_response_message(request_id, meta, response_message)
         self.job_logger.info("Job response: %s", response_dict)
 
+    def make_client_router(self, context):
+        """
+        Gets a client router to pass down to middleware or Actions that will
+        propagate the passed `context`.
+        """
+        return ClientRouter(self.settings['client_routing'], context=context)
 
     def make_middleware_stack(self, middleware, base):
         """
@@ -133,6 +140,9 @@ class Server(object):
             ]
             if validation_errors:
                 raise JobError(errors=validation_errors)
+
+            # Add a client router in case a middleware wishes to use it
+            job_request['client_router'] = self.make_client_router(job_request['context'])
 
             # Build set of middleware + job handler, then run job
             wrapper = self.make_middleware_stack(
@@ -182,14 +192,15 @@ class Server(object):
         """
         # Run the Job's Actions
         job_response = JobResponse()
-        job_switches = RequestSwitchSet(job_request['control']['switches'])
+        job_switches = RequestSwitchSet(job_request['context']['switches'])
         for i, raw_action_request in enumerate(job_request['actions']):
             action_request = EnrichedActionRequest(
                 action=raw_action_request['action'],
                 body=raw_action_request.get('body', None),
                 switches=job_switches,
-                context=job_request.get('context', {}),
+                context=job_request['context'],
                 control=job_request['control'],
+                client_router=job_request['client_router'],
             )
             if action_request.action in self.action_class_map:
                 # Get action to run
