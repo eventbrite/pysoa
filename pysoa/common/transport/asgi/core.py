@@ -36,6 +36,8 @@ def valid_channel_type(instance, attribute, value):
 class SentinelMasterConnectionList(object):
 
     def __init__(self, hosts, redis_kwargs=None, sentinel_refresh_interval=30):
+        if not hosts:
+            raise Exception('hosts cannot be empty')
         self.hosts = hosts
         self.sentinel_refresh_interval = sentinel_refresh_interval
         if redis_kwargs is None:
@@ -58,21 +60,17 @@ class SentinelMasterConnectionList(object):
 
         Returns: list of tuples of (host, port)
         """
+        logger.info('Fetching master list from Sentinel.')
         master_info_list = []
         connection_errors = []
-        for host in random.shuffle(self.hosts):
+        random.shuffle(self.hosts)
+        for host in self.hosts:
             try:
-                redis_client = redis.StrictRedis(
-                    host=host[0],
-                    port=host[1],
-                )
+                redis_client = redis.StrictRedis.from_url(host)
                 master_info_list = redis_client.sentinel_masters()
                 break
             except redis.ConnectionError as e:
-                connection_errors.append(
-                    'Failed to connect to redis://%s:%d: %s' %
-                    (host[0], host[1], str(e))
-                )
+                connection_errors.append('Failed to connect to {}: {}'.format(host, e))
                 continue
         if not master_info_list:
             raise ConnectionError('Could not get master info from sentinel\n{}.'.format('\n'.join(connection_errors)))
@@ -81,7 +79,7 @@ class SentinelMasterConnectionList(object):
         if self._master_connection_list and len(self._master_connection_list) != len(master_info_list):
             # If this happens, you have an Ops problem
             logger.warning('Number of Redis masters changed since last refresh! Messages may be lost.')
-        return sorted(['redis://{}:{}/0'.format(info['ip'], info['port']) for info in master_info_list])
+        return sorted(['redis://{}:{}/0'.format(info['ip'], info['port']) for info in master_info_list.values()])
 
     def __iter__(self):
         self._maybe_refresh_masters()
@@ -153,7 +151,7 @@ class ASGITransportCore(object):
     def _make_channel_layer(self):
         """Make an ASGI channel layer for either Redis or local backend."""
         if self.asgi_channel_type == ASGI_CHANNEL_TYPE_REDIS_SENTINEL:
-            self._channel_layer = SentinelRedisChannelLayer(self.hosts)
+            self._channel_layer = SentinelRedisChannelLayer(hosts=self.hosts)
         elif self.asgi_channel_type == ASGI_CHANNEL_TYPE_REDIS:
             host_urls = ['redis://{}:{}/{}'.format(h[0], h[1], self.redis_db) for h in self.hosts]
             self._channel_layer = RedisChannelLayer(host_urls)
