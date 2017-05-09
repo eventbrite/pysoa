@@ -50,8 +50,13 @@ class SentinelMasterConnectionList(object):
     def _maybe_refresh_masters(self):
         if (time.time() - self._last_sentinel_refresh) > self.sentinel_refresh_interval:
             hosts = self._get_master_info()
+            # Check that the number of hosts returned by Sentinel is the same as last time
+            if self._master_connection_list and len(self._master_connection_list) != len(hosts):
+                # If this happens, you have an Ops problem
+                logger.warning('Number of Redis masters changed since last refresh! Messages may be lost.')
             self._master_connection_list = [redis.Redis.from_url(host, **self.redis_kwargs) for host in hosts]
             self.ring_size = len(hosts)
+            self._last_sentinel_refresh = time.time()
 
     def _get_master_info(self):
         """
@@ -61,25 +66,20 @@ class SentinelMasterConnectionList(object):
         Returns: list of tuples of (host, port)
         """
         logger.info('Fetching master list from Sentinel.')
-        master_info_list = []
+        master_info = {}
         connection_errors = []
         random.shuffle(self.hosts)
         for host in self.hosts:
             try:
                 redis_client = redis.StrictRedis.from_url(host)
-                master_info_list = redis_client.sentinel_masters()
+                master_info = redis_client.sentinel_masters()
                 break
             except redis.ConnectionError as e:
                 connection_errors.append('Failed to connect to {}: {}'.format(host, e))
                 continue
-        if not master_info_list:
+        if not master_info:
             raise ConnectionError('Could not get master info from sentinel\n{}.'.format('\n'.join(connection_errors)))
-        self._last_sentinel_refresh = time.time()
-        # Check that the number of hosts returned by Sentinel is the same as last time
-        if self._master_connection_list and len(self._master_connection_list) != len(master_info_list):
-            # If this happens, you have an Ops problem
-            logger.warning('Number of Redis masters changed since last refresh! Messages may be lost.')
-        return sorted(['redis://{}:{}/0'.format(info['ip'], info['port']) for info in master_info_list.values()])
+        return sorted(['redis://{}:{}/0'.format(info['ip'], info['port']) for info in master_info.values()])
 
     def __iter__(self):
         self._maybe_refresh_masters()
