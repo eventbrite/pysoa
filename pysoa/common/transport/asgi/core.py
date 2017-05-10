@@ -55,7 +55,6 @@ class SentinelMasterConnectionList(object):
                 # If this happens, you have an Ops problem
                 logger.warning('Number of Redis masters changed since last refresh! Messages may be lost.')
             self._master_connection_list = [redis.Redis.from_url(host, **self.redis_kwargs) for host in hosts]
-            self.ring_size = len(hosts)
             self._last_sentinel_refresh = time.time()
 
     def _get_master_info(self):
@@ -95,6 +94,10 @@ class SentinelMasterConnectionList(object):
 
 
 class SentinelRedisChannelLayer(RedisChannelLayer):
+
+    def __init__(self, *args, **kwargs):
+        super(SentinelRedisChannelLayer, self).__init__(*args, **kwargs)
+        self.ring_size = len(self._connection_list)
 
     def _generate_connections(self, redis_kwargs):
         return SentinelMasterConnectionList(self.hosts, redis_kwargs)
