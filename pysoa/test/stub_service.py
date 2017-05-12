@@ -4,7 +4,7 @@ import re
 
 from pysoa.client import Client
 from pysoa.common.types import Error
-from pysoa.common.transport.local import ThreadlocalClientTransport
+from pysoa.common.transport.local import LocalClientTransport
 from pysoa.server import Server
 from pysoa.server.settings import ServerSettings
 from pysoa.server.action import (
@@ -62,7 +62,7 @@ class StubClient(Client):
         self.transport.stub_action(action, body=body, errors=errors)
 
 
-class StubClientTransport(ThreadlocalClientTransport):
+class StubClientTransport(LocalClientTransport):
     """A transport that incorporates an automatically-configured server for handling requests."""
 
     def __init__(self, service_name='test', action_class_map=None):

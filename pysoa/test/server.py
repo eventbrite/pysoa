@@ -3,7 +3,7 @@ import unittest
 
 from pysoa.client import Client
 from pysoa.common.serializer import MsgpackSerializer
-from pysoa.common.transport.local import ThreadlocalClientTransport
+from pysoa.common.transport.local import LocalClientTransport
 
 
 class ServerTestCase(unittest.TestCase):
@@ -39,7 +39,7 @@ class ServerTestCase(unittest.TestCase):
                     )
 
         # Set up a transport with a local server
-        self.transport = ThreadlocalClientTransport(
+        self.transport = LocalClientTransport(
             self.server_class.service_name,
             self.server_class,
             server_settings=settings,
