@@ -3,13 +3,13 @@ from .asgi import (
     ASGIServerTransport,
 )
 from .local import (
-    ThreadlocalClientTransport,
-    ThreadlocalServerTransport,
+    LocalClientTransport,
+    LocalServerTransport,
 )
 
 __all__ = [
     'ASGIClientTransport',
     'ASGIServerTransport',
-    'ThreadlocalClientTransport',
-    'ThreadlocalServerTransport',
+    'LocalClientTransport',
+    'LocalServerTransport',
 ]
