@@ -139,6 +139,7 @@ class TestClientSendReceive:
         client_transport.stub_action('action_2', body={'baz': 3})
         client = Client(SERVICE_NAME, client_transport, serializer)
         request_dict['control'] = client.make_control_header()
+        request_dict['context'] = client.make_context_header()
 
         for request in (request_dict, JobRequest(**request_dict)):
             responses = list(client.get_all_responses())

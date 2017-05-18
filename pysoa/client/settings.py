@@ -1,7 +1,10 @@
+from __future__ import unicode_literals
+
 from pysoa.common.settings import (
     SOASettings,
-    class_schema,
+    BasicClassSchema,
 )
+from pysoa.common.transport.asgi.settings import ASGITransportSchema
 
 from conformity import fields
 
@@ -9,13 +12,19 @@ from conformity import fields
 class ClientSettings(SOASettings):
     """Settings specifically for clients."""
     schema = {
-        'client': class_schema,
+        'client': BasicClassSchema(),
         'cacheable': fields.Boolean(),
     }
     defaults = {
-        'client': {'path': u'pysoa.client:Client'},
+        'client': {'path': 'pysoa.client:Client'},
         'cacheable': False,
     }
 
     def convert_client(self, value):
         return self.standard_convert_path(value)
+
+
+class ASGIClientSettings(ClientSettings):
+    schema = {
+        'transport': ASGITransportSchema(),
+    }

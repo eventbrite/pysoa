@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import importlib
 import itertools
 import six
@@ -7,13 +9,12 @@ from conformity import fields
 from conformity.validator import validate
 
 
-class_schema = fields.Dictionary(
-    {
+class BasicClassSchema(fields.Dictionary):
+    contents = {
         "path": fields.UnicodeString(),
         "kwargs": fields.SchemalessDictionary(key_type=fields.UnicodeString()),
-    },
-    optional_keys=["kwargs"],
-)
+    }
+    optional_keys = ["kwargs"]
 
 
 def resolve_python_path(path):
@@ -146,12 +147,13 @@ class SOASettings(Settings):
     """
     schema = {
         # Paths to the classes to use and then kwargs to pass
-        "transport": class_schema,
-        "serializer": class_schema,
-        "middleware": fields.List(class_schema),
+        "transport": BasicClassSchema(),
+        "serializer": BasicClassSchema(),
+        "middleware": fields.List(BasicClassSchema()),
     }
 
     defaults = {
+        'serializer': {'path': 'pysoa.common.serializer:MsgpackSerializer'},
         "middleware": [],
     }
 

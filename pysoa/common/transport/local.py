@@ -13,17 +13,15 @@ from .base import (
 
 class LocalClientTransport(ClientTransport):
 
-    def __init__(self, service_name, server_class_or_path, server_settings):
+    def __init__(self, service_name, server_class, server_settings):
         super(LocalClientTransport, self).__init__(service_name)
 
         # If the server is specified as a path, resolve it to a class
-        if isinstance(server_class_or_path, basestring):
+        if isinstance(server_class, basestring):
             try:
-                server_class = resolve_python_path(server_class_or_path)
+                server_class = resolve_python_path(server_class)
             except (ImportError, AttributeError) as e:
-                raise type(e)('Could not resolve server class path {}: {}'.format(server_class_or_path, e))
-        else:
-            server_class = server_class_or_path
+                raise type(e)('Could not resolve server class path {}: {}'.format(server_class, e))
 
         # Make sure the client and the server match names
         if server_class.service_name != service_name:
@@ -42,7 +40,7 @@ class LocalClientTransport(ClientTransport):
         else:
             settings_dict = server_settings
 
-        # Patch settings_dict to use ThreadlocalServerTransport
+        # Patch settings_dict to use LocalServerTransport
         settings_dict['transport'] = {
             'path': 'pysoa.common.transport.local:LocalServerTransport',
         }

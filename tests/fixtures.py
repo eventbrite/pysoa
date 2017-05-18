@@ -1,7 +1,5 @@
-from pysoa.test.stub_service import (
-    StubClientTransport,
-    NoopSerializer,
-)
+from pysoa.test.stub_service import StubClientTransport
+from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
 
 import pytest
 
@@ -13,4 +11,4 @@ def client_transport():
 
 @pytest.fixture()
 def serializer():
-    return NoopSerializer()
+    return MsgpackSerializer()

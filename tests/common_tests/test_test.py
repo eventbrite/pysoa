@@ -94,9 +94,16 @@ class TestStubClient:
         client.stub_action('action_3', **responses['action_3'])
 
         control = client.make_control_header()
-        request_1 = JobRequest(control=control, actions=[{'action': 'action_1'}, {'action': 'action_2'}])
-        request_2 = JobRequest(control=control, actions=[{'action': 'action_2'}, {'action': 'action_1'}])
-        request_3 = JobRequest(control=control, actions=[{'action': 'action_3'}])
+        context = client.make_context_header()
+        request_1 = JobRequest(control=control, context=context, actions=[
+            {'action': 'action_1'},
+            {'action': 'action_2'},
+        ])
+        request_2 = JobRequest(control=control, context=context, actions=[
+            {'action': 'action_2'},
+            {'action': 'action_1'},
+        ])
+        request_3 = JobRequest(control=control, context=context, actions=[{'action': 'action_3'}])
 
         # Store requests by request ID for later verification, because order is not guaranteed
         requests_by_id = {}

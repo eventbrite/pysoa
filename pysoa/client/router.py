@@ -1,4 +1,9 @@
-from .settings import ClientSettings
+from __future__ import unicode_literals
+
+from .settings import (
+    ClientSettings,
+    ASGIClientSettings,
+)
 
 
 class ClientRouter(object):
@@ -53,3 +58,7 @@ class ClientRouter(object):
             context=self.context,
             **client_kwargs
         )
+
+
+class ASGIClientRouter(ClientRouter):
+    settings_class = ASGIClientSettings

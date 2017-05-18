@@ -5,8 +5,8 @@ import re
 from pysoa.client import Client
 from pysoa.common.types import Error
 from pysoa.common.transport.local import LocalClientTransport
+from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
 from pysoa.server import Server
-from pysoa.server.settings import ServerSettings
 from pysoa.server.action import (
     Action,
     ActionError,
@@ -34,16 +34,6 @@ class StubAction(Action):
             return self.body
 
 
-class NoopSerializer:
-    mime_type = 'application/noop'
-
-    def dict_to_blob(self, msg):
-        return msg
-
-    def blob_to_dict(self, msg):
-        return msg
-
-
 class StubClient(Client):
     """
     A Client for testing code that calls service actions.
@@ -55,7 +45,7 @@ class StubClient(Client):
 
     def __init__(self, service_name='test', action_class_map=None, **kwargs):
         transport = StubClientTransport(service_name=service_name, action_class_map=action_class_map)
-        serializer = NoopSerializer()
+        serializer = MsgpackSerializer()
         super(StubClient, self).__init__(service_name, transport, serializer)
 
     def stub_action(self, action, body=None, errors=None):
@@ -66,15 +56,14 @@ class StubClientTransport(LocalClientTransport):
     """A transport that incorporates an automatically-configured server for handling requests."""
 
     def __init__(self, service_name='test', action_class_map=None):
-        server_settings = ServerSettings({
-            'transport': {
-                'path': 'pysoa.common.transport.local:ThreadlocalServerTransport',
-            },
-            'serializer': {
-                'path': 'pysoa.test.stub_service:NoopSerializer',
-            },
-        })
-        self.server = StubServer(server_settings, service_name=service_name, action_class_map=action_class_map)
+        action_class_map = action_class_map or {}
+        server_class_name = ''.join([part.capitalize() for part in re.split(r'[^a-zA-Z0-9]+', service_name)]) + 'Server'
+        server_class = type(
+            str(server_class_name),
+            (StubServer,),
+            dict(service_name=service_name, action_class_map=action_class_map),
+        )
+        super(StubClientTransport, self).__init__(service_name, server_class, {})
 
     def stub_action(self, action, body=None, errors=None):
         self.server.stub_action(action, body=body, errors=errors)
@@ -86,15 +75,6 @@ class StubServer(Server):
     subclasses.
     """
 
-    def __new__(cls, settings, service_name='test', action_class_map=None):
-        instance = super(StubServer, cls).__new__(cls)
-        instance.service_name = service_name
-        instance.action_class_map = action_class_map or {}
-        return instance
-
-    def __init__(self, settings, **kwargs):
-        super(StubServer, self).__init__(settings)
-
     def stub_action(self, action, body=None, errors=None):
         """
         Make a new StubAction class with the given body and errors, and add it to the action_class_map.
@@ -103,5 +83,9 @@ class StubServer(Server):
         called 'update_foo' will have an action class called UpdateFoo.
         """
         action_class_name = ''.join([part.capitalize() for part in re.split(r'[^a-zA-Z0-9]+', action)])
-        new_action_class = type(str(action_class_name), (StubAction,), dict(body=body, errors=errors))
+        new_action_class = type(
+            str(action_class_name),
+            (StubAction,),
+            dict(body=body, errors=errors),
+        )
         self.action_class_map[action] = new_action_class

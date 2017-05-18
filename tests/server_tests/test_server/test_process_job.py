@@ -36,7 +36,7 @@ class ProcessJobMiddleware(ServerMiddleware):
 
     def job(self, process):
         def handler(request):
-            if request["control"].get("test_job_middleware"):
+            if request['control'].get('test_job_middleware'):
                 result = process(request)
                 result.actions[0].body['middleware'] = True
                 return result
@@ -46,7 +46,7 @@ class ProcessJobMiddleware(ServerMiddleware):
 
     def action(self, process):
         def handler(request):
-            if request.body.get("test_action_middleware"):
+            if request.body.get('test_action_middleware'):
                 result = process(request)
                 result.body['middleware'] = True
                 return result
@@ -63,7 +63,7 @@ class ProcessJobTests(TestCase):
     def setUp(self):
         # Make a new server instance each time
         settings = factories.ServerSettingsFactory()
-        settings['middleware'].append({"object": ProcessJobMiddleware})
+        settings['middleware'].append({'object': ProcessJobMiddleware})
         self.server = ProcessJobServer(settings=settings)
 
     def make_job(self, action, body):
@@ -72,13 +72,15 @@ class ProcessJobTests(TestCase):
         """
         return {
             'control': {
-                'switches': [],
                 'continue_on_error': False,
-                'correlation_id': u'1',
+            },
+            'context': {
+                'switches': [],
+                'correlation_id': '1',
             },
             'actions': [{
-                "action": action,
-                "body": body,
+                'action': action,
+                'body': body,
             }],
         }
 
@@ -88,20 +90,20 @@ class ProcessJobTests(TestCase):
         the schema checker for it.
         """
         # Make a bad request
-        job_request = self.make_job("respond_empty", {})
-        del job_request['control']['switches']
+        job_request = self.make_job('respond_empty', {})
+        del job_request['context']['switches']
         # Process it
         job_response = self.server.process_job(job_request)
         # Make sure we got an error
         self.assertEqual(len(job_response.errors), 1)
-        self.assertEqual(job_response.errors[0].field, 'control.switches')
+        self.assertEqual(job_response.errors[0].field, 'context.switches')
 
     def test_invalid_action_name_returns_action_response_with_error(self):
         """
         Tests that sending an invalid action name triggers an error.
         """
         # Make a bad request
-        job_request = self.make_job("invalid_action", {})
+        job_request = self.make_job('invalid_action', {})
         job_response = self.server.process_job(job_request)
         # Make sure there's an error in that action's section
         self.assertEqual(len(job_response.actions), 1)
@@ -113,7 +115,7 @@ class ProcessJobTests(TestCase):
         Tests that an ActionError raised from an action comes through correctly
         """
         # We send to a premade failure action
-        job_request = self.make_job("respond_actionerror", {})
+        job_request = self.make_job('respond_actionerror', {})
         job_response = self.server.process_job(job_request)
         # Check it came through right
         self.assertEqual(len(job_response.actions), 1)
@@ -125,7 +127,7 @@ class ProcessJobTests(TestCase):
         Tests that the job middleware runs
         """
         # Send an empty request/response set with a control header set
-        job_request = self.make_job("respond_empty", {})
+        job_request = self.make_job('respond_empty', {})
         job_request['control']['test_job_middleware'] = True
         job_response = self.server.process_job(job_request)
         # Make sure the middleware set a flag in it
@@ -137,7 +139,7 @@ class ProcessJobTests(TestCase):
         Tests that the action middleware runs
         """
         # Send an empty request/response set with body data
-        job_request = self.make_job("respond_empty", {})
+        job_request = self.make_job('respond_empty', {})
         job_request['actions'][0]['body']['test_action_middleware'] = True
         job_response = self.server.process_job(job_request)
         # Make sure the middleware set a flag in it
