@@ -1,3 +1,12 @@
+0.11.0 (2017-05-19)
+-------------------
+
+- Updated the ASGI transport backend to use the new version of asgi_redis
+- Improved the local client transport and renamed to LocalClientTransport
+- Added settings schema for ASGI transports
+- Added settings classes for ASGI-backed Server and Client
+- Made MsgpackSerializer the default serializer for all Servers and Clients
+
 0.10.0 (2017-05-09)
 -------------------
 
