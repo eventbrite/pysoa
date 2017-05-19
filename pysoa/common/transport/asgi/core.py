@@ -4,16 +4,18 @@ import random
 import six
 import time
 import logging
+from copy import deepcopy
 
 import attr
-from asgi_redis import RedisChannelLayer
-import redis
+from asgi_redis import (
+    RedisChannelLayer,
+    RedisSentinelChannelLayer,
+)
 
 from pysoa.common.transport.exceptions import (
     MessageTooLarge,
     MessageReceiveError,
     MessageSendError,
-    ConnectionError,
     InvalidMessageError,
     MessageReceiveTimeout,
 )
@@ -33,73 +35,6 @@ def valid_channel_type(instance, attribute, value):
         raise ValueError('asgi_channel_type must be one of {}, got {}'.format(ASGI_CHANNEL_TYPES, value))
 
 
-class SentinelMasterConnectionList(object):
-
-    def __init__(self, hosts, redis_kwargs=None, sentinel_refresh_interval=30):
-        if not hosts:
-            raise Exception('hosts cannot be empty')
-        self.hosts = hosts
-        self.sentinel_refresh_interval = sentinel_refresh_interval
-        if redis_kwargs is None:
-            redis_kwargs = {}
-        self.redis_kwargs = redis_kwargs
-        self._master_connection_list = []
-        self._last_sentinel_refresh = 0
-        self._maybe_refresh_masters()
-
-    def _maybe_refresh_masters(self):
-        if (time.time() - self._last_sentinel_refresh) > self.sentinel_refresh_interval:
-            hosts = self._get_master_info()
-            # Check that the number of hosts returned by Sentinel is the same as last time
-            if self._master_connection_list and len(self._master_connection_list) != len(hosts):
-                # If this happens, you have an Ops problem
-                logger.warning('Number of Redis masters changed since last refresh! Messages may be lost.')
-            self._master_connection_list = [redis.Redis.from_url(host, **self.redis_kwargs) for host in hosts]
-            self.ring_size = len(hosts)
-            self._last_sentinel_refresh = time.time()
-
-    def _get_master_info(self):
-        """
-        Get a list of Redis masters from Sentinel. Tries Sentinel hosts until one succeeds; if none succeed,
-        raises a ConnectionError.
-
-        Returns: list of tuples of (host, port)
-        """
-        logger.info('Fetching master list from Sentinel.')
-        master_info = {}
-        connection_errors = []
-        random.shuffle(self.hosts)
-        for host in self.hosts:
-            try:
-                redis_client = redis.StrictRedis.from_url(host)
-                master_info = redis_client.sentinel_masters()
-                break
-            except redis.ConnectionError as e:
-                connection_errors.append('Failed to connect to {}: {}'.format(host, e))
-                continue
-        if not master_info:
-            raise ConnectionError('Could not get master info from sentinel\n{}.'.format('\n'.join(connection_errors)))
-        return sorted(['redis://{}:{}/0'.format(info['ip'], info['port']) for info in master_info.values()])
-
-    def __iter__(self):
-        self._maybe_refresh_masters()
-        return iter(self._master_connection_list)
-
-    def __getitem__(self, key):
-        self._maybe_refresh_masters()
-        return self._master_connection_list[key]
-
-    def __len__(self):
-        self._maybe_refresh_masters()
-        return len(self._master_connection_list)
-
-
-class SentinelRedisChannelLayer(RedisChannelLayer):
-
-    def _generate_connections(self, redis_kwargs):
-        return SentinelMasterConnectionList(self.hosts, redis_kwargs)
-
-
 @attr.s()
 class ASGITransportCore(object):
     """Handles communication with the ASGI channel layer. Supports Redis and local backends."""
@@ -107,7 +42,7 @@ class ASGITransportCore(object):
     asgi_channel_type = attr.ib(validator=valid_channel_type)
     redis_hosts = attr.ib(
         default=['localhost'],
-        validator=attr.validators.instance_of((list, tuple)),
+        validator=attr.validators.instance_of(list),
     )
     redis_port = attr.ib(
         default=6379,
@@ -117,9 +52,17 @@ class ASGITransportCore(object):
         default=30,
         convert=int,
     )
+    sentinel_services = attr.ib(
+        default=[],
+        validator=attr.validators.instance_of(list),
+    )
     redis_db = attr.ib(
         default=0,
         convert=int,
+    )
+    channel_layer_kwargs = attr.ib(
+        default={},
+        validator=attr.validators.instance_of(dict),
     )
     channel_full_retries = attr.ib(
         default=10,
@@ -150,11 +93,15 @@ class ASGITransportCore(object):
 
     def _make_channel_layer(self):
         """Make an ASGI channel layer for either Redis or local backend."""
+        channel_layer_kwargs = deepcopy(self.channel_layer_kwargs)
+        channel_layer_kwargs.setdefault('connection_kwargs', {}).update({'db': self.redis_db})
+        channel_layer_kwargs['hosts'] = self.hosts
         if self.asgi_channel_type == ASGI_CHANNEL_TYPE_REDIS_SENTINEL:
-            self._channel_layer = SentinelRedisChannelLayer(hosts=self.hosts)
+            channel_layer_kwargs['services'] = self.sentinel_services
+            channel_layer_kwargs['sentinel_refresh_interval'] = self.sentinel_refresh_interval
+            self._channel_layer = RedisSentinelChannelLayer(**channel_layer_kwargs)
         elif self.asgi_channel_type == ASGI_CHANNEL_TYPE_REDIS:
-            host_urls = ['redis://{}:{}/{}'.format(h[0], h[1], self.redis_db) for h in self.hosts]
-            self._channel_layer = RedisChannelLayer(host_urls)
+            self._channel_layer = RedisChannelLayer(**channel_layer_kwargs)
         elif self.asgi_channel_type == ASGI_CHANNEL_TYPE_LOCAL:
             from asgiref.inmemory import channel_layer
             self._channel_layer = channel_layer

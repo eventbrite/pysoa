@@ -192,7 +192,7 @@ Client middleware works similarly to server middleware, using an onion calling p
 
 ``ClientMiddleware.request``: Args:
 
-- ``send_request``: A callable with the signature ``(request_id, meta, request)``, where ``request`` is a ``JobRequest``, ``meta`` is a dictionary and ``request_id`` is an integer. Sends the ``JobRequest`` and returns ``None``. 
+- ``send_request``: A callable with the signature ``(request_id, meta, request)``, where ``request`` is a ``JobRequest``, ``meta`` is a dictionary and ``request_id`` is an integer. Sends the ``JobRequest`` and returns ``None``.
 
 The ``request`` method should return a callable with the same signature as ``send_request``. It should process the ``JobRequest``, call ``send_request(request_id, meta, request)`` and return ``None``.
 
@@ -300,6 +300,10 @@ The ``transport.asgi`` module provides a transport implementation that uses `ASG
 
 The reference ASGI implementation, used in ``transport.asgi``, uses Redis as a message backend, so it has the important limitation of needing access to a Redis server in order to function. If you need to use a different backend, you can implement your own ``ASGITransportCore`` or extend the existing one.
 
+Redis and Sentinel modes
+~~~~~~~~~~~~~~~~~~~~~~~~
+The ASGI transport has two primary modes of operation: in Redis mode, the channel layer will connect to a specified list of Redis hosts, while in Sentinel mode, the channel layer will connect to a list of Sentinel hosts and use Sentinel to find its Redis hosts.
+
 Configuration
 ~~~~~~~~~~~~~
 
@@ -307,11 +311,25 @@ The ASGI transports take the following extra keyword arguments for configuration
 
 - ``asgi_channel_type``: Specifies the type of channel to be used by the ASGI backend. There are three options: ``ASGI_CHANNEL_TYPE_LOCAL``, ``ASGI_CHANNEL_TYPE_REDIS_SENTINEL`` and ``ASGI_CHANNEL_TYPE_REDIS``. The Redis backend types are intended for production use, while the local type is intended primarily for testing.
 
-- ``asgi_channel_redis_host`` (optional): If ``ASGI_CHANNEL_TYPE_REDIS`` is set, specifies the Redis host that the transport will use as a backend. If ``ASGI_CHANNEL_TYPE_REDIS_SENTINEL`` is set, the transport will connect to this host and use it to get configuration for the Sentinel master, then connect to the master. Not required for local channels.
+- ``redis_hosts`` (optional): If ``ASGI_CHANNEL_TYPE_REDIS`` is set, specifies the Redis hosts that the channel layer will connect to. If ``ASGI_CHANNEL_TYPE_REDIS_SENTINEL`` is set, specifies the Sentinel hosts that the channel layer will connect to. Hosts can be specified as either ``(host, port)`` pairs, or host address only. If the address alone is used, all connections will be made to the port specified by ``redis_port``. Defaults to ``('localhost', 6379)``. Not required for local channels.
 
-- ``asgi_channel_redis_port`` (optional): The port that the transport will use to connect to Redis. Not required for local channels. Defaults to 6379.
+- ``redis_port`` (optional): The port that the transport will use to connect to Redis. Not required for local channels, or if specifying hosts using ``(host, port)`` pairs. Defaults to 6379.
 
-- ``asgi_channel_redis_db`` (optional): The Redis database (an integer) that the transport will connect to. Not required for local channels. Defaults to 0.
+- ``sentinel_refresh_interval`` (optional): Number of seconds for which the Sentinel channel layer will cache its master connections. Only used in Sentinel mode. Defaults to 30 seconds.
+
+- ``sentinel_services`` (optional): Services to connect to in Sentinel. Only used in Sentinel mode. Defaults to the empty list, in which case the channel layer will automatically discover all available services.
+
+- ``redis_db`` (optional): The Redis database, specified by an integer, that the transport will connect to. Not required for local channels. Defaults to 0.
+
+- ``channel_layer_kwargs`` (optional): A dict of extra keyword arguments to be passed to the channel layer. This is typically not necessary, but it gives you the option to fine-tune your Redis connection. Descriptions of the channel layer arguments can be found on the `asgi_redis page <https://github.com/django/asgi_redis>`_. The following keys will have their values overridden, so don't try to set them:
+
+  - ``hosts``: Overridden with the sanitized values of ``redis_hosts``.
+
+  - ``connection_kwargs.db``: ``redis_db``
+
+  - ``sentinel_refresh_interval``: ``sentinel_refresh_interval`` (Sentinel mode only)
+
+  - ``services``: ``sentinel_services`` (Sentinel mode only)
 
 - ``channel_full_retries`` (optional): Number of times the transport will retry sending a message when the channel is full. Defaults to 10.
 

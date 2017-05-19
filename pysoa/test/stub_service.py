@@ -70,10 +70,7 @@ class StubClientTransport(LocalClientTransport):
 
 
 class StubServer(Server):
-    """
-    A Server that can be configured entirely on initialization, so that stub services do not require new Server
-    subclasses.
-    """
+    """A Server that provides an interface to stub actions, i.e. define actions inline, for testing purposes."""
 
     def stub_action(self, action, body=None, errors=None):
         """

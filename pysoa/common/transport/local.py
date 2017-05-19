@@ -1,9 +1,6 @@
 from __future__ import unicode_literals
 from collections import deque
 
-from pysoa.common.transport.exceptions import (
-    MessageReceiveTimeout,
-)
 from pysoa.common.settings import resolve_python_path
 from .base import (
     ClientTransport,
@@ -12,6 +9,7 @@ from .base import (
 
 
 class LocalClientTransport(ClientTransport):
+    """A transport that incorporates a server for running a service and client in a single thread."""
 
     def __init__(self, service_name, server_class, server_settings):
         super(LocalClientTransport, self).__init__(service_name)

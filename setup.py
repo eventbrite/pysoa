@@ -7,7 +7,7 @@ install_requires = [
     'msgpack-python>=0.4.8',
     'six>=1.10',
     'attrs>=16.3',
-    'asgi_redis~=1.3',
+    'asgi_redis~=1.4',
     'currint~=1.6',
 ]
 

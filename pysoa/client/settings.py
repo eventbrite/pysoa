@@ -11,6 +11,7 @@ from conformity import fields
 
 class ClientSettings(SOASettings):
     """Settings specifically for clients."""
+
     schema = {
         'client': BasicClassSchema(),
         'cacheable': fields.Boolean(),
@@ -25,6 +26,13 @@ class ClientSettings(SOASettings):
 
 
 class ASGIClientSettings(ClientSettings):
+    """Standard settings class for ASGI Clients."""
+
     schema = {
         'transport': ASGITransportSchema(),
+    }
+    defaults = {
+        'transport': {
+            'path': 'pysoa.common.transport.asgi:ASGIClientTransport',
+        }
     }

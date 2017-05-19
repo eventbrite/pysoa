@@ -61,4 +61,6 @@ class ClientRouter(object):
 
 
 class ASGIClientRouter(ClientRouter):
+    """Router class that returns ASGI clients."""
+
     settings_class = ASGIClientSettings
