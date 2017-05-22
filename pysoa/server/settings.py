@@ -12,8 +12,8 @@ class ServerSettings(SOASettings):
         'client_routing': fields.SchemalessDictionary(),
         'logging': fields.SchemalessDictionary(),
         'harakiri': fields.Dictionary({
-            'timeout': fields.Integer(gt=0),  # seconds of inactivity (lock-up) before harakiri is triggered
-            'shutdown_grace': fields.Integer(gt=0),   # seconds to gracefuly shutdown after hararki is triggered
+            'timeout': fields.Integer(gte=0),  # seconds of inactivity before harakiri is triggered, 0 to disable
+            'shutdown_grace': fields.Integer(gte=0),   # seconds to gracefuly shutdown after hararki is triggered
         }),
     }
 
