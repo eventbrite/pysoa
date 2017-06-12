@@ -1,3 +1,9 @@
+0.12.0 (2017-06-12)
+-------------------
+
+- Option to disable harakiri by setting timeout to 0
+- Add channel capacities argument to ASGI transport core
+
 0.11.0 (2017-05-19)
 -------------------
 
