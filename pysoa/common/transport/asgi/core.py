@@ -49,22 +49,32 @@ class ASGITransportCore(object):
         convert=int,
     )
     sentinel_refresh_interval = attr.ib(
+        # Number of seconds to wait between refreshing masters from Sentinel (Sentinel mode only)
         default=30,
         convert=int,
     )
     sentinel_services = attr.ib(
+        # List of Sentinel service names to use (Sentinel mode only)
         default=[],
         validator=attr.validators.instance_of(list),
     )
     redis_db = attr.ib(
+        # Redis db to use for all master connections (Redis and Sentinel modes)
         default=0,
         convert=int,
     )
+    channel_capacities = attr.ib(
+        # Mapping of channel name regex to max capacity (Redis and Sentinel modes)
+        default={},
+        convert=dict,
+    )
     channel_layer_kwargs = attr.ib(
+        # Keyword args for the ASGI channel layer (Redis and Sentinel modes)
         default={},
         validator=attr.validators.instance_of(dict),
     )
     channel_full_retries = attr.ib(
+        # Number of times to retry when the backend raises ChannelFull (all modes)
         default=10,
         convert=int,
     )
@@ -96,6 +106,7 @@ class ASGITransportCore(object):
         channel_layer_kwargs = deepcopy(self.channel_layer_kwargs)
         channel_layer_kwargs.setdefault('connection_kwargs', {}).update({'db': self.redis_db})
         channel_layer_kwargs['hosts'] = self.hosts
+        channel_layer_kwargs['channel_capacity'] = self.channel_capacities
         if self.asgi_channel_type == ASGI_CHANNEL_TYPE_REDIS_SENTINEL:
             channel_layer_kwargs['services'] = self.sentinel_services
             channel_layer_kwargs['sentinel_refresh_interval'] = self.sentinel_refresh_interval

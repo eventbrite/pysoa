@@ -1,5 +1,7 @@
 from __future__ import unicode_literals
 
+import re
+
 from pysoa.common.transport.base import ServerTransport
 from pysoa.common.transport.exceptions import InvalidMessageError
 
@@ -10,9 +12,17 @@ from .core import ASGITransportCore
 
 class ASGIServerTransport(ServerTransport):
 
-    def __init__(self, service_name, **kwargs):
+    def __init__(self, service_name, response_channel_capacities=None, **kwargs):
         self.service_name = service_name
         self.receive_channel_name = make_channel_name(service_name)
+        if response_channel_capacities:
+            # If response channel capacities are specified, add them to channel_capacities
+            # If not specified, they will default to the asgi_redis channel layer default,
+            # which is 100.
+            kwargs['channel_capacities'] = {
+                re.compile(r'^service\.' + svc + r'\.[a-z0-9]{32}!$'): cap
+                for svc, cap in response_channel_capacities.items()
+            }
         self.core = ASGITransportCore(**kwargs)
 
     def receive_request_message(self):

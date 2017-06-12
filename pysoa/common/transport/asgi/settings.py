@@ -29,6 +29,7 @@ class ASGITransportSchema(BasicClassSchema):
                 'sentinel_services',
                 'channel_layer_kwargs',
                 'channel_full_retries',
-            ]
+            ],
+            allow_extra_keys=True,
         ),
     }
