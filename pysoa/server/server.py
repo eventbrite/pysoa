@@ -287,6 +287,8 @@ class Server(object):
                 signal.alarm(self.settings["harakiri"]["timeout"])
                 # Get, process, and execute the next JobRequest
                 self.handle_next_request()
+        except Exception:
+            self.logger.error("Unhandled server error: %s", traceback.format_exc())
         finally:
             self.logger.info("Server shutting down")
 
