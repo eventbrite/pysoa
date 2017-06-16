@@ -12,10 +12,10 @@ from pysoa.server.schemas import (
 )
 
 
-class ControlHeaderSchemaTests:
+class TestControlHeaderSchema:
 
-    @pytest.fixture(scope='class')
-    def control_header():
+    @pytest.fixture()
+    def control_header(self):
         return {'continue_on_error': False}
 
     def test_valid_control_header(self, control_header):
@@ -35,10 +35,10 @@ class ControlHeaderSchemaTests:
         assert errors[0].pointer == 'continue_on_error'
 
 
-class ContextHeaderSchemaTests:
+class TestContextHeaderSchema:
 
-    @pytest.fixture(scope='class')
-    def context_header():
+    @pytest.fixture()
+    def context_header(self):
         return {
             'switches': [1, 2, 3],
             'correlation_id': six.u(str(uuid.uuid4())),
@@ -80,10 +80,10 @@ class ContextHeaderSchemaTests:
         assert errors[0].pointer == 'correlation_id'
 
 
-class ActionRequestSchemaTests:
+class TestActionRequestSchema:
 
-    @pytest.fixture(scope='class')
-    def action():
+    @pytest.fixture()
+    def action(self):
         return {
             'action': 'test_action_name',
             'body': {
@@ -120,14 +120,16 @@ class ActionRequestSchemaTests:
         assert errors[0].pointer == 'body'
 
 
-class JobRequestSchemaTests:
+class TestJobRequestSchema:
 
-    @pytest.fixture(scope='class')
-    def job():
+    @pytest.fixture()
+    def job(self):
         return {
             'control': {
-                'switches': [1, 2, 3],
                 'continue_on_error': False,
+            },
+            'context': {
+                'switches': [1, 2, 3],
                 'correlation_id': six.u(str(uuid.uuid4())),
             },
             'actions': [{

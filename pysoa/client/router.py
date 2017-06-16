@@ -53,8 +53,10 @@ class ClientRouter(object):
             # they had defined in the settings.
             transport=transport_class(service_name, **settings['transport'].get('kwargs', {})),
             serializer=serializer_class(**settings['serializer'].get('kwargs', {})),
-            middleware=[middleware_class(**middleware_kwargs)
-                        for middleware_class, middleware_kwargs in settings['middleware']],
+            middleware=[
+                m['object'](**m.get('kwargs', {}))
+                for m in settings['middleware']
+            ],
             context=self.context,
             **client_kwargs
         )

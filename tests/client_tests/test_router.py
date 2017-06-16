@@ -1,39 +1,54 @@
+from __future__ import unicode_literals
+
 from pysoa.client.router import ClientRouter
 from pysoa.client import Client
 
-from unittest import TestCase
+import pytest
 
 
-class TestClientRouter(TestCase):
+class TestClientRouter:
 
-    def setUp(self):
-        self.config = {
+    @pytest.fixture()
+    def config(self):
+        return {
             'test': {
                 'transport': {
-                    'path': u'pysoa.common.transport.base:ClientTransport',
+                    'path': 'pysoa.common.transport.base:ClientTransport',
                 },
                 'serializer': {
-                    'path': u'pysoa.common.serializer.base:Serializer',
+                    'path': 'pysoa.common.serializer.base:Serializer',
                 },
-            }
+                'middleware': [
+                    {
+                        'path': 'pysoa.client.middleware:ClientMiddleware',
+                    },
+                ],
+            },
         }
 
-    def test_get_non_cacheable_client(self):
-        router = ClientRouter(self.config)
+    def test_client_initialized(self, config):
+        router = ClientRouter(config)
         client = router.get_client('test')
-        self.assertTrue(isinstance(client, Client))
-        client_again = router.get_client('test')
-        self.assertTrue(client is not client_again)
+        assert client.transport
+        assert client.serializer
+        assert client.middleware
 
-    def test_get_cacheable_client(self):
-        self.config['test']['cacheable'] = True
-        router = ClientRouter(self.config)
+    def test_get_non_cacheable_client(self, config):
+        router = ClientRouter(config)
         client = router.get_client('test')
-        self.assertTrue(isinstance(client, Client))
+        assert isinstance(client, Client)
         client_again = router.get_client('test')
-        self.assertTrue(client is client_again)
+        assert client is not client_again
 
-    def test_unknown_service(self):
-        router = ClientRouter(self.config)
-        with self.assertRaises(router.ImproperlyConfigured):
+    def test_get_cacheable_client(self, config):
+        config['test']['cacheable'] = True
+        router = ClientRouter(config)
+        client = router.get_client('test')
+        assert isinstance(client, Client)
+        client_again = router.get_client('test')
+        assert client is client_again
+
+    def test_unknown_service(self, config):
+        router = ClientRouter(config)
+        with pytest.raises(router.ImproperlyConfigured):
             router.get_client('foo')
