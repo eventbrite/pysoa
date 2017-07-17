@@ -1,6 +1,8 @@
 from __future__ import unicode_literals
 from collections import deque
 
+import six
+
 from pysoa.common.settings import resolve_python_path
 from .base import (
     ClientTransport,
@@ -15,7 +17,7 @@ class LocalClientTransport(ClientTransport):
         super(LocalClientTransport, self).__init__(service_name)
 
         # If the server is specified as a path, resolve it to a class
-        if isinstance(server_class, basestring):
+        if isinstance(server_class, six.string_types):
             try:
                 server_class = resolve_python_path(server_class)
             except (ImportError, AttributeError) as e:
@@ -30,7 +32,7 @@ class LocalClientTransport(ClientTransport):
             ))
 
         # See if the server settings is actually a string to the path for settings
-        if isinstance(server_settings, basestring):
+        if isinstance(server_settings, six.string_types):
             try:
                 settings_dict = resolve_python_path(server_settings)
             except (ImportError, AttributeError) as e:
