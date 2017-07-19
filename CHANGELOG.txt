@@ -1,3 +1,9 @@
+0.13.0 (2017-07-19)
+-------------------
+- Added initial implementation of PySOA expansions to the ClientRouter
+- Fixed a small bug in the local transport that broke tests for Python 3.
+- Updated the router configuration dictionary format to include type expansions and routes.
+
 0.12.2 (2017-06-16)
 -------------------
 - Fixed signature of middleware instantiation in ClientRouter._make_client
