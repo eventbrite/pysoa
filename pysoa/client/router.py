@@ -178,6 +178,7 @@ class ClientRouter(object):
                             exp_request = JobRequest(
                                 control={
                                     'continue_on_error': False,
+                                    'expansions': expansion_node.to_dict(),
                                 },
                                 context=context,
                                 actions=[ActionRequest(

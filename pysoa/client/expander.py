@@ -90,6 +90,21 @@ class TypeNode(object):
         """
         return list(six.itervalues(self._expansions))
 
+    def to_dict(self):
+        """
+        Convert the tree node to its dictionary representation.
+
+        Returns:
+            An expansion dictionary that represents the type and expansions of
+            the tree node.
+        """
+        expansion_strings = []
+        for expansion in self.expansions:
+            expansion_strings.extend(expansion.to_strings())
+        return {
+            self.type: expansion_strings,
+        }
+
 
 class ExpansionNode(TypeNode):
     """
@@ -135,6 +150,25 @@ class ExpansionNode(TypeNode):
         self.action = action
         self.request_field = request_field
         self.response_field = response_field
+
+    def to_strings(self):
+        """
+        Convert the expansion node to a list of expansion strings.
+
+        Returns:
+            A list of expansion strings that represent the leaf
+            nodes of the expansion tree.
+        """
+        result = []
+        if not self.expansions:
+            result.append(self.name)
+        else:
+            for expansion in self.expansions:
+                result.extend(
+                    "{}.{}".format(self.name, es)
+                    for es in expansion.to_strings()
+                )
+        return result
 
 
 class ExpansionConverter(object):
@@ -218,7 +252,7 @@ class ExpansionConverter(object):
         Args:
             exp_dict (dict): an expansion dictionary (see below).
 
-        Result:
+        Returns:
             A list of expansion trees (i.e. TreeNode instances).
 
         Expansion Dictionary Format:
@@ -259,4 +293,17 @@ class ExpansionConverter(object):
         return trees
 
     def trees_to_dict(self, exp_trees):
-        pass
+        """
+        Convert a list of TreeNodes to an expansion dictionary.
+
+        Args:
+            exp_trees (list): a list of TreeNode instances.
+
+        Returns:
+            An expansion dictionary that represents the expansions detailed in
+            the provided expansions tree nodes.
+        """
+        result = {}
+        for exp_tree in exp_trees:
+            result.update(exp_tree.to_dict())
+        return result

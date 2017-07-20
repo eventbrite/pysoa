@@ -161,6 +161,103 @@ class TypeNodeTests(TestCase):
         self.assertEqual(len(matching_objects), 1)
         self.assertEqual(matching_objects[0], test_foo)
 
+    def test_to_dict(self):
+        bar_expansion_node = ExpansionNode(
+            type='bar',
+            name='bar',
+            source_field='bar_id',
+            dest_field='bar',
+            service='bar',
+            action='get_bar',
+            request_field='id',
+            response_field='bar',
+        )
+        baz_expansion_node = ExpansionNode(
+            type='baz',
+            name='baz',
+            source_field='baz_id',
+            dest_field='baz',
+            service='baz',
+            action='get_baz',
+            request_field='id',
+            response_field='baz',
+        )
+        qux_expansion_node = ExpansionNode(
+            type='qux',
+            name='qux',
+            source_field='qux_id',
+            dest_field='qux',
+            service='qux',
+            action='get_qux',
+            request_field='id',
+            response_field='qux',
+        )
+        bar_expansion_node.add_expansion(baz_expansion_node)
+        bar_expansion_node.add_expansion(qux_expansion_node)
+        self.type_node.add_expansion(bar_expansion_node)
+
+        self.assertEqual(
+            self.type_node.to_dict(),
+            {
+                'foo': [
+                    'bar.qux',
+                    'bar.baz',
+                ],
+            },
+        )
+
+
+def ExpansionNodeTests(TestCase):
+    def setUp(self):
+        self.expansion_node = ExpansionNode(
+            type='foo',
+            name='foo',
+            source_field='foo_id',
+            dest_field='foo',
+            service='foo',
+            action='get_foo',
+            request_field='id',
+            response_field='foo',
+        )
+
+    def to_strings_with_expansions(self):
+        bar_expansion_node = ExpansionNode(
+            type='bar',
+            name='bar',
+            source_field='bar_id',
+            dest_field='bar',
+            service='bar',
+            action='get_bar',
+            request_field='id',
+            response_field='bar',
+        )
+        baz_expansion_node = ExpansionNode(
+            type='baz',
+            name='baz',
+            source_field='baz_id',
+            dest_field='baz',
+            service='baz',
+            action='get_baz',
+            request_field='id',
+            response_field='baz',
+        )
+        self.expansion_node.add_expansion(bar_expansion_node)
+        self.expansion_node.add_expansion(baz_expansion_node)
+
+        self.assertEqual(
+            self.expansion_node.to_strings(),
+            [
+                'foo.bar',
+                'foo.baz',
+            ],
+        )
+
+    def to_strings_without_expansions(self):
+        self.assertEqual(
+            self.expansion_node.to_strings(),
+            ['foo'],
+        )
+
 
 class ExpansionConverterTests(TestCase):
     def setUp(self):
@@ -262,3 +359,38 @@ class ExpansionConverterTests(TestCase):
         self.assertEqual(qux_expansion_node.request_field, 'id')
         self.assertEqual(qux_expansion_node.response_field, 'qux')
         self.assertEqual(len(qux_expansion_node.expansions), 0)
+
+    def test_trees_to_dict(self):
+        foo_tree_node = TypeNode(type='foo')
+        bar_expansion_node = ExpansionNode(
+            type='bar',
+            name='bar',
+            source_field='bar_id',
+            dest_field='bar',
+            service='bar',
+            action='get_bar',
+            request_field='id',
+            response_field='bar',
+        )
+        foo_tree_node.add_expansion(bar_expansion_node)
+
+        baz_tree_node = TypeNode(type='baz')
+        qux_expansion_node = ExpansionNode(
+            type='qux',
+            name='qux',
+            source_field='qux_id',
+            dest_field='qux',
+            service='qux',
+            action='get_qux',
+            request_field='id',
+            response_field='qux',
+        )
+        baz_tree_node.add_expansion(qux_expansion_node)
+
+        self.assertEqual(
+            self.converter.trees_to_dict([foo_tree_node, baz_tree_node]),
+            {
+                'foo': ['bar'],
+                'baz': ['qux'],
+            },
+        )
