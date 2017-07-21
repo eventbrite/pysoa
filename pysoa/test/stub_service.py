@@ -2,7 +2,10 @@ from __future__ import unicode_literals
 
 import re
 
-from pysoa.client import Client
+from pysoa.client.client import (
+    Client,
+    ServiceHandler,
+)
 from pysoa.common.types import Error
 from pysoa.common.transport.local import LocalClientTransport
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
@@ -43,13 +46,21 @@ class StubClient(Client):
     test against a genuine service in a unit testing environment.
     """
 
-    def __init__(self, service_name='test', action_class_map=None, **kwargs):
-        transport = StubClientTransport(service_name=service_name, action_class_map=action_class_map)
-        serializer = MsgpackSerializer()
-        super(StubClient, self).__init__(service_name, transport, serializer)
+    def __init__(self, service_action_map=None, **kwargs):
+        service_action_map = service_action_map or {}
+        handlers = {}
+        for service_name, action_class_map in service_action_map.items():
+            transport = StubClientTransport(service_name=service_name, action_class_map=action_class_map)
+            serializer = MsgpackSerializer()
+            handlers[service_name] = ServiceHandler(transport=transport, serializer=serializer)
+        super(StubClient, self).__init__(handlers=handlers)
 
-    def stub_action(self, action, body=None, errors=None):
-        self.transport.stub_action(action, body=body, errors=errors)
+    def stub_action(self, service_name, action, body=None, errors=None):
+        if service_name not in self.handlers:
+            transport = StubClientTransport(service_name=service_name)
+            serializer = MsgpackSerializer()
+            self.handlers[service_name] = ServiceHandler(transport=transport, serializer=serializer)
+        self.handlers[service_name].transport.stub_action(action, body=body, errors=errors)
 
 
 class StubClientTransport(LocalClientTransport):

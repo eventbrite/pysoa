@@ -9,7 +9,7 @@ import signal
 
 import attr
 
-from pysoa.client.router import ClientRouter
+from pysoa.client import Client
 from pysoa.common.types import (
     JobResponse,
     ActionResponse,
@@ -101,12 +101,12 @@ class Server(object):
         self.transport.send_response_message(request_id, meta, response_message)
         self.job_logger.info("Job response: %s", response_dict)
 
-    def make_client_router(self, context):
+    def make_client(self, context):
         """
         Gets a client router to pass down to middleware or Actions that will
         propagate the passed `context`.
         """
-        return ClientRouter(self.settings['client_routing'], context=context)
+        return Client(self.settings['client_routing'], context=context)
 
     def make_middleware_stack(self, middleware, base):
         """
@@ -142,7 +142,7 @@ class Server(object):
                 raise JobError(errors=validation_errors)
 
             # Add a client router in case a middleware wishes to use it
-            job_request['client_router'] = self.make_client_router(job_request['context'])
+            job_request['client'] = self.make_client(job_request['context'])
 
             # Build set of middleware + job handler, then run job
             wrapper = self.make_middleware_stack(
@@ -200,7 +200,7 @@ class Server(object):
                 switches=job_switches,
                 context=job_request['context'],
                 control=job_request['control'],
-                client_router=job_request['client_router'],
+                client=job_request['client'],
             )
             if action_request.action in self.action_class_map:
                 # Get action to run
