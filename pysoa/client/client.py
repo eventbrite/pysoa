@@ -220,7 +220,7 @@ class Client(object):
 
         return response
 
-    # Asyncrhonous request and response methods
+    # Asynchronous request and response methods
 
     def _init_service(self, service):
         if service not in self.settings:
