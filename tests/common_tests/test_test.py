@@ -1,6 +1,5 @@
 from __future__ import unicode_literals
 
-# from pysoa.client.client import ServiceHandler
 from pysoa.common.constants import ERROR_CODE_INVALID
 from pysoa.test.stub_service import StubClient
 
