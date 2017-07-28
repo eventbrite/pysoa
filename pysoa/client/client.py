@@ -27,25 +27,29 @@ class Client(object):
 
     settings_class = ClientSettings
 
-    def __init__(self, config=None, settings_class=None, context=None, handlers=None):
-        """Initialize the Client with either a configuration dict, a set of pre-initialized handlers, or both."""
+    def __init__(self, config=None, expansions=None, settings_class=None, context=None, handlers=None):
+        """
+        Initialize the Client with either a configuration dict, a set of pre-initialized handlers, or both. The
+        plain pysoa Client should always be initialized with a config dict; the option to use pre-built handlers
+        is intended solely to give more flexibility to subclasses.
+        """
         if config is None and handlers is None:
-            raise self.ImproperlyConfigured('Client must be initialized with either config or handlers.')
+            raise self.ImproperlyConfigured('Client must be initialized with either service config or handlers.')
         if settings_class:
             self.settings_class = settings_class
         self.settings = {}
-        self.handlers = handlers or {}
         self.context = context
 
+        self.handlers = handlers or {}
         config = config or {}
-        if 'expansions' in config:
+        for service_name, service_config in config.items():
+            self.settings[service_name] = self.settings_class(service_config)
+
+        if expansions:
             self.expansion_converter = ExpansionConverter(
-                type_routes=config['expansions']['type_routes'],
-                type_expansions=config['expansions']['type_expansions'],
+                type_routes=expansions['type_routes'],
+                type_expansions=expansions['type_expansions'],
             )
-        if 'services' in config:
-            for service_name, service_config in config['services'].items():
-                self.settings[service_name] = self.settings_class(service_config)
 
     # Exceptions
 
@@ -239,6 +243,11 @@ class Client(object):
             ],
         )
 
+    def _get_handler(self, service_name):
+        if service_name not in self.handlers:
+            self._init_service(service_name)
+        return self.handlers[service_name]
+
     def _make_control_header(
         self,
         continue_on_error=False,
@@ -321,9 +330,7 @@ class Client(object):
             ConnectionError, InvalidField, MessageSendError, MessageSendTimeout,
             MessageTooLarge
         """
-        if service_name not in self.handlers:
-            self._init_service(service_name)
-        handler = self.handlers[service_name]
+        handler = self._get_handler(service_name)
 
         # Base function for the request middleware stack
         def _base_send_request(request_id, meta, job_request):

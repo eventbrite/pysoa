@@ -12,79 +12,70 @@ from pysoa.test.stub_service import StubClientTransport
 
 class TestClientRouter(TestCase):
     def setUp(self):
-        config = {
-            'services': {
-                'test': {
-                    'transport': {
-                        'path': 'pysoa.common.transport.base:ClientTransport',
-                    },
+        expansions = {
+            'type_routes': {
+                'foo': {
+                    'service': 'foo',
+                    'action': 'get_foo',
+                    'request_field': 'id',
+                    'response_field': 'foo',
+                },
+                'bar': {
+                    'service': 'bar',
+                    'action': 'get_bar',
+                    'request_field': 'id',
+                    'response_field': 'bar',
+                },
+                'baz': {
+                    'service': 'baz',
+                    'action': 'get_baz',
+                    'request_field': 'id',
+                    'response_field': 'baz',
+                },
+                'qux': {
+                    'service': 'qux',
+                    'action': 'get_qux',
+                    'request_field': 'id',
+                    'response_field': 'qux',
+                },
+                'quas': {
+                    'service': 'quas',
+                    'action': 'get_quas',
+                    'request_field': 'id',
+                    'response_field': 'quas',
+                },
+                'wex': {
+                    'service': 'wex',
+                    'action': 'get_wex',
+                    'request_field': 'id',
+                    'response_field': 'wex',
                 },
             },
-            'expansions': {
-                'type_routes': {
-                    'foo': {
-                        'service': 'foo',
-                        'action': 'get_foo',
-                        'request_field': 'id',
-                        'response_field': 'foo',
-                    },
+            'type_expansions': {
+                'foo': {
                     'bar': {
-                        'service': 'bar',
-                        'action': 'get_bar',
-                        'request_field': 'id',
-                        'response_field': 'bar',
+                        'type': 'bar',
+                        'source_field': 'bar_id',
+                        'dest_field': 'bar',
                     },
                     'baz': {
-                        'service': 'baz',
-                        'action': 'get_baz',
-                        'request_field': 'id',
-                        'response_field': 'baz',
-                    },
-                    'qux': {
-                        'service': 'qux',
-                        'action': 'get_qux',
-                        'request_field': 'id',
-                        'response_field': 'qux',
-                    },
-                    'quas': {
-                        'service': 'quas',
-                        'action': 'get_quas',
-                        'request_field': 'id',
-                        'response_field': 'quas',
-                    },
-                    'wex': {
-                        'service': 'wex',
-                        'action': 'get_wex',
-                        'request_field': 'id',
-                        'response_field': 'wex',
+                        'type': 'baz',
+                        'source_field': 'baz_id',
+                        'dest_field': 'baz',
                     },
                 },
-                'type_expansions': {
-                    'foo': {
-                        'bar': {
-                            'type': 'bar',
-                            'source_field': 'bar_id',
-                            'dest_field': 'bar',
-                        },
-                        'baz': {
-                            'type': 'baz',
-                            'source_field': 'baz_id',
-                            'dest_field': 'baz',
-                        },
+                'baz': {
+                    'qux': {
+                        'type': 'qux',
+                        'source_field': 'qux_id',
+                        'dest_field': 'qux',
                     },
-                    'baz': {
-                        'qux': {
-                            'type': 'qux',
-                            'source_field': 'qux_id',
-                            'dest_field': 'qux',
-                        },
-                    },
-                    'quas': {
-                        'wex': {
-                            'type': 'wex',
-                            'source_field': 'wex_id',
-                            'dest_field': 'wex',
-                        },
+                },
+                'quas': {
+                    'wex': {
+                        'type': 'wex',
+                        'source_field': 'wex_id',
+                        'dest_field': 'wex',
                     },
                 },
             },
@@ -164,7 +155,7 @@ class TestClientRouter(TestCase):
         )
         wex_handler = ServiceHandler(wex_transport, MsgpackSerializer())
 
-        self.client = Client(config, handlers={
+        self.client = Client(expansions=expansions, handlers={
             'foo': foo_handler,
             'bar': bar_handler,
             'baz': baz_handler,
