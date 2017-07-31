@@ -241,10 +241,10 @@ class Client(object):
 
     # Asynchronous request and response methods
 
-    def _init_service(self, service_name, settings):
+    def _init_handler(self, service_name, settings):
         transport_class = settings['transport']['object']
         serializer_class = settings['serializer']['object']
-        ServiceHandler(
+        return ServiceHandler(
             # Instantiate the transport and serializer classes with the kwargs
             # they had defined in the settings.
             transport=transport_class(service_name, **settings['transport'].get('kwargs', {})),
@@ -260,7 +260,7 @@ class Client(object):
             if service_name not in self.settings:
                 raise self.ImproperlyConfigured('Unrecognized service name {}'.format(service_name))
             settings = self.settings[service_name]
-            self.handlers[service_name] = self._init_service(service_name, settings)
+            self.handlers[service_name] = self._init_handler(service_name, settings)
         return self.handlers[service_name]
 
     def _make_control_header(
