@@ -21,6 +21,21 @@ class ServiceHandler(object):
     middleware = attr.ib(default=[])
     request_counter = attr.ib(default=0)
 
+    def send_request(self, request_id, meta, job_request):
+        if isinstance(job_request, JobRequest):
+            job_request = attr.asdict(job_request)
+        message = self.serializer.dict_to_blob(job_request)
+        self.transport.send_request_message(request_id, meta, message)
+
+    def get_response(self):
+        request_id, meta, message = self.transport.receive_response_message()
+        if message is None:
+            return (None, None)
+        else:
+            raw_response = self.serializer.blob_to_dict(message)
+            job_response = JobResponse(**raw_response)
+            return request_id, job_response
+
 
 class Client(object):
     """The Client provides a simple interface for calling actions on Servers."""
@@ -226,16 +241,13 @@ class Client(object):
 
     # Asynchronous request and response methods
 
-    def _init_service(self, service):
-        if service not in self.settings:
-            raise self.ImproperlyConfigured('Unrecognized service name {}'.format(service))
-        settings = self.settings[service]
+    def _init_service(self, service_name, settings):
         transport_class = settings['transport']['object']
         serializer_class = settings['serializer']['object']
-        self.handlers[service] = ServiceHandler(
+        ServiceHandler(
             # Instantiate the transport and serializer classes with the kwargs
             # they had defined in the settings.
-            transport=transport_class(service, **settings['transport'].get('kwargs', {})),
+            transport=transport_class(service_name, **settings['transport'].get('kwargs', {})),
             serializer=serializer_class(**settings['serializer'].get('kwargs', {})),
             middleware=[
                 m['object'](**m.get('kwargs', {}))
@@ -245,7 +257,10 @@ class Client(object):
 
     def _get_handler(self, service_name):
         if service_name not in self.handlers:
-            self._init_service(service_name)
+            if service_name not in self.settings:
+                raise self.ImproperlyConfigured('Unrecognized service name {}'.format(service_name))
+            settings = self.settings[service_name]
+            self.handlers[service_name] = self._init_service(service_name, settings)
         return self.handlers[service_name]
 
     def _make_control_header(
@@ -331,14 +346,6 @@ class Client(object):
             MessageTooLarge
         """
         handler = self._get_handler(service_name)
-
-        # Base function for the request middleware stack
-        def _base_send_request(request_id, meta, job_request):
-            if isinstance(job_request, JobRequest):
-                job_request = attr.asdict(job_request)
-            message = handler.serializer.dict_to_blob(job_request)
-            handler.transport.send_request_message(request_id, meta, message)
-
         control = self._make_control_header(
             continue_on_error=continue_on_error,
             control_extra=control_extra,
@@ -355,7 +362,7 @@ class Client(object):
         meta = self._prepare_metadata(handler.serializer)
         wrapper = self._make_middleware_stack(
             [m.request for m in handler.middleware],
-            _base_send_request,
+            handler.send_request,
         )
         wrapper(request_id, meta, job_request)
         return request_id
@@ -370,20 +377,10 @@ class Client(object):
             ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage,
             StopIteration
         """
-        # Base function for the response middleware stack
-        def _base_get_response():
-            handler = self.handlers[service_name]
-            request_id, meta, message = handler.transport.receive_response_message()
-            if message is None:
-                return (None, None)
-            else:
-                raw_response = handler.serializer.blob_to_dict(message)
-                job_response = JobResponse(**raw_response)
-                return request_id, job_response
-
+        handler = self._get_handler(service_name)
         wrapper = self._make_middleware_stack(
             [m.response for m in self.handlers[service_name].middleware],
-            _base_get_response,
+            handler.get_response,
         )
         while True:
             request_id, response = wrapper()
