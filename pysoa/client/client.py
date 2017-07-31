@@ -37,10 +37,10 @@ class Client(object):
             raise self.ImproperlyConfigured('Client must be initialized with either service config or handlers.')
         if settings_class:
             self.settings_class = settings_class
-        self.settings = {}
-        self.context = context
+        self.context = context or {}
 
         self.handlers = handlers or {}
+        self.settings = {}
         config = config or {}
         for service_name, service_config in config.items():
             self.settings[service_name] = self.settings_class(service_config)
