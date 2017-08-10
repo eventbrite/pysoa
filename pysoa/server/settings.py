@@ -1,6 +1,5 @@
 from conformity import fields
 from pysoa.common.settings import SOASettings
-from pysoa.common.transport.asgi.settings import ASGITransportSchema
 
 
 class ServerSettings(SOASettings):
@@ -42,10 +41,4 @@ class ServerSettings(SOASettings):
             'timeout': 300,
             'shutdown_grace': 30,
         },
-    }
-
-
-class ASGIServerSettings(ServerSettings):
-    schema = {
-        'transport': ASGITransportSchema(),
     }

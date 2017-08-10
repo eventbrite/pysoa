@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import os
 import unittest
 
@@ -38,17 +40,16 @@ class ServerTestCase(unittest.TestCase):
                         'PYSOA_SETTINGS_MODULE environment variable must be set to run tests.'
                     )
 
-        # Set up a transport with a local server
-        self.transport = LocalClientTransport(
-            self.server_class.service_name,
-            self.server_class,
-            server_settings=settings,
-        )
-
-        self.serializer = MsgpackSerializer()
-
         self.client = Client(
-            self.server_class.service_name,
-            self.transport,
-            self.serializer,
+            {
+                self.server_class.service_name: {
+                    'transport': {
+                        'path': 'pysoa.common.transport.local:LocalClientTransport',
+                        'kwargs': {
+                            'server_class': self.server_class,
+                            'server_settings': settings,
+                        },
+                    },
+                },
+            },
         )

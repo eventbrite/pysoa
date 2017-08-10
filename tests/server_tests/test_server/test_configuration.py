@@ -8,7 +8,9 @@ from pysoa.test import factories
 class BaseTestServiceServer(Server):
     service_name = 'test_service'
 
+
 class ServerInitializationTests(TestCase):
+
     def setUp(self):
         self.settings = factories.ServerSettingsFactory()
 

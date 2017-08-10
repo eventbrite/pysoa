@@ -196,15 +196,10 @@ class TypeNodeTests(TestCase):
         bar_expansion_node.add_expansion(qux_expansion_node)
         self.type_node.add_expansion(bar_expansion_node)
 
-        self.assertEqual(
-            self.type_node.to_dict(),
-            {
-                'foo': [
-                    'bar.qux',
-                    'bar.baz',
-                ],
-            },
-        )
+        type_node_dict = self.type_node.to_dict()
+
+        self.assertTrue('foo' in type_node_dict)
+        self.assertEqual(set(type_node_dict['foo']), {'bar.qux', 'bar.baz'})
 
 
 def ExpansionNodeTests(TestCase):
