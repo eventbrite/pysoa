@@ -1,3 +1,7 @@
+0.14.0 (2017-08-10)
+-------------------
+- Merge routing functionality into the Client, and remove ClientRouter
+
 0.13.1 (2017-07-21)
 -------------------
 - Exposed expansions to actions.
