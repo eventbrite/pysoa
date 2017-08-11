@@ -189,6 +189,7 @@ class Client(object):
         Returns the action response or raises an exception if the action response is an error.
 
         Args:
+            service_name: string
             action: string
             body: dict
             switches: list of ints
@@ -217,6 +218,7 @@ class Client(object):
         This method performs expansions if the Client is configured with an expansion converter.
 
         Args:
+            service_name: string
             actions: list of ActionRequest or dict
             switches: list
             context: dict
@@ -372,6 +374,7 @@ class Client(object):
         context and control headers, respectively.
 
         Args:
+            service_name: string
             actions: list of ActionRequest
             switches: list of int
             correlation_id: string

@@ -10,3 +10,6 @@ dist/
 # Swap files
 *.swp
 .cache
+
+.idea
+.iml
