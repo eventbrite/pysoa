@@ -9,6 +9,8 @@ import pytest
 
 
 class TestAction(Action):
+    __test__ = False  # So that PyTest doesn't try to collect this and spit out a warning
+
     request_schema = fields.Dictionary({
         'string_field': fields.UnicodeString(),
     })
