@@ -1,3 +1,10 @@
+Changelog
+=========
+
+0.15.0 (2017-08-11)
+-------------------
+- Add helpers to ServerTestCase to make calling actions and asserting errors easier
+
 0.14.0 (2017-08-10)
 -------------------
 - Merge routing functionality into the Client, and remove ClientRouter
