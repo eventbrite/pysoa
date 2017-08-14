@@ -2,12 +2,17 @@ from __future__ import unicode_literals
 from collections import deque
 
 import six
+from conformity import fields
 
-from pysoa.common.settings import resolve_python_path
+from pysoa.common.settings import (
+    resolve_python_path,
+    BasicClassSchema,
+)
 from .base import (
     ClientTransport,
     ServerTransport,
 )
+
 
 
 class LocalClientTransport(ClientTransport):
@@ -103,3 +108,14 @@ class LocalServerTransport(ServerTransport):
     Empty class that we use as an import stub for local transport before
     we swap in the Client transport instance to do double duty.
     """
+
+
+class LocalTransportSchema(BasicClassSchema):
+    contents = {
+        'path': fields.UnicodeString(),
+        'kwargs': fields.Dictionary({
+            'server_class': fields.UnicodeString(),
+            # No deeper validation because the Server will perform its own validation
+            'server_settings': fields.SchemalessDictionary(key_type=fields.UnicodeString()),
+        }),
+    }

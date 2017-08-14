@@ -5,7 +5,7 @@ import six
 import attr
 
 from pysoa.client.expander import ExpansionConverter
-from pysoa.client.settings import ASGIClientSettings
+from pysoa.client.settings import PolymorphicClientSettings
 from pysoa.common.types import (
     ActionRequest,
     JobRequest,
@@ -109,7 +109,7 @@ class ServiceHandler(object):
 class Client(object):
     """The Client provides a simple interface for calling actions on Servers."""
 
-    settings_class = ASGIClientSettings
+    settings_class = PolymorphicClientSettings
     handler_class = ServiceHandler
 
     def __init__(self, config, expansions=None, settings_class=None, context=None):

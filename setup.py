@@ -3,7 +3,7 @@ from pysoa import __version__
 
 
 install_requires = [
-    'conformity~=1.5',
+    'conformity~=1.6',
     'msgpack-python>=0.4.8',
     'six>=1.10',
     'attrs>=16.3',
