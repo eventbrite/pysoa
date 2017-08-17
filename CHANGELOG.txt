@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.16.0 (2017-08-17)
+-------------------
+- Improve schema validation for client transport settings, including settings schema for ASGI, local and multi-backend Clients
+
 0.15.0 (2017-08-11)
 -------------------
 - Add helpers to ServerTestCase to make calling actions and asserting errors easier
