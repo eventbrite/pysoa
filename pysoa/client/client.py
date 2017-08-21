@@ -208,7 +208,7 @@ class Client(object):
             **kwargs
         ).actions[0]
 
-    def call_actions(self, service_name, actions, expansions=None, **kwargs):
+    def call_actions(self, service_name, actions, expansions=None, raise_action_errors=True, **kwargs):
         """
         Build and send a single job request with one or more actions.
 
@@ -225,6 +225,7 @@ class Client(object):
             correlation_id: string
             continue_on_error: bool
             control_extra: dict
+            raise_action_errors (bool): Fail if the response contains action error responses.
         Returns:
             JobResponse
         """
@@ -234,12 +235,16 @@ class Client(object):
         response_id, response = responses[0]
         if response_id != request_id:
             raise Exception('Got response with ID {} for request with ID {}'.format(response_id, request_id))
+        # Process errors at the Job and Action level
         if response.errors:
             raise self.JobError(response.errors)
-        error_actions = [action for action in response.actions if action.errors]
-        if error_actions:
-            raise self.CallActionError(error_actions)
+        if raise_action_errors:
+            error_actions = [action for action in response.actions if action.errors]
+            if error_actions:
+                raise self.CallActionError(error_actions)
 
+        # Keep track of expansion action errors that need to be raised
+        expansion_errors = []
         # Perform expansions
         if expansions and hasattr(self, 'expansion_converter'):
             # Initialize service request cache
@@ -295,12 +300,16 @@ class Client(object):
                             exp_request = exp_requests.pop(exp_request_id)
                             exp_object = exp_request['object']
                             expansion_node = exp_request['expansion']
-                            value = exp_response.actions[0].body[expansion_node.response_field]
-
-                            # Add the expansion value to the object and remove the
-                            # source field.
-                            del exp_object[expansion_node.source_field]
-                            exp_object[expansion_node.dest_field] = value
+                            exp_action_response = exp_response.actions[0]
+                            if exp_action_response.errors and expansion_node.raise_action_errors:
+                                expansion_errors.append(exp_action_response)
+                            # If everything is okay, replace the expansion object with the response value
+                            if exp_action_response.body:
+                                value = exp_action_response.body[expansion_node.response_field]
+                                # Add the expansion value to the object and remove the
+                                # source field.
+                                del exp_object[expansion_node.source_field]
+                                exp_object[expansion_node.dest_field] = value
 
                             # Potentially add additional pending expansion requests.
                             if expansion_node.expansions:
@@ -308,6 +317,8 @@ class Client(object):
                                     (exp_object, expansion_node.expansions)
                                     for exp_object in expansion_node.find_objects(value)
                                 )
+            if expansion_errors:
+                raise self.CallActionError(expansion_errors)
 
         return response
 
