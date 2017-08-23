@@ -204,11 +204,11 @@ class TestClientSendReceive(TestCase):
             },
         ]
         error_expected = [
-            {
-                'code': ERROR_CODE_INVALID,
-                'message': 'Invalid input',
-                'field': 'foo',
-            }
+            Error(
+                code=ERROR_CODE_INVALID,
+                message='Invalid input',
+                field='foo',
+            )
         ]
         self.client_settings[SERVICE_NAME]['transport']['kwargs']['action_map']['action_1'] = {'errors': error_expected}
         client = Client(self.client_settings)
@@ -223,6 +223,31 @@ class TestClientSendReceive(TestCase):
                 self.assertEqual(error_response[0].code, error_expected[0]['code'])
                 self.assertEqual(error_response[0].message, error_expected[0]['message'])
                 self.assertEqual(error_response[0].field, error_expected[0]['field'])
+
+    def test_call_actions_no_raise_action_errors(self):
+        action_request = [
+            {
+                'action': 'action_1',
+                'body': {'foo': 'bar'},
+            },
+            {
+                'action': 'action_2',
+                'body': {},
+            },
+        ]
+        error_expected = [
+            Error(
+                code=ERROR_CODE_INVALID,
+                message='Invalid input',
+                field='foo'
+            )
+        ]
+        self.client_settings[SERVICE_NAME]['transport']['kwargs']['action_map']['action_2'] = {'errors': error_expected}
+        client = Client(self.client_settings)
+        for actions in (action_request, [ActionRequest(**a) for a in action_request]):
+            response = client.call_actions(SERVICE_NAME, actions, raise_action_errors=False)
+            self.assertEqual(response.actions[0].body, {'foo': 'bar'})
+            self.assertEqual(response.actions[1].errors, error_expected)
 
     def test_call_actions_raises_exception_on_job_error(self):
         """Client.call_actions raises Client.JobError when a JobError occurs on the server."""

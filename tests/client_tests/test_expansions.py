@@ -58,6 +58,7 @@ class TestClientRouter(TestCase):
                         'type': 'baz',
                         'source_field': 'baz_id',
                         'dest_field': 'baz',
+                        'raise_action_errors': True,
                     },
                 },
                 'baz': {
@@ -285,3 +286,51 @@ class TestClientRouter(TestCase):
             response.body,
             expected_response,
         )
+
+    def test_expansion_fail_silently(self):
+        bar_errors= [{
+            'code': 'INVALID',
+            'field': 'id',
+            'message': 'Invalid bar ID',
+        }]
+        self.client._get_handler('bar').transport.stub_action('get_bar', errors=bar_errors)
+        expected_response = {
+            'foo': {
+                '_type': 'foo',
+                'id': 1,
+                'bar_id': 2,
+                'baz_id': 3,
+            },
+        }
+        response = self.client.call_action(
+            service_name='foo',
+            action='get_foo',
+            body={
+                'id': 1,
+            },
+            expansions={
+                'foo': ['bar'],
+            },
+        )
+        self.assertEqual(response.body, expected_response)
+
+    def test_expansion_error_raises_exception(self):
+        baz_errors = [{
+            'code': 'INVALID',
+            'field': 'id',
+            'message': 'Invalid baz ID',
+        }]
+        self.client._get_handler('baz').transport.stub_action('get_baz', errors=baz_errors)
+
+        with self.assertRaises(self.client.CallActionError) as e:
+            self.client.call_action(
+                service_name='foo',
+                action='get_foo',
+                body={
+                    'id': 1,
+                },
+                expansions={
+                    'foo': ['baz'],
+                },
+            )
+            self.assertEqual(e.errors, baz_errors)

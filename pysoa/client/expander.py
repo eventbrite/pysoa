@@ -123,6 +123,7 @@ class ExpansionNode(TypeNode):
         action,
         request_field,
         response_field,
+        raise_action_errors=True,
     ):
         """
         Create a new ExpansionNode instance.
@@ -138,6 +139,8 @@ class ExpansionNode(TypeNode):
             action (str): name of the action that satisfies the expansion.
             request_field (str): field name for the expansion's ActionRequest body.
             response_field (str): field name for the expansion's ActionResponse body.
+            raise_action_errors (bool): tells the Client not to raise an exception if the
+                expansion action returns an error response.
 
         Returns:
             An ExpansionNode instance.
@@ -150,6 +153,7 @@ class ExpansionNode(TypeNode):
         self.action = action
         self.request_field = request_field
         self.response_field = response_field
+        self.raise_action_errors = raise_action_errors
 
     def to_strings(self):
         """
@@ -236,6 +240,7 @@ class ExpansionConverter(object):
                     "type": "<expansion type>",
                     "source_field": "<source field name>",
                     "dest_field": "<destination field name>",
+                    "raise_action_errors": <bool>
                 },
                 ...
             },
@@ -286,6 +291,7 @@ class ExpansionConverter(object):
                             action=type_route['action'],
                             request_field=type_route['request_field'],
                             response_field=type_route['response_field'],
+                            raise_action_errors=type_expansion.get('raise_action_errors', False),
                         )
                         expansion_node.add_expansion(child_expansion_node)
                     expansion_node = child_expansion_node
