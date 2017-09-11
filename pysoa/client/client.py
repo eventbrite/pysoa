@@ -358,11 +358,12 @@ class Client(object):
             context['correlation_id'] = correlation_id
         elif 'correlation_id' not in context:
             context['correlation_id'] = six.u(uuid.uuid1().hex)
-        # Optionally add switches
-        if switches is not None:
-            context['switches'] = list(switches)
-        elif 'switches' not in context:
-            context['switches'] = []
+        # Switches can come from three different places, so merge them
+        # and ensure that they are unique
+        switches = set(switches or [])
+        if context_extra:
+            switches |= set(context_extra.pop('switches', []))
+        context['switches'] = list(set(context.get('switches', [])) | switches)
         # Add any extra stuff
         if context_extra:
             context.update(context_extra)
