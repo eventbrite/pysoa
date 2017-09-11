@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.17.0 (2017-09-11)
+-------------------
+- Ensure that switches from Client.context are correctly merged with the switches passed to each request
+
 0.16.0 (2017-08-17)
 -------------------
 - Improve schema validation for client transport settings, including settings schema for ASGI, local and multi-backend Clients
