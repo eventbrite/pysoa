@@ -1,5 +1,8 @@
 Changelog
 =========
+0.17.1 (2017-09-14)
+-------------------
+- LocalTransportSchema server class can be a path or a class object
 
 0.17.0 (2017-09-11)
 -------------------
