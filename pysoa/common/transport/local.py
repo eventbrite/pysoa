@@ -114,7 +114,8 @@ class LocalTransportSchema(BasicClassSchema):
     contents = {
         'path': fields.UnicodeString(),
         'kwargs': fields.Dictionary({
-            'server_class': fields.UnicodeString(),
+            # server class can be an import path or a class object
+            'server_class': fields.Any(fields.UnicodeString(), fields.ObjectInstance(six.class_types)),
             # No deeper validation because the Server will perform its own validation
             'server_settings': fields.SchemalessDictionary(key_type=fields.UnicodeString()),
         }),
