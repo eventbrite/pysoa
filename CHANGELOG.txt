@@ -1,5 +1,9 @@
 Changelog
 =========
+0.17.2 (2017-09-18)
+-------------------
+- Pin the versions of six and attrs
+
 0.17.1 (2017-09-14)
 -------------------
 - LocalTransportSchema server class can be a path or a class object
