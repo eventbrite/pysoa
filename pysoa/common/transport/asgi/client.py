@@ -13,7 +13,7 @@ class ASGIClientTransport(ClientTransport):
 
     def __init__(self, service_name, asgi_channel_type, request_channel_capacity=10000, **kwargs):
         self.service_name = service_name
-        self.client_id = uuid.uuid1().hex
+        self.client_id = uuid.uuid4().hex
         self.send_channel_name = make_channel_name(service_name)
         self.receive_channel_name = '{}.{}!'.format(
             self.send_channel_name,
