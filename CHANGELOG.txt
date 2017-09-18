@@ -1,5 +1,10 @@
 Changelog
 =========
+
+0.17.3 (2017-09-18)
+-------------------
+- Use uuid4 instead of uuid1 to calculate the client ID
+
 0.17.2 (2017-09-18)
 -------------------
 - Pin the versions of six and attrs
