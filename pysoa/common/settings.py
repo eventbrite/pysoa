@@ -140,6 +140,9 @@ class Settings(object):
     def __getitem__(self, key):
         return self._data[key]
 
+    def __contains__(self, key):
+        return key in self._data
+
 
 class SOASettings(Settings):
     """
