@@ -171,7 +171,7 @@ class Server(object):
         except Exception:
             error_str, traceback_str = "Error formatting error", traceback.format_exc()
         # Log what happened
-        self.logger.error("Unhandled error: %s", traceback_str)
+        self.logger.error(error, exc_info=True)
         # Make a barebones job response
         error_dict = {
             'code': ERROR_CODE_SERVER_ERROR,
@@ -288,7 +288,7 @@ class Server(object):
                 # Get, process, and execute the next JobRequest
                 self.handle_next_request()
         except Exception:
-            self.logger.error("Unhandled server error: %s", traceback.format_exc())
+            self.logger.error("Unhandled server error", exc_info=True)
         finally:
             self.logger.info("Server shutting down")
 
