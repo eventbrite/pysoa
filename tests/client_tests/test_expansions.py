@@ -10,12 +10,6 @@ class TestClientRouter(TestCase):
     def setUp(self):
         expansions = {
             'type_routes': {
-                'foo': {
-                    'service': 'foo',
-                    'action': 'get_foo',
-                    'request_field': 'id',
-                    'response_field': 'foo',
-                },
                 'bar': {
                     'service': 'bar',
                     'action': 'get_bar',
@@ -105,6 +99,7 @@ class TestClientRouter(TestCase):
                     'bar': {
                         '_type': 'bar',
                         'id': 2,
+                        'stuff': 'things',
                     },
                 }
             }
@@ -197,6 +192,7 @@ class TestClientRouter(TestCase):
                 'bar': {
                     '_type': 'bar',
                     'id': 2,
+                    'stuff': 'things',
                 },
                 'baz': {
                     '_type': 'baz',
@@ -259,6 +255,7 @@ class TestClientRouter(TestCase):
                 'bar': {
                     '_type': 'bar',
                     'id': 2,
+                    'stuff': 'things',
                 },
                 'baz': {
                     '_type': 'baz',
