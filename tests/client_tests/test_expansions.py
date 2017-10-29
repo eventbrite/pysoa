@@ -285,7 +285,7 @@ class TestClientRouter(TestCase):
         )
 
     def test_expansion_fail_silently(self):
-        bar_errors= [{
+        bar_errors = [{
             'code': 'INVALID',
             'field': 'id',
             'message': 'Invalid bar ID',

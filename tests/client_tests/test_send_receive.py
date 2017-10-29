@@ -54,7 +54,7 @@ class CatchExceptionOnRequestMiddleware(ClientMiddleware):
         def handler(request_id, meta, request):
             try:
                 return send_request(request_id, meta, request)
-            except:
+            except Exception:
                 self.error_count += 1
                 raise
             finally:
@@ -98,7 +98,7 @@ class CatchExceptionOnResponseMiddleware(ClientMiddleware):
         def handler():
             try:
                 return get_response()
-            except:
+            except Exception:
                 self.error_count += 1
                 raise
             finally:
@@ -253,7 +253,11 @@ class TestClientSendReceive(TestCase):
         """Client.call_actions raises Client.JobError when a JobError occurs on the server."""
         client = Client(self.client_settings)
         errors = [Error(code=ERROR_CODE_SERVER_ERROR, message='Something went wrong!')]
-        with mock.patch.object(client._get_handler(SERVICE_NAME).transport.server, 'execute_job', new=mock.Mock(side_effect=JobError(errors))):
+        with mock.patch.object(
+            client._get_handler(SERVICE_NAME).transport.server,
+            'execute_job',
+            new=mock.Mock(side_effect=JobError(errors)),
+        ):
             with self.assertRaises(Client.JobError) as e:
                 client.call_action(SERVICE_NAME, 'action_1')
                 self.assertEqual(e.errors, errors)

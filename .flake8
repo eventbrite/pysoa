@@ -17,10 +17,11 @@
 # Whitespace
 # E261  at least two spaces before inline comment
 
-
 # PyFlakes
 # F403  unable to detect undefined names (from whatever import *)
+# F405  __ may be undefined, or defined from star imports: __
 
-ignore = E501,E12,E261,F403
+ignore = F403,F405
+max-line-length = 120
 
-exclude = .git,build,.env,docs/conf.py
+exclude = .git,build,.env,docs/conf.py,

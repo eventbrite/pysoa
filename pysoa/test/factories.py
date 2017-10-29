@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import factory
 import importlib
 
@@ -12,10 +14,10 @@ class ServerSettingsFactory(factory.Factory):
 
     data = factory.Dict({
         'transport': {
-            'path': u'pysoa.common.transport.base:ServerTransport',
+            'path': 'pysoa.common.transport.base:ServerTransport',
         },
         'serializer': {
-            'path': u'pysoa.common.serializer.base:Serializer',
+            'path': 'pysoa.common.serializer.base:Serializer',
         },
     })
 
@@ -26,7 +28,7 @@ class ServerSettingsFactory(factory.Factory):
         kwargs['data'] = dict(
             kwargs['data'],
             transport={
-                'path': u'pysoa.common.transport.base:ServerTransport',
+                'path': 'pysoa.common.transport.base:ServerTransport',
             },
         )
         return kwargs

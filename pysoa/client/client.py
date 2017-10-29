@@ -35,7 +35,8 @@ class ServiceHandler(object):
         """
         return {'mime_type': self.serializer.mime_type}
 
-    def _make_middleware_stack(self, middleware, base):
+    @staticmethod
+    def _make_middleware_stack(middleware, base):
         """
         Given a list of in-order middleware callables `middleware`
         and a base function `base`, chains them together so each middleware is
@@ -79,7 +80,7 @@ class ServiceHandler(object):
     def _get_response(self):
         request_id, meta, message = self.transport.receive_response_message()
         if message is None:
-            return (None, None)
+            return None, None
         else:
             raw_response = self.serializer.blob_to_dict(message)
             job_response = JobResponse(**raw_response)
@@ -87,7 +88,7 @@ class ServiceHandler(object):
 
     def get_all_responses(self):
         """
-        Receive all available responses from the trasnport as a generator.
+        Receive all available responses from the transport as a generator.
 
         Yields:
             (int, JobResponse)
@@ -333,11 +334,8 @@ class Client(object):
             self.handlers[service_name] = self.handler_class(service_name, settings)
         return self.handlers[service_name]
 
-    def _make_control_header(
-        self,
-        continue_on_error=False,
-        control_extra=None,
-    ):
+    @staticmethod
+    def _make_control_header(continue_on_error=False, control_extra=None):
         control = {
             'continue_on_error': continue_on_error,
         }

@@ -12,4 +12,7 @@ dist/
 .cache
 
 .idea
-.iml
+*.iml
+.coverage
+coverage.xml
+pytests.xml

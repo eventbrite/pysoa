@@ -1,11 +1,14 @@
+from __future__ import unicode_literals
+
+import unittest
+
 from conformity import fields
+import pytest
 
 from pysoa.common.types import ActionResponse
 from pysoa.server.types import EnrichedActionRequest
 from pysoa.server.action import Action
 from pysoa.server.errors import ActionError
-
-import pytest
 
 
 class TestAction(Action):
@@ -19,13 +22,13 @@ class TestAction(Action):
         pass
 
 
-class TestActionValidation(object):
-    def setup_method(self, method):
+class TestActionValidation(unittest.TestCase):
+    def setUp(self):
         self.action = TestAction()
         self.action_request = EnrichedActionRequest(
             action='test_action',
             body={
-                'string_field': u'a unicode string',
+                'string_field': 'a unicode string',
             },
             switches=None,
         )
@@ -56,7 +59,7 @@ class TestActionValidation(object):
             self.action(self.action_request)
 
         assert len(e.value.errors) == 1
-        assert e.value.errors[0].field == u'string_field'
+        assert e.value.errors[0].field == 'string_field'
 
     def test_returns_action_response(self):
         response = self.action(self.action_request)

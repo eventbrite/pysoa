@@ -134,3 +134,9 @@ channel layer to ensure isolation from the rest of the system.
 
 There is also a StubClient available for testing code that calls services, but
 where you do not actually want to have the service code in place.
+
+For testing this library directly, you must first install Lua on your system
+(on Mac OS X this is done with ``brew install lua``), ensure Lua is on your
+``$PKG_CONFIG_PATH`` environment variable (in Mac OS X), and then install
+dependencies (``pip install -e .[testing]``). After this, you can simply run
+``pytest`` or ``setup.py test``.

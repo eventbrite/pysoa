@@ -232,8 +232,8 @@ class Server(object):
 
             job_response.actions.append(action_response)
             if (
-                action_response.errors
-                and not job_request['control'].get('continue_on_error', False)
+                action_response.errors and
+                not job_request['control'].get('continue_on_error', False)
             ):
                 # Quit running Actions if an error occurred and continue_on_error is False
                 break
