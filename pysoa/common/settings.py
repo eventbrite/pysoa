@@ -102,7 +102,7 @@ class Settings(object):
     will merge any passed values into its defaults.
 
     You can override how certain fields are set by defining a method called
-    `convert_[field_name]`.
+    `convert_{field_name}`.
     """
 
     schema = {}

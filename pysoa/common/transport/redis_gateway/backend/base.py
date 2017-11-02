@@ -46,8 +46,7 @@ class BaseRedisClient(object):
 
     def __init__(self, ring_size):
         self._ring_size = ring_size
-        self._receive_index_generator = itertools.cycle(range(self._ring_size))  # may be overridden by subclasses
-        self._send_index_generator = itertools.cycle(range(self._ring_size))  # may be overridden by subclasses
+        self._connection_index_generator = itertools.cycle(range(self._ring_size))  # may be overridden by subclasses
 
         self.send_message_to_queue = None
         self._register_scripts()
@@ -64,7 +63,7 @@ class BaseRedisClient(object):
             return self._get_connection(self._get_consistent_hash_index(queue_key))
         else:
             # It's a request queue, so use a random connection
-            return self._get_connection(next(self._send_index_generator))
+            return self._get_connection(next(self._connection_index_generator))
 
     def _get_connection(self, index=None):
         """

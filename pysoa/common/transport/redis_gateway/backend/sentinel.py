@@ -41,8 +41,7 @@ class SentinelRedisClient(BaseRedisClient):
         else:
             self._services = self._get_service_names()
         self._ring_size = len(self._services)
-        self._receive_index_generator = itertools.cycle(range(self._ring_size))
-        self._send_index_generator = itertools.cycle(range(self._ring_size))
+        self._connection_index_generator = itertools.cycle(range(self._ring_size))
 
         super(SentinelRedisClient, self).__init__(ring_size=len(self._services))
 
