@@ -7,8 +7,9 @@ from pysoa.client.client import (
     ServiceHandler,
 )
 from pysoa.client.settings import ClientSettings
-from pysoa.common.types import Error
+from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.local import LocalClientTransport
+from pysoa.common.types import Error
 from pysoa.server import Server
 from pysoa.server.action import (
     Action,
@@ -16,7 +17,9 @@ from pysoa.server.action import (
 )
 
 
-def _make_stub_action(action_name, body={}, errors=[]):
+def _make_stub_action(action_name, body=None, errors=None):
+    body = body or {}
+    errors = errors or {}
     action_class_name = ''.join([part.capitalize() for part in re.split(r'[^a-zA-Z0-9]+', action_name)])
     return type(
         str(action_class_name),
@@ -65,7 +68,7 @@ class StubClient(Client):
 
     settings_class = StubClientSettings
 
-    def __init__(self, service_action_map=None, **kwargs):
+    def __init__(self, service_action_map=None, **_):
         """
         Generate settings based on a mapping of service names to actions.
 
@@ -93,7 +96,7 @@ class StubClient(Client):
 class StubClientTransport(LocalClientTransport):
     """A transport that incorporates an automatically-configured Server for handling requests."""
 
-    def __init__(self, service_name='test', action_map=None):
+    def __init__(self, service_name='test', metrics=None, action_map=None):
         """
         Configure a StubServer to handle requests. Creates a new subclass of StubServer using the service name and
         action mapping provided.
@@ -115,7 +118,7 @@ class StubClientTransport(LocalClientTransport):
             (StubServer,),
             dict(service_name=service_name, action_class_map=action_class_map),
         )
-        super(StubClientTransport, self).__init__(service_name, server_class, {})
+        super(StubClientTransport, self).__init__(service_name, metrics or NoOpMetricsRecorder(), server_class, {})
 
     def stub_action(self, action, body=None, errors=None):
         self.server.stub_action(action, body=body, errors=errors)

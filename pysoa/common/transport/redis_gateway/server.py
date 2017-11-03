@@ -8,18 +8,22 @@ from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
 
 class RedisServerTransport(ServerTransport):
 
-    def __init__(self, service_name, **kwargs):
-        super(RedisServerTransport, self).__init__(service_name)
+    def __init__(self, service_name, metrics, **kwargs):
+        super(RedisServerTransport, self).__init__(service_name, metrics)
 
         self._receive_queue_name = make_redis_queue_name(service_name)
-        self.core = RedisTransportCore(**kwargs)
+        self.core = RedisTransportCore(metrics=metrics, metrics_prefix='server', **kwargs)
 
     def receive_request_message(self):
-        return self.core.receive_message(self._receive_queue_name)
+        with self.metrics.timer('server.transport.redis_gateway.receive'):
+            return self.core.receive_message(self._receive_queue_name)
 
     def send_response_message(self, request_id, meta, body):
         try:
             queue_name = meta['reply_to']
         except KeyError:
+            self.metrics.counter('server.transport.redis_gateway.send.error.missing_reply_queue')
             raise InvalidMessageError('Missing reply queue name')
-        self.core.send_message(queue_name, request_id, meta, body)
+
+        with self.metrics.timer('server.transport.redis_gateway.send'):
+            self.core.send_message(queue_name, request_id, meta, body)

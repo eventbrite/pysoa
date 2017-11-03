@@ -5,6 +5,7 @@ import uuid
 
 import mock
 
+from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.exceptions import InvalidMessageError
 from pysoa.common.transport.redis_gateway.server import RedisServerTransport
 
@@ -13,12 +14,17 @@ from pysoa.common.transport.redis_gateway.server import RedisServerTransport
 class TestServerTransport(unittest.TestCase):
     @staticmethod
     def _get_transport(service='my_service', **kwargs):
-        return RedisServerTransport(service, **kwargs)
+        return RedisServerTransport(service, NoOpMetricsRecorder(), **kwargs)
 
     def test_core_args(self, mock_core):
-        self._get_transport(hello='world', goodbye='earth')
+        transport = self._get_transport(hello='world', goodbye='earth')
 
-        mock_core.assert_called_once_with(hello='world', goodbye='earth')
+        mock_core.assert_called_once_with(
+            hello='world',
+            goodbye='earth',
+            metrics=transport.metrics,
+            metrics_prefix='server',
+        )
 
     def test_receive_request_message(self, mock_core):
         transport = self._get_transport()

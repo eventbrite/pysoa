@@ -9,15 +9,16 @@ backend code into a single class.
 All Transport methods either accept or return a metadata argument. This should be a
 dict that includes any information that is necessary for processing the message, but
 is not business logic. For example, if your implementation has multiple serializer
-types, the metadata may include a mimetype to tell the endpoint receiving the message
+types, the metadata may include a mime type to tell the endpoint receiving the message
 which type of serializer to use.
 """
 
 
 class ClientTransport(object):
 
-    def __init__(self, service_name):
+    def __init__(self, service_name, metrics):
         self.service_name = service_name
+        self.metrics = metrics
 
     def send_request_message(self, request_id, meta, message_string):
         """
@@ -49,8 +50,9 @@ class ClientTransport(object):
 
 class ServerTransport(object):
 
-    def __init__(self, service_name):
+    def __init__(self, service_name, metrics):
         self.service_name = service_name
+        self.metrics = metrics
 
     def receive_request_message(self):
         """

@@ -9,6 +9,10 @@ from copy import deepcopy
 import attr
 import redis
 
+from pysoa.common.metrics import (
+    MetricsRecorder,
+    NoOpMetricsRecorder,
+)
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
 from pysoa.common.transport.exceptions import (
     MessageTooLarge,
@@ -49,6 +53,16 @@ class RedisTransportCore(object):
         # How long after a message is sent before it's considered "expired" and not received
         default=60,
         convert=int,
+    )
+
+    metrics = attr.ib(
+        default=NoOpMetricsRecorder(),
+        validator=attr.validators.instance_of(MetricsRecorder),
+    )
+
+    metrics_prefix = attr.ib(
+        default='',
+        validator=attr.validators.instance_of(six.text_type),
     )
 
     queue_capacity = attr.ib(
@@ -139,9 +153,11 @@ class RedisTransportCore(object):
 
         message = {'request_id': request_id, 'meta': meta, 'body': body}
 
-        serialized_message = self.serializer.dict_to_blob(message)
+        with self._get_timer('send.serialize'):
+            serialized_message = self.serializer.dict_to_blob(message)
 
         if len(serialized_message) > self.MAXIMUM_MESSAGE_BYTES:
+            self._get_counter('send.error.message_too_large').increment()
             raise MessageTooLarge()
 
         queue_key = self.QUEUE_NAME_PREFIX + queue_name
@@ -150,23 +166,32 @@ class RedisTransportCore(object):
         for i in range(-1, self.queue_full_retries):
             if i >= 0:
                 time.sleep((2 ** i + random.random()) / self.EXPONENTIAL_BACK_OFF_FACTOR)
+                self._get_counter('send.queue_full_retry').increment()
+                self._get_counter('send.queue_full_retry.retry_{}'.format(i + 1)).increment()
             try:
-                connection = self.backend_layer.get_connection(queue_key)
-                self.backend_layer.send_message_to_queue(
-                    queue_key=queue_key,
-                    message=serialized_message,
-                    expiry=self.message_expiry_in_seconds,
-                    capacity=self.queue_capacity,
-                    connection=connection,
-                )
+                with self._get_timer('send.get_redis_connection'):
+                    connection = self.backend_layer.get_connection(queue_key)
+
+                with self._get_timer('send.send_message_to_redis_queue'):
+                    self.backend_layer.send_message_to_queue(
+                        queue_key=queue_key,
+                        message=serialized_message,
+                        expiry=self.message_expiry_in_seconds,
+                        capacity=self.queue_capacity,
+                        connection=connection,
+                    )
                 return
             except redis.exceptions.ResponseError as e:
                 # The Lua script handles capacity checking and sends the "full" error back
                 if e.args[0] == 'queue full':
                     continue
+                self._get_counter('send.error.unknown').increment()
                 raise MessageSendError(*e.args)
             except Exception as e:
+                self._get_counter('send.error.unknown').increment()
                 raise MessageSendError(*e.args)
+
+        self._get_counter('send.error.redis_queue_full').increment()
 
         raise MessageSendError(
             'Redis queue {queue_name} was full after {retries} retries'.format(
@@ -179,25 +204,32 @@ class RedisTransportCore(object):
         queue_key = self.QUEUE_NAME_PREFIX + queue_name
 
         try:
-            connection = self.backend_layer.get_connection(queue_key)
+            with self._get_timer('receive.get_redis_connection'):
+                connection = self.backend_layer.get_connection(queue_key)
             # returns message or None if no new messages within timeout
-            result = connection.blpop([queue_key], timeout=self.receive_timeout_in_seconds)
+            with self._get_timer('receive.pop_from_redis_queue'):
+                result = connection.blpop([queue_key], timeout=self.receive_timeout_in_seconds)
             serialized_message = None
             if result:
                 serialized_message = result[1]
         except Exception as e:
+            self._get_counter('receive.error.unknown').increment()
             raise MessageReceiveError(*e.args)
 
         if serialized_message is None:
+            self._get_counter('receive.error.no_message_received').increment()
             raise MessageReceiveTimeout('No message received')
 
-        message = self.serializer.blob_to_dict(serialized_message)
+        with self._get_timer('receive.deserialize'):
+            message = self.serializer.blob_to_dict(serialized_message)
 
         if self._is_message_expired(message):
+            self._get_counter('receive.error.message_expired').increment()
             raise MessageReceiveTimeout('Message expired')
 
         request_id = message.get('request_id')
         if request_id is None:
+            self._get_counter('receive.error.no_message_id').increment()
             raise InvalidMessageError('No request ID')
 
         return request_id, message.get('meta', {}), message.get('body')
@@ -208,3 +240,15 @@ class RedisTransportCore(object):
     @staticmethod
     def _is_message_expired(message):
         return message.get('meta', {}).get('__expiry__') and message['meta']['__expiry__'] < time.time()
+
+    def _get_metric_name(self, name):
+        if self.metrics_prefix:
+            return '{prefix}.transport.redis_gateway.{name}'.format(prefix=self.metrics_prefix, name=name)
+        else:
+            return 'transport.redis_gateway.{}'.format(name)
+
+    def _get_counter(self, name):
+        return self.metrics.counter(self._get_metric_name(name))
+
+    def _get_timer(self, name):
+        return self.metrics.timer(self._get_metric_name(name))

@@ -17,8 +17,8 @@ from .base import (
 class LocalClientTransport(ClientTransport):
     """A transport that incorporates a server for running a service and client in a single thread."""
 
-    def __init__(self, service_name, server_class, server_settings):
-        super(LocalClientTransport, self).__init__(service_name)
+    def __init__(self, service_name, metrics, server_class, server_settings):
+        super(LocalClientTransport, self).__init__(service_name, metrics)
 
         # If the server is specified as a path, resolve it to a class
         if isinstance(server_class, six.string_types):
@@ -99,9 +99,10 @@ class LocalClientTransport(ClientTransport):
         """
         if self.response_messages:
             return self.response_messages.popleft()
-        return (None, None, None)
+        return None, None, None
 
 
+# noinspection PyAbstractClass
 class LocalServerTransport(ServerTransport):
     """
     Empty class that we use as an import stub for local transport before

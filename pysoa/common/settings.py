@@ -8,32 +8,9 @@ from conformity import fields
 from conformity.validator import validate
 import six
 
+from pysoa.common.metrics import MetricsSchema
+from pysoa.common.schemas import BasicClassSchema
 from pysoa.common.serializer.base import Serializer as BaseSerializer
-
-
-class BasicClassSchema(fields.Dictionary):
-    contents = {
-        'path': fields.UnicodeString(),
-        'kwargs': fields.SchemalessDictionary(key_type=fields.UnicodeString()),
-    }
-    optional_keys = ['kwargs']
-    object_type = None
-
-    def __init__(self, object_type=None, **kwargs):
-        super(BasicClassSchema, self).__init__(**kwargs)
-
-        assert object_type is None or isinstance(object_type, type)
-
-        self.object_type = object_type
-
-    def __repr__(self):
-        return '{class_name}({object_type})'.format(
-            class_name=self.__class__.__name__,
-            object_type='object_type={module_name}:{class_name}'.format(
-                module_name=self.object_type.__module__,
-                class_name=self.object_type.__name__,
-            ) if self.object_type else '',
-        )
 
 
 def resolve_python_path(path):
@@ -235,11 +212,13 @@ class SOASettings(Settings):
     schema = {
         # Paths to the classes to use and then kwargs to pass
         'transport': BasicClassSchema(),
-        'serializer': BasicClassSchema(object_type=BaseSerializer),
+        'serializer': BasicClassSchema(BaseSerializer),
         'middleware': fields.List(BasicClassSchema()),
+        'metrics': MetricsSchema(),
     }
 
     defaults = {
         'serializer': {'path': 'pysoa.common.serializer:MsgpackSerializer'},
         'middleware': [],
+        'metrics': {'path': 'pysoa.common.metrics:NoOpMetricsRecorder'},
     }
