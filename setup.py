@@ -7,14 +7,20 @@ install_requires = [
     'msgpack-python>=0.4.8',
     'six~=1.10.0',
     'attrs~=16.3',
-    'asgi_redis~=1.4',
+    'asgi_redis~=1.4',  # deprecated, to be removed ____
     'currint~=1.6',
+    'redis~=2.10',
+    'msgpack-python~=0.4',
 ]
 
 tests_require = [
     'pytest',
+    'pytest-cov',
     'mock>=2.0',
     'factory_boy~=2.8.0',
+    'lunatic-python-universal~=2.0',
+    'mockredispy~=2.9',
+    'freezegun~=0.3',
 ]
 
 setup(

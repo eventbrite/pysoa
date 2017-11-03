@@ -1,6 +1,8 @@
 from __future__ import unicode_literals
-import currint
+
 import datetime
+
+import currint
 import pytest
 
 from pysoa.common.serializer import (
@@ -27,7 +29,7 @@ class TestSerializers():
     @pytest.mark.parametrize('data', [
         {'int_key': 1},
         {'str_key': 'string'},
-        {'unicode_key': u'\U0001f37a'},
+        {'unicode_key': '\U0001f37a'},
         {'list_key': [1, 'two']},
         {'dict_key': {'one': 1, 'two': 'foo'}},
     ])
@@ -39,7 +41,7 @@ class TestSerializers():
         message = serializer.dict_to_blob(data)
         deserialized_message = serializer.blob_to_dict(message)
         for key, val in data.items():
-            assert (deserialized_message[key] == val), u'{} != {} for {}'.format(
+            assert (deserialized_message[key] == val), '{} != {} for {}'.format(
                 deserialized_message[key], val, serializer
             )
 
@@ -97,14 +99,14 @@ class TestMsgpackSerializer():
         """
         data = {
             b'bytes_key': b'this is a byte array',
-            u'unicode_key': u'unicode string!',
+            'unicode_key': 'unicode string!',
         }
         serializer = MsgpackSerializer()
         output = serializer.blob_to_dict(serializer.dict_to_blob(data))
         assert b'bytes_key' in output
-        assert u'unicode_key' in output
+        assert 'unicode_key' in output
         assert output[b'bytes_key'] == b'this is a byte array'
-        assert output[u'unicode_key'] == u'unicode string!'
+        assert output['unicode_key'] == 'unicode string!'
 
     @pytest.mark.parametrize('value', [
         datetime.datetime(2011, 1, 24),

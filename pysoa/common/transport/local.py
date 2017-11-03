@@ -14,7 +14,6 @@ from .base import (
 )
 
 
-
 class LocalClientTransport(ClientTransport):
     """A transport that incorporates a server for running a service and client in a single thread."""
 

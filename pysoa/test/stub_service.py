@@ -95,8 +95,8 @@ class StubClientTransport(LocalClientTransport):
 
     def __init__(self, service_name='test', action_map=None):
         """
-        Configure a StubServer to handle requests. Creates a new subclass of StubServer using the service name and action
-        mapping provided.
+        Configure a StubServer to handle requests. Creates a new subclass of StubServer using the service name and
+        action mapping provided.
 
         Args:
             service_name: string
