@@ -217,7 +217,6 @@ class RedisTransportCore(object):
             raise MessageReceiveError(*e.args)
 
         if serialized_message is None:
-            self._get_counter('receive.error.no_message_received').increment()
             raise MessageReceiveTimeout('No message received')
 
         with self._get_timer('receive.deserialize'):
@@ -229,7 +228,7 @@ class RedisTransportCore(object):
 
         request_id = message.get('request_id')
         if request_id is None:
-            self._get_counter('receive.error.no_message_id').increment()
+            self._get_counter('receive.error.no_request_id').increment()
             raise InvalidMessageError('No request ID')
 
         return request_id, message.get('meta', {}), message.get('body')

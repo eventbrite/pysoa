@@ -536,10 +536,59 @@ Transport exceptions
 - ``MessageReceiveError``: The transport encountered any other error while trying to receive a message.
 
 
-ASGI Transport
-++++++++++++++
+Redis Gateway Transport
++++++++++++++++++++++++
 
-The ``transport.asgi`` module provides a transport implementation that uses the `ASGI <http://channels.readthedocs.io/en/stable/asgi.html>`_ protocol. This is the recommended transport for use with ``pysoa``, as it provides a convenient and performant backend for asynchronous service requests. It is also the technology underlying `Django channels <https://channels.readthedocs.io/en/stable/>`_, so you know it's good.
+The ``transport.redis_gateway`` module provides a transport implementation that uses Redis (in simple or Sentinel mode)
+for sending and receiving messages. This is the recommended transport for use with ``pysoa``, as it provides a
+convenient and performant backend for asynchronous service requests.
+
+Standard and Sentinel modes
+***************************
+
+The Redis Gateway transport has two primary modes of operation: in "standard" mode, the channel layer will connect to a
+specified list of Redis hosts, while in "Sentinel" mode, the channel layer will connect to a list of Sentinel hosts and
+use Sentinel to find its Redis hosts.
+
+Configuration
+*************
+
+The Redis Gateway transport takes the following extra keyword arguments for configuration:
+
+- ``backend_type``: Either "redis.standard" or "redis.sentinel" to specify which Redis backend to use (required)
+
+- ``backend_layer_kwargs``: A dictionary of arguments to pass to the backend layer
+
+  + ``connection_kwargs``: A dictionary of arguments to pass to the underlying Redis client
+
+  + ``hosts``: A list of strings (host names / IP addresses) or tuples (host names / IP addresses and ports) for Redis hosts or sentinels to which to connect (will use "localhost" by default)
+
+  + ``redis_db``: The Redis database number to use (a shortcut for specifying ``connection_kwargs['db']``)
+
+  + ``redis_port``: The connection port to use (a shortcut for providing this for every entry in ``hosts``
+
+  + ``sentinel_refresh_interval``: How often, in seconds, master/slave data should be refreshed from the Sentinel (only for type "redis.sentinel") (refreshes every connection by default)
+
+  + ``sentinel_services``: Which Sentinel services to use (only for type "redis.sentinel") (will be auto-discovered from the Sentinel by default)
+
+- ``message_expiry_in_seconds``: How long a message may remain in the queue before it is considered expired and discarded
+
+- ``queue_capacity``: The maximum number of messages a given Redis queue may hold before the transport should stop pushing messages to it (defaults to 10,000)
+
+- ``queue_full_retries``: The number of times the transport should retry sending to a Redis queue that is at capacity before it raises an error and stops trying (defaults to 10)
+
+- ``receive_timeout_in_seconds``: How long the transport should block waiting to receive a message before giving up (on the server, this controls how often the server request-process loops; on the client, this controls how long before it raises an error for waiting too long for a response)
+
+- ``serializer_config``: A standard serializer configuration as described in `Serializer configuration`_ (defaults to Msgpack)
+
+
+ASGI Transport (DEPRECATED)
++++++++++++++++++++++++++++
+
+**WARNING:** The ASGI transport is deprecated due to performance issues. It will be removed before the first 1.0.0 GA
+release. Please migrate your projects to the `Redis Gateway Transport`_.
+
+The ``transport.asgi`` module provides a transport implementation that uses the `ASGI <http://channels.readthedocs.io/en/stable/asgi.html>`_ protocol. It is also the technology underlying `Django channels <https://channels.readthedocs.io/en/stable/>`_.
 
 The reference ASGI implementation, used in ``transport.asgi``, uses Redis as a message backend. The protocol is backend-agnostic, however; if you need to use a different backend, you can implement your own ``ASGITransportCore`` or extend the existing one.
 
@@ -618,6 +667,85 @@ Middleware configuration
         "kwargs": <optional dict of keyword args>,
     }
 
+
+Metrics
+-------
+PySOA is capable of recording detailed metrics about the performance of its client and server transports and sending
+and receiving processes. If you wish to gather metrics about the performance of PySOA, you will need to enable this
+metrics recording in your server settings and/or in your client settings and provide an object which PySOA can use to
+record these metrics.
+
+``MetricsRecorder``
++++++++++++++++++++
+
+Metrics in PySOA are recorded with an implementation of the ``MetricsRecorder`` abstract class. By default, PySOA ships
+with and uses a ``NoOpMetricsRecorder`` that performs no action recorder of metrics. In order to record metrics in your
+application, you will need to supply an implementation that knows about your metrics backend and understands how to
+record counters and timers. The documentation for ``Counter``, ``Timer``, and ``MetricsRecorder`` in
+``pysoa/common/metrics.py`` details how to implement these classes.
+
+Metrics configuration
++++++++++++++++++++++
+
+Metrics are configured using the standard ``pysoa`` plugin schema::
+
+    {
+        "path": <path to class implementing MetricsRecorder>,
+        "kwargs": <optional dict of keyword args passed to your MetricsRecorder class when instantiated>,
+    }
+
+PySOA does not automatically append any sort of distinguishing prefix to the metrics it records (see `Which metrics
+are recorded`_ below). We recommend your ``MetricsRecorder`` append some type of prefix to all metrics names passed to
+it so that you can group all PySOA metrics together.
+
+Which metrics are recorded
+++++++++++++++++++++++++++
+
+These are all the metrics recorded in PySOA:
+
+- ``server.transport.redis_gateway.send``: A timer indicating how long it takes the Redis Gateway server transport to send a response
+- ``server.transport.redis_gateway.send.error.missing_reply_queue``: A counter incremented each time the Redis Gateway server transport is unable to send a response because the message metadata is missing the required ``reply_to`` attribute
+- ``server.transport.redis_gateway.send.serialize``: A timer indicating how long it takes the Redis Gateway transport to serialize a message
+- ``server.transport.redis_gateway.send.error.message_too_large``: A counter incremented each time the Redis Gateway transport fails to send because it exceeds 100 kilobytes
+- ``server.transport.redis_gateway.send.queue_full_retry``: A counter incremented each time the Redis Gateway transport re-tries sending a message because the message queue was temporarily full
+- ``server.transport.redis_gateway.send.queue_full_retry.retry_{1...n}``: A counter incremented on each queue full retry for a particular retry number
+- ``server.transport.redis_gateway.send.get_redis_connection``: A timer indicating how long it takes the Redis Gateway transport to get a connection to the Redis cluster or sentinel
+- ``server.transport.redis_gateway.send.send_message_to_redis_queue``: A timer indicating how long it takes the Redis Gateway transport to push a message onto the queue
+- ``server.transport.redis_gateway.send.error.unknown``: A counter incremented each time the Redis Gateway transport encounters an unknown error (logged) sending a message
+- ``server.transport.redis_gateway.send.error.redis_queue_full``: A counter incremented each time the Redis Gateway transport fails to push a message onto a full queue after the maximum configured retries
+- ``server.transport.redis_gateway.receive``: A timer indicating how long it takes the Redis Gateway server transport to receive a response (however, this includes time waiting for an incoming request, so it may not be meaningful)
+- ``server.transport.redis_gateway.receive.get_redis_connection``: A timer indicating how long it takes the Redis Gateway transport to get a connection to the Redis cluster or sentinel
+- ``server.transport.redis_gateway.receive.pop_from_redis_queue``: A timer indicating how long it takes the Redis Gateway transport to pop a message from the redis queue (however, this includes time waiting for an incoming message, so it may not be meaningful)
+- ``server.transport.redis_gateway.receive.error.unknown``: A counter incremented each time the Redis Gateway transport encounters an unknown error (logged) receiving a message
+- ``server.transport.redis_gateway.receive.deserialize``: A timer indicating how long it takes the Redis Gateway transport to deserialize a message
+- ``server.transport.redis_gateway.receive.error.message_expired``: A counter incremented each time the Redis Gateway transport receives an expired message
+- ``server.transport.redis_gateway.receive.error.no_request_id``: A counter incremented each time the Redis Gateway transport receives a message with a missing required Request ID
+- ``server.error.serialization_failure``: A counter incremented each time a serialization error occurs in the server
+- ``server.error.job_error``: A counter incremented each time a handled error occurs processing a job
+- ``server.error.unhandled_error``: A counter incremented each time an unhandled error occurs processing a job
+- ``server.error.error_formatting_failure``: A counter incremented each time an error occurs handling an error
+- ``server.error.variable_formatting_failure``: A counter incremented each time an error occurs handling an error
+- ``server.error.unknown``: A counter incremented each time some unknown error occurs that escaped all other error detection
+- ``client.transport.redis_gateway.send``: A timer indicating how long it took the Redis Gateway client transport to send a request
+- ``client.transport.redis_gateway.send.serialize``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.send.error.message_too_large``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.send.queue_full_retry``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.send.queue_full_retry.retry_{1...n}``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.send.get_redis_connection``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.send.send_message_to_redis_queue``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.send.error.unknown``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.send.error.redis_queue_full``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.receive``: A timer indicating how long it took the Redis Gateway client transport to receive a response (however, this includes time blocking for a response, so it may not be meaningful)
+- ``client.transport.redis_gateway.receive.get_redis_connection``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.receive.pop_from_redis_queue``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.receive.error.unknown``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.receive.deserialize``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.receive.error.message_expired``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.receive.error.no_request_id``: Client metric has same meaning as server metric
+- ``client.send.excluding_middleware``: A timer indicating how long it took to send a request through the configured transport, excluding any time spent in middleware
+- ``client.send.including_middleware``: A timer indicating how long it took to send a request through the configured transport, including any time spent in middleware
+- ``client.receive.excluding_middleware``: A timer indicating how long it took to receive a request through the configured transport, excluding any time spent in middleware (however, this includes time blocking for a response, so it may not be meaningful)
+- ``client.receive.including_middleware``: A timer indicating how long it took to receive a request through the configured transport, including any time spent in middleware (however, this includes time blocking for a response, so it may not be meaningful)
 
 
 Customizing configuration
