@@ -559,7 +559,7 @@ The Redis Gateway transport takes the following extra keyword arguments for conf
 
 - ``backend_layer_kwargs``: A dictionary of arguments to pass to the backend layer
 
-  + ``connection_kwargs``: A dictionary of arguments to pass to the underlying Redis client
+  + ``connection_kwargs``: A dictionary of arguments to pass to the underlying Redis client (see the documentation for the Redis-Py library)
 
   + ``hosts``: A list of strings (host names / IP addresses) or tuples (host names / IP addresses and ports) for Redis hosts or sentinels to which to connect (will use "localhost" by default)
 
@@ -571,13 +571,13 @@ The Redis Gateway transport takes the following extra keyword arguments for conf
 
   + ``sentinel_services``: Which Sentinel services to use (only for type "redis.sentinel") (will be auto-discovered from the Sentinel by default)
 
-- ``message_expiry_in_seconds``: How long a message may remain in the queue before it is considered expired and discarded
+- ``message_expiry_in_seconds``: How long a message may remain in the queue before it is considered expired and discarded (defaults to 60 seconds)
 
 - ``queue_capacity``: The maximum number of messages a given Redis queue may hold before the transport should stop pushing messages to it (defaults to 10,000)
 
 - ``queue_full_retries``: The number of times the transport should retry sending to a Redis queue that is at capacity before it raises an error and stops trying (defaults to 10)
 
-- ``receive_timeout_in_seconds``: How long the transport should block waiting to receive a message before giving up (on the server, this controls how often the server request-process loops; on the client, this controls how long before it raises an error for waiting too long for a response)
+- ``receive_timeout_in_seconds``: How long the transport should block waiting to receive a message before giving up (on the server, this controls how often the server request-process loops; on the client, this controls how long before it raises an error for waiting too long for a response) (defaults to 5 seconds)
 
 - ``serializer_config``: A standard serializer configuration as described in `Serializer configuration`_ (defaults to Msgpack)
 
