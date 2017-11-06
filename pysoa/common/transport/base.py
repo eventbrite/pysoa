@@ -12,11 +12,12 @@ is not business logic. For example, if your implementation has multiple serializ
 types, the metadata may include a mime type to tell the endpoint receiving the message
 which type of serializer to use.
 """
+from pysoa.common.metrics import NoOpMetricsRecorder
 
 
 class ClientTransport(object):
 
-    def __init__(self, service_name, metrics):
+    def __init__(self, service_name, metrics=NoOpMetricsRecorder()):
         self.service_name = service_name
         self.metrics = metrics
 
@@ -50,7 +51,7 @@ class ClientTransport(object):
 
 class ServerTransport(object):
 
-    def __init__(self, service_name, metrics):
+    def __init__(self, service_name, metrics=NoOpMetricsRecorder()):
         self.service_name = service_name
         self.metrics = metrics
 
