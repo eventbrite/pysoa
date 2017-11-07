@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import argparse
 import importlib
 import logging
@@ -10,27 +12,25 @@ import signal
 import attr
 
 from pysoa.client import Client
-from pysoa.common.types import (
-    JobResponse,
-    ActionResponse,
-    Error,
-)
 from pysoa.common.constants import (
     ERROR_CODE_INVALID,
-    ERROR_CODE_UNKNOWN,
     ERROR_CODE_SERVER_ERROR,
+    ERROR_CODE_UNKNOWN,
 )
-from pysoa.common.transport.exceptions import (
-    MessageReceiveTimeout,
+from pysoa.common.transport.exceptions import MessageReceiveTimeout
+from pysoa.common.types import (
+    ActionResponse,
+    Error,
+    JobResponse,
 )
-from .types import EnrichedActionRequest
-from .schemas import JobRequestSchema
-from .internal.types import RequestSwitchSet
-from .errors import (
-    JobError,
+from pysoa.server.internal.types import RequestSwitchSet
+from pysoa.server.errors import (
     ActionError,
+    JobError,
 )
-from .settings import ServerSettings
+from pysoa.server.types import EnrichedActionRequest
+from pysoa.server.schemas import JobRequestSchema
+from pysoa.server.settings import PolymorphicServerSettings
 
 
 class Server(object):
@@ -43,7 +43,7 @@ class Server(object):
             to Action subclasses.
     """
 
-    settings_class = ServerSettings
+    settings_class = PolymorphicServerSettings
 
     use_django = False
     service_name = None
@@ -56,8 +56,10 @@ class Server(object):
 
         # Store settings and extract serializer and transport
         self.settings = settings
+        self.metrics = self.settings['metrics']['object'](**self.settings['metrics'].get('kwargs', {}))
         self.transport = self.settings['transport']['object'](
             self.service_name,
+            self.metrics,
             **self.settings['transport'].get('kwargs', {})
         )
         self.serializer = self.settings['serializer']['object'](
@@ -91,10 +93,12 @@ class Server(object):
         job_response = self.process_job(job_request)
 
         # Send the JobResponse
+        response_dict = {}
         try:
             response_dict = attr.asdict(job_response)
             response_message = self.serializer.dict_to_blob(response_dict)
         except Exception as e:
+            self.metrics.counter('server.error.serialization_failure').increment()
             job_response = self.handle_error(e, variables={'job_response': response_dict})
             response_dict = attr.asdict(job_response)
             response_message = self.serializer.dict_to_blob(response_dict)
@@ -108,7 +112,8 @@ class Server(object):
         """
         return Client(self.settings['client_routing'], context=context)
 
-    def make_middleware_stack(self, middleware, base):
+    @staticmethod
+    def make_middleware_stack(middleware, base):
         """
         Given a list of in-order middleware callables `middleware`
         and a base function `base`, chains them together so each middleware is
@@ -151,12 +156,14 @@ class Server(object):
             )
             job_response = wrapper(job_request)
         except JobError as e:
+            self.metrics.counter('server.error.job_error').increment()
             job_response = JobResponse(
                 errors=e.errors,
             )
         except Exception as e:
             # Send an error response if no middleware caught this.
             # Formatting the error might itself error, so try to catch that
+            self.metrics.counter('server.error.unhandled_error').increment()
             return self.handle_error(e)
 
         return job_response
@@ -169,10 +176,11 @@ class Server(object):
         try:
             error_str, traceback_str = str(error), traceback.format_exc()
         except Exception:
+            self.metrics.counter('server.error.error_formatting_failure').increment()
             error_str, traceback_str = "Error formatting error", traceback.format_exc()
         # Log what happened
         self.logger.exception(error)
-        # Make a barebones job response
+        # Make a bare bones job response
         error_dict = {
             'code': ERROR_CODE_SERVER_ERROR,
             'message': 'Internal server error: %s' % error_str,
@@ -182,6 +190,7 @@ class Server(object):
             try:
                 error_dict['variables'] = {key: repr(value) for key, value in variables.items()}
             except Exception:
+                self.metrics.counter('server.error.variable_formatting_failure').increment()
                 error_dict['variables'] = 'Error formatting variables'
         job_response = JobResponse(errors=[error_dict])
         return job_response
@@ -240,7 +249,7 @@ class Server(object):
 
         return job_response
 
-    def handle_shutdown_signal(self, signum, frame):
+    def handle_shutdown_signal(self, *_):
         if self.shutting_down:
             self.logger.warning("Received double interrupt, forcing shutdown")
             sys.exit(1)
@@ -248,7 +257,7 @@ class Server(object):
             self.logger.warning("Received interrupt, initiating shutdown")
             self.shutting_down = True
 
-    def harakiri(self, signum, frame):
+    def harakiri(self, *_):
         if self.shutting_down:
             self.logger.warning("Graceful shutdown failed after {}s. Exiting now!".format(
                 self.settings["harakiri"]["shutdown_grace"]
@@ -283,19 +292,22 @@ class Server(object):
 
         try:
             while not self.shutting_down:
-                # reset harakiki timeout
+                # reset harakiri timeout
                 signal.alarm(self.settings["harakiri"]["timeout"])
                 # Get, process, and execute the next JobRequest
                 self.handle_next_request()
+                self.metrics.commit()
         except Exception:
+            self.metrics.counter('server.error.unknown').increment()
             self.logger.exception("Unhandled server error")
         finally:
+            self.metrics.commit()
             self.logger.info("Server shutting down")
 
     @classmethod
     def main(cls):
         """
-        Command-line entrypoint for running a PySOA service Server.
+        Command-line entry point for running a PySOA service Server.
         """
         parser = argparse.ArgumentParser(
             description='Server for the {} SOA service'.format(cls.service_name),
@@ -317,6 +329,7 @@ class Server(object):
 
         # Load settings from the given file (or use Django and grab from its settings)
         if cls.use_django:
+            # noinspection PyUnresolvedReferences
             from django.conf import settings as django_settings
             try:
                 settings = cls.settings_class(django_settings.SOA_SERVER_SETTINGS)

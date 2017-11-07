@@ -12,8 +12,9 @@ from .core import ASGITransportCore
 
 class ASGIServerTransport(ServerTransport):
 
-    def __init__(self, service_name, response_channel_capacities=None, **kwargs):
-        self.service_name = service_name
+    def __init__(self, service_name, metrics, response_channel_capacities=None, **kwargs):
+        super(ASGIServerTransport, self).__init__(service_name, metrics)
+
         self.receive_channel_name = make_channel_name(service_name)
         if response_channel_capacities:
             # If response channel capacities are specified, add them to channel_capacities

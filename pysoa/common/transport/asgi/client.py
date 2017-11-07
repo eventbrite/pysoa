@@ -11,8 +11,9 @@ from .core import ASGITransportCore
 
 class ASGIClientTransport(ClientTransport):
 
-    def __init__(self, service_name, asgi_channel_type, request_channel_capacity=10000, **kwargs):
-        self.service_name = service_name
+    def __init__(self, service_name, metrics, asgi_channel_type, request_channel_capacity=10000, **kwargs):
+        super(ASGIClientTransport, self).__init__(service_name, metrics)
+
         self.client_id = uuid.uuid4().hex
         self.send_channel_name = make_channel_name(service_name)
         self.receive_channel_name = '{}.{}!'.format(
@@ -23,7 +24,7 @@ class ASGIClientTransport(ClientTransport):
         if request_channel_capacity:
             # Each client transport sends on only one channel, so add that to channel_capacities
             kwargs['channel_capacities'] = {
-                re.compile(r'service\.' + self.service_name + r'$'): request_channel_capacity,
+                re.compile(r'service\.' + service_name + r'$'): request_channel_capacity,
             }
         self.core = ASGITransportCore(asgi_channel_type, **kwargs)
 
@@ -39,7 +40,7 @@ class ASGIClientTransport(ClientTransport):
         if self.requests_outstanding > 0:
             request_id, meta, response = self.core.receive_message(self.receive_channel_name)
             self.requests_outstanding -= 1
-            return (request_id, meta, response)
+            return request_id, meta, response
         else:
             # This tells Client.get_all_responses to stop waiting for more
-            return (None, None, None)
+            return None, None, None

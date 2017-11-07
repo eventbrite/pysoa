@@ -5,6 +5,7 @@ import uuid
 
 import mock
 
+from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.redis_gateway.client import RedisClientTransport
 
 
@@ -12,12 +13,17 @@ from pysoa.common.transport.redis_gateway.client import RedisClientTransport
 class TestClientTransport(unittest.TestCase):
     @staticmethod
     def _get_transport(service='my_service', **kwargs):
-        return RedisClientTransport(service, **kwargs)
+        return RedisClientTransport(service, NoOpMetricsRecorder(), **kwargs)
 
     def test_core_args(self, mock_core):
         transport = self._get_transport(hello='world', goodbye='earth')
 
-        mock_core.assert_called_once_with(hello='world', goodbye='earth')
+        mock_core.assert_called_once_with(
+            hello='world',
+            goodbye='earth',
+            metrics=transport.metrics,
+            metrics_prefix='client',
+        )
 
         self.assertRegexpMatches(transport.client_id, r'^[0-9a-fA-F]{32}$')
 

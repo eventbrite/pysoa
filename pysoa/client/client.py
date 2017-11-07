@@ -17,10 +17,13 @@ class ServiceHandler(object):
     """Does the basic work of communicating with an individual service."""
 
     def __init__(self, service_name, settings):
-        transport_class = settings['transport']['object']
-        serializer_class = settings['serializer']['object']
-        self.transport = transport_class(service_name, **settings['transport'].get('kwargs', {}))
-        self.serializer = serializer_class(**settings['serializer'].get('kwargs', {}))
+        self.metrics = settings['metrics']['object'](**settings['metrics'].get('kwargs', {}))
+        self.transport = settings['transport']['object'](
+            service_name,
+            self.metrics,
+            **settings['transport'].get('kwargs', {})
+        )
+        self.serializer = settings['serializer']['object'](**settings['serializer'].get('kwargs', {}))
         self.middleware = [
             m['object'](**m.get('kwargs', {}))
             for m in settings['middleware']
@@ -47,10 +50,11 @@ class ServiceHandler(object):
         return base
 
     def _base_send_request(self, request_id, meta, job_request):
-        if isinstance(job_request, JobRequest):
-            job_request = attr.asdict(job_request)
-        message = self.serializer.dict_to_blob(job_request)
-        self.transport.send_request_message(request_id, meta, message)
+        with self.metrics.timer('client.send.excluding_middleware'):
+            if isinstance(job_request, JobRequest):
+                job_request = attr.asdict(job_request)
+            message = self.serializer.dict_to_blob(job_request)
+            self.transport.send_request_message(request_id, meta, message)
 
     def send_request(self, job_request):
         """
@@ -74,17 +78,22 @@ class ServiceHandler(object):
             [m.request for m in self.middleware],
             self._base_send_request,
         )
-        wrapper(request_id, meta, job_request)
-        return request_id
+        try:
+            with self.metrics.timer('client.send.including_middleware'):
+                wrapper(request_id, meta, job_request)
+            return request_id
+        finally:
+            self.metrics.commit()
 
     def _get_response(self):
-        request_id, meta, message = self.transport.receive_response_message()
-        if message is None:
-            return None, None
-        else:
-            raw_response = self.serializer.blob_to_dict(message)
-            job_response = JobResponse(**raw_response)
-            return request_id, job_response
+        with self.metrics.timer('client.receive.excluding_middleware'):
+            request_id, meta, message = self.transport.receive_response_message()
+            if message is None:
+                return None, None
+            else:
+                raw_response = self.serializer.blob_to_dict(message)
+                job_response = JobResponse(**raw_response)
+                return request_id, job_response
 
     def get_all_responses(self):
         """
@@ -100,11 +109,15 @@ class ServiceHandler(object):
             [m.response for m in self.middleware],
             self._get_response,
         )
-        while True:
-            request_id, response = wrapper()
-            if response is None:
-                break
-            yield request_id, response
+        try:
+            while True:
+                with self.metrics.timer('client.receive.including_middleware'):
+                    request_id, response = wrapper()
+                if response is None:
+                    break
+                yield request_id, response
+        finally:
+            self.metrics.commit()
 
 
 class Client(object):
