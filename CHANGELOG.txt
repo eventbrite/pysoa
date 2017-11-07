@@ -1,8 +1,15 @@
 Changelog
 =========
 
+0.19.0 (2017-11-07)
+-------------------
+- Add new direct Redis transport that doesn't use ASGI
+- Deprecate ASGI transport due to performance issues
+- Add support for recording metrics directly within SOA clients, servers, and transports
+- General clean-up and improvements
+
 0.18.1 (2017-10-18)
-------------------
+-------------------
 - Add exception info to error logging
 
 0.18.0 (2017-10-13)
