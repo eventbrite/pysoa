@@ -1,10 +1,13 @@
 from __future__ import unicode_literals
 
-from pysoa.common.constants import ERROR_CODE_INVALID
-from pysoa.test.stub_service import StubClient
+from unittest import TestCase
 
 import attr
-from unittest import TestCase
+
+from pysoa.common.constants import ERROR_CODE_INVALID
+from pysoa.common.types import UnicodeKeysDict
+from pysoa.test.stub_service import StubClient
+
 
 
 SERVICE_NAME = 'test_service'
@@ -156,4 +159,6 @@ class TestStubClient(TestCase):
                 # Errors are returned as the Error type, so convert them to dict first
                 self.assertEqual(action_response.body, responses[action_response.action]['body'])
                 self.assertEqual(
-                    [attr.asdict(e) for e in action_response.errors], responses[action_response.action]['errors'])
+                    [attr.asdict(e, dict_factory=UnicodeKeysDict) for e in action_response.errors],
+                    responses[action_response.action]['errors'],
+                )

@@ -10,6 +10,7 @@ from pysoa.common.types import (
     ActionRequest,
     JobRequest,
     JobResponse,
+    UnicodeKeysDict,
 )
 
 
@@ -52,7 +53,7 @@ class ServiceHandler(object):
     def _base_send_request(self, request_id, meta, job_request):
         with self.metrics.timer('client.send.excluding_middleware'):
             if isinstance(job_request, JobRequest):
-                job_request = attr.asdict(job_request)
+                job_request = attr.asdict(job_request, dict_factory=UnicodeKeysDict)
             message = self.serializer.dict_to_blob(job_request)
             self.transport.send_request_message(request_id, meta, message)
 
