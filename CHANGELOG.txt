@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.19.1 (2017-11-08)
+-------------------
+- Fix #22: Missing key issue when client and server on different Python versions
+
 0.19.0 (2017-11-07)
 -------------------
 - Add new direct Redis transport that doesn't use ASGI
