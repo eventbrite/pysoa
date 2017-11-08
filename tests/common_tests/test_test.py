@@ -9,7 +9,6 @@ from pysoa.common.types import UnicodeKeysDict
 from pysoa.test.stub_service import StubClient
 
 
-
 SERVICE_NAME = 'test_service'
 
 
