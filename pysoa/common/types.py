@@ -1,4 +1,13 @@
 import attr
+import six
+
+
+class UnicodeKeysDict(dict):
+    def __setitem__(self, key, value):
+        super(UnicodeKeysDict, self).__setitem__(six.text_type(key), value)
+
+    def setdefault(self, key, default=None):
+        super(UnicodeKeysDict, self).setdefault(six.text_type(key), default)
 
 
 @attr.s(frozen=True)

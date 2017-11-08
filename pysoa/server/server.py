@@ -22,6 +22,7 @@ from pysoa.common.types import (
     ActionResponse,
     Error,
     JobResponse,
+    UnicodeKeysDict,
 )
 from pysoa.server.internal.types import RequestSwitchSet
 from pysoa.server.errors import (
@@ -95,12 +96,12 @@ class Server(object):
         # Send the JobResponse
         response_dict = {}
         try:
-            response_dict = attr.asdict(job_response)
+            response_dict = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
             response_message = self.serializer.dict_to_blob(response_dict)
         except Exception as e:
             self.metrics.counter('server.error.serialization_failure').increment()
             job_response = self.handle_error(e, variables={'job_response': response_dict})
-            response_dict = attr.asdict(job_response)
+            response_dict = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
             response_message = self.serializer.dict_to_blob(response_dict)
         self.transport.send_response_message(request_id, meta, response_message)
         self.job_logger.info("Job response: %s", response_dict)
