@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.19.2 (2017-11-13)
+-------------------
+- Add a few more metrics to help identify potential client-creation bottlenecks
+
 0.19.1 (2017-11-08)
 -------------------
 - Fix #22: Missing key issue when client and server on different Python versions
