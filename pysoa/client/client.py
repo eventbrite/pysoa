@@ -1,8 +1,10 @@
 from __future__ import unicode_literals
 
+import time
 import uuid
-import six
+
 import attr
+import six
 
 from pysoa.client.expander import ExpansionConverter
 from pysoa.client.settings import PolymorphicClientSettings
@@ -14,21 +16,47 @@ from pysoa.common.types import (
 )
 
 
+_TRANSPORT_CACHE_DEFAULT_TIMEOUT = 10.000  # seconds
+
+_transport_cache = {}
+
+
+def _get_cached_transport(service_name, settings, metrics):
+    """
+    Caches configured transports for up to 10 seconds to prevent the bottleneck.
+
+    NOT YET USED. WILL BE USED AFTER INITIAL METRICS ARE COLLECTED.
+    """
+    cache_key = hash(repr((service_name, settings)))
+    if cache_key not in _transport_cache or _transport_cache[cache_key][0] < time.time():
+        _transport_cache[cache_key] = (
+            time.time() + _TRANSPORT_CACHE_DEFAULT_TIMEOUT,
+            settings['object'](service_name, metrics, **settings.get('kwargs', {})),
+        )
+    return _transport_cache[cache_key][1]
+
+
 class ServiceHandler(object):
     """Does the basic work of communicating with an individual service."""
 
     def __init__(self, service_name, settings):
         self.metrics = settings['metrics']['object'](**settings['metrics'].get('kwargs', {}))
-        self.transport = settings['transport']['object'](
-            service_name,
-            self.metrics,
-            **settings['transport'].get('kwargs', {})
-        )
+
+        with self.metrics.timer('client.transport.initialize'):
+            self.transport = settings['transport']['object'](
+                service_name,
+                self.metrics,
+                **settings['transport'].get('kwargs', {})
+            )
+
         self.serializer = settings['serializer']['object'](**settings['serializer'].get('kwargs', {}))
-        self.middleware = [
-            m['object'](**m.get('kwargs', {}))
-            for m in settings['middleware']
-        ]
+
+        with self.metrics.timer('client.middleware.initialize'):
+            self.middleware = [
+                m['object'](**m.get('kwargs', {}))
+                for m in settings['middleware']
+            ]
+
         self.request_counter = 0
 
     def _prepare_metadata(self):
