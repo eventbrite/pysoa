@@ -49,8 +49,6 @@ class ServiceHandler(object):
                 **settings['transport'].get('kwargs', {})
             )
 
-        self.serializer = settings['serializer']['object'](**settings['serializer'].get('kwargs', {}))
-
         with self.metrics.timer('client.middleware.initialize'):
             self.middleware = [
                 m['object'](**m.get('kwargs', {}))
@@ -58,14 +56,6 @@ class ServiceHandler(object):
             ]
 
         self.request_counter = 0
-
-    def _prepare_metadata(self):
-        """
-        Return a dict containing metadata that will be passed to
-        Transport.send_request_message. Implementations should override this method to
-        include any metadata required by their Transport classes.
-        """
-        return {'mime_type': self.serializer.mime_type}
 
     @staticmethod
     def _make_middleware_stack(middleware, base):
@@ -82,8 +72,8 @@ class ServiceHandler(object):
         with self.metrics.timer('client.send.excluding_middleware'):
             if isinstance(job_request, JobRequest):
                 job_request = attr.asdict(job_request, dict_factory=UnicodeKeysDict)
-            message = self.serializer.dict_to_blob(job_request)
-            self.transport.send_request_message(request_id, meta, message)
+            meta['__request_serialized__'] = False
+            self.transport.send_request_message(request_id, meta, job_request)
 
     def send_request(self, job_request):
         """
@@ -102,7 +92,7 @@ class ServiceHandler(object):
         """
         request_id = self.request_counter
         self.request_counter += 1
-        meta = self._prepare_metadata()
+        meta = {}
         wrapper = self._make_middleware_stack(
             [m.request for m in self.middleware],
             self._base_send_request,
@@ -120,8 +110,7 @@ class ServiceHandler(object):
             if message is None:
                 return None, None
             else:
-                raw_response = self.serializer.blob_to_dict(message)
-                job_response = JobResponse(**raw_response)
+                job_response = JobResponse(**message)
                 return request_id, job_response
 
     def get_all_responses(self):

@@ -63,6 +63,7 @@ class Server(object):
             self.metrics,
             **self.settings['transport'].get('kwargs', {})
         )
+        # TODO: Remove the serializer in version >= 0.21.0
         self.serializer = self.settings['serializer']['object'](
             **self.settings['serializer'].get('kwargs', {})
         )
@@ -87,7 +88,13 @@ class Server(object):
         except MessageReceiveTimeout:
             # no new message, nothing to do
             return
-        job_request = self.serializer.blob_to_dict(request_message)
+        if meta.setdefault('__request_serialized__', True) is False:
+            # The caller is a new client that did not double-serialize, so do not double-deserialize
+            job_request = request_message
+        else:
+            # The caller is an old client that double-serialized, so be sure to double-deserialize
+            # TODO: Remove this and the serializer in version >= 0.21.0
+            job_request = self.serializer.blob_to_dict(request_message)
         self.job_logger.info("Job request: %s", job_request)
 
         # Process and run the Job
@@ -97,12 +104,22 @@ class Server(object):
         response_dict = {}
         try:
             response_dict = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
-            response_message = self.serializer.dict_to_blob(response_dict)
+            if meta['__request_serialized__'] is False:
+                # Match the response serialization behavior to the request serialization behavior
+                response_message = response_dict
+            else:
+                # TODO: Remove this and the serializer in version >= 0.21.0
+                response_message = self.serializer.dict_to_blob(response_dict)
         except Exception as e:
             self.metrics.counter('server.error.serialization_failure').increment()
             job_response = self.handle_error(e, variables={'job_response': response_dict})
             response_dict = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
-            response_message = self.serializer.dict_to_blob(response_dict)
+            if meta['__request_serialized__'] is False:
+                # Match the response serialization behavior to the request serialization behavior
+                response_message = response_dict
+            else:
+                # TODO: Remove this and the serializer in version >= 0.21.0
+                response_message = self.serializer.dict_to_blob(response_dict)
         self.transport.send_response_message(request_id, meta, response_message)
         self.job_logger.info("Job response: %s", response_dict)
 
