@@ -703,6 +703,7 @@ Which metrics are recorded
 
 These are all the metrics recorded in PySOA:
 
+- ``server.transport.backend.initialize``: A timer indicating how long it took the Redis Gateway server transport to initialize a backend Redis client
 - ``server.transport.redis_gateway.send``: A timer indicating how long it takes the Redis Gateway server transport to send a response
 - ``server.transport.redis_gateway.send.error.missing_reply_queue``: A counter incremented each time the Redis Gateway server transport is unable to send a response because the message metadata is missing the required ``reply_to`` attribute
 - ``server.transport.redis_gateway.send.serialize``: A timer indicating how long it takes the Redis Gateway transport to serialize a message
@@ -726,6 +727,9 @@ These are all the metrics recorded in PySOA:
 - ``server.error.error_formatting_failure``: A counter incremented each time an error occurs handling an error
 - ``server.error.variable_formatting_failure``: A counter incremented each time an error occurs handling an error
 - ``server.error.unknown``: A counter incremented each time some unknown error occurs that escaped all other error detection
+- ``client.middleware.initialize``: A timer indicating how long it took to initialize all middleware when creating a new client handler
+- ``client.transport.initialize``: A timer indicating how long it took to initialize the transport when creating a new client handler
+- ``client.transport.backend.initialize``: A timer indicating how long it took the Redis Gateway client transport to initialize the backend Redis client
 - ``client.transport.redis_gateway.send``: A timer indicating how long it took the Redis Gateway client transport to send a request
 - ``client.transport.redis_gateway.send.serialize``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.send.error.message_too_large``: Client metric has same meaning as server metric

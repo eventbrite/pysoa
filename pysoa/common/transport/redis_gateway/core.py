@@ -121,10 +121,11 @@ class RedisTransportCore(object):
     def backend_layer(self):
         if self._backend_layer is None:
             backend_layer_kwargs = deepcopy(self.backend_layer_kwargs)
-            if self.backend_type == REDIS_BACKEND_TYPE_SENTINEL:
-                self._backend_layer = SentinelRedisClient(**backend_layer_kwargs)
-            else:
-                self._backend_layer = StandardRedisClient(**backend_layer_kwargs)
+            with self._get_timer('backend.initialize'):
+                if self.backend_type == REDIS_BACKEND_TYPE_SENTINEL:
+                    self._backend_layer = SentinelRedisClient(**backend_layer_kwargs)
+                else:
+                    self._backend_layer = StandardRedisClient(**backend_layer_kwargs)
 
         return self._backend_layer
 
