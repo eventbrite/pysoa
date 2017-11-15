@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.20.0 (2017-11-14)
+-------------------
+- Phase out double-serialization in favor of transport-only serialization
+
 0.19.2 (2017-11-13)
 -------------------
 - Add a few more metrics to help identify potential client-creation bottlenecks
