@@ -1,7 +1,10 @@
 from __future__ import absolute_import, unicode_literals
 
 from pysoa.common.transport.base import ServerTransport
-from pysoa.common.transport.exceptions import InvalidMessageError
+from pysoa.common.transport.exceptions import (
+    InvalidMessageError,
+    MessageReceiveTimeout,
+)
 from pysoa.common.transport.redis_gateway.core import RedisTransportCore
 from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
 
@@ -15,8 +18,17 @@ class RedisServerTransport(ServerTransport):
         self.core = RedisTransportCore(metrics=metrics, metrics_prefix='server', **kwargs)
 
     def receive_request_message(self):
-        with self.metrics.timer('server.transport.redis_gateway.receive'):
+        timer = self.metrics.timer('server.transport.redis_gateway.receive')
+        timer.start()
+        stop_timer = True
+        try:
             return self.core.receive_message(self._receive_queue_name)
+        except MessageReceiveTimeout:
+            stop_timer = False
+            raise
+        finally:
+            if stop_timer:
+                timer.stop()
 
     def send_response_message(self, request_id, meta, body):
         try:

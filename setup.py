@@ -14,7 +14,7 @@ install_requires = [
 ]
 
 tests_require = [
-    'pytest',
+    'pytest~=3.2.4',  # 3.3+ depends on attrs>=17.2.0
     'pytest-cov',
     'mock>=2.0',
     'factory_boy~=2.8.0',
