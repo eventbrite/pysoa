@@ -7,6 +7,10 @@ import random
 import six
 
 
+class CannotGetConnectionError(Exception):
+    pass
+
+
 class LuaRedisCommand(object):
     _script = ''
 

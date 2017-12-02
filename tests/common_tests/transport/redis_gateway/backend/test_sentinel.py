@@ -4,7 +4,9 @@ import unittest
 
 import mock
 import msgpack
+import redis.sentinel
 
+from pysoa.common.transport.redis_gateway.backend.base import CannotGetConnectionError
 from pysoa.common.transport.redis_gateway.backend.sentinel import SentinelRedisClient
 
 from .test_standard import mockredis  # To ensure all the patching over there happens over here
@@ -34,7 +36,6 @@ class MockSentinel(object):
         return self.MASTERS[service]
 
 
-@mock.patch('redis.sentinel.Sentinel', new=MockSentinel)
 class TestSentinelRedisChannelClient(unittest.TestCase):
     @staticmethod
     def _set_up_client(**kwargs):
@@ -43,6 +44,7 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
             **kwargs
         )
 
+    @mock.patch('redis.sentinel.Sentinel', new=MockSentinel)
     def test_invalid_hosts(self):
         with self.assertRaises(ValueError):
             SentinelRedisClient(hosts='redis://localhost:1234/0')
@@ -50,6 +52,7 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
         with self.assertRaises(ValueError):
             SentinelRedisClient(hosts=['redis://localhost:1234/0'])
 
+    @mock.patch('redis.sentinel.Sentinel', new=MockSentinel)
     def test_invalid_services(self):
         with self.assertRaises(ValueError):
             self._set_up_client(sentinel_services='service1')
@@ -57,6 +60,78 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
         with self.assertRaises(ValueError):
             self._set_up_client(sentinel_services=[1234])
 
+    @mock.patch('redis.sentinel.Sentinel')
+    def test_master_not_found_no_retry(self, mock_sentinel):
+        mock_sentinel.return_value.sentinels = (MockSentinelRedis(), MockSentinelRedis(), MockSentinelRedis())
+
+        client = self._set_up_client()
+
+        mock_sentinel.return_value.master_for.reset_mock()
+        mock_sentinel.return_value.master_for.side_effect = redis.sentinel.MasterNotFoundError
+
+        with self.assertRaises(CannotGetConnectionError):
+            client.get_connection('test_master_not_found_no_retry')
+
+        self.assertEquals(1, mock_sentinel.return_value.master_for.call_count)
+        self.assertIn(mock_sentinel.return_value.master_for.call_args[0][0], {'service1', 'service2', 'service3'})
+
+    @mock.patch('redis.sentinel.Sentinel')
+    def test_master_not_found_max_retries(self, mock_sentinel):
+        mock_sentinel.return_value.sentinels = (MockSentinelRedis(), MockSentinelRedis(), MockSentinelRedis())
+
+        client = self._set_up_client(sentinel_failover_retries=2)
+
+        mock_sentinel.return_value.master_for.reset_mock()
+        mock_sentinel.return_value.master_for.side_effect = redis.sentinel.MasterNotFoundError
+
+        with self.assertRaises(CannotGetConnectionError):
+            client.get_connection('test_master_not_found_max_retries')
+
+        self.assertEquals(3, mock_sentinel.return_value.master_for.call_count)
+        self.assertIn(
+            mock_sentinel.return_value.master_for.call_args_list[0][0][0],
+            {'service1', 'service2', 'service3'},
+        )
+        self.assertIn(
+            mock_sentinel.return_value.master_for.call_args_list[1][0][0],
+            {'service1', 'service2', 'service3'},
+        )
+        self.assertIn(
+            mock_sentinel.return_value.master_for.call_args_list[2][0][0],
+            {'service1', 'service2', 'service3'},
+        )
+
+    @mock.patch('redis.sentinel.Sentinel')
+    def test_master_not_found_worked_after_retries(self, mock_sentinel):
+        mock_sentinel.return_value.sentinels = (MockSentinelRedis(), MockSentinelRedis(), MockSentinelRedis())
+
+        client = self._set_up_client(sentinel_failover_retries=2)
+
+        mock_sentinel.return_value.master_for.reset_mock()
+        mock_sentinel.return_value.master_for.side_effect = (
+            redis.sentinel.MasterNotFoundError,
+            redis.sentinel.MasterNotFoundError,
+            MockSentinelRedis(),
+        )
+
+        connection = client.get_connection('test_master_not_found_worked_after_retries')
+        self.assertIsNotNone(connection)
+
+        self.assertEquals(3, mock_sentinel.return_value.master_for.call_count)
+        self.assertIn(
+            mock_sentinel.return_value.master_for.call_args_list[0][0][0],
+            {'service1', 'service2', 'service3'},
+        )
+        self.assertIn(
+            mock_sentinel.return_value.master_for.call_args_list[1][0][0],
+            {'service1', 'service2', 'service3'},
+        )
+        self.assertIn(
+            mock_sentinel.return_value.master_for.call_args_list[2][0][0],
+            {'service1', 'service2', 'service3'},
+        )
+
+    @mock.patch('redis.sentinel.Sentinel', new=MockSentinel)
     def test_simple_send_and_receive(self):
         client = self._set_up_client()
 
@@ -78,6 +153,7 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
         self.assertIsNotNone(message)
         self.assertEqual(payload, msgpack.unpackb(message, encoding='utf-8'))
 
+    @mock.patch('redis.sentinel.Sentinel', new=MockSentinel)
     def test_services_send_receive(self):
         client = self._set_up_client(sentinel_services=['service1', 'service2', 'service3'])
 
@@ -99,6 +175,7 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
         self.assertIsNotNone(message)
         self.assertEqual(payload, msgpack.unpackb(message, encoding='utf-8'))
 
+    @mock.patch('redis.sentinel.Sentinel', new=MockSentinel)
     def test_no_hosts_send_receive(self):
         client = SentinelRedisClient()
 
@@ -120,6 +197,7 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
         self.assertIsNotNone(message)
         self.assertEqual(payload, msgpack.unpackb(message, encoding='utf-8'))
 
+    @mock.patch('redis.sentinel.Sentinel', new=MockSentinel)
     def test_refresh_interval_hashed_server_send_receive(self):
         client = self._set_up_client(sentinel_refresh_interval=10)
 

@@ -567,6 +567,8 @@ The Redis Gateway transport takes the following extra keyword arguments for conf
 
   + ``redis_port``: The connection port to use (a shortcut for providing this for every entry in ``hosts``
 
+  + ``sentinel_failover_retries``: How many times to retry (with a delay) getting a connection from the Sentinel when a master cannot be found (cluster is in the middle of a failover) (only for type "redis.sentinel") (fails on the first error by default)
+
   + ``sentinel_refresh_interval``: How often, in seconds, master/slave data should be refreshed from the Sentinel (only for type "redis.sentinel") (refreshes every connection by default)
 
   + ``sentinel_services``: Which Sentinel services to use (only for type "redis.sentinel") (will be auto-discovered from the Sentinel by default)
@@ -703,7 +705,9 @@ Which metrics are recorded
 
 These are all the metrics recorded in PySOA:
 
-- ``server.transport.backend.initialize``: A timer indicating how long it took the Redis Gateway server transport to initialize a backend Redis client
+- ``server.transport.redis_gateway.backend.initialize``: A timer indicating how long it took the Redis Gateway server transport to initialize a backend Redis client
+- ``server.transport.redis_gateway.backend.sentinel.populate_masters``: A counter incremented each time the Redis Gateway server transport Sentinel backend populates its masters cache (only happens if sentinel_refresh_interval is enabled)
+- ``server.transport.redis_gateway.backend.sentinel.master_not_found_retry``: A counter incremented each time the Redis Gateway server transport Sentinel backend retries getting master info due to master failover (only happens if sentinel_failover_retries is enabled)
 - ``server.transport.redis_gateway.send``: A timer indicating how long it takes the Redis Gateway server transport to send a response
 - ``server.transport.redis_gateway.send.error.missing_reply_queue``: A counter incremented each time the Redis Gateway server transport is unable to send a response because the message metadata is missing the required ``reply_to`` attribute
 - ``server.transport.redis_gateway.send.serialize``: A timer indicating how long it takes the Redis Gateway transport to serialize a message
@@ -712,11 +716,14 @@ These are all the metrics recorded in PySOA:
 - ``server.transport.redis_gateway.send.queue_full_retry.retry_{1...n}``: A counter incremented on each queue full retry for a particular retry number
 - ``server.transport.redis_gateway.send.get_redis_connection``: A timer indicating how long it takes the Redis Gateway transport to get a connection to the Redis cluster or sentinel
 - ``server.transport.redis_gateway.send.send_message_to_redis_queue``: A timer indicating how long it takes the Redis Gateway transport to push a message onto the queue
-- ``server.transport.redis_gateway.send.error.unknown``: A counter incremented each time the Redis Gateway transport encounters an unknown error (logged) sending a message
+- ``server.transport.redis_gateway.send.error.connection``: A counter incremented each time the Redis Gateway transport encounters an error retrieving a connection while sending a message
 - ``server.transport.redis_gateway.send.error.redis_queue_full``: A counter incremented each time the Redis Gateway transport fails to push a message onto a full queue after the maximum configured retries
+- ``server.transport.redis_gateway.send.error.response``: A counter incremented each time the Redis Gateway transport encounters an error from Redis (logged) while sending a message
+- ``server.transport.redis_gateway.send.error.unknown``: A counter incremented each time the Redis Gateway transport encounters an unknown error (logged) sending a message
 - ``server.transport.redis_gateway.receive``: A timer indicating how long it takes the Redis Gateway server transport to receive a response (however, this includes time waiting for an incoming request, so it may not be meaningful)
 - ``server.transport.redis_gateway.receive.get_redis_connection``: A timer indicating how long it takes the Redis Gateway transport to get a connection to the Redis cluster or sentinel
 - ``server.transport.redis_gateway.receive.pop_from_redis_queue``: A timer indicating how long it takes the Redis Gateway transport to pop a message from the redis queue (however, this includes time waiting for an incoming message, so it may not be meaningful)
+- ``server.transport.redis_gateway.receive.error.connection``: A counter incremented each time the Redis Gateway transport encounters an error retrieving a connection while receiving a message
 - ``server.transport.redis_gateway.receive.error.unknown``: A counter incremented each time the Redis Gateway transport encounters an unknown error (logged) receiving a message
 - ``server.transport.redis_gateway.receive.deserialize``: A timer indicating how long it takes the Redis Gateway transport to deserialize a message
 - ``server.transport.redis_gateway.receive.error.message_expired``: A counter incremented each time the Redis Gateway transport receives an expired message
@@ -729,7 +736,9 @@ These are all the metrics recorded in PySOA:
 - ``server.error.unknown``: A counter incremented each time some unknown error occurs that escaped all other error detection
 - ``client.middleware.initialize``: A timer indicating how long it took to initialize all middleware when creating a new client handler
 - ``client.transport.initialize``: A timer indicating how long it took to initialize the transport when creating a new client handler
-- ``client.transport.backend.initialize``: A timer indicating how long it took the Redis Gateway client transport to initialize the backend Redis client
+- ``client.transport.redis_gateway.backend.initialize``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.backend.sentinel.populate_masters``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.backend.sentinel.master_not_found_retry``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.send``: A timer indicating how long it took the Redis Gateway client transport to send a request
 - ``client.transport.redis_gateway.send.serialize``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.send.error.message_too_large``: Client metric has same meaning as server metric
@@ -737,11 +746,14 @@ These are all the metrics recorded in PySOA:
 - ``client.transport.redis_gateway.send.queue_full_retry.retry_{1...n}``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.send.get_redis_connection``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.send.send_message_to_redis_queue``: Client metric has same meaning as server metric
-- ``client.transport.redis_gateway.send.error.unknown``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.send.error.connection``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.send.error.redis_queue_full``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.send.error.response``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.send.error.unknown``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.receive``: A timer indicating how long it took the Redis Gateway client transport to receive a response (however, this includes time blocking for a response, so it may not be meaningful)
 - ``client.transport.redis_gateway.receive.get_redis_connection``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.receive.pop_from_redis_queue``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.receive.error.connection``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.receive.error.unknown``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.receive.deserialize``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.receive.error.message_expired``: Client metric has same meaning as server metric

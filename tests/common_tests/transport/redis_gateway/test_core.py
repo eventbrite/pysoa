@@ -12,10 +12,12 @@ import mock
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
 from pysoa.common.transport.exceptions import (
     InvalidMessageError,
+    MessageReceiveError,
     MessageReceiveTimeout,
     MessageSendError,
     MessageTooLarge,
 )
+from pysoa.common.transport.redis_gateway.backend.base import CannotGetConnectionError
 from pysoa.common.transport.redis_gateway.constants import (
     REDIS_BACKEND_TYPE_STANDARD,
     REDIS_BACKEND_TYPE_SENTINEL,
@@ -97,6 +99,7 @@ class TestRedisTransportCore(unittest.TestCase):
                 'redis_port': 1098,
                 'sentinel_refresh_interval': 13,
                 'sentinel_services': ['svc1', 'svc2', 'svc3'],
+                'sentinel_failover_retries': 5,
             },
             message_expiry_in_seconds=45,
             queue_capacity=7500,
@@ -118,9 +121,40 @@ class TestRedisTransportCore(unittest.TestCase):
             connection_kwargs={'db': 5, 'hello': 'world'},
             sentinel_refresh_interval=13,
             sentinel_services=['svc1', 'svc2', 'svc3'],
+            sentinel_failover_retries=5,
         )
         mock_sentinel.return_value.anything.assert_called_once_with()
         self.assertFalse(mock_standard.called)
+
+    @mock.patch('pysoa.common.transport.redis_gateway.core.SentinelRedisClient')
+    @mock.patch('pysoa.common.transport.redis_gateway.core.StandardRedisClient')
+    def test_cannot_get_connection_error_on_send(self, mock_standard, mock_sentinel):
+        core = RedisTransportCore(backend_type=REDIS_BACKEND_TYPE_STANDARD)
+
+        mock_standard.return_value.get_connection.side_effect = CannotGetConnectionError('This is my error')
+
+        with self.assertRaises(MessageSendError) as error_context:
+            core.send_message('my_queue', 'request ID', {}, {})
+
+        self.assertEquals('Cannot get connection: This is my error', error_context.exception.args[0])
+
+        self.assertFalse(mock_sentinel.called)
+        mock_standard.return_value.get_connection.assert_called_once_with('pysoa:my_queue')
+
+    @mock.patch('pysoa.common.transport.redis_gateway.core.SentinelRedisClient')
+    @mock.patch('pysoa.common.transport.redis_gateway.core.StandardRedisClient')
+    def test_cannot_get_connection_error_on_receive(self, mock_standard, mock_sentinel):
+        core = RedisTransportCore(backend_type=REDIS_BACKEND_TYPE_STANDARD)
+
+        mock_standard.return_value.get_connection.side_effect = CannotGetConnectionError('This is another error')
+
+        with self.assertRaises(MessageReceiveError) as error_context:
+            core.receive_message('your_queue')
+
+        self.assertEquals('Cannot get connection: This is another error', error_context.exception.args[0])
+
+        self.assertFalse(mock_sentinel.called)
+        mock_standard.return_value.get_connection.assert_called_once_with('pysoa:your_queue')
 
     @staticmethod
     def _get_core(**kwargs):

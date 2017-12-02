@@ -30,6 +30,11 @@ class RedisTransportSchema(BasicClassSchema):
                         'redis_port': fields.Integer(
                             description='The port number, a shortcut for putting this on all hosts',
                         ),
+                        'sentinel_failover_retries': fields.Integer(
+                            description='How many times to retry (with a delay) getting a connection from the Sentinel '
+                                        'when a master cannot be found (cluster is in the middle of a failover); '
+                                        'should only be used for Sentinel backend type'
+                        ),
                         'sentinel_refresh_interval': fields.Integer(
                             description='How often (seconds) Redis Sentinel should refresh master info (defaults to '
                                         'every request); should only be used for Sentinel backend type',
@@ -45,6 +50,7 @@ class RedisTransportSchema(BasicClassSchema):
                         'hosts',
                         'redis_db',
                         'redis_port',
+                        'sentinel_failover_retries',
                         'sentinel_refresh_interval',
                         'sentinel_services',
                     ],
