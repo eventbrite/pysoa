@@ -224,6 +224,7 @@ The ``Client`` class takes configuration in the form of a dict with the followin
     {
         <service name>: {
             "transport": <transport config>,
+            "transport_cache_time_in_seconds": 10,
             "serializer": <serializer config>,
             "middleware": [<middleware config>, ...],
         },
@@ -236,6 +237,12 @@ Key:
 - ``<transport config>``: See `Transport configuration`_. The base ``Client`` defaults to using the `ASGI Transport`_.
 - ``<serializer config>``: See `Serializer configuration`_. The base ``Client`` defaults to using the `MessagePack Serializer`_.
 - ``<middleware config>``: See `Middleware configuration`_.
+
+The ``transport_cache_time_in_seconds`` setting defaults to 0 (disabled). If enabled, the client uses a per-service
+transport cache that is keyed off the service name and transport settings, persists across all clients in memory, and
+expires after this number of seconds. If disabled, a new transport is created for every new client. If the transport
+performs a heavy initialization workload, such as establishing connections to a backend, using this cache is highly
+recommended, as connections will be re-established for every client without it.
 
 
 Expansions

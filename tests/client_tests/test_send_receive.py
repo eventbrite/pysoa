@@ -270,6 +270,30 @@ class TestClientSendReceive(TestCase):
         self.assertEqual(response.action, 'action_1')
         self.assertEqual(response.body['foo'], 'bar')
 
+    def test_call_action_with_cached_transport(self):
+        """
+        Client.call_action sends a valid request and returns a valid response without errors using a cached transport.
+        """
+        self.client_settings[SERVICE_NAME]['transport_cache_time_in_seconds'] = 2
+
+        client = Client(self.client_settings)
+        response = client.call_action(SERVICE_NAME, 'action_1')
+        self.assertTrue(isinstance(response, ActionResponse))
+        self.assertEqual(response.action, 'action_1')
+        self.assertEqual(response.body['foo'], 'bar')
+
+        client = Client(self.client_settings)
+        response = client.call_action(SERVICE_NAME, 'action_2')
+        self.assertTrue(isinstance(response, ActionResponse))
+        self.assertEqual(response.action, 'action_2')
+        self.assertEqual(response.body['baz'], 3)
+
+        client = Client(self.client_settings)
+        response = client.call_action(SERVICE_NAME, 'action_1')
+        self.assertTrue(isinstance(response, ActionResponse))
+        self.assertEqual(response.action, 'action_1')
+        self.assertEqual(response.body['foo'], 'bar')
+
 
 class TestClientMiddleware(TestCase):
     """Test that the client calls its middleware correctly."""

@@ -21,8 +21,17 @@ from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
 class ClientSettings(SOASettings):
     """Generic settings for a Client."""
     schema = {
+        'middleware': fields.List(BasicClassSchema(ClientMiddleware)),
         'transport': BasicClassSchema(BaseClientTransport),
-        'middleware': fields.List(BasicClassSchema(ClientMiddleware))
+        'transport_cache_time_in_seconds': fields.Integer(
+            gte=0,
+            description='If enabled, uses a per-service transport cache that is keyed off the service name and '
+                        'transport settings, persists across all clients in memory, and expires after this number of '
+                        'seconds. By default, a new transport is created for every new client.',
+        ),
+    }
+    defaults = {
+        'transport_cache_time_in_seconds': 0,
     }
 
 

@@ -16,38 +16,23 @@ from pysoa.common.types import (
 )
 
 
-_TRANSPORT_CACHE_DEFAULT_TIMEOUT = 10.000  # seconds
-
-_transport_cache = {}
-
-
-def _get_cached_transport(service_name, settings, metrics):
-    """
-    Caches configured transports for up to 10 seconds to prevent the bottleneck.
-
-    NOT YET USED. WILL BE USED AFTER INITIAL METRICS ARE COLLECTED.
-    """
-    cache_key = hash(repr((service_name, settings)))
-    if cache_key not in _transport_cache or _transport_cache[cache_key][0] < time.time():
-        _transport_cache[cache_key] = (
-            time.time() + _TRANSPORT_CACHE_DEFAULT_TIMEOUT,
-            settings['object'](service_name, metrics, **settings.get('kwargs', {})),
-        )
-    return _transport_cache[cache_key][1]
-
-
 class ServiceHandler(object):
     """Does the basic work of communicating with an individual service."""
+    _transport_cache = {}
 
     def __init__(self, service_name, settings):
         self.metrics = settings['metrics']['object'](**settings['metrics'].get('kwargs', {}))
 
-        with self.metrics.timer('client.transport.initialize'):
-            self.transport = settings['transport']['object'](
+        assert settings['transport_cache_time_in_seconds'] >= 0
+        if settings['transport_cache_time_in_seconds']:
+            self.transport = self._get_cached_transport(
                 service_name,
                 self.metrics,
-                **settings['transport'].get('kwargs', {})
+                settings['transport'],
+                settings['transport_cache_time_in_seconds'],
             )
+        else:
+            self.transport = self._construct_transport(service_name, self.metrics, settings['transport'])
 
         with self.metrics.timer('client.middleware.initialize'):
             self.middleware = [
@@ -56,6 +41,24 @@ class ServiceHandler(object):
             ]
 
         self.request_counter = 0
+
+    @staticmethod
+    def _construct_transport(service_name, metrics, settings, metrics_key='client.transport.initialize'):
+        with metrics.timer(metrics_key):
+            return settings['object'](service_name, metrics, **settings.get('kwargs', {}))
+
+    @classmethod
+    def _get_cached_transport(cls, service_name, metrics, settings, cache_time_in_seconds):
+        """
+            Caches configured transports for up to cache_time_in_seconds to prevent the bottleneck.
+            """
+        cache_key = repr((service_name, settings))
+        if cache_key not in cls._transport_cache or cls._transport_cache[cache_key][0] < time.time():
+            cls._transport_cache[cache_key] = (
+                time.time() + cache_time_in_seconds,
+                cls._construct_transport(service_name, metrics, settings, 'client.transport.initialize_cache'),
+            )
+        return cls._transport_cache[cache_key][1]
 
     @staticmethod
     def _make_middleware_stack(middleware, base):
