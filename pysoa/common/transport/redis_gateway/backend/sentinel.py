@@ -140,10 +140,10 @@ class SentinelRedisClient(BaseRedisClient):
                 return self._master_for(self._services[index])
             except redis.sentinel.MasterNotFoundError:
                 self._last_sentinel_refresh = 0  # make sure we reach out to get master info again on next call
+                if i == self._sentinel_failover_retries:
+                    raise CannotGetConnectionError('Master not found; gave up reloading master info after failover.')
                 self._get_counter('backend.sentinel.master_not_found_retry').increment()
                 time.sleep((2 ** i + random.random()) / 4.0)
-
-        raise CannotGetConnectionError('Master not found; gave up reloading master info after failover.')
 
     def _get_random_index(self):
         return random.randint(0, len(self._services) - 1)
