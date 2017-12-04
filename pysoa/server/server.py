@@ -35,6 +35,7 @@ from pysoa.server.errors import (
 from pysoa.server.types import EnrichedActionRequest
 from pysoa.server.schemas import JobRequestSchema
 from pysoa.server.settings import PolymorphicServerSettings
+import pysoa.version
 
 
 class Server(object):
@@ -304,7 +305,13 @@ class Server(object):
         Start the SOA Server run loop.
         """
 
-        self.logger.info('Server starting up, listening on %s', self.transport)
+        self.logger.info(
+            'Service "{service}" server starting up, pysoa version {pysoa}, listening on transport {transport}.'.format(
+                service=self.service_name,
+                pysoa=pysoa.version.__version__,
+                transport=self.transport,
+            )
+        )
         self.setup()
 
         signal.signal(signal.SIGINT, self.handle_shutdown_signal)
