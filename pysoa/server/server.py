@@ -17,7 +17,10 @@ from pysoa.common.constants import (
     ERROR_CODE_SERVER_ERROR,
     ERROR_CODE_UNKNOWN,
 )
-from pysoa.common.transport.exceptions import MessageReceiveTimeout
+from pysoa.common.transport.exceptions import (
+    MessageReceiveError,
+    MessageReceiveTimeout,
+)
 from pysoa.common.types import (
     ActionResponse,
     Error,
@@ -78,8 +81,8 @@ class Server(object):
         ]
 
         # Set up logger
-        self.logger = logging.getLogger("pysoa.server")
-        self.job_logger = logging.getLogger("pysoa.server.job")
+        self.logger = logging.getLogger('pysoa.server')
+        self.job_logger = logging.getLogger('pysoa.server.job')
 
     def handle_next_request(self):
         # Get the next JobRequest
@@ -95,7 +98,7 @@ class Server(object):
             # The caller is an old client that double-serialized, so be sure to double-deserialize
             # TODO: Remove this and the serializer in version >= 0.21.0
             job_request = self.serializer.blob_to_dict(request_message)
-        self.job_logger.info("Job request: %s", job_request)
+        self.job_logger.info('Job request: %s', job_request)
 
         # Process and run the Job
         job_response = self.process_job(job_request)
@@ -121,7 +124,7 @@ class Server(object):
                 # TODO: Remove this and the serializer in version >= 0.21.0
                 response_message = self.serializer.dict_to_blob(response_dict)
         self.transport.send_response_message(request_id, meta, response_message)
-        self.job_logger.info("Job response: %s", response_dict)
+        self.job_logger.info('Job response: %s', response_dict)
 
     def make_client(self, context):
         """
@@ -195,7 +198,7 @@ class Server(object):
             error_str, traceback_str = str(error), traceback.format_exc()
         except Exception:
             self.metrics.counter('server.error.error_formatting_failure').increment()
-            error_str, traceback_str = "Error formatting error", traceback.format_exc()
+            error_str, traceback_str = 'Error formatting error', traceback.format_exc()
         # Log what happened
         self.logger.exception(error)
         # Make a bare bones job response
@@ -269,25 +272,25 @@ class Server(object):
 
     def handle_shutdown_signal(self, *_):
         if self.shutting_down:
-            self.logger.warning("Received double interrupt, forcing shutdown")
+            self.logger.warning('Received double interrupt, forcing shutdown')
             sys.exit(1)
         else:
-            self.logger.warning("Received interrupt, initiating shutdown")
+            self.logger.warning('Received interrupt, initiating shutdown')
             self.shutting_down = True
 
     def harakiri(self, *_):
         if self.shutting_down:
-            self.logger.warning("Graceful shutdown failed after {}s. Exiting now!".format(
-                self.settings["harakiri"]["shutdown_grace"]
+            self.logger.warning('Graceful shutdown failed after {}s. Exiting now!'.format(
+                self.settings['harakiri']['shutdown_grace']
             ))
             sys.exit(1)
         else:
-            self.logger.warning("No activity during {}s, triggering harakiri with grace {}s".format(
-                self.settings["harakiri"]["timeout"],
-                self.settings["harakiri"]["shutdown_grace"],
+            self.logger.warning('No activity during {}s, triggering harakiri with grace {}s'.format(
+                self.settings['harakiri']['timeout'],
+                self.settings['harakiri']['shutdown_grace'],
             ))
             self.shutting_down = True
-            signal.alarm(self.settings["harakiri"]["shutdown_grace"])
+            signal.alarm(self.settings['harakiri']['shutdown_grace'])
 
     def setup(self):
         """
@@ -301,7 +304,7 @@ class Server(object):
         Start the SOA Server run loop.
         """
 
-        self.logger.info("Server starting up, listening on %s", self.transport)
+        self.logger.info('Server starting up, listening on %s', self.transport)
         self.setup()
 
         signal.signal(signal.SIGINT, self.handle_shutdown_signal)
@@ -311,16 +314,18 @@ class Server(object):
         try:
             while not self.shutting_down:
                 # reset harakiri timeout
-                signal.alarm(self.settings["harakiri"]["timeout"])
+                signal.alarm(self.settings['harakiri']['timeout'])
                 # Get, process, and execute the next JobRequest
                 self.handle_next_request()
                 self.metrics.commit()
+        except MessageReceiveError:
+            self.logger.exception('Error receiving message from transport; shutting down')
         except Exception:
             self.metrics.counter('server.error.unknown').increment()
-            self.logger.exception("Unhandled server error")
+            self.logger.exception('Unhandled server error; shutting down')
         finally:
             self.metrics.commit()
-            self.logger.info("Server shutting down")
+            self.logger.info('Server shutting down')
 
     @classmethod
     def main(cls):
@@ -352,16 +357,16 @@ class Server(object):
             try:
                 settings = cls.settings_class(django_settings.SOA_SERVER_SETTINGS)
             except AttributeError:
-                raise ValueError("Cannot find SOA_SERVER_SETTINGS in the Django settings")
+                raise ValueError('Cannot find SOA_SERVER_SETTINGS in the Django settings')
         else:
             try:
                 settings_module = importlib.import_module(cmd_options.settings)
             except ImportError as e:
-                raise ValueError("Cannot import settings module %s: %s" % (cmd_options.settings, e))
+                raise ValueError('Cannot import settings module %s: %s' % (cmd_options.settings, e))
             try:
-                settings_dict = getattr(settings_module, "settings")
+                settings_dict = getattr(settings_module, 'settings')
             except AttributeError:
-                raise ValueError("Cannot find settings variable in settings module %s" % cmd_options.settings)
+                raise ValueError('Cannot find settings variable in settings module %s' % cmd_options.settings)
             settings = cls.settings_class(settings_dict)
 
         # Set up logging

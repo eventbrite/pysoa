@@ -97,17 +97,17 @@ class NoOpMetricsRecorder(MetricsRecorder):
         def stop(self):
             pass
 
-    _counter = NoOpCounter()
-    _timer = NoOpTimer()
+    no_op_counter = NoOpCounter()
+    no_op_timer = NoOpTimer()
 
     def __init__(self, **__):
         pass
 
     def counter(self, name, **kwargs):
-        return self._counter
+        return self.no_op_counter
 
     def timer(self, name, **kwargs):
-        return self._timer
+        return self.no_op_timer
 
     def commit(self):
         pass

@@ -21,6 +21,7 @@ from pysoa.common.transport.exceptions import (
     InvalidMessageError,
     MessageReceiveTimeout,
 )
+from pysoa.common.transport.redis_gateway.backend.base import CannotGetConnectionError
 from pysoa.common.transport.redis_gateway.backend.sentinel import SentinelRedisClient
 from pysoa.common.transport.redis_gateway.backend.standard import StandardRedisClient
 from pysoa.common.transport.redis_gateway.constants import (
@@ -124,6 +125,7 @@ class RedisTransportCore(object):
             with self._get_timer('backend.initialize'):
                 if self.backend_type == REDIS_BACKEND_TYPE_SENTINEL:
                     self._backend_layer = SentinelRedisClient(**backend_layer_kwargs)
+                    self._backend_layer.metrics_counter_getter = lambda name: self._get_counter(name)
                 else:
                     self._backend_layer = StandardRedisClient(**backend_layer_kwargs)
 
@@ -186,14 +188,16 @@ class RedisTransportCore(object):
                 # The Lua script handles capacity checking and sends the "full" error back
                 if e.args[0] == 'queue full':
                     continue
-                self._get_counter('send.error.unknown').increment()
+                self._get_counter('send.error.response').increment()
                 raise MessageSendError(*e.args)
+            except CannotGetConnectionError as e:
+                self._get_counter('send.error.connection').increment()
+                raise MessageSendError('Cannot get connection: {}'.format(e.args[0]))
             except Exception as e:
                 self._get_counter('send.error.unknown').increment()
                 raise MessageSendError(*e.args)
 
         self._get_counter('send.error.redis_queue_full').increment()
-
         raise MessageSendError(
             'Redis queue {queue_name} was full after {retries} retries'.format(
                 queue_name=queue_name,
@@ -213,6 +217,9 @@ class RedisTransportCore(object):
             serialized_message = None
             if result:
                 serialized_message = result[1]
+        except CannotGetConnectionError as e:
+            self._get_counter('receive.error.connection').increment()
+            raise MessageReceiveError('Cannot get connection: {}'.format(e.args[0]))
         except Exception as e:
             self._get_counter('receive.error.unknown').increment()
             raise MessageReceiveError(*e.args)

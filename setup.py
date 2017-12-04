@@ -1,4 +1,7 @@
+from __future__ import unicode_literals
+
 from setuptools import setup, find_packages
+
 from pysoa import __version__
 
 
