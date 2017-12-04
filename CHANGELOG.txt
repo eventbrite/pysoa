@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.21.0 (2017-12-04)
+-------------------
+- Add option for PySOA server to gracefully recover from Redis master failover
+- Add support for a cached client transport to increase connection re-use
+- Improve server startup log to include additional information
+
 0.20.1 (2017-11-28)
 -------------------
 - Don't record receive metrics timer in server if no message received
