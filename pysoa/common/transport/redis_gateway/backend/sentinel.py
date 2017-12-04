@@ -141,7 +141,7 @@ class SentinelRedisClient(BaseRedisClient):
             except redis.sentinel.MasterNotFoundError:
                 self._last_sentinel_refresh = 0  # make sure we reach out to get master info again on next call
                 self._get_counter('backend.sentinel.master_not_found_retry').increment()
-                time.sleep((1 ** i + random.random()) / 4.0)
+                time.sleep((2 ** i + random.random()) / 4.0)
 
         raise CannotGetConnectionError('Master not found; gave up reloading master info after failover.')
 
