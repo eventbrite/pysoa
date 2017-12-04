@@ -23,13 +23,16 @@ class ServiceHandler(object):
     def __init__(self, service_name, settings):
         self.metrics = settings['metrics']['object'](**settings['metrics'].get('kwargs', {}))
 
-        assert settings['transport_cache_time_in_seconds'] >= 0
-        if settings['transport_cache_time_in_seconds']:
+        transport_cache_time_in_seconds = 0
+        if 'transport_cache_time_in_seconds' in settings:
+            transport_cache_time_in_seconds = settings['transport_cache_time_in_seconds']
+            assert transport_cache_time_in_seconds >= 0
+        if transport_cache_time_in_seconds:
             self.transport = self._get_cached_transport(
                 service_name,
                 self.metrics,
                 settings['transport'],
-                settings['transport_cache_time_in_seconds'],
+                transport_cache_time_in_seconds,
             )
         else:
             self.transport = self._construct_transport(service_name, self.metrics, settings['transport'])
