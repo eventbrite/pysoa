@@ -97,7 +97,7 @@ class Server(object):
             job_request = request_message
         else:
             # The caller is an old client that double-serialized, so be sure to double-deserialize
-            # TODO: Remove this and the serializer in version >= 0.21.0
+            # TODO: Remove this and the serializer in version >= 0.25.0
             job_request = self.serializer.blob_to_dict(request_message)
         self.job_logger.info('Job request: %s', job_request)
 
@@ -112,7 +112,7 @@ class Server(object):
                 # Match the response serialization behavior to the request serialization behavior
                 response_message = response_dict
             else:
-                # TODO: Remove this and the serializer in version >= 0.21.0
+                # TODO: Remove this and the serializer in version >= 0.25.0
                 response_message = self.serializer.dict_to_blob(response_dict)
         except Exception as e:
             self.metrics.counter('server.error.serialization_failure').increment()
@@ -122,7 +122,7 @@ class Server(object):
                 # Match the response serialization behavior to the request serialization behavior
                 response_message = response_dict
             else:
-                # TODO: Remove this and the serializer in version >= 0.21.0
+                # TODO: Remove this and the serializer in version >= 0.25.0
                 response_message = self.serializer.dict_to_blob(response_dict)
         self.transport.send_response_message(request_id, meta, response_message)
         self.job_logger.info('Job response: %s', response_dict)
