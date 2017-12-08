@@ -37,6 +37,8 @@ class ServiceHandler(object):
         else:
             self.transport = self._construct_transport(service_name, self.metrics, settings['transport'])
 
+        self.serializer = settings['serializer']['object'](**settings['serializer'].get('kwargs', {}))
+
         with self.metrics.timer('client.middleware.initialize'):
             self.middleware = [
                 m['object'](**m.get('kwargs', {}))
@@ -78,8 +80,14 @@ class ServiceHandler(object):
         with self.metrics.timer('client.send.excluding_middleware'):
             if isinstance(job_request, JobRequest):
                 job_request = attr.asdict(job_request, dict_factory=UnicodeKeysDict)
-            meta['__request_serialized__'] = False
-            self.transport.send_request_message(request_id, meta, job_request)
+            meta['__request_serialized__'] = True
+            self.transport.send_request_message(
+                request_id,
+                meta,
+                self.serializer.dict_to_blob(job_request),
+            )
+            # meta['__request_serialized__'] = False
+            # self.transport.send_request_message(request_id, meta, job_request)
 
     def send_request(self, job_request):
         """
@@ -116,7 +124,8 @@ class ServiceHandler(object):
             if message is None:
                 return None, None
             else:
-                job_response = JobResponse(**message)
+                job_response = JobResponse(**self.serializer.blob_to_dict(message))
+                # job_response = JobResponse(**message)
                 return request_id, job_response
 
     def get_all_responses(self):
