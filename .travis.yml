@@ -14,7 +14,7 @@ python:
 
 install:
   - if [[ $TRAVIS_PYTHON_VERSION == 3.3 ]]; then export PKG_CONFIG_PATH='/opt/python/3.3.6/lib/pkgconfig':$PKG_CONFIG_PATH; fi
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.5 ]]; then export PKG_CONFIG_PATH='/opt/python/3.5.3/lib/pkgconfig':$PKG_CONFIG_PATH; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 3.5 ]]; then export PKG_CONFIG_PATH='/opt/python/3.5.4/lib/pkgconfig':$PKG_CONFIG_PATH; fi
   - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then export PKG_CONFIG_PATH='/opt/python/3.6.3/lib/pkgconfig':$PKG_CONFIG_PATH:; fi
   - echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
   # The above four statements can be removed when https://github.com/travis-ci/travis-ci/issues/8217 is fixed

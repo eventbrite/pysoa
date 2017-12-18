@@ -34,6 +34,10 @@ class ServiceHandler(object):
                 settings['transport'],
                 transport_cache_time_in_seconds,
             )
+            # If the transport is constructed anew, these will already be the same object and the below is a no-op.
+            # If the transport is retrieved from the cache, we need to use the cached transport's metrics recorder to
+            # ensure that we are publishing/committing all metrics in send_request and get_all_responses below.
+            self.metrics = self.transport.metrics
         else:
             self.transport = self._construct_transport(service_name, self.metrics, settings['transport'])
 
