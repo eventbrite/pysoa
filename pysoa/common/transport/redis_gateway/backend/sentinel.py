@@ -37,13 +37,11 @@ class SentinelRedisClient(BaseRedisClient):
         hosts=None,
         connection_kwargs=None,
         sentinel_services=None,
-        sentinel_refresh_interval=0,
+        sentinel_refresh_interval=0,  # noqa TODO Unused; remove this after all settings have been changed
         sentinel_failover_retries=0,
     ):
-        # Master connection caching
-        self._sentinel_refresh_interval = sentinel_refresh_interval
-        self._last_sentinel_refresh = 0
-        self._master_connections = {}
+        # Master client caching
+        self._master_clients = {}
 
         # Master failover behavior
         assert sentinel_failover_retries >= 0
@@ -61,6 +59,9 @@ class SentinelRedisClient(BaseRedisClient):
         self.metrics_counter_getter = None
 
         super(SentinelRedisClient, self).__init__(ring_size=len(self._services))
+
+    def reset_clients(self):
+        self._master_clients = {}
 
     @staticmethod
     def _setup_hosts(hosts):
@@ -110,18 +111,12 @@ class SentinelRedisClient(BaseRedisClient):
             )
         return list(master_info.keys())
 
-    def _master_for(self, service_name):
-        if self._sentinel_refresh_interval <= 0:
-            return self._sentinel.master_for(service_name)
-        else:
-            if (time.time() - self._last_sentinel_refresh) > self._sentinel_refresh_interval:
-                self._populate_masters()
-            return self._master_connections[service_name]
+    def _get_master_client_for(self, service_name):
+        if service_name not in self._master_clients:
+            self._get_counter('backend.sentinel.populate_master_client').increment()
+            self._master_clients[service_name] = self._sentinel.master_for(service_name)
 
-    def _populate_masters(self):
-        self._get_counter('backend.sentinel.populate_masters').increment()
-        self._master_connections = {service: self._sentinel.master_for(service) for service in self._services}
-        self._last_sentinel_refresh = time.time()
+        return self._master_clients[service_name]
 
     def _get_connection(self, index=None):
         if index is None:
@@ -137,9 +132,9 @@ class SentinelRedisClient(BaseRedisClient):
 
         for i in range(self._sentinel_failover_retries + 1):
             try:
-                return self._master_for(self._services[index])
+                return self._get_master_client_for(self._services[index])
             except redis.sentinel.MasterNotFoundError:
-                self._last_sentinel_refresh = 0  # make sure we reach out to get master info again on next call
+                self.reset_clients()  # make sure we reach out to get master info again on next call
                 if i == self._sentinel_failover_retries:
                     raise CannotGetConnectionError('Master not found; gave up reloading master info after failover.')
                 self._get_counter('backend.sentinel.master_not_found_retry').increment()

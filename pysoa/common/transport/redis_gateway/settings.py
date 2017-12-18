@@ -36,8 +36,7 @@ class RedisTransportSchema(BasicClassSchema):
                                         'should only be used for Sentinel backend type'
                         ),
                         'sentinel_refresh_interval': fields.Integer(
-                            description='How often (seconds) Redis Sentinel should refresh master info (defaults to '
-                                        'every request); should only be used for Sentinel backend type',
+                            description='Deprecated; unused; to be removed before final release.',
                         ),
                         'sentinel_services': fields.List(
                             fields.UnicodeString(),
