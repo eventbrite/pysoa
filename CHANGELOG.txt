@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.21.2 (2017-12-18)
+-------------------
+- Fix issue causing client metrics to not record when transport cache enabled
+
 0.21.1 (2017-12-08)
 -------------------
 - Roll back the phase-out of double-serialization due to incompatibility with ASGI-Redis
