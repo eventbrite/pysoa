@@ -576,8 +576,6 @@ The Redis Gateway transport takes the following extra keyword arguments for conf
 
   + ``sentinel_failover_retries``: How many times to retry (with a delay) getting a connection from the Sentinel when a master cannot be found (cluster is in the middle of a failover) (only for type "redis.sentinel") (fails on the first error by default)
 
-  + ``sentinel_refresh_interval``: How often, in seconds, master/slave data should be refreshed from the Sentinel (only for type "redis.sentinel") (refreshes every connection by default)
-
   + ``sentinel_services``: Which Sentinel services to use (only for type "redis.sentinel") (will be auto-discovered from the Sentinel by default)
 
 - ``message_expiry_in_seconds``: How long a message may remain in the queue before it is considered expired and discarded (defaults to 60 seconds)
@@ -713,7 +711,7 @@ Which metrics are recorded
 These are all the metrics recorded in PySOA:
 
 - ``server.transport.redis_gateway.backend.initialize``: A timer indicating how long it took the Redis Gateway server transport to initialize a backend Redis client
-- ``server.transport.redis_gateway.backend.sentinel.populate_masters``: A counter incremented each time the Redis Gateway server transport Sentinel backend populates its masters cache (only happens if sentinel_refresh_interval is enabled)
+- ``server.transport.redis_gateway.backend.sentinel.populate_master_client``: A counter incremented each time the Redis Gateway server transport Sentinel backend has to get a new master client for any given service (shard)
 - ``server.transport.redis_gateway.backend.sentinel.master_not_found_retry``: A counter incremented each time the Redis Gateway server transport Sentinel backend retries getting master info due to master failover (only happens if sentinel_failover_retries is enabled)
 - ``server.transport.redis_gateway.send``: A timer indicating how long it takes the Redis Gateway server transport to send a response
 - ``server.transport.redis_gateway.send.error.missing_reply_queue``: A counter incremented each time the Redis Gateway server transport is unable to send a response because the message metadata is missing the required ``reply_to`` attribute
@@ -744,7 +742,7 @@ These are all the metrics recorded in PySOA:
 - ``client.middleware.initialize``: A timer indicating how long it took to initialize all middleware when creating a new client handler
 - ``client.transport.initialize``: A timer indicating how long it took to initialize the transport when creating a new client handler
 - ``client.transport.redis_gateway.backend.initialize``: Client metric has same meaning as server metric
-- ``client.transport.redis_gateway.backend.sentinel.populate_masters``: Client metric has same meaning as server metric
+- ``client.transport.redis_gateway.backend.sentinel.populate_master_client``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.backend.sentinel.master_not_found_retry``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.send``: A timer indicating how long it took the Redis Gateway client transport to send a request
 - ``client.transport.redis_gateway.send.serialize``: Client metric has same meaning as server metric

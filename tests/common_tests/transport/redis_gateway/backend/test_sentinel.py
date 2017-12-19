@@ -62,9 +62,10 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
 
     @mock.patch('redis.sentinel.Sentinel')
     def test_master_not_found_no_retry(self, mock_sentinel):
-        mock_sentinel.return_value.sentinels = (MockSentinelRedis(), MockSentinelRedis(), MockSentinelRedis())
+        mock_sentinel.return_value.master_for.return_value = MockSentinelRedis()
 
-        client = self._set_up_client()
+        client = self._set_up_client(sentinel_services=['service1', 'service2', 'service3'])
+        client.reset_clients()
 
         mock_sentinel.return_value.master_for.reset_mock()
         mock_sentinel.return_value.master_for.side_effect = redis.sentinel.MasterNotFoundError
@@ -77,9 +78,10 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
 
     @mock.patch('redis.sentinel.Sentinel')
     def test_master_not_found_max_retries(self, mock_sentinel):
-        mock_sentinel.return_value.sentinels = (MockSentinelRedis(), MockSentinelRedis(), MockSentinelRedis())
+        mock_sentinel.return_value.master_for.return_value = MockSentinelRedis()
 
-        client = self._set_up_client(sentinel_failover_retries=2)
+        client = self._set_up_client(sentinel_failover_retries=2, sentinel_services=['service1', 'service2'])
+        client.reset_clients()
 
         mock_sentinel.return_value.master_for.reset_mock()
         mock_sentinel.return_value.master_for.side_effect = redis.sentinel.MasterNotFoundError
@@ -103,9 +105,10 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
 
     @mock.patch('redis.sentinel.Sentinel')
     def test_master_not_found_worked_after_retries(self, mock_sentinel):
-        mock_sentinel.return_value.sentinels = (MockSentinelRedis(), MockSentinelRedis(), MockSentinelRedis())
+        mock_sentinel.return_value.master_for.return_value = MockSentinelRedis()
 
-        client = self._set_up_client(sentinel_failover_retries=2)
+        client = self._set_up_client(sentinel_failover_retries=2, sentinel_services=['service1', 'service2'])
+        client.reset_clients()
 
         mock_sentinel.return_value.master_for.reset_mock()
         mock_sentinel.return_value.master_for.side_effect = (
@@ -198,8 +201,8 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
         self.assertEqual(payload, msgpack.unpackb(message, encoding='utf-8'))
 
     @mock.patch('redis.sentinel.Sentinel', new=MockSentinel)
-    def test_refresh_interval_hashed_server_send_receive(self):
-        client = self._set_up_client(sentinel_refresh_interval=10)
+    def test_hashed_server_send_receive(self):
+        client = self._set_up_client()
 
         payload1 = {'test': 'some value'}
 

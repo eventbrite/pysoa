@@ -35,6 +35,9 @@ class MockSerializer(object):
 
 @mock.patch('redis.Redis', new=mockredis.mock_redis_client)
 class TestRedisTransportCore(unittest.TestCase):
+    def setUp(self):
+        RedisTransportCore._backend_layer_cache = {}
+
     def test_invalid_backend_type(self):
         with self.assertRaises(ValueError):
             RedisTransportCore(backend_type='hello')

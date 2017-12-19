@@ -28,6 +28,7 @@ from pysoa.common.transport.redis_gateway.constants import (
     REDIS_BACKEND_TYPE_SENTINEL,
     REDIS_BACKEND_TYPES,
 )
+from pysoa.utils import dict_to_hashable
 
 
 logger = logging.getLogger('pysoa.common.transport')
@@ -41,6 +42,12 @@ def valid_backend_type(_, __, value):
 @attr.s()
 class RedisTransportCore(object):
     """Handles communication with Redis."""
+
+    # The backend layer holds Redis connections and should be reused as much as possible to reduce Redis connections.
+    # Given identical input settings, two given backend layer instances will operate identically, and so we cash using
+    # input variables as a key. This applies even across services--backend layers have no service-specific code, so
+    # a single backend can be used for multiple services if those services' backend settings are the same.
+    _backend_layer_cache = {}
 
     backend_type = attr.ib(validator=valid_backend_type)
 
@@ -121,14 +128,19 @@ class RedisTransportCore(object):
     @property
     def backend_layer(self):
         if self._backend_layer is None:
-            backend_layer_kwargs = deepcopy(self.backend_layer_kwargs)
-            with self._get_timer('backend.initialize'):
-                if self.backend_type == REDIS_BACKEND_TYPE_SENTINEL:
-                    self._backend_layer = SentinelRedisClient(**backend_layer_kwargs)
-                    self._backend_layer.metrics_counter_getter = lambda name: self._get_counter(name)
-                else:
-                    self._backend_layer = StandardRedisClient(**backend_layer_kwargs)
+            cache_key = (self.backend_type, dict_to_hashable(self.backend_layer_kwargs))
+            if cache_key not in self._backend_layer_cache:
+                with self._get_timer('backend.initialize'):
+                    backend_layer_kwargs = deepcopy(self.backend_layer_kwargs)
+                    if self.backend_type == REDIS_BACKEND_TYPE_SENTINEL:
+                        self._backend_layer_cache[cache_key] = SentinelRedisClient(**backend_layer_kwargs)
+                    else:
+                        self._backend_layer_cache[cache_key] = StandardRedisClient(**backend_layer_kwargs)
 
+            self._backend_layer = self._backend_layer_cache[cache_key]
+
+        # Each time the backend layer is accessed, use _this_ transport's metrics recorder for the backend layer
+        self._backend_layer.metrics_counter_getter = lambda name: self._get_counter(name)
         return self._backend_layer
 
     # noinspection PyAttributeOutsideInit

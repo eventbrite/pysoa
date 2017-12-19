@@ -14,6 +14,7 @@ from pysoa.common.types import (
     JobResponse,
     UnicodeKeysDict,
 )
+from pysoa.utils import dict_to_hashable
 
 
 class ServiceHandler(object):
@@ -61,7 +62,7 @@ class ServiceHandler(object):
         """
             Caches configured transports for up to cache_time_in_seconds to prevent the bottleneck.
             """
-        cache_key = repr((service_name, settings))
+        cache_key = (service_name, dict_to_hashable(settings))
         if cache_key not in cls._transport_cache or cls._transport_cache[cache_key][0] < time.time():
             cls._transport_cache[cache_key] = (
                 time.time() + cache_time_in_seconds,
