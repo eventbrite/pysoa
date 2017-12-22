@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.22.1 (2017-12-21)
+-------------------
+- Add stub_action helper for use as decorator or context manager in tests
+
 0.22.0 (2017-12-19)
 -------------------
 - Use `master_for` correctly to reduce number of Redis connections
