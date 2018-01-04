@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+import importlib
 import os
 import unittest
 
@@ -34,11 +35,14 @@ class ServerTestCase(unittest.TestCase):
                 from django.conf import settings
                 settings = settings.SOA_SERVER_SETTINGS
             else:
-                settings = os.environ.get('PYSOA_SETTINGS_MODULE', None)
-                if not settings:
-                    self.fail(
-                        'PYSOA_SETTINGS_MODULE environment variable must be set to run tests.'
-                    )
+                settings_module = os.environ.get('PYSOA_SETTINGS_MODULE', None)
+                if not settings_module:
+                    self.fail('PYSOA_SETTINGS_MODULE environment variable must be set to run tests.')
+                try:
+                    thing = importlib.import_module(settings_module)
+                    settings = thing.SOA_SERVER_SETTINGS
+                except (ImportError, AttributeError) as e:
+                    self.fail('Could not access {}.SOA_SERVER_SETTINGS: {}'.format(settings_module, e))
 
         self.client = Client(
             {
