@@ -23,7 +23,7 @@ def serializer(request):
     return request.param()
 
 
-class TestSerializers():
+class TestSerializers(object):
     """Tests that apply to all serializers."""
 
     @pytest.mark.parametrize('data', [
@@ -88,7 +88,7 @@ class TestSerializers():
         assert all(result_tuple[i] == input_tuple[i] for i in range(len(result_tuple)))
 
 
-class TestMsgpackSerializer():
+class TestMsgpackSerializer(object):
     """
     Tests specifically for the MessagePack serializer.
     """
@@ -116,6 +116,33 @@ class TestMsgpackSerializer():
         datetime.datetime(9998, 3, 27, 1, 45),
     ])
     def test_datetime(self, value):
+        serializer = MsgpackSerializer()
+        assert serializer.blob_to_dict(serializer.dict_to_blob({'v': value}))['v'] == value
+
+    @pytest.mark.parametrize('value', [
+        datetime.date(3, 1, 1),
+        datetime.date(1969, 3, 31),
+        datetime.date(1970, 1, 1),
+        datetime.date(2017, 9, 9),
+        datetime.date(2018, 12, 21),
+        datetime.date(9999, 12, 31),
+    ])
+    def test_date(self, value):
+        serializer = MsgpackSerializer()
+        assert serializer.blob_to_dict(serializer.dict_to_blob({'v': value}))['v'] == value
+
+    @pytest.mark.parametrize('value', [
+        datetime.time(0),
+        datetime.time(0, 0, 0, 0),
+        datetime.time(0, 31, 58, 123827),
+        datetime.time(6, 15, 7, 152),
+        datetime.time(11, 59, 59, 999999),
+        datetime.time(12, 0, 0, 0),
+        datetime.time(16, 15, 14, 13),
+        datetime.time(17, 26, 35, 454545),
+        datetime.time(23, 59, 59, 999999),
+    ])
+    def test_time(self, value):
         serializer = MsgpackSerializer()
         assert serializer.blob_to_dict(serializer.dict_to_blob({'v': value}))['v'] == value
 
