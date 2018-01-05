@@ -1,3 +1,5 @@
+from __future__ import absolute_import, unicode_literals
+
 from pysoa.common.constants import ERROR_CODE_INVALID
 from pysoa.common.types import ActionResponse, Error
 from pysoa.server.errors import ActionError, ResponseValidationError
@@ -38,7 +40,7 @@ class Action(object):
 
     def __call__(self, action_request):
         """
-        Main entrypoint for Actions from the Server (or potentially from tests)
+        Main entry point for Actions from the Server (or potentially from tests)
         """
         # Validate the request
         if self.request_schema:
