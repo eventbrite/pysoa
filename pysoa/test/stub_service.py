@@ -332,13 +332,16 @@ class stub_action(object):  # noqa
             else:
                 job_response = JobResponse()
             for i, action_request in requests_to_send_to_mock_client.items():
-                mock_response = mock_action(action_request.body or {})
-                if isinstance(mock_response, JobResponse):
-                    mock_response = mock_response.actions[0]
-                elif isinstance(mock_response, dict):
-                    mock_response = ActionResponse(self.action, body=mock_response)
-                else:
-                    mock_response = ActionResponse(self.action)
+                try:
+                    mock_response = mock_action(action_request.body or {})
+                    if isinstance(mock_response, JobResponse):
+                        mock_response = mock_response.actions[0]
+                    elif isinstance(mock_response, dict):
+                        mock_response = ActionResponse(self.action, body=mock_response)
+                    elif not isinstance(mock_response, ActionResponse):
+                        mock_response = ActionResponse(self.action)
+                except ActionError as e:
+                    mock_response = ActionResponse(self.action, errors=e.errors)
                 job_response.actions.insert(i, mock_response)
             if kwargs.get('continue_on_error', False) is False:
                 # Simulate the server job halting on the first action error
