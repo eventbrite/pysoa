@@ -97,6 +97,12 @@ class RedisTransportCore(object):
         convert=dict,
     )
 
+    service_name = attr.ib(
+        # Service name used for error messages
+        default='',
+        validator=attr.validators.instance_of(six.text_type),
+    )
+
     EXPONENTIAL_BACK_OFF_FACTOR = 4.0
     MAXIMUM_MESSAGE_BYTES = 1024 * 100
     QUEUE_NAME_PREFIX = 'pysoa:'
@@ -201,13 +207,17 @@ class RedisTransportCore(object):
                 if e.args[0] == 'queue full':
                     continue
                 self._get_counter('send.error.response').increment()
-                raise MessageSendError(*e.args)
+                raise MessageSendError('Redis error sending message for service {}'.format(self.service_name), *e.args)
             except CannotGetConnectionError as e:
                 self._get_counter('send.error.connection').increment()
                 raise MessageSendError('Cannot get connection: {}'.format(e.args[0]))
             except Exception as e:
                 self._get_counter('send.error.unknown').increment()
-                raise MessageSendError(*e.args)
+                raise MessageSendError(
+                    'Unknown error sending message for service {}'.format(self.service_name),
+                    six.text_type(type(e)),
+                    *e.args
+                )
 
         self._get_counter('send.error.redis_queue_full').increment()
         raise MessageSendError(
@@ -234,22 +244,26 @@ class RedisTransportCore(object):
             raise MessageReceiveError('Cannot get connection: {}'.format(e.args[0]))
         except Exception as e:
             self._get_counter('receive.error.unknown').increment()
-            raise MessageReceiveError(*e.args)
+            raise MessageReceiveError(
+                'Unknown error receiving message for service {}'.format(self.service_name),
+                six.text_type(type(e)),
+                *e.args
+            )
 
         if serialized_message is None:
-            raise MessageReceiveTimeout('No message received')
+            raise MessageReceiveTimeout('No message received for service {}'.format(self.service_name))
 
         with self._get_timer('receive.deserialize'):
             message = self.serializer.blob_to_dict(serialized_message)
 
         if self._is_message_expired(message):
             self._get_counter('receive.error.message_expired').increment()
-            raise MessageReceiveTimeout('Message expired')
+            raise MessageReceiveTimeout('Message expired for service {}'.format(self.service_name))
 
         request_id = message.get('request_id')
         if request_id is None:
             self._get_counter('receive.error.no_request_id').increment()
-            raise InvalidMessageError('No request ID')
+            raise InvalidMessageError('No request ID for service {}'.format(self.service_name))
 
         return request_id, message.get('meta', {}), message.get('body')
 

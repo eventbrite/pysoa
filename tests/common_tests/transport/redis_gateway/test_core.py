@@ -62,6 +62,7 @@ class TestRedisTransportCore(unittest.TestCase):
     @mock.patch('pysoa.common.transport.redis_gateway.core.StandardRedisClient')
     def test_standard_client_created(self, mock_standard, mock_sentinel):
         core = RedisTransportCore(
+            service_name='example',
             backend_type=REDIS_BACKEND_TYPE_STANDARD,
             backend_layer_kwargs={
                 'hosts': [('localhost', 6379), 'far_away_host'],
@@ -76,6 +77,7 @@ class TestRedisTransportCore(unittest.TestCase):
         )
         core.backend_layer.anything()
 
+        self.assertEqual('example', core.service_name)
         self.assertEqual(30, core.message_expiry_in_seconds)
         self.assertEqual(100, core.queue_capacity)
         self.assertEqual(7, core.queue_full_retries)
