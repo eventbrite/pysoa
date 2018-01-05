@@ -5,8 +5,12 @@ import random
 import mock
 
 from pysoa.client import Client
-from pysoa.common.types import ActionRequest
+from pysoa.common.types import (
+    ActionRequest,
+    Error,
+)
 from pysoa.server.action import Action
+from pysoa.server.errors import ActionError
 from pysoa.server.server import Server
 from pysoa.test.factories import ActionFactory
 from pysoa.test.server import ServerTestCase
@@ -290,6 +294,21 @@ class TestStubAction(ServerTestCase):
         self.assertEqual('BAD_FOO', e.exception.actions[0].errors[0].code)
         self.assertEqual('foo', e.exception.actions[0].errors[0].field)
         self.assertEqual('Nope', e.exception.actions[0].errors[0].message)
+
+        self.assertEqual(1, stub_test_action_2.call_count)
+        self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
+        stub_test_action_2.assert_called_once_with({'a': 'body'})
+
+    @stub_action('test_service', 'test_action_2')
+    def test_mock_action_with_error_side_effect_raises_exception(self, stub_test_action_2):
+        stub_test_action_2.side_effect = ActionError(errors=[Error(code='BAR_BAD', field='bar', message='Uh-uh')])
+
+        with self.assertRaises(Client.CallActionError) as e:
+            self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
+
+        self.assertEqual('BAR_BAD', e.exception.actions[0].errors[0].code)
+        self.assertEqual('bar', e.exception.actions[0].errors[0].field)
+        self.assertEqual('Uh-uh', e.exception.actions[0].errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
