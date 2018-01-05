@@ -313,6 +313,7 @@ class Server(object):
             )
         )
         self.setup()
+        self.metrics.commit()
 
         signal.signal(signal.SIGINT, self.handle_shutdown_signal)
         signal.signal(signal.SIGTERM, self.handle_shutdown_signal)
