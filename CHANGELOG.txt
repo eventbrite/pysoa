@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.23.0 (2018-01-08)
+-------------------
+- Improve the msgpack serializer to support local-date and dateless-time objects
+- Add extensive testing documentation and fix bug in ServerTestCase
+- Add base status action class for creating easy healthcheck actions
+- Ensure metrics are published after server startup
+- Fix stub_action bug that made ActionErrors not work as side effects
+- Improve transport error messages with service name
+
 0.22.1 (2017-12-21)
 -------------------
 - Add stub_action helper for use as decorator or context manager in tests
