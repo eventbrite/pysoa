@@ -21,7 +21,7 @@ class RedisClientTransport(ClientTransport):
             response_queue_specifier=BaseRedisClient.RESPONSE_QUEUE_SPECIFIER,
         )
         self._requests_outstanding = 0
-        self.core = RedisTransportCore(metrics=metrics, metrics_prefix='client', **kwargs)
+        self.core = RedisTransportCore(service_name=service_name, metrics=metrics, metrics_prefix='client', **kwargs)
 
     @property
     def requests_outstanding(self):

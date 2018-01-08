@@ -19,6 +19,7 @@ class TestClientTransport(unittest.TestCase):
         transport = self._get_transport(hello='world', goodbye='earth')
 
         mock_core.assert_called_once_with(
+            service_name='my_service',
             hello='world',
             goodbye='earth',
             metrics=transport.metrics,

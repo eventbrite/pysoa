@@ -15,7 +15,7 @@ class RedisServerTransport(ServerTransport):
         super(RedisServerTransport, self).__init__(service_name, metrics)
 
         self._receive_queue_name = make_redis_queue_name(service_name)
-        self.core = RedisTransportCore(metrics=metrics, metrics_prefix='server', **kwargs)
+        self.core = RedisTransportCore(service_name=service_name, metrics=metrics, metrics_prefix='server', **kwargs)
 
     def receive_request_message(self):
         timer = self.metrics.timer('server.transport.redis_gateway.receive')
