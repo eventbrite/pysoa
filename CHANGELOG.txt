@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.23.1 (2018-01-09)
+-------------------
+- Recognize either settings variable name in non-Django services
+
 0.23.0 (2018-01-08)
 -------------------
 - Improve the msgpack serializer to support local-date and dateless-time objects
