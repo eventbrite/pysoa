@@ -372,9 +372,16 @@ class Server(object):
             except ImportError as e:
                 raise ValueError('Cannot import settings module %s: %s' % (cmd_options.settings, e))
             try:
-                settings_dict = getattr(settings_module, 'settings')
+                settings_dict = getattr(settings_module, 'SOA_SERVER_SETTINGS')
             except AttributeError:
-                raise ValueError('Cannot find settings variable in settings module %s' % cmd_options.settings)
+                try:
+                    settings_dict = getattr(settings_module, 'settings')
+                except AttributeError:
+                    raise ValueError(
+                        "Cannot find 'SOA_SERVER_SETTINGS' or 'settings' variable in settings module {}.".format(
+                            cmd_options.settings,
+                        )
+                    )
             settings = cls.settings_class(settings_dict)
 
         # Set up logging
