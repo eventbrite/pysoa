@@ -7,8 +7,6 @@ from pysoa.common.settings import (
     BasicClassSchema,
     SOASettings,
 )
-from pysoa.common.transport.asgi.client import ASGIClientTransport
-from pysoa.common.transport.asgi.settings import ASGITransportSchema
 from pysoa.common.transport.base import ClientTransport as BaseClientTransport
 from pysoa.common.transport.local import (
     LocalClientTransport,
@@ -32,18 +30,6 @@ class ClientSettings(SOASettings):
     }
     defaults = {
         'transport_cache_time_in_seconds': 0,
-    }
-
-
-class ASGIClientSettings(ClientSettings):
-    """Settings for an ASGI-only Client."""
-    defaults = {
-        'transport': {
-            'path': 'pysoa.common.transport.asgi:ASGIClientTransport',
-        }
-    }
-    schema = {
-        'transport': ASGITransportSchema(),
     }
 
 
@@ -75,15 +61,13 @@ class PolymorphicClientSettings(ClientSettings):
     """
     defaults = {
         'transport': {
-            'path': 'pysoa.common.transport.asgi:ASGIClientTransport',
+            'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
         }
     }
     schema = {
         'transport': fields.Polymorph(
             switch_field='path',
             contents_map={
-                'pysoa.common.transport.asgi:ASGIClientTransport': ASGITransportSchema(ASGIClientTransport),
-                'pysoa.common.transport:ASGIClientTransport': ASGITransportSchema(ASGIClientTransport),
                 'pysoa.common.transport.local:LocalClientTransport': LocalTransportSchema(LocalClientTransport),
                 'pysoa.common.transport:LocalClientTransport': LocalTransportSchema(LocalClientTransport),
                 'pysoa.common.transport.redis_gateway.client:RedisClientTransport': RedisTransportSchema(

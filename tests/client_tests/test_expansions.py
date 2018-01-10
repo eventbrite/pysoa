@@ -5,7 +5,7 @@ from unittest import TestCase
 from pysoa.client.client import Client
 
 
-class TestClientRouter(TestCase):
+class TestClientWithExpansions(TestCase):
 
     def setUp(self):
         expansions = {
