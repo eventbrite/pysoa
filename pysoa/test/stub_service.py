@@ -5,6 +5,7 @@ from functools import wraps
 import re
 
 import mock
+import six
 
 from pysoa.client.client import (
     Client,
@@ -277,6 +278,9 @@ class stub_action(object):  # noqa
             return tuple(args[0][0] for args in self.call_args_list)
 
     def __init__(self, service, action, body=None, errors=None):
+        assert isinstance(service, six.text_type), 'Stubbed service name "{}" must be unicode'.format(service)
+        assert isinstance(action, six.text_type), 'Stubbed action name "{}" must be unicode'.format(action)
+
         self.service = service
         self.action = action
         self.body = body or {}
@@ -304,11 +308,19 @@ class stub_action(object):  # noqa
 
         @wraps(Client.call_actions)
         def wrapped(client, service_name, actions, *args, **kwargs):
+            assert isinstance(service_name, six.text_type), 'Called service name "{}" must be unicode'.format(
+                service_name,
+            )
+
             requests_to_send_to_mock_client = OrderedDict()
             requests_to_send_to_wrapped_client = []
             for i, action_request in enumerate(actions):
-                request_action = getattr(action_request, 'action', None) or action_request['action']
-                if service_name == self.service and request_action == self.action:
+                action_name = getattr(action_request, 'action', None) or action_request['action']
+                assert isinstance(action_name, six.text_type), 'Called action name "{}" must be unicode'.format(
+                    action_name,
+                )
+
+                if service_name == self.service and action_name == self.action:
                     # If the service AND action name match, we should send the request to our mocked client
                     if not isinstance(action_request, ActionRequest):
                         action_request = ActionRequest(action_request)

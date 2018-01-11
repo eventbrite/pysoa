@@ -27,7 +27,8 @@ class ServiceHandler(object):
         transport_cache_time_in_seconds = 0
         if 'transport_cache_time_in_seconds' in settings:
             transport_cache_time_in_seconds = settings['transport_cache_time_in_seconds']
-            assert transport_cache_time_in_seconds >= 0
+            if transport_cache_time_in_seconds < 0:
+                raise ValueError('transport_cache_time_in_seconds must be >= 0')
         if transport_cache_time_in_seconds:
             self.transport = self._get_cached_transport(
                 service_name,
@@ -377,10 +378,13 @@ class Client(object):
     # Asynchronous request and response methods
 
     def _get_handler(self, service_name):
+        if not isinstance(service_name, six.text_type):
+            raise ValueError('Called service name "{}" must be unicode'.format(service_name))
+
         # Lazy-load a handler for the named service
         if service_name not in self.handlers:
             if service_name not in self.settings:
-                raise self.ImproperlyConfigured('Unrecognized service name {}'.format(service_name))
+                raise self.ImproperlyConfigured('Unrecognized service name "{}"'.format(service_name))
             settings = self.settings[service_name]
             self.handlers[service_name] = self.handler_class(service_name, settings)
         return self.handlers[service_name]
