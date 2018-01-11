@@ -10,7 +10,6 @@ install_requires = [
     'msgpack-python>=0.4.8',
     'six~=1.10.0',
     'attrs~=16.3',
-    'asgi_redis~=1.4',  # deprecated, to be removed ____
     'currint~=1.6',
     'redis~=2.10',
     'msgpack-python~=0.4',

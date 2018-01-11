@@ -6,8 +6,6 @@ from pysoa.common.settings import (
     BasicClassSchema,
     SOASettings,
 )
-from pysoa.common.transport.asgi.server import ASGIServerTransport
-from pysoa.common.transport.asgi.settings import ASGITransportSchema
 from pysoa.common.transport.base import ServerTransport as BaseServerTransport
 from pysoa.common.transport.local import (
     LocalServerTransport,
@@ -62,18 +60,6 @@ class ServerSettings(SOASettings):
     }
 
 
-class ASGIServerSettings(ServerSettings):
-    """Settings for an ASGI-only Server."""
-    defaults = {
-        'transport': {
-            'path': 'pysoa.common.transport.asgi:ASGIServerTransport',
-        }
-    }
-    schema = {
-        'transport': ASGITransportSchema(),
-    }
-
-
 class RedisServerSettings(ServerSettings):
     defaults = {
         'transport': {
@@ -102,15 +88,13 @@ class PolymorphicServerSettings(ServerSettings):
     """
     defaults = {
         'transport': {
-            'path': 'pysoa.common.transport.asgi:ASGIServerTransport',
+            'path': 'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
         }
     }
     schema = {
         'transport': fields.Polymorph(
             switch_field='path',
             contents_map={
-                'pysoa.common.transport.asgi:ASGIServerTransport': ASGITransportSchema(ASGIServerTransport),
-                'pysoa.common.transport:ASGIServerTransport': ASGITransportSchema(ASGIServerTransport),
                 'pysoa.common.transport.local:LocalServerTransport': LocalTransportSchema(LocalServerTransport),
                 'pysoa.common.transport:LocalServerTransport': LocalTransportSchema(LocalServerTransport),
                 'pysoa.common.transport.redis_gateway.server:RedisServerTransport': RedisTransportSchema(

@@ -11,7 +11,6 @@ from pysoa.common.settings import (
     Settings,
     SOASettings,
 )
-from pysoa.common.transport.asgi import ASGIClientTransport
 from pysoa.common.transport.redis_gateway.client import RedisClientTransport
 from pysoa.common.transport.redis_gateway.constants import REDIS_BACKEND_TYPE_STANDARD
 from pysoa.common.transport.redis_gateway.core import RedisTransportCore
@@ -207,7 +206,7 @@ class TestSOASettings(unittest.TestCase):
 
         settings_dict = {
             'transport': {
-                'path': 'pysoa.common.transport.asgi:ASGIClientTransport',
+                'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
             },
             'serializer': {
                 'path': 'pysoa.common.serializer:MsgpackSerializer',
@@ -219,7 +218,7 @@ class TestSOASettings(unittest.TestCase):
             ],
         }
         settings = SOASettings(settings_dict)
-        assert settings['transport']['object'] == ASGIClientTransport
+        assert settings['transport']['object'] == RedisClientTransport
         assert settings['serializer']['object'] == MsgpackSerializer
         assert settings['middleware'][0]['object'] == ClientMiddleware
 
