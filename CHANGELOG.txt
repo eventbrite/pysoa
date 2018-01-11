@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.24.0 (2018-01-11)
+-------------------
+- BREAKING CHANGE: Remove the deprecated and unused ASGI Transport
+- BREAKING CHANGE: Ensure that the service name passed to the client is always unicode
+
 0.23.1 (2018-01-09)
 -------------------
 - Recognize either settings variable name in non-Django services
