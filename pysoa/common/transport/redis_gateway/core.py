@@ -215,7 +215,7 @@ class RedisTransportCore(object):
                 self._get_counter('send.error.unknown').increment()
                 raise MessageSendError(
                     'Unknown error sending message for service {}'.format(self.service_name),
-                    six.text_type(type(e)),
+                    six.text_type(type(e).__name__),
                     *e.args
                 )
 
@@ -246,7 +246,7 @@ class RedisTransportCore(object):
             self._get_counter('receive.error.unknown').increment()
             raise MessageReceiveError(
                 'Unknown error receiving message for service {}'.format(self.service_name),
-                six.text_type(type(e)),
+                six.text_type(type(e).__name__),
                 *e.args
             )
 
