@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.25.0 (2018-01-12)
+-------------------
+- Attempt two at removing duplicate serialization from the client now that ASGI (incompatible) is removed
+
 0.24.0 (2018-01-11)
 -------------------
 - BREAKING CHANGE: Remove the deprecated and unused ASGI Transport
