@@ -202,14 +202,11 @@ class TestSOASettings(unittest.TestCase):
     """Tests for the SOASettings class."""
 
     def test_classes_converted(self):
-        """The settings class resolves classes of transport, serializer and middleware."""
+        """The settings class resolves classes of transport and middleware."""
 
         settings_dict = {
             'transport': {
                 'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
-            },
-            'serializer': {
-                'path': 'pysoa.common.serializer:MsgpackSerializer',
             },
             'middleware': [
                 {
@@ -219,7 +216,6 @@ class TestSOASettings(unittest.TestCase):
         }
         settings = SOASettings(settings_dict)
         assert settings['transport']['object'] == RedisClientTransport
-        assert settings['serializer']['object'] == MsgpackSerializer
         assert settings['middleware'][0]['object'] == ClientMiddleware
 
     # noinspection PyProtectedMember

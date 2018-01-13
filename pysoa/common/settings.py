@@ -10,7 +10,6 @@ import six
 
 from pysoa.common.metrics import MetricsSchema
 from pysoa.common.schemas import BasicClassSchema
-from pysoa.common.serializer.base import Serializer as BaseSerializer
 
 
 def resolve_python_path(path):
@@ -212,13 +211,11 @@ class SOASettings(Settings):
     schema = {
         # Paths to the classes to use and then kwargs to pass
         'transport': BasicClassSchema(),
-        'serializer': BasicClassSchema(BaseSerializer),
         'middleware': fields.List(BasicClassSchema()),
         'metrics': MetricsSchema(),
     }
 
     defaults = {
-        'serializer': {'path': 'pysoa.common.serializer:MsgpackSerializer'},
         'middleware': [],
         'metrics': {'path': 'pysoa.common.metrics:NoOpMetricsRecorder'},
     }
