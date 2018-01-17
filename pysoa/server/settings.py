@@ -16,6 +16,17 @@ from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
 from pysoa.server.middleware import ServerMiddleware
 
 
+_logger_schema = fields.Dictionary(
+    {
+        'level': fields.UnicodeString(),
+        'propagate': fields.UnicodeString(),
+        'filters': fields.List(fields.UnicodeString()),
+        'handlers': fields.List(fields.UnicodeString()),
+    },
+    optional_keys=('level', 'propagate', 'filters', 'handlers'),
+)
+
+
 class ServerSettings(SOASettings):
     """
     Settings specific to servers
@@ -24,12 +35,75 @@ class ServerSettings(SOASettings):
     schema = {
         'transport': BasicClassSchema(BaseServerTransport),
         'middleware': fields.List(BasicClassSchema(ServerMiddleware)),
-        'client_routing': fields.SchemalessDictionary(),
-        'logging': fields.SchemalessDictionary(),
-        'harakiri': fields.Dictionary({
-            'timeout': fields.Integer(gte=0),  # seconds of inactivity before harakiri is triggered, 0 to disable
-            'shutdown_grace': fields.Integer(gte=0),   # seconds to gracefully shutdown after harakiri is triggered
-        }),
+        'client_routing': fields.SchemalessDictionary(
+            key_type=fields.UnicodeString(),
+            value_type=fields.SchemalessDictionary(),
+            description='Client settings for sending requests to other services; keys should be service names, and '
+                        'values should be the corresponding configuration dicts, which will be validated using the '
+                        'PolymorphicClientSettings schema',
+        ),
+        'logging': fields.Dictionary(
+            {
+                'version': fields.Integer(gte=1, lte=1),
+                'formatters': fields.SchemalessDictionary(
+                    key_type=fields.UnicodeString(),
+                    value_type=fields.Dictionary(
+                        {
+                            'format': fields.UnicodeString(),
+                            'datefmt': fields.UnicodeString(),
+                        },
+                        optional_keys=('datefmt', ),
+                    ),
+                ),
+                'filters': fields.SchemalessDictionary(
+                    key_type=fields.UnicodeString(),
+                    value_type=fields.Dictionary({'name': fields.UnicodeString()}, optional_keys=('name', )),
+                ),
+                'handlers': fields.SchemalessDictionary(
+                    key_type=fields.UnicodeString(),
+                    value_type=fields.Dictionary(
+                        {
+                            'class': fields.UnicodeString(),
+                            'level': fields.UnicodeString(),
+                            'formatter': fields.UnicodeString(),
+                            'filters': fields.List(fields.UnicodeString()),
+                        },
+                        optional_keys=('level', 'formatter', 'filters'),
+                        allow_extra_keys=True,
+                    ),
+                ),
+                'loggers': fields.SchemalessDictionary(
+                    key_type=fields.UnicodeString(),
+                    value_type=_logger_schema,
+                ),
+                'root': _logger_schema,
+                'incremental': fields.Boolean(),
+                'disable_existing_loggers': fields.Boolean(),
+            },
+            optional_keys=(
+                'version',
+                'formatters',
+                'filters',
+                'handlers',
+                'root',
+                'loggers',
+                'incremental',
+                'disable_existing_loggers',
+            ),
+            description='Settings for service logging, which should follow the standard Python logging configuration',
+        ),
+        'harakiri': fields.Dictionary(
+            {
+                'timeout': fields.Integer(
+                    gte=0,
+                    description='Seconds of inactivity before harakiri is triggered; 0 to disable, defaults to 300',
+                ),
+                'shutdown_grace': fields.Integer(
+                    gt=0,
+                    description='Seconds to forcefully shutdown after harakiri is triggered if shutdown does not occur',
+                ),
+            },
+        ),
     }
 
     defaults = {

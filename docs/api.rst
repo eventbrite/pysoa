@@ -122,7 +122,6 @@ The ``Server`` base class takes configuration in the form of a dict with the fol
 
     {
         "transport": <transport config>,
-        "serializer": <serializer config>,
         "middleware": [<middleware config>, ...],
         "client_routing": <client settings>,
         "logging": <logging config>,
@@ -135,7 +134,6 @@ The ``Server`` base class takes configuration in the form of a dict with the fol
 Key:
 
 - ``<transport config>``: See `Transport configuration`_. The base ``Server`` defaults to using the `Redis Gateway Transport`_.
-- ``<serializer config>``: See `Serializer configuration`_. The base ``Server`` defaults to using the `MessagePack Serializer`_.
 - ``<middleware config>``: See `Middleware configuration`_.
 - ``<client settings>``: Configuration for a ``Client`` that can be used to make further service calls during Action processing. See `Client configuration`_.
 - ``<logging config>``: A dictionary that will be used to configure the ``logging`` module at ``Server`` startup (`logging config schema <https://docs.python.org/3/library/logging.config.html#logging-config-dictschema>`_).
@@ -225,7 +223,6 @@ The ``Client`` class takes configuration in the form of a dict with the followin
         <service name>: {
             "transport": <transport config>,
             "transport_cache_time_in_seconds": 10,
-            "serializer": <serializer config>,
             "middleware": [<middleware config>, ...],
         },
         ...
@@ -235,7 +232,6 @@ Key:
 
 - ``<service name>``: The ``Client`` needs settings for each service that it will call, keyed by service name.
 - ``<transport config>``: See `Transport configuration`_. The base ``Client`` defaults to using the `Redis Gateway Transport`_.
-- ``<serializer config>``: See `Serializer configuration`_. The base ``Client`` defaults to using the `MessagePack Serializer`_.
 - ``<middleware config>``: See `Middleware configuration`_.
 
 The ``transport_cache_time_in_seconds`` setting defaults to 0 (disabled). If enabled, the client uses a per-service
@@ -447,7 +443,7 @@ MessagePack Serializer
 **********************
 
 - Backend: `msgpack-python <https://pypi.python.org/pypi/msgpack-python>`_
-- Types supported: ``int``, ``str``, ``dict``, ``list``, ``tuple``, ``bytes`` (Python 3 only)
+- Types supported: ``int``, ``str``, ``dict``, ``list``, ``tuple``, ``bytes`` (Python 3 only), ``date``, ``time``, ``datetime``, and ``currint.Amount``
 - Other notes: Makes no distinction between ``list`` and ``tuple`` types. Both types will be deserialized as lists.
 
 
@@ -686,7 +682,7 @@ These are all the metrics recorded in PySOA:
 - ``server.transport.redis_gateway.receive.deserialize``: A timer indicating how long it takes the Redis Gateway transport to deserialize a message
 - ``server.transport.redis_gateway.receive.error.message_expired``: A counter incremented each time the Redis Gateway transport receives an expired message
 - ``server.transport.redis_gateway.receive.error.no_request_id``: A counter incremented each time the Redis Gateway transport receives a message with a missing required Request ID
-- ``server.error.serialization_failure``: A counter incremented each time a serialization error occurs in the server
+- ``server.error.response_conversion_failure``: A counter incremented each time a response object fails to convert to a dict in the server
 - ``server.error.job_error``: A counter incremented each time a handled error occurs processing a job
 - ``server.error.unhandled_error``: A counter incremented each time an unhandled error occurs processing a job
 - ``server.error.error_formatting_failure``: A counter incremented each time an error occurs handling an error
@@ -794,15 +790,60 @@ The ``settings`` module provides classes that contain and validate settings for 
 Included ``Settings`` subclasses
 ++++++++++++++++++++++++++++++++
 
-``common.settings.SOASettings`` provides a schema that is shared by both Servers and Clients.
+``pysoa.common.settings.SOASettings`` provides a schema that is shared by both Servers and Clients. It's schema:
 
-- Schema:
+- ``transport``: Import path and keyword args for a ``Transport`` class.
 
-  + ``transport``: Import path and keyword args for a ``Transport`` class.
+- ``metrics``: Import path and keyword args for a ``MetricsRecorder`` class (defaults to a no-op/null recorder).
 
-  + ``serializer``: Import path and keyword args for a ``Serializer`` class.
-
-  + ``middleware``: List of dicts containing import path and keyword args for a ``ClientMiddleware`` or ``ServerMiddleware`` class.
+- ``middleware``: List of dicts containing import path and keyword args for a ``ClientMiddleware`` or ``ServerMiddleware`` class.
 
 Both the ``client`` and ``server`` modules implement their own subclasses that inherit from ``SOASettings``. Developers implementing ``Client`` or ``Server`` subclasses may wish to subclass the respective settings class in order to alter or extend the settings.
 
+Client settings:
+
+- ``pysoa.client.settings.ClientSettings`` extends ``SOASettings`` to provide a client-specific schema. It adds:
+
+  + ``transport_cache_time_in_seconds``: Set this value to enable a transport cache that persists across client instances (keyed off of transport settings), defaults to 0 (new transport is created every time a new client is created); we recommend 60 seconds
+
+- ``pysoa.client.settings.RedisClientSettings`` extends ``ClientSettings`` to enforce the ``RedisClientTransport`` settings schema on the ``transport`` setting
+
+- ``pysoa.client.settings.LocalClientSettings`` extends ``ClientSettings`` to enforce the ``LocalClientTransport`` settings schema on the ``transport`` setting
+
+- ``pysoa.client.settings.PolymorphicClientSettings`` extends ``ClientSettings`` to enforce the correct transport settings schema on the ``transport`` setting based on the value of the ``transport['path']`` setting
+
+Server settings:
+
+- ``pysoa.server.settings.ServerSettings`` extends ``SOASettings`` to provide a server-specific schema. It adds:
+
+  + ``client_routing``: Client settings for any PySOA clients that the server or its middleware will need to create to call other services; if provided, the server adds a ``Client`` instance with key ``client`` to the ``job_request`` dict before passing it to the actions; each key must be a unicode string service name and each value the corresponding ``PolymorphicClientSettings``-enforced client settings dict
+
+  + ``logging``: Settings for configuring Python logging in the standard Python logging configuration format:
+
+    * ``version``: Must be the value 1 until Python supports something different
+
+    * ``formatters``: A dict of formatter IDs to dicts of formatter configs
+
+    * ``filters``: A dict of filter IDs to dicts of filter configs
+
+    * ``handlers``: A dict of handler IDs to dicts of handler configs
+
+    * ``loggers``: A dict of logger names to dicts of logger configs
+
+    * ``root``: The root logger config dict
+
+    * ``incremental``: A Boolean for whether the configuration is to be interpreted as incremental to the existing configuration (Python defaults this to ``False``)
+
+    * ``disable_existing_loggers``: A Boolean for whether existing loggers are to be disabled (Python defaults this to ``True`` and ignores its value if ``incremental`` is ``True``)
+
+  + ``harakiri``: Settings for killing long-running jobs that may have exceeded run away or frozen, a dict with the following format:
+
+    * ``timeout``: After this many seconds, the server will attempt to gracefully shut down (the value 0 disables this feature, defaults to 300 seconds)
+
+    * ``shutdown_grace``: If a graceful shutdown does not succeed, the server will forcefully shut down after this many additional seconds (must be greater than 0, defaults to 30 seconds)
+
+- ``pysoa.server.settings.RedisServerSettings`` extends ``ServerSettings`` to enforce the ``RedisServerTransport`` settings schema on the ``transport`` setting
+
+- ``pysoa.server.settings.LocalServerSettings`` extends ``ServerSettings`` to enforce the ``LocalServerTransport`` settings schema on the ``transport`` setting
+
+- ``pysoa.server.settings.PolymorphicServerSettings`` extends ``ServerSettings`` to enforce the correct transport settings schema on the ``transport`` setting based on the value of the ``transport['path']`` setting

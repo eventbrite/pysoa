@@ -16,9 +16,6 @@ class ServerSettingsFactory(factory.Factory):
         'transport': {
             'path': 'pysoa.common.transport.base:ServerTransport',
         },
-        'serializer': {
-            'path': 'pysoa.common.serializer.base:Serializer',
-        },
     })
 
     @classmethod
