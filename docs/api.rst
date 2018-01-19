@@ -836,7 +836,7 @@ Server settings:
 
     * ``disable_existing_loggers``: A Boolean for whether existing loggers are to be disabled (Python defaults this to ``True`` and ignores its value if ``incremental`` is ``True``)
 
-  + ``harakiri``: Settings for killing long-running jobs that may have exceeded run away or frozen, a dict with the following format:
+  + ``harakiri``: Settings for killing long-running jobs that may have run away or frozen, a dict with the following format:
 
     * ``timeout``: After this many seconds, the server will attempt to gracefully shut down (the value 0 disables this feature, defaults to 300 seconds)
 

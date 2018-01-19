@@ -332,7 +332,7 @@ class Server(object):
                 help='The settings file to use',
                 required=True,
             )
-        cmd_options = parser.parse_args(sys.argv[1:])
+        cmd_options, _ = parser.parse_known_args(sys.argv[1:])
 
         # Load settings from the given file (or use Django and grab from its settings)
         if cls.use_django:
