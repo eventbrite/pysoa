@@ -3,7 +3,7 @@ from __future__ import absolute_import, unicode_literals
 import sys
 
 
-if sys.path[0]:
+if sys.path[0] and sys.path[0] not in ('/usr/bin', '/usr/local/bin'):
     print(
         'ERROR: You have triggered a double-import trap (see '
         'http://python-notes.curiousefficiency.org/en/latest/python_concepts/import_traps.html#the-double-import-trap '
