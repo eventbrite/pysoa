@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.26.0 (2018-01-19)
+-------------------
+- Remove duplicate serialization from the server now that clients are no longer requesting serialization
+- Bump Attrs, Conformity, and PyTest
+- Add standalone helpers to eliminate lots of boilerplace code across services
+- Fix a documentation typo
+
 0.25.0 (2018-01-12)
 -------------------
 - Attempt two at removing duplicate serialization from the client now that ASGI (incompatible) is removed
