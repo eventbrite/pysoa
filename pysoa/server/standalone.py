@@ -3,7 +3,10 @@ from __future__ import absolute_import, unicode_literals
 import sys
 
 
-if sys.path[0] and sys.path[0] not in ('/usr/bin', '/usr/local/bin'):
+if sys.path[0] and not sys.path[0].endswith('/bin'):
+    # When Python is invoked using the Python binary, the first item in the path is always empty
+    # When Python is invoked using an entry-point binary, the first item in the path is a /bin folder somewhere
+    # When Python is invoked using `python /path/to/file.py`, the first item in the path is `/path/to`, which is bad
     print(
         'ERROR: You have triggered a double-import trap (see '
         'http://python-notes.curiousefficiency.org/en/latest/python_concepts/import_traps.html#the-double-import-trap '
