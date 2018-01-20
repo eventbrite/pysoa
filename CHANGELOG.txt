@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.26.1 (2018-01-20)
+-------------------
+- Ensure double-import trap doesn't catch entrypoint execution
+
 0.26.0 (2018-01-19)
 -------------------
 - Remove duplicate serialization from the server now that clients are no longer requesting serialization
