@@ -4,7 +4,7 @@ import sys
 
 
 if sys.path[0] and not sys.path[0].endswith('/bin'):
-    # When Python is invoked using the Python binary, the first item in the path is always empty
+    # When Python is invoked using `python -m some_module`, the first item in the path is always empty
     # When Python is invoked using an entry-point binary, the first item in the path is a /bin folder somewhere
     # When Python is invoked using `python /path/to/file.py`, the first item in the path is `/path/to`, which is bad
     print(
