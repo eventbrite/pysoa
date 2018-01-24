@@ -39,7 +39,7 @@ setup(
         'For more, see https://github.com/eventbrite/pysoa'
     ),
     url='http://github.com/eventbrite/pysoa',
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+    packages=list(map(str, find_packages(exclude=['*.tests', '*.tests.*', 'tests.*', 'tests']))),
     include_package_data=True,
     install_requires=install_requires,
     tests_require=tests_require,
