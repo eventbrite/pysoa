@@ -50,6 +50,20 @@ class BaseStatusAction(Action):
     def _build(self):
         return None
 
+    request_schema = fields.Dictionary(
+        {
+            'verbose': fields.Boolean(
+                description='If specified and False, this instructs the status action to return only the baseline '
+                            'status information (Python, service, PySOA, and other library versions) and omit any of '
+                            'the health check operations (no `healthcheck` attribute will be included in the '
+                            'response). This provides a useful way to obtain the service version very quickly without '
+                            'executing the often time-consuming code necessary for the full health check. It defaults '
+                            'to True, which means "return everything."',
+            ),
+        },
+        optional_keys=('verbose', ),
+    )
+
     response_schema = fields.Dictionary(
         {
             'build': fields.UnicodeString(),
@@ -66,38 +80,15 @@ class BaseStatusAction(Action):
             'python': fields.UnicodeString(),
             'version': fields.UnicodeString(),
         },
-        optional_keys=('build',),
+        optional_keys=('build', 'healthcheck', ),
     )
 
     def run(self, request):
         """
         Scans the class for check_ methods and runs them.
         """
-        errors = []
-        warnings = []
-        self.diagnostics = {}
-
-        # Find all things called "check_<something>" on this class.
-        # We can't just scan __dict__ because of class inheritance.
-        check_methods = [getattr(self, x) for x in dir(self) if x.startswith('check_')]
-        for check_method in check_methods:
-            # Call the check, and see if it returned anything
-            problems = check_method()
-            if problems:
-                for is_error, code, description in problems:
-                    # Parcel out the values into the right return list
-                    if is_error:
-                        errors.append((code, description))
-                    else:
-                        warnings.append((code, description))
-
         status = {
             'conformity': six.text_type(conformity.__version__),
-            'healthcheck': {
-                'errors': errors,
-                'warnings': warnings,
-                'diagnostics': self.diagnostics,
-            },
             'pysoa': six.text_type(pysoa.__version__),
             'python': six.text_type(platform.python_version()),
             'version': self._version,
@@ -105,6 +96,31 @@ class BaseStatusAction(Action):
 
         if self._build:
             status['build'] = self._build
+
+        if request.body.get('verbose', True) is True:
+            errors = []
+            warnings = []
+            self.diagnostics = {}
+
+            # Find all things called "check_<something>" on this class.
+            # We can't just scan __dict__ because of class inheritance.
+            check_methods = [getattr(self, x) for x in dir(self) if x.startswith('check_')]
+            for check_method in check_methods:
+                # Call the check, and see if it returned anything
+                problems = check_method()
+                if problems:
+                    for is_error, code, description in problems:
+                        # Parcel out the values into the right return list
+                        if is_error:
+                            errors.append((code, description))
+                        else:
+                            warnings.append((code, description))
+
+            status['healthcheck'] = {
+                'errors': errors,
+                'warnings': warnings,
+                'diagnostics': self.diagnostics,
+            }
 
         return status
 
