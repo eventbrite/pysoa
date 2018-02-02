@@ -16,3 +16,4 @@ dist/
 .coverage
 coverage.xml
 pytests.xml
+.pytest_cache
