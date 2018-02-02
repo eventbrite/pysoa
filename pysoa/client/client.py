@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+import random
 import time
 import uuid
 
@@ -49,7 +50,9 @@ class ServiceHandler(object):
                 for m in settings['middleware']
             ]
 
-        self.request_counter = 0
+        # Make sure the request counter starts at a random location to avoid clashing with other clients
+        # sharing the same connection
+        self.request_counter = random.randint(1, 1000000)
 
     @staticmethod
     def _construct_transport(service_name, metrics, settings, metrics_key='client.transport.initialize'):
