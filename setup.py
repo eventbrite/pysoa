@@ -20,7 +20,7 @@ tests_require = [
     'pytest-cov',
     'mock>=2.0',
     'factory_boy~=2.8.0',
-    'lunatic-python-universal~=2.0',
+    'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
     'freezegun~=0.3',
 ]
