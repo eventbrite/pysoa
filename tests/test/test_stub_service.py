@@ -17,10 +17,14 @@ from pysoa.test.server import ServerTestCase
 from pysoa.test.stub_service import stub_action
 
 
+def _test_function(a, b):
+    return random.randint(a, b)
+
+
 class _TestAction(Action):
     def run(self, request):
         return {
-            'value': random.randint(0, 99),
+            'value': _test_function(0, 99),
         }
 
 
@@ -234,7 +238,7 @@ class TestStubAction(ServerTestCase):
         self.assertEqual({}, stub_test_action_1.call_body)
 
     @stub_action('test_service', 'test_action_2')
-    @mock.patch('random.randint', return_value=3)
+    @mock.patch(__name__ + '._test_function', return_value=3)
     def test_as_decorator_with_patch_before(self, mock_randint, stub_test_action_2):
         stub_test_action_2.return_value = {'value': 99}
 
@@ -251,7 +255,7 @@ class TestStubAction(ServerTestCase):
         self.assertEqual({}, stub_test_action_2.call_body)
         mock_randint.assert_called_once_with(0, 99)
 
-    @mock.patch('random.randint', return_value=7)
+    @mock.patch(__name__ + '._test_function', return_value=7)
     @stub_action('test_service', 'test_action_2')
     def test_as_decorator_with_patch_after(self, stub_test_action_2, mock_randint):
         stub_test_action_2.side_effect = ({'value': 122}, {'also': 157})
@@ -373,7 +377,7 @@ class TestStubActionAsDecoratedClass(ServerTestCase):
         self.assertEqual({'how': 'now'}, stub_test_action_2.call_body)
         stub_test_action_2.assert_called_once_with({'how': 'now'})
 
-    @mock.patch('random.randint', return_value=7)
+    @mock.patch(__name__ + '._test_function', return_value=7)
     def test_works_also_with_patch(self, mock_randint, stub_test_action_2):
         stub_test_action_2.return_value = {'brown': 'cow'}
 
@@ -443,7 +447,7 @@ class TestStubActionAsDecoratedClass(ServerTestCase):
 
 
 @stub_action('test_service', 'test_action_2', body={'major': 'response'})
-@mock.patch('random.randint', return_value=42)
+@mock.patch(__name__ + '._test_function', return_value=42)
 class TestStubActionAsStubAndPatchDecoratedClass(ServerTestCase):
     server_class = _TestServiceServer
     server_settings = {}
