@@ -12,7 +12,15 @@ is not business logic. For example, if your implementation has multiple serializ
 types, the metadata may include a mime type to tell the endpoint receiving the message
 which type of serializer to use.
 """
+from __future__ import absolute_import, unicode_literals
+
+import threading
+
 from pysoa.common.metrics import NoOpMetricsRecorder
+
+
+def get_hex_thread_id():
+    return '{:012x}'.format(threading.current_thread().ident)
 
 
 class ClientTransport(object):
