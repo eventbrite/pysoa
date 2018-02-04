@@ -1,0 +1,5 @@
+This file contains attributions for contained code used under license:
+
+- This project contains code used under BSD license written by the CherryPy Team, the Django software foundation, and
+  individual contributors. Please see pysoa/server/autoreload.py for more information and for the full copyright notice
+  and list of changes.
