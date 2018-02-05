@@ -1,6 +1,16 @@
 PySOA
 =====
 
+.. image:: https://api.travis-ci.org/eventbrite/pysoa.svg
+    :target: https://travis-ci.org/eventbrite/pysoa
+
+.. image:: https://img.shields.io/pypi/v/pysoa.svg
+    :target: https://pypi.python.org/pypi/pysoa
+
+.. image:: https://img.shields.io/pypi/l/pysoa.svg
+    :target: https://pypi.python.org/pypi/pysoa
+
+
 A general-purpose library for writing Python (micro)services and their clients, based on an RPC (remote procedure call)
 calling style. Provides both a client and a server, which can be used directly by themselves or, as we do, extended with
 extra functionality (our authentication, metrics, and other code is all written as middleware and run on top of this
