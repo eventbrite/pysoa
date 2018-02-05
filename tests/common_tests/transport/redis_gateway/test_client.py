@@ -6,6 +6,7 @@ import uuid
 import mock
 
 from pysoa.common.metrics import NoOpMetricsRecorder
+from pysoa.common.transport.base import get_hex_thread_id
 from pysoa.common.transport.redis_gateway.client import RedisClientTransport
 
 
@@ -40,7 +41,13 @@ class TestClientTransport(unittest.TestCase):
         mock_core.return_value.send_message.assert_called_once_with(
             'service.my_service',
             request_id,
-            {'app': 'ppa', 'reply_to': 'service.my_service.{client_id}!'.format(client_id=transport.client_id)},
+            {
+                'app': 'ppa',
+                'reply_to': 'service.my_service.{client_id}!{thread_id}'.format(
+                    client_id=transport.client_id,
+                    thread_id=get_hex_thread_id(),
+                ),
+            },
             message
         )
 
@@ -55,7 +62,12 @@ class TestClientTransport(unittest.TestCase):
         mock_core.return_value.send_message.assert_called_once_with(
             'service.geo',
             request_id,
-            {'reply_to': 'service.geo.{client_id}!'.format(client_id=transport.client_id)},
+            {
+                'reply_to': 'service.geo.{client_id}!{thread_id}'.format(
+                    client_id=transport.client_id,
+                    thread_id=get_hex_thread_id(),
+                ),
+            },
             message
         )
 
@@ -76,7 +88,10 @@ class TestClientTransport(unittest.TestCase):
         self.assertEqual(message, response[2])
 
         mock_core.return_value.receive_message.assert_called_once_with(
-            'service.my_service.{client_id}!'.format(client_id=transport.client_id),
+            'service.my_service.{client_id}!{thread_id}'.format(
+                client_id=transport.client_id,
+                thread_id=get_hex_thread_id(),
+            ),
         )
 
     def test_receive_response_message_another_service(self, mock_core):
@@ -96,7 +111,10 @@ class TestClientTransport(unittest.TestCase):
         self.assertEqual(message, response[2])
 
         mock_core.return_value.receive_message.assert_called_once_with(
-            'service.geo.{client_id}!'.format(client_id=transport.client_id),
+            'service.geo.{client_id}!{thread_id}'.format(
+                client_id=transport.client_id,
+                thread_id=get_hex_thread_id(),
+            ),
         )
 
     def test_requests_outstanding(self, mock_core):

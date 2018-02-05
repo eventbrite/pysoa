@@ -2,7 +2,10 @@ from __future__ import absolute_import, unicode_literals
 
 import uuid
 
-from pysoa.common.transport.base import ClientTransport
+from pysoa.common.transport.base import (
+    ClientTransport,
+    get_hex_thread_id,
+)
 from pysoa.common.transport.redis_gateway.backend.base import BaseRedisClient
 from pysoa.common.transport.redis_gateway.core import RedisTransportCore
 from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
@@ -29,7 +32,10 @@ class RedisClientTransport(ClientTransport):
 
     def send_request_message(self, request_id, meta, body):
         self._requests_outstanding += 1
-        meta['reply_to'] = self._receive_queue_name
+        meta['reply_to'] = '{receive_queue_name}{thread_id}'.format(
+            receive_queue_name=self._receive_queue_name,
+            thread_id=get_hex_thread_id(),
+        )
 
         with self.metrics.timer('client.transport.redis_gateway.send'):
             self.core.send_message(self._send_queue_name, request_id, meta, body)
@@ -37,7 +43,10 @@ class RedisClientTransport(ClientTransport):
     def receive_response_message(self):
         if self._requests_outstanding > 0:
             with self.metrics.timer('client.transport.redis_gateway.receive'):
-                request_id, meta, response = self.core.receive_message(self._receive_queue_name)
+                request_id, meta, response = self.core.receive_message('{receive_queue_name}{thread_id}'.format(
+                    receive_queue_name=self._receive_queue_name,
+                    thread_id=get_hex_thread_id(),
+                ))
             self._requests_outstanding -= 1
             return request_id, meta, response
         else:
