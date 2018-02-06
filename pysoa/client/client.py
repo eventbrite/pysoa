@@ -158,7 +158,7 @@ class Client(object):
     settings_class = PolymorphicClientSettings
     handler_class = ServiceHandler
 
-    def __init__(self, config, expansions=None, settings_class=None, context=None):
+    def __init__(self, config, expansion_config=None, settings_class=None, context=None):
         """
         Args:
             config: dict of {service_name: service_settings}
@@ -176,10 +176,10 @@ class Client(object):
         for service_name, service_config in config.items():
             self.settings[service_name] = self.settings_class(service_config)
 
-        if expansions:
+        if expansion_config:
             self.expansion_converter = ExpansionConverter(
-                type_routes=expansions['type_routes'],
-                type_expansions=expansions['type_expansions'],
+                type_routes=expansion_config['type_routes'],
+                type_expansions=expansion_config['type_expansions'],
             )
 
     # Exceptions
@@ -288,24 +288,34 @@ class Client(object):
             error_actions = [action for action in response.actions if action.errors]
             if error_actions:
                 raise self.CallActionError(error_actions)
+        if expansions:
+            self._perform_expansion(response, expansions)
 
-        # Keep track of expansion action errors that need to be raised
-        expansion_errors = []
+        return response
+
+    def _perform_expansion(self, skeleton_response, expansions):
         # Perform expansions
         if expansions and hasattr(self, 'expansion_converter'):
+            objs_to_expand = self._extract_candidate_objects(skeleton_response.actions, expansions)
+            self._expand_objects(objs_to_expand)
+
+    def _extract_candidate_objects(self, actions, expansions):
+        # Build initial list of objects to expand
+        objs_to_expand = []
+        for type_node in self.expansion_converter.dict_to_trees(expansions):
+            for action in actions:
+                exp_objects = type_node.find_objects(action.body)
+                objs_to_expand.extend(
+                    (exp_object, type_node.expansions)
+                    for exp_object in exp_objects
+                )
+        return objs_to_expand
+
+    def _expand_objects(self, objs_to_expand):
+            # Keep track of expansion action errors that need to be raised
+            expansion_errors = []
             # Initialize service request cache
-            exp_service_requests = {service_name: {}}
-
-            # Build initial list of objects to expand
-            objs_to_expand = []
-            for type_node in self.expansion_converter.dict_to_trees(expansions):
-                for action in response.actions:
-                    exp_objects = type_node.find_objects(action.body)
-                    objs_to_expand.extend(
-                        (exp_object, type_node.expansions)
-                        for exp_object in exp_objects
-                    )
-
+            exp_service_requests = {}
             # Loop until we have no outstanding requests or responses
             while objs_to_expand or any(exp_service_requests.values()):
                 # Send pending expansion requests to services
@@ -322,7 +332,7 @@ class Client(object):
                                 expansion_node.service,
                                 actions=[ActionRequest(
                                     action=expansion_node.action,
-                                    body={expansion_node.request_field: value}
+                                    body={expansion_node.request_field: [value]}
                                 )],
                                 continue_on_error=False,
                             )
@@ -365,8 +375,6 @@ class Client(object):
                                 )
             if expansion_errors:
                 raise self.CallActionError(expansion_errors)
-
-        return response
 
     # Asynchronous request and response methods
 

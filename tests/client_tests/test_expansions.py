@@ -8,7 +8,7 @@ from pysoa.client.client import Client
 class TestClientWithExpansions(TestCase):
 
     def setUp(self):
-        expansions = {
+        expansion_config = {
             'type_routes': {
                 'bar': {
                     'service': 'bar',
@@ -182,7 +182,7 @@ class TestClientWithExpansions(TestCase):
             },
         }
 
-        self.client = Client(config=config, expansions=expansions)
+        self.client = Client(config=config, expansion_config=expansion_config)
 
     def test_call_actions_with_expansions(self):
         expected_foo_response = {
