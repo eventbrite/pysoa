@@ -32,6 +32,17 @@ def _get_arg_parser():
         type=int,
         default=0,
     )
+    parser.add_argument(
+        '--use-file-watcher',
+        help='If specified, PySOA will watch service files for changes and restart the service automatically. If no '
+             'arguments are provided with this option, it will watch all modules. Or, you can provide a '
+             'comma-separated list of modules to watch for changes. This feature is only recommended for use in '
+             'development environments; it could cause instability in production environments.',
+        required=False,
+        nargs='?',
+        type=lambda v: (list(map(lambda s: s.strip(), v.split(','))) or None) if v else None,
+        default=False,
+    )
     return parser
 
 
@@ -59,8 +70,16 @@ def _run_server(args, server_class):
             )
             num_processes = max_processes
 
+        processes = []
+
+        def _sigterm_forks(*_, **__):
+            for process in processes:
+                process.terminate()
+
+        # We don't want these signals to actually kill this process; just sub-processes
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGHUP, _sigterm_forks)  # special signal by reloader says we actually need to propagate
 
         processes = [
             multiprocessing.Process(target=server_class.main, name='pysoa-worker-{}'.format(i))
@@ -77,6 +96,35 @@ def _run_server(args, server_class):
         server_class.main()
 
 
+def _run_server_reloader_wrapper(args, server_class):
+    if args.use_file_watcher is False:
+        # The actual value False means that the option was not specified
+        # Do not check for None, which is false-y, because that means it was specified for all modules
+        _run_server(args, server_class)
+    else:
+        # We have to get the main module name, but the actual name (like example_service.standalone), not '__main__'
+        # If IPython PDB set_trace() occurs before this, it will break __main__ and this won't work
+        # This is, unfortunately, the only way to get the real main module name
+        # noinspection PyUnresolvedReferences,PyPackageRequirements
+        import __main__
+        module_name = None
+        if hasattr(__main__, '__loader__'):
+            module_name = getattr(__main__.__loader__, 'name', None) or getattr(__main__.__loader__, 'fullname', None)
+        if module_name == '__main__':
+            # If the name is still __main__, this means Python was called without the -m
+            module_name = ''
+
+        from pysoa.server import autoreload
+        autoreload.get_reloader(
+            module_name or '',
+            args.use_file_watcher,
+            signal_forks=args.fork_processes > 1
+        ).main(
+            _run_server,
+            (args, server_class),
+        )
+
+
 def simple_main(server_getter):
     """
     Call this within __main__ to start the service as a standalone server without Django support. Your server should
@@ -84,7 +132,7 @@ def simple_main(server_getter):
 
     :param server_getter: A callable that returns the service's Server class (not an instance of it)
     """
-    _run_server(_get_args(_get_arg_parser()), server_getter())
+    _run_server_reloader_wrapper(_get_args(_get_arg_parser()), server_getter())
 
 
 def django_main(server_getter):
@@ -97,6 +145,7 @@ def django_main(server_getter):
                           will occur.
     """
     import os
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
     import django
 
     parser = _get_arg_parser()
@@ -112,4 +161,4 @@ def django_main(server_getter):
     if django.VERSION >= (1, 7):
         django.setup()
 
-    _run_server(args, server_getter())
+    _run_server_reloader_wrapper(args, server_getter())
