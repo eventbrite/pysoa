@@ -1,6 +1,19 @@
 Changelog
 =========
 
+0.27.0 (2018-02-06)
+-------------------
+- Bump Conformity and remove duplicate msgpack-python dependency
+- Add support for auto-reloading code changes in dev environments
+- Use Invoke Release for releases going forward
+- Fix bug causing response mix-ups with transport cache
+- Add ability to fork multiple server processes with the standalone command
+- Start request counter at a random value (#50)
+- Add .pytest_cache to .gitignore
+- Remove mock of randint
+- Improve status action to enable abbreviated responses when only the version is needed
+- Tweak comment
+
 0.26.1 (2018-01-20)
 -------------------
 - Ensure double-import trap doesn't catch entrypoint execution
