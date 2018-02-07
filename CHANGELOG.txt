@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.27.1 (2018-02-07)
+-------------------
+- Just a little defensive programming so that we don't break status actions
+
 0.27.0 (2018-02-06)
 -------------------
 - Bump Conformity and remove duplicate msgpack-python dependency
