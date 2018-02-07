@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.28.1 (2018-02-07)
+-------------------
+- Just a little defensive programming so that we don't break status actions
+
 0.28.0 (2018-02-07)
 -------------------
 - Refactor expansion methods 
