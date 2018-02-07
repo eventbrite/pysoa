@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.28.0 (2018-02-07)
+-------------------
+- Refactor expansion methods 
+- Renaming to differentiate expansion_config init v.s. expansions from request 
+- When make request, the `body` takes `[value]` instead of `value`, assuming we always call batch endpoints 
+- When expand, the initial `exp_service_requests` set to empty, because the upstream `service` has been called before this method.
+
 0.27.0 (2018-02-06)
 -------------------
 - Bump Conformity and remove duplicate msgpack-python dependency
