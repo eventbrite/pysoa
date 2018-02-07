@@ -50,7 +50,7 @@ class BaseStatusAction(Action):
     def _build(self):
         return None
 
-    request_schema = fields.Dictionary(
+    request_schema = fields.Nullable(fields.Dictionary(
         {
             'verbose': fields.Boolean(
                 description='If specified and False, this instructs the status action to return only the baseline '
@@ -62,7 +62,7 @@ class BaseStatusAction(Action):
             ),
         },
         optional_keys=('verbose', ),
-    )
+    ))
 
     response_schema = fields.Dictionary(
         {
@@ -97,7 +97,7 @@ class BaseStatusAction(Action):
         if self._build:
             status['build'] = self._build
 
-        if request.body.get('verbose', True) is True:
+        if not request.body or request.body.get('verbose', True) is True:
             errors = []
             warnings = []
             self.diagnostics = {}
