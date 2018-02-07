@@ -70,7 +70,29 @@ class TestBaseStatusAction(unittest.TestCase):
             response.body,
         )
 
-    def test_complex_status_abbreviated_omitted_works(self):
+    def test_complex_status_body_none_works(self):
+        action_request = EnrichedActionRequest(action='status', body=None, switches=None)
+
+        response = _ComplexStatusAction()(action_request)
+
+        self.assertIsInstance(response, ActionResponse)
+        self.assertEqual(
+            {
+                'build': 'complex_service-28381-7.8.9-16_04',
+                'conformity': six.text_type(conformity.__version__),
+                'healthcheck': {
+                    'diagnostics': {'check_good_called': True},
+                    'errors': [('ANOTHER_CODE', 'This is an error')],
+                    'warnings': [('FIRST_CODE', 'First warning'), ('SECOND_CODE', 'Second warning')],
+                },
+                'pysoa': six.text_type(pysoa.__version__),
+                'python': six.text_type(platform.python_version()),
+                'version': '7.8.9',
+            },
+            response.body,
+        )
+
+    def test_complex_status_verbose_omitted_works(self):
         action_request = EnrichedActionRequest(action='status', body={}, switches=None)
 
         response = _ComplexStatusAction()(action_request)
