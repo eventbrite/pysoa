@@ -87,21 +87,27 @@ class Server(object):
             request_id, meta, job_request = self.transport.receive_request_message()
         except MessageReceiveTimeout:
             # no new message, nothing to do
+            self.perform_idle_actions()
             return
         self.job_logger.info('Job request: %s', job_request)
 
-        # Process and run the Job
-        job_response = self.process_job(job_request)
-
-        # Send the JobResponse
         try:
-            response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
-        except Exception as e:
-            self.metrics.counter('server.error.response_conversion_failure').increment()
-            job_response = self.handle_error(e, variables={'job_response': job_response})
-            response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
-        self.transport.send_response_message(request_id, meta, response_message)
-        self.job_logger.info('Job response: %s', response_message)
+            self.perform_pre_request_actions()
+
+            # Process and run the Job
+            job_response = self.process_job(job_request)
+
+            # Send the JobResponse
+            try:
+                response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
+            except Exception as e:
+                self.metrics.counter('server.error.response_conversion_failure').increment()
+                job_response = self.handle_error(e, variables={'job_response': job_response})
+                response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
+            self.transport.send_response_message(request_id, meta, response_message)
+            self.job_logger.info('Job response: %s', response_message)
+        finally:
+            self.perform_post_request_actions()
 
     def make_client(self, context):
         """
@@ -271,10 +277,42 @@ class Server(object):
 
     def setup(self):
         """
-        Runs just before the server starts, if you need to do one-time loads or
-        cache warming.
+        Runs just before the server starts, if you need to do one-time loads or cache warming. Call super().setup() if
+        you override.
         """
         pass
+
+    def _close_old_django_connections(self):
+        if self.use_django:
+            from django.db import close_old_connections
+            self.logger.debug('Cleaning Django connections')
+            close_old_connections()
+
+    def perform_pre_request_actions(self):
+        """
+        Runs just before the server accepts a new request. Call super().perform_pre_request_actions() if you override.
+        Be sure your purpose for overriding isn't better met with middleware.
+        """
+        if self.use_django:
+            from django.db import reset_queries
+            self.logger.debug('Resetting Django query log')
+            reset_queries()
+
+        self._close_old_django_connections()
+
+    def perform_post_request_actions(self):
+        """
+        Runs just after the server processes a request. Call super().perform_post_request_actions() if you override. Be
+        sure your purpose for overriding isn't better met with middleware.
+        """
+        self._close_old_django_connections()
+
+    def perform_idle_actions(self):
+        """
+        Runs periodically when the server is idle, if it has been too long since it last received a request. Call
+        super().perform_idle_actions() if you override.
+        """
+        self._close_old_django_connections()
 
     def run(self):
         """
