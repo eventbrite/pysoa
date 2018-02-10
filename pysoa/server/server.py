@@ -81,6 +81,10 @@ class Server(object):
         self.logger = logging.getLogger('pysoa.server')
         self.job_logger = logging.getLogger('pysoa.server.job')
 
+        # Set these as the integer equivalents of the level names
+        self.request_log_success_level = logging.getLevelName(self.settings['request_log_success_level'])
+        self.request_log_error_level = logging.getLevelName(self.settings['request_log_error_level'])
+
     def handle_next_request(self):
         # Get the next JobRequest
         try:
@@ -89,7 +93,7 @@ class Server(object):
             # no new message, nothing to do
             self.perform_idle_actions()
             return
-        self.job_logger.info('Job request: %s', job_request)
+        self.job_logger.log(self.request_log_success_level, 'Job request: %s', job_request)
 
         try:
             self.perform_pre_request_actions()
@@ -105,7 +109,19 @@ class Server(object):
                 job_response = self.handle_error(e, variables={'job_response': job_response})
                 response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
             self.transport.send_response_message(request_id, meta, response_message)
-            self.job_logger.info('Job response: %s', response_message)
+
+            if job_response.errors:
+                if (
+                    self.request_log_error_level > self.request_log_success_level and
+                    self.job_logger.getEffectiveLevel() > self.request_log_success_level
+                ):
+                    # When we originally logged the request, it may have been hidden because the effective logging level
+                    # threshold was greater than the level at which we logged the request. So re-log the request at the
+                    # error level, if set higher.
+                    self.job_logger.log(self.request_log_error_level, 'Job request: %s', job_request)
+                self.job_logger.log(self.request_log_error_level, 'Job response: %s', response_message)
+            else:
+                self.job_logger.log(self.request_log_success_level, 'Job response: %s', response_message)
         finally:
             self.perform_post_request_actions()
 
