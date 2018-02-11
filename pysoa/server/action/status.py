@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import platform
+import sys
 
 import conformity
 from conformity import fields
@@ -14,25 +15,24 @@ class BaseStatusAction(Action):
     """
     Standard base action for status checks.
 
-    Returns heath check and version information.
+    Returns health check and version information.
 
-    If you want to use default StatusAction use StatusActionFactory(version)
-    passing in the version of your service.
+    If you want to use default StatusAction use StatusActionFactory(version), passing in the version of your service.
+    If you do not specify an action with name `status` in your server, this will be done on your behalf.
 
-    If you want to make a custom StatusAction, subclass this class,
-    make it get self._version from your service and add additional health check methods.
+    If you want to make a custom StatusAction, subclass this class, make self._version return your service's version,
+    self._build optionally return your service's build string, and add any additional health check methods you desire.
     Health check methods must start with the word check_.
 
-    Health check methods must take no arguments, and return a list of tuples in the format:
-    (is_error, code, description).
+    Health check methods must take no arguments, and return a list of tuples in the format
+    `(is_error, code, description)`.
 
-    is_error: True if this is an error, False if it is a warning.
-    code: Invariant string for this error, like "MYSQL_FAILURE"
-    description: Human-readable description of the problem, like "Could not connect to host on port 1234"
+        - is_error: `True` if this is an error, `False` if it is a warning.
+        - code: Invariant string for this error, like "MYSQL_FAILURE"
+        - description: Human-readable description of the problem, like "Could not connect to host on port 1234"
 
-    Health check methods can also write to the self.diagnostics dictionary to add additional
-    data which will be sent back with the response if they like. They are responsible for their
-    own key management in this situation.
+    Health check methods can also write to the self.diagnostics dictionary to add additional data which will be sent
+    back with the response if they like. They are responsible for their own key management in this situation.
     """
 
     def __init__(self, *args, **kwargs):
@@ -50,6 +50,13 @@ class BaseStatusAction(Action):
     def _build(self):
         return None
 
+    description = (
+        'Returns version info for the service, Python, PySOA, and Conformity. If the service has a build string, that '
+        'is also returned. If the service has defined additional health check behavior and the `verbose` request '
+        'attribute is not set to `False`, those additional health checks are performed and returned in the '
+        '`healthcheck` response attribute.'
+    )
+
     request_schema = fields.Nullable(fields.Dictionary(
         {
             'verbose': fields.Boolean(
@@ -66,19 +73,36 @@ class BaseStatusAction(Action):
 
     response_schema = fields.Dictionary(
         {
-            'build': fields.UnicodeString(),
-            'conformity': fields.UnicodeString(),
+            'build': fields.UnicodeString(description='The version build string, if applicable.'),
+            'conformity': fields.UnicodeString(description='The version of Conformity in use.'),
             'healthcheck': fields.Dictionary(
                 {
-                    'warnings': fields.List(fields.Tuple(fields.UnicodeString(), fields.UnicodeString())),
-                    'errors': fields.List(fields.Tuple(fields.UnicodeString(), fields.UnicodeString())),
-                    'diagnostics': fields.SchemalessDictionary(key_type=fields.UnicodeString()),
+                    'warnings': fields.List(
+                        fields.Tuple(
+                            fields.UnicodeString(description='The invariant warning code'),
+                            fields.UnicodeString(description='The readable warning description'),
+                        ),
+                        description='A list of any warnings encountered during the health checks.',
+                    ),
+                    'errors': fields.List(
+                        fields.Tuple(
+                            fields.UnicodeString(description='The invariant error code'),
+                            fields.UnicodeString(description='The readable error description'),
+                        ),
+                        description='A list of any errors encountered during the health checks.',
+                    ),
+                    'diagnostics': fields.SchemalessDictionary(
+                        key_type=fields.UnicodeString(),
+                        description='A dictionary containing any additional diagnostic information output by the '
+                                    'health check operations.',
+                    ),
                 },
                 optional_keys=('warnings', 'errors', 'diagnostics'),
+                description='Information about any additional health check operations performed.',
             ),
-            'pysoa': fields.UnicodeString(),
-            'python': fields.UnicodeString(),
-            'version': fields.UnicodeString(),
+            'pysoa': fields.UnicodeString(description='The version of PySOA in use.'),
+            'python': fields.UnicodeString(description='The version of Python in use.'),
+            'version': fields.UnicodeString(description='The version of the responding service.'),
         },
         optional_keys=('build', 'healthcheck', ),
     )
@@ -125,18 +149,18 @@ class BaseStatusAction(Action):
         return status
 
 
-if six.PY2:
-    def type_str(x):
-        return x.encode('utf-8')
-else:
-    def type_str(x):
-        return x
-
-
 # noinspection PyPep8Naming
 def StatusActionFactory(version, build=None, base_class=BaseStatusAction):  # noqa
     return type(
-        type_str('StatusAction'),
+        str('StatusAction'),
         (base_class, ),
-        {type_str('_version'): version, type_str('_build'): build},
+        {str('_version'): version, str('_build'): build},
     )
+
+
+def make_default_status_action_class(server_class):
+    base_module = sys.modules[server_class.__module__.split('.')[0]]
+
+    version = six.text_type(getattr(base_module, '__version__', 'unknown'))
+    build = six.text_type(getattr(base_module, '__build__', '')) or None
+    return StatusActionFactory(version, build)

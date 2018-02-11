@@ -4,12 +4,14 @@ import platform
 import unittest
 
 import conformity
+from conformity.fields.basic import Boolean
 import six
 
 import pysoa
 from pysoa.common.types import ActionResponse
 from pysoa.server.action.status import (
     BaseStatusAction,
+    make_default_status_action_class,
     StatusActionFactory,
 )
 from pysoa.server.types import EnrichedActionRequest
@@ -152,3 +154,20 @@ class TestBaseStatusAction(unittest.TestCase):
             },
             response.body,
         )
+
+    def test_make_default_status_action_class(self):
+        action_class = make_default_status_action_class(ActionResponse)
+        self.assertIsNotNone(action_class)
+        self.assertTrue(issubclass(action_class, BaseStatusAction))
+
+        action = action_class({})
+        self.assertEqual(six.text_type(pysoa.__version__), action._version)
+        self.assertIsNone(action._build)
+
+        action_class = make_default_status_action_class(Boolean)
+        self.assertIsNotNone(action_class)
+        self.assertTrue(issubclass(action_class, BaseStatusAction))
+
+        action = action_class({})
+        self.assertEqual(six.text_type(conformity.__version__), action._version)
+        self.assertIsNone(action._build)
