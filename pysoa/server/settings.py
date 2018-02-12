@@ -26,6 +26,8 @@ _logger_schema = fields.Dictionary(
     optional_keys=('level', 'propagate', 'filters', 'handlers'),
 )
 
+_log_level_schema = fields.Constant('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+
 
 class ServerSettings(SOASettings):
     """
@@ -104,6 +106,8 @@ class ServerSettings(SOASettings):
                 ),
             },
         ),
+        'request_log_success_level': _log_level_schema,
+        'request_log_error_level': _log_level_schema,
     }
 
     defaults = {
@@ -131,6 +135,8 @@ class ServerSettings(SOASettings):
             'timeout': 300,
             'shutdown_grace': 30,
         },
+        'request_log_success_level': 'INFO',
+        'request_log_error_level': 'INFO',
     }
 
 
