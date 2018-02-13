@@ -300,9 +300,20 @@ class Server(object):
 
     def _close_old_django_connections(self):
         if self.use_django:
-            from django.db import close_old_connections
-            self.logger.debug('Cleaning Django connections')
-            close_old_connections()
+            try:
+                from django.db import transaction
+                if transaction.get_autocommit():
+                    from django.db import close_old_connections
+                    self.logger.debug('Cleaning Django connections')
+                    close_old_connections()
+            except BaseException as e:
+                # `get_autocommit` fails under PyTest without `pytest.mark.django_db`, so ignore that specific error.
+                try:
+                    from _pytest.outcomes import Failed
+                    if not isinstance(e, Failed):
+                        raise e
+                except ImportError:
+                    raise e
 
     def perform_pre_request_actions(self):
         """
