@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.29.0 (2018-02-14)
+-------------------
+- Bump Conformity
+- Add support for controlling request log logging level
+- Add support for clean-up operations before and after requests
+
 0.28.1 (2018-02-07)
 -------------------
 - Just a little defensive programming so that we don't break status actions
