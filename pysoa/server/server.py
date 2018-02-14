@@ -85,6 +85,8 @@ class Server(object):
         self.request_log_success_level = logging.getLevelName(self.settings['request_log_success_level'])
         self.request_log_error_level = logging.getLevelName(self.settings['request_log_error_level'])
 
+        self._default_status_action_class = None
+
     def handle_next_request(self):
         # Get the next JobRequest
         try:
@@ -233,9 +235,19 @@ class Server(object):
                 control=job_request['control'],
                 client=job_request['client'],
             )
-            if action_request.action in self.action_class_map:
+            action_in_class_map = action_request.action in self.action_class_map
+            if action_in_class_map or action_request.action in ('status', 'introspect'):
                 # Get action to run
-                action = self.action_class_map[action_request.action](self.settings)
+                if action_in_class_map:
+                    action = self.action_class_map[action_request.action](self.settings)
+                elif action_request.action == 'introspect':
+                    from pysoa.server.action.introspection import IntrospectionAction
+                    action = IntrospectionAction(server=self)
+                else:
+                    if not self._default_status_action_class:
+                        from pysoa.server.action.status import make_default_status_action_class
+                        self._default_status_action_class = make_default_status_action_class(self.__class__)
+                    action = self._default_status_action_class(self.settings)
                 # Wrap it in middleware
                 wrapper = self.make_middleware_stack(
                     [m.action for m in self.middleware],

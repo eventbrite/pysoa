@@ -21,6 +21,13 @@ class Action(object):
     response_schema = None
 
     def __init__(self, settings=None):
+        """
+        Construct a new action. Concrete classes can override this and define a different interface, but they must
+        still pass the server settings to this base constructor.
+
+        :param settings: The server settings object
+        :type settings: dict
+        """
         self.settings = settings
 
     def run(self, request):
