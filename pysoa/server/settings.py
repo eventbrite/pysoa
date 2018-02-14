@@ -59,7 +59,13 @@ class ServerSettings(SOASettings):
                 ),
                 'filters': fields.SchemalessDictionary(
                     key_type=fields.UnicodeString(),
-                    value_type=fields.Dictionary({'name': fields.UnicodeString()}, optional_keys=('name', )),
+                    value_type=fields.Dictionary(
+                        {
+                            '()': fields.Anything(description='The optional filter class'),
+                            'name': fields.UnicodeString(description='The optional filter name'),
+                        },
+                        optional_keys=('()', 'name'),
+                    ),
                 ),
                 'handlers': fields.SchemalessDictionary(
                     key_type=fields.UnicodeString(),
@@ -116,14 +122,20 @@ class ServerSettings(SOASettings):
             'version': 1,
             'formatters': {
                 'console': {
-                    'format': '%(asctime)s %(levelname)7s: %(message)s'
+                    'format': '%(asctime)s %(levelname)7s %(correlation_id)s %(request_id)s: %(message)s'
                 },
+            },
+            'filters': {
+                'pysoa_logging_context_filter': {
+                    '()': 'pysoa.server.logging.PySOALogContextFilter',
+                }
             },
             'handlers': {
                 'console': {
                     'level': 'INFO',
                     'class': 'logging.StreamHandler',
                     'formatter': 'console',
+                    'filters': ['pysoa_logging_context_filter'],
                 },
             },
             'root': {
