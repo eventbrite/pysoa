@@ -1,4 +1,4 @@
-from __future__ import unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import argparse
 import importlib
@@ -10,7 +10,6 @@ import traceback
 import signal
 
 import attr
-
 from pysoa.client import Client
 from pysoa.common.constants import (
     ERROR_CODE_INVALID,
@@ -32,6 +31,7 @@ from pysoa.server.errors import (
     ActionError,
     JobError,
 )
+from pysoa.server.logging import PySOALogContextFilter
 from pysoa.server.types import EnrichedActionRequest
 from pysoa.server.schemas import JobRequestSchema
 from pysoa.server.settings import PolymorphicServerSettings
@@ -93,6 +93,7 @@ class Server(object):
             # no new message, nothing to do
             self.perform_idle_actions()
             return
+        PySOALogContextFilter.set_logging_request_context(request_id=request_id, **job_request['context'])
         self.job_logger.log(self.request_log_success_level, 'Job request: %s', job_request)
 
         try:
@@ -123,6 +124,7 @@ class Server(object):
             else:
                 self.job_logger.log(self.request_log_success_level, 'Job response: %s', response_message)
         finally:
+            PySOALogContextFilter.clear_logging_request_context()
             self.perform_post_request_actions()
 
     def make_client(self, context):
