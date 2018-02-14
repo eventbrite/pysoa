@@ -6,7 +6,7 @@ from pysoa import __version__
 
 
 install_requires = [
-    'conformity~=1.8',
+    'conformity~=1.9',
     'six~=1.10.0',
     'attrs~=17.4',
     'currint~=1.6',
