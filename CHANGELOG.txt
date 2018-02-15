@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.30.0 (2018-02-15)
+-------------------
+- Rename test module packages that were redundantly named
+- Add support for server introspection
+- Add request details to a logging context for all log records
+
 0.29.0 (2018-02-14)
 -------------------
 - Bump Conformity
