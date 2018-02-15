@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.30.1 (2018-02-15)
+-------------------
+- Relax version spec for Six to reduce version conflicts
+
 0.30.0 (2018-02-15)
 -------------------
 - Rename test module packages that were redundantly named
