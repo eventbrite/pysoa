@@ -10,94 +10,88 @@ class TestClientWithExpansions(TestCase):
     def setUp(self):
         expansion_config = {
             'type_routes': {
-                'bar': {
-                    'service': 'bar',
-                    'action': 'get_bar',
+                'author_router': {
+                    'service': 'author_info_service',
+                    'action': 'get_author_by_id',
                     'request_field': 'id',
-                    'response_field': 'bar',
+                    'response_field': 'author_detail',
                 },
-                'baz': {
-                    'service': 'baz',
-                    'action': 'get_baz',
+                'publisher_type': {  # Note: Likely a bug here
+                    'service': 'publisher_info_service',
+                    'action': 'get_publisher_by_id',
                     'request_field': 'id',
-                    'response_field': 'baz',
+                    'response_field': 'publisher_detail',
                 },
-                'qux': {
-                    'service': 'qux',
-                    'action': 'get_qux',
+                'address_router': {
+                    'service': 'address_info_service',
+                    'action': 'get_address_by_id',
                     'request_field': 'id',
-                    'response_field': 'qux',
+                    'response_field': 'address_detail',
                 },
-                'quas': {
-                    'service': 'quas',
-                    'action': 'get_quas',
+                'automaker_router': {
+                    'service': 'automaker_info_service',
+                    'action': 'get_automaker_by_id',
                     'request_field': 'id',
-                    'response_field': 'quas',
-                },
-                'wex': {
-                    'service': 'wex',
-                    'action': 'get_wex',
-                    'request_field': 'id',
-                    'response_field': 'wex',
+                    'response_field': 'automaker_detail',
                 },
             },
             'type_expansions': {
-                'foo': {
-                    'bar': {
-                        'type': 'bar',
-                        'source_field': 'bar_id',
-                        'dest_field': 'bar',
+                'book_type': {
+                    'author_rule': {
+                        'type': 'author_router',
+                        'source_field': 'author_id',
+                        'dest_field': 'author_profile',
                     },
-                    'baz': {
-                        'type': 'baz',
-                        'source_field': 'baz_id',
-                        'dest_field': 'baz',
+                    'publisher_rule': {
+                        'type': 'publisher_type',
+                        'source_field': 'publish_id',
+                        'dest_field': 'publisher_profile',
                         'raise_action_errors': True,
                     },
                 },
-                'baz': {
-                    'qux': {
-                        'type': 'qux',
-                        'source_field': 'qux_id',
-                        'dest_field': 'qux',
+                'publisher_type': {
+                    'address_rule': {
+                        'type': 'address_router',
+                        'source_field': 'address_id',
+                        'dest_field': 'address_profile',
                     },
                 },
-                'quas': {
-                    'wex': {
-                        'type': 'wex',
-                        'source_field': 'wex_id',
-                        'dest_field': 'wex',
+                'car_type': {
+                    'automaker_rule': {
+                        'type': 'automaker_router',
+                        'source_field': 'automaker_id',
+                        'dest_field': 'automaker_profile',
                     },
                 },
             },
         }
-        foo_transport_action_map = {
-            'get_foo': {
+        book_transport_action_map = {
+            'get_book': {
                 'body': {
-                    'foo': {
-                        '_type': 'foo',
+                    'book_obj': {
+                        '_type': 'book_type',
                         'id': 1,
-                        'bar_id': 2,
-                        'baz_id': 3,
+                        'author_id': 2,
+                        'publish_id': 3,
                     },
                 },
             },
-            'get_quas': {
+            'get_car': {
                 'body': {
-                    'quas': {
-                        '_type': 'quas',
+                    'car_obj': {
+                        '_type': 'car_type',
                         'id': 5,
-                        'wex_id': 6,
+                        'automaker_id': 6,
                     },
                 }
             }
         }
 
-        bar_transport_action_map = {
-            'get_bar': {
+        author_transport_action_map = {
+            'get_author_by_id': {
                 'body': {
-                    'bar': {
-                        '_type': 'bar',
+                    'author_detail': {
+                        '_type': 'author_type',
                         'id': 2,
                         'stuff': 'things',
                     },
@@ -105,34 +99,34 @@ class TestClientWithExpansions(TestCase):
             }
         }
 
-        baz_transport_action_map = {
-            'get_baz': {
+        publisher_transport_action_map = {
+            'get_publisher_by_id': {
                 'body': {
-                    'baz': {
-                        '_type': 'baz',
+                    'publisher_detail': {
+                        '_type': 'publisher_type',
                         'id': 3,
-                        'qux_id': 4,
+                        'address_id': 4,
                     },
                 }
             }
         }
 
-        qux_transport_action_map = {
-            'get_qux': {
+        address_transport_action_map = {
+            'get_address_by_id': {
                 'body': {
-                    'qux': {
-                        '_type': 'qux',
+                    'address_detail': {
+                        '_type': 'address_type',
                         'id': 4,
                     },
                 }
             }
         }
 
-        wex_transport_action_map = {
-            'get_wex': {
+        automaker_transport_action_map = {
+            'get_automaker_by_id': {
                 'body': {
-                    'wex': {
-                        '_type': 'wex',
+                    'automaker_detail': {
+                        '_type': 'auto_type',
                         'id': 6,
                     },
                 }
@@ -140,43 +134,43 @@ class TestClientWithExpansions(TestCase):
         }
 
         config = {
-            'foo': {
+            'book_info_service': {
                 'transport': {
                     'path': 'pysoa.test.stub_service:StubClientTransport',
                     'kwargs': {
-                        'action_map': foo_transport_action_map,
+                        'action_map': book_transport_action_map,
                     }
                 }
             },
-            'bar': {
+            'author_info_service': {
                 'transport': {
                     'path': 'pysoa.test.stub_service:StubClientTransport',
                     'kwargs': {
-                        'action_map': bar_transport_action_map,
+                        'action_map': author_transport_action_map,
                     }
                 }
             },
-            'baz': {
+            'publisher_info_service': {
                 'transport': {
                     'path': 'pysoa.test.stub_service:StubClientTransport',
                     'kwargs': {
-                        'action_map': baz_transport_action_map,
+                        'action_map': publisher_transport_action_map,
                     }
                 }
             },
-            'qux': {
+            'address_info_service': {
                 'transport': {
                     'path': 'pysoa.test.stub_service:StubClientTransport',
                     'kwargs': {
-                        'action_map': qux_transport_action_map,
+                        'action_map': address_transport_action_map,
                     }
                 }
             },
-            'wex': {
+            'automaker_info_service': {
                 'transport': {
                     'path': 'pysoa.test.stub_service:StubClientTransport',
                     'kwargs': {
-                        'action_map': wex_transport_action_map,
+                        'action_map': automaker_transport_action_map,
                     }
                 }
             },
@@ -185,83 +179,83 @@ class TestClientWithExpansions(TestCase):
         self.client = Client(config=config, expansion_config=expansion_config)
 
     def test_call_actions_with_expansions(self):
-        expected_foo_response = {
-            'foo': {
-                '_type': 'foo',
+        expected_book_response = {
+            'book_obj': {
+                '_type': 'book_type',
                 'id': 1,
-                'bar': {
-                    '_type': 'bar',
+                'author_profile': {
+                    '_type': 'author_type',
                     'id': 2,
                     'stuff': 'things',
                 },
-                'baz': {
-                    '_type': 'baz',
+                'publisher_profile': {
+                    '_type': 'publisher_type',
                     'id': 3,
-                    'qux': {
-                        '_type': 'qux',
+                    'address_profile': {
+                        '_type': 'address_type',
                         'id': 4,
                     },
                 },
             },
         }
-        expected_quas_response = {
-            'quas': {
-                '_type': 'quas',
+        expected_car_response = {
+            'car_obj': {
+                '_type': 'car_type',
                 'id': 5,
-                'wex': {
-                    '_type': 'wex',
+                'automaker_profile': {
+                    '_type': 'auto_type',
                     'id': 6,
                 },
             },
         }
 
         response = self.client.call_actions(
-            service_name='foo',
+            service_name='book_info_service',
             actions=[
                 {
-                    'action': 'get_foo',
+                    'action': 'get_book',
                     'body': {
                         'id': 1,
                     },
                 },
                 {
-                    'action': 'get_quas',
+                    'action': 'get_car',
                     'body': {
                         'id': 5,
                     }
                 },
             ],
             expansions={
-                'foo': ['bar', 'baz.qux'],
-                'quas': ['wex'],
+                'book_type': ['author_rule', 'publisher_rule.address_rule'],
+                'car_type': ['automaker_rule'],
             },
         )
 
         self.assertEqual(
             response.actions[0].body,
-            expected_foo_response,
+            expected_book_response,
         )
 
         self.assertEqual(
             response.actions[1].body,
-            expected_quas_response,
+            expected_car_response,
         )
 
     def test_call_action_with_expansions(self):
         expected_response = {
-            'foo': {
-                '_type': 'foo',
+            'book_obj': {
+                '_type': 'book_type',
                 'id': 1,
-                'bar': {
-                    '_type': 'bar',
+                'author_profile': {
+                    '_type': 'author_type',
                     'id': 2,
                     'stuff': 'things',
                 },
-                'baz': {
-                    '_type': 'baz',
+                'publisher_profile': {
+                    '_type': 'publisher_type',
                     'id': 3,
-                    'qux': {
-                        '_type': 'qux',
+                    'address_profile': {
+                        '_type': 'address_type',
                         'id': 4,
                     },
                 },
@@ -269,13 +263,13 @@ class TestClientWithExpansions(TestCase):
         }
 
         response = self.client.call_action(
-            service_name='foo',
-            action='get_foo',
+            service_name='book_info_service',
+            action='get_book',
             body={
                 'id': 1,
             },
             expansions={
-                'foo': ['bar', 'baz.qux'],
+                'book_type': ['author_rule', 'publisher_rule.address_rule'],
             },
         )
 
@@ -285,49 +279,52 @@ class TestClientWithExpansions(TestCase):
         )
 
     def test_expansion_fail_silently(self):
-        bar_errors = [{
+        author_errors = [{
             'code': 'INVALID',
             'field': 'id',
-            'message': 'Invalid bar ID',
+            'message': 'Invalid author ID',
         }]
-        self.client._get_handler('bar').transport.stub_action('get_bar', errors=bar_errors)
+        self.client._get_handler('author_info_service').transport.stub_action('get_author_by_id', errors=author_errors)
         expected_response = {
-            'foo': {
-                '_type': 'foo',
+            'book_obj': {
+                '_type': 'book_type',
                 'id': 1,
-                'bar_id': 2,
-                'baz_id': 3,
+                'author_id': 2,
+                'publish_id': 3,
             },
         }
         response = self.client.call_action(
-            service_name='foo',
-            action='get_foo',
+            service_name='book_info_service',
+            action='get_book',
             body={
                 'id': 1,
             },
             expansions={
-                'foo': ['bar'],
+                'book_type': ['author_rule'],
             },
         )
         self.assertEqual(response.body, expected_response)
 
     def test_expansion_error_raises_exception(self):
-        baz_errors = [{
+        errors = [{
             'code': 'INVALID',
             'field': 'id',
-            'message': 'Invalid baz ID',
+            'message': 'Invalid publisher ID',
         }]
-        self.client._get_handler('baz').transport.stub_action('get_baz', errors=baz_errors)
+        self.client._get_handler('publisher_info_service').transport.stub_action('get_publisher_by_id', errors=errors)
 
         with self.assertRaises(self.client.CallActionError) as e:
             self.client.call_action(
-                service_name='foo',
-                action='get_foo',
+                service_name='book_info_service',
+                action='get_book',
                 body={
                     'id': 1,
                 },
                 expansions={
-                    'foo': ['baz'],
+                    'book_type': ['publisher_rule'],
                 },
             )
-            self.assertEqual(e.errors, baz_errors)
+        err = e.exception.actions[0].errors[0]
+        self.assertEqual(err.code, 'INVALID')
+        self.assertEqual(err.field, 'id')
+        self.assertEqual(err.message, 'Invalid publisher ID')
