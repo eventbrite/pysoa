@@ -314,8 +314,13 @@ class Server(object):
 
     def _close_old_django_connections(self):
         if self.use_django:
+            from django.conf import settings
+            if not getattr(settings, 'DATABASES'):
+                # No database connections are configured, so we have nothing to do
+                return
+
+            from django.db import transaction
             try:
-                from django.db import transaction
                 if transaction.get_autocommit():
                     from django.db import close_old_connections
                     self.logger.debug('Cleaning Django connections')
@@ -335,9 +340,11 @@ class Server(object):
         Be sure your purpose for overriding isn't better met with middleware.
         """
         if self.use_django:
-            from django.db import reset_queries
-            self.logger.debug('Resetting Django query log')
-            reset_queries()
+            from django.conf import settings
+            if getattr(settings, 'DATABASES'):
+                from django.db import reset_queries
+                self.logger.debug('Resetting Django query log')
+                reset_queries()
 
         self._close_old_django_connections()
 
