@@ -22,12 +22,17 @@ class PySOALogContextFilter(logging.Filter):
 
     @classmethod
     def set_logging_request_context(cls, **context):
-        cls._logging_context.context = context
+        if not getattr(cls._logging_context, 'context_stack', None):
+            cls._logging_context.context_stack = []
+        cls._logging_context.context_stack.append(context)
 
     @classmethod
     def clear_logging_request_context(cls):
-        del cls._logging_context.context
+        if getattr(cls._logging_context, 'context_stack', None):
+            cls._logging_context.context_stack.pop()
 
     @classmethod
     def get_logging_request_context(cls):
-        return getattr(cls._logging_context, 'context', None)
+        if getattr(cls._logging_context, 'context_stack', None):
+            return cls._logging_context.context_stack[-1]
+        return None

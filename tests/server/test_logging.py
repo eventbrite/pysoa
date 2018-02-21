@@ -8,6 +8,16 @@ from pysoa.server.logging import PySOALogContextFilter
 
 
 class TestPySOALogContextFilter(unittest.TestCase):
+    def tearDown(self):
+        # Make sure that if anything goes wrong with these tests, that it doesn't affect any other tests
+        PySOALogContextFilter.clear_logging_request_context()
+        PySOALogContextFilter.clear_logging_request_context()
+        PySOALogContextFilter.clear_logging_request_context()
+        PySOALogContextFilter.clear_logging_request_context()
+        PySOALogContextFilter.clear_logging_request_context()
+        PySOALogContextFilter.clear_logging_request_context()
+        PySOALogContextFilter.clear_logging_request_context()
+
     def test_threading(self):
         thread_data = {}
 
@@ -69,7 +79,8 @@ class TestPySOALogContextFilter(unittest.TestCase):
         self.assertEqual('', record.correlation_id)
         self.assertEqual('', record.request_id)
 
-        PySOALogContextFilter.set_logging_request_context(foo='bar', **{'baz': 'qux'})
+        PySOALogContextFilter.set_logging_request_context(filter='mine', **{'logger': 'yours'})
+        self.assertEqual({'filter': 'mine', 'logger': 'yours'}, PySOALogContextFilter.get_logging_request_context())
 
         record.reset_mock()
 
@@ -78,6 +89,10 @@ class TestPySOALogContextFilter(unittest.TestCase):
         self.assertEqual('', record.request_id)
 
         PySOALogContextFilter.set_logging_request_context(request_id=4321, **{'correlation_id': 'abc1234'})
+        self.assertEqual(
+            {'request_id': 4321, 'correlation_id': 'abc1234'},
+            PySOALogContextFilter.get_logging_request_context()
+        )
 
         record.reset_mock()
 
@@ -86,6 +101,16 @@ class TestPySOALogContextFilter(unittest.TestCase):
         self.assertEqual(4321, record.request_id)
 
         PySOALogContextFilter.clear_logging_request_context()
+        self.assertEqual({'filter': 'mine', 'logger': 'yours'}, PySOALogContextFilter.get_logging_request_context())
+
+        record.reset_mock()
+
+        self.assertTrue(log_filter.filter(record))
+        self.assertEqual('', record.correlation_id)
+        self.assertEqual('', record.request_id)
+
+        PySOALogContextFilter.clear_logging_request_context()
+        self.assertIsNone(PySOALogContextFilter.get_logging_request_context())
 
         record.reset_mock()
 
