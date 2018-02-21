@@ -19,7 +19,7 @@ from pysoa.server.middleware import ServerMiddleware
 _logger_schema = fields.Dictionary(
     {
         'level': fields.UnicodeString(),
-        'propagate': fields.UnicodeString(),
+        'propagate': fields.Any(fields.Boolean(), fields.UnicodeString()),  # TODO change to just Boolean() > 2018-03-01
         'filters': fields.List(fields.UnicodeString()),
         'handlers': fields.List(fields.UnicodeString()),
     },
