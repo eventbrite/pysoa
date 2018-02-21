@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.30.3 (2018-02-21)
+-------------------
+- [PATCH] Fix improper type for logging logger propagate setting
+- [PATCH] Refactor test_expansion: renaming with well-known book-author to present intuitive relations, instead of foo/bar/baz
+
 0.30.2 (2018-02-16)
 -------------------
 - [PATCH] If no databases are configured, do not attempt Django connection cleanup
