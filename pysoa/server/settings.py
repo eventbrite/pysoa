@@ -26,7 +26,7 @@ _logger_schema = fields.Dictionary(
     optional_keys=('level', 'propagate', 'filters', 'handlers'),
 )
 
-_log_level_schema = fields.Constant('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+log_level_schema = fields.Constant('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
 
 
 class ServerSettings(SOASettings):
@@ -96,7 +96,6 @@ class ServerSettings(SOASettings):
                 'root',
                 'loggers',
                 'incremental',
-                'disable_existing_loggers',
             ),
             description='Settings for service logging, which should follow the standard Python logging configuration',
         ),
@@ -112,8 +111,8 @@ class ServerSettings(SOASettings):
                 ),
             },
         ),
-        'request_log_success_level': _log_level_schema,
-        'request_log_error_level': _log_level_schema,
+        'request_log_success_level': log_level_schema,
+        'request_log_error_level': log_level_schema,
     }
 
     defaults = {
@@ -142,6 +141,7 @@ class ServerSettings(SOASettings):
                 'handlers': ['console'],
                 'level': 'INFO',
             },
+            'disable_existing_loggers': False,
         },
         'harakiri': {
             'timeout': 300,

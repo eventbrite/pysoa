@@ -834,7 +834,7 @@ Server settings:
 
     * ``incremental``: A Boolean for whether the configuration is to be interpreted as incremental to the existing configuration (Python defaults this to ``False``)
 
-    * ``disable_existing_loggers``: A Boolean for whether existing loggers are to be disabled (Python defaults this to ``True`` and ignores its value if ``incremental`` is ``True``)
+    * ``disable_existing_loggers``: A Boolean for whether existing loggers are to be disabled (Python defaults this to ``True`` and ignores its value if ``incremental`` is ``True``; PySOA defaults this value to ``False`` to allow module-level ``getLogger`` calls)
 
   + ``harakiri``: Settings for killing long-running jobs that may have run away or frozen, a dict with the following format:
 
