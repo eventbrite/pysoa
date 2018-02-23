@@ -1,5 +1,7 @@
 import six
 
+from pysoa.common.types import Error
+
 
 class TypeNode(object):
     """
@@ -282,6 +284,12 @@ class ExpansionConverter(object):
                     if not child_expansion_node:
                         type_expansion = self.type_expansions[expansion_node.type][exp_name]
                         type_route = self.type_routes[type_expansion['type']]
+                        if type_expansion['dest_field'] == type_expansion['source_field']:
+                            raise Error(
+                                'Expansion configuration dest_field error: '
+                                'dest_field can not have the same name as the source_field: '
+                                '{}'.format(type_expansion['source_field'])
+                            )
                         child_expansion_node = ExpansionNode(
                             type=type_expansion['type'],
                             name=exp_name,

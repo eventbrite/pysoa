@@ -12,27 +12,27 @@ class TestClientWithExpansions(TestCase):
             'type_routes': {
                 'author_router': {
                     'service': 'author_info_service',
-                    'action': 'get_author_by_id',
-                    'request_field': 'id',
-                    'response_field': 'author_detail',
+                    'action': 'get_authors_by_ids',
+                    'request_field': 'ids',
+                    'response_field': 'authors_detail',
                 },
                 'publisher_type': {  # Note: Likely a bug here
                     'service': 'publisher_info_service',
-                    'action': 'get_publisher_by_id',
-                    'request_field': 'id',
-                    'response_field': 'publisher_detail',
+                    'action': 'get_publishers_by_ids',
+                    'request_field': 'ids',
+                    'response_field': 'publishers_detail',
                 },
                 'address_router': {
                     'service': 'address_info_service',
-                    'action': 'get_address_by_id',
-                    'request_field': 'id',
-                    'response_field': 'address_detail',
+                    'action': 'get_addresses_by_ids',
+                    'request_field': 'ids',
+                    'response_field': 'addresses_detail',
                 },
                 'automaker_router': {
                     'service': 'automaker_info_service',
-                    'action': 'get_automaker_by_id',
-                    'request_field': 'id',
-                    'response_field': 'automaker_detail',
+                    'action': 'get_automakers_by_ids',
+                    'request_field': 'ids',
+                    'response_field': 'automakers_detail',
                 },
             },
             'type_expansions': {
@@ -88,47 +88,55 @@ class TestClientWithExpansions(TestCase):
         }
 
         author_transport_action_map = {
-            'get_author_by_id': {
+            'get_authors_by_ids': {
                 'body': {
-                    'author_detail': {
-                        '_type': 'author_type',
-                        'id': 2,
-                        'stuff': 'things',
-                    },
+                    'authors_detail': {
+                        '2': {
+                            '_type': 'author_type',
+                            'id': 2,
+                            'stuff': 'things',
+                        },
+                    }
                 }
             }
         }
 
         publisher_transport_action_map = {
-            'get_publisher_by_id': {
+            'get_publishers_by_ids': {
                 'body': {
-                    'publisher_detail': {
-                        '_type': 'publisher_type',
-                        'id': 3,
-                        'address_id': 4,
-                    },
+                    'publishers_detail': {
+                        '3': {
+                            '_type': 'publisher_type',
+                            'id': 3,
+                            'address_id': 4,
+                        },
+                    }
                 }
             }
         }
 
         address_transport_action_map = {
-            'get_address_by_id': {
+            'get_addresses_by_ids': {
                 'body': {
-                    'address_detail': {
-                        '_type': 'address_type',
-                        'id': 4,
-                    },
+                    'addresses_detail': {
+                        '4': {
+                            '_type': 'address_type',
+                            'id': 4,
+                        },
+                    }
                 }
             }
         }
 
         automaker_transport_action_map = {
-            'get_automaker_by_id': {
+            'get_automakers_by_ids': {
                 'body': {
-                    'automaker_detail': {
-                        '_type': 'auto_type',
-                        'id': 6,
-                    },
+                    'automakers_detail': {
+                        '6': {
+                            '_type': 'auto_type',
+                            'id': 6,
+                        },
+                    }
                 }
             }
         }
@@ -183,6 +191,8 @@ class TestClientWithExpansions(TestCase):
             'book_obj': {
                 '_type': 'book_type',
                 'id': 1,
+                'author_id': 2,
+                'publish_id': 3,
                 'author_profile': {
                     '_type': 'author_type',
                     'id': 2,
@@ -191,6 +201,7 @@ class TestClientWithExpansions(TestCase):
                 'publisher_profile': {
                     '_type': 'publisher_type',
                     'id': 3,
+                    'address_id': 4,
                     'address_profile': {
                         '_type': 'address_type',
                         'id': 4,
@@ -202,6 +213,7 @@ class TestClientWithExpansions(TestCase):
             'car_obj': {
                 '_type': 'car_type',
                 'id': 5,
+                'automaker_id': 6,
                 'automaker_profile': {
                     '_type': 'auto_type',
                     'id': 6,
@@ -230,7 +242,6 @@ class TestClientWithExpansions(TestCase):
                 'car_type': ['automaker_rule'],
             },
         )
-
         self.assertEqual(
             response.actions[0].body,
             expected_book_response,
@@ -246,6 +257,8 @@ class TestClientWithExpansions(TestCase):
             'book_obj': {
                 '_type': 'book_type',
                 'id': 1,
+                'author_id': 2,
+                'publish_id': 3,
                 'author_profile': {
                     '_type': 'author_type',
                     'id': 2,
@@ -254,6 +267,7 @@ class TestClientWithExpansions(TestCase):
                 'publisher_profile': {
                     '_type': 'publisher_type',
                     'id': 3,
+                    'address_id': 4,
                     'address_profile': {
                         '_type': 'address_type',
                         'id': 4,
@@ -279,12 +293,12 @@ class TestClientWithExpansions(TestCase):
         )
 
     def test_expansion_fail_silently(self):
-        author_errors = [{
+        errors = [{
             'code': 'INVALID',
             'field': 'id',
             'message': 'Invalid author ID',
         }]
-        self.client._get_handler('author_info_service').transport.stub_action('get_author_by_id', errors=author_errors)
+        self.client._get_handler('author_info_service').transport.stub_action('get_authors_by_ids', errors=errors)
         expected_response = {
             'book_obj': {
                 '_type': 'book_type',
@@ -311,7 +325,7 @@ class TestClientWithExpansions(TestCase):
             'field': 'id',
             'message': 'Invalid publisher ID',
         }]
-        self.client._get_handler('publisher_info_service').transport.stub_action('get_publisher_by_id', errors=errors)
+        self.client._get_handler('publisher_info_service').transport.stub_action('get_publishers_by_ids', errors=errors)
 
         with self.assertRaises(self.client.CallActionError) as e:
             self.client.call_action(

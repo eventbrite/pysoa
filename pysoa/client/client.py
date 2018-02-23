@@ -362,10 +362,10 @@ class Client(object):
                             # If everything is okay, replace the expansion object with the response value
                             if exp_action_response.body:
                                 value = exp_action_response.body[expansion_node.response_field]
-                                # Add the expansion value to the object and remove the
-                                # source field.
-                                del exp_object[expansion_node.source_field]
-                                exp_object[expansion_node.dest_field] = value
+                                # Add the expansion value to the object
+                                # Assume there is one item, and discard the id-key
+                                (dest_obj, ) = value.values()
+                                exp_object[expansion_node.dest_field] = dest_obj
 
                             # Potentially add additional pending expansion requests.
                             if expansion_node.expansions:
