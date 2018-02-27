@@ -35,6 +35,6 @@ JobRequestSchema = Dictionary(
     {
         'control': ControlHeaderSchema,
         'context': ContextHeaderSchema,
-        'actions': List(ActionRequestSchema),
+        'actions': List(ActionRequestSchema, min_length=1),
     },
 )
