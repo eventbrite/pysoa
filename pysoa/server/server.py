@@ -113,7 +113,7 @@ class Server(object):
                 response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
             self.transport.send_response_message(request_id, meta, response_message)
 
-            if job_response.errors:
+            if job_response.errors or any(a.errors for a in job_response.actions):
                 if (
                     self.request_log_error_level > self.request_log_success_level and
                     self.job_logger.getEffectiveLevel() > self.request_log_success_level
