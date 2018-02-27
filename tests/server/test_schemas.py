@@ -172,4 +172,5 @@ class TestJobRequestSchema:
     def test_empty_actions(self, job):
         job['actions'] = []
         errors = JobRequestSchema.errors(job)
-        assert not errors
+        assert len(errors) == 1
+        assert errors[0].pointer == 'actions'
