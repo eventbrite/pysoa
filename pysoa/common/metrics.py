@@ -1,5 +1,7 @@
 from __future__ import unicode_literals
 
+import enum
+
 from conformity import fields
 
 from pysoa.common.schemas import BasicClassSchema
@@ -17,6 +19,12 @@ class Counter(object):
         :param amount: The amount by which to increment the counter, which must default to 1.
         """
         raise NotImplementedError()
+
+
+class TimerResolution(enum.IntEnum):
+    MILLISECONDS = 10**3
+    MICROSECONDS = 10**6
+    NANOSECONDS = 10**9
 
 
 class Timer(object):
@@ -64,13 +72,19 @@ class MetricsRecorder(object):
         """
         raise NotImplementedError()
 
-    def timer(self, name, **kwargs):
+    def timer(self, name, resolution=TimerResolution.MILLISECONDS, **kwargs):
         """
         Returns a timer that can be started and stopped. Implementations do not have to return an instance of `Timer`,
         but they must at least return an object that matches the interface for `Timer`, including serving as a context
         manager.
 
         :param name: The name of the timer
+        :param resolution: The resolution at which this timer should operate, defaulting to milliseconds. Its value
+                           should be a `TimerResolution` or any other equivalent `IntEnum` whose values serve as
+                           integer multipliers to convert decimal seconds to the corresponding units. It will only
+                           ever be access as a keyword argument, never as a positional argument, so it is not necessary
+                           for this to be the second positional argument in your equivalent recorder class.
+        :type resolution: enum.IntEnum
         :param kwargs: Any other arguments that may be needed
 
         :return: a timer object

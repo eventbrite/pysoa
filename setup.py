@@ -6,9 +6,10 @@ from pysoa import __version__
 
 
 install_requires = [
-    'conformity~=1.9',
+    'enum34;python_version<"3.4"',
     'six~=1.10',
     'attrs~=17.4',
+    'conformity~=1.9',
     'currint~=1.6',
     'redis~=2.10',
     'msgpack-python~=0.4',
