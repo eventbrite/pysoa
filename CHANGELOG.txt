@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.31.0 (2018-02-27)
+-------------------
+- Ensure actionless job request causes validation error
+- Ensure that action errors also trigger higher level logging
+- Fix expansion response format
+
 0.30.5 (2018-02-22)
 -------------------
 - Make disable_existing_loggers default to False to allow module-level getLogger
