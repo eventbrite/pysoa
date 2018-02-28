@@ -12,6 +12,7 @@ import redis
 from pysoa.common.metrics import (
     MetricsRecorder,
     NoOpMetricsRecorder,
+    TimerResolution,
 )
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
 from pysoa.common.transport.exceptions import (
@@ -284,4 +285,4 @@ class RedisTransportCore(object):
         return self.metrics.counter(self._get_metric_name(name))
 
     def _get_timer(self, name):
-        return self.metrics.timer(self._get_metric_name(name))
+        return self.metrics.timer(self._get_metric_name(name), resolution=TimerResolution.MICROSECONDS)

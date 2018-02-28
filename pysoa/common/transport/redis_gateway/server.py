@@ -1,5 +1,6 @@
 from __future__ import absolute_import, unicode_literals
 
+from pysoa.common.metrics import TimerResolution
 from pysoa.common.transport.base import ServerTransport
 from pysoa.common.transport.exceptions import (
     InvalidMessageError,
@@ -18,7 +19,7 @@ class RedisServerTransport(ServerTransport):
         self.core = RedisTransportCore(service_name=service_name, metrics=metrics, metrics_prefix='server', **kwargs)
 
     def receive_request_message(self):
-        timer = self.metrics.timer('server.transport.redis_gateway.receive')
+        timer = self.metrics.timer('server.transport.redis_gateway.receive', resolution=TimerResolution.MICROSECONDS)
         timer.start()
         stop_timer = True
         try:
@@ -37,5 +38,5 @@ class RedisServerTransport(ServerTransport):
             self.metrics.counter('server.transport.redis_gateway.send.error.missing_reply_queue')
             raise InvalidMessageError('Missing reply queue name')
 
-        with self.metrics.timer('server.transport.redis_gateway.send'):
+        with self.metrics.timer('server.transport.redis_gateway.send', resolution=TimerResolution.MICROSECONDS):
             self.core.send_message(queue_name, request_id, meta, body)
