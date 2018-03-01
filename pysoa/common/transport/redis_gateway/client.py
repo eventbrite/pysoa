@@ -2,6 +2,7 @@ from __future__ import absolute_import, unicode_literals
 
 import uuid
 
+from pysoa.common.metrics import TimerResolution
 from pysoa.common.transport.base import (
     ClientTransport,
     get_hex_thread_id,
@@ -37,12 +38,12 @@ class RedisClientTransport(ClientTransport):
             thread_id=get_hex_thread_id(),
         )
 
-        with self.metrics.timer('client.transport.redis_gateway.send'):
+        with self.metrics.timer('client.transport.redis_gateway.send', resolution=TimerResolution.MICROSECONDS):
             self.core.send_message(self._send_queue_name, request_id, meta, body)
 
     def receive_response_message(self):
         if self._requests_outstanding > 0:
-            with self.metrics.timer('client.transport.redis_gateway.receive'):
+            with self.metrics.timer('client.transport.redis_gateway.receive', resolution=TimerResolution.MICROSECONDS):
                 request_id, meta, response = self.core.receive_message('{receive_queue_name}{thread_id}'.format(
                     receive_queue_name=self._receive_queue_name,
                     thread_id=get_hex_thread_id(),

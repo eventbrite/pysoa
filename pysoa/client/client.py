@@ -9,6 +9,7 @@ import six
 
 from pysoa.client.expander import ExpansionConverter
 from pysoa.client.settings import PolymorphicClientSettings
+from pysoa.common.metrics import TimerResolution
 from pysoa.common.types import (
     ActionRequest,
     JobRequest,
@@ -44,7 +45,7 @@ class ServiceHandler(object):
         else:
             self.transport = self._construct_transport(service_name, self.metrics, settings['transport'])
 
-        with self.metrics.timer('client.middleware.initialize'):
+        with self.metrics.timer('client.middleware.initialize', resolution=TimerResolution.MICROSECONDS):
             self.middleware = [
                 m['object'](**m.get('kwargs', {}))
                 for m in settings['middleware']
@@ -84,7 +85,7 @@ class ServiceHandler(object):
         return base
 
     def _base_send_request(self, request_id, meta, job_request):
-        with self.metrics.timer('client.send.excluding_middleware'):
+        with self.metrics.timer('client.send.excluding_middleware', resolution=TimerResolution.MICROSECONDS):
             if isinstance(job_request, JobRequest):
                 job_request = attr.asdict(job_request, dict_factory=UnicodeKeysDict)
             meta['__request_serialized__'] = False
@@ -113,14 +114,14 @@ class ServiceHandler(object):
             self._base_send_request,
         )
         try:
-            with self.metrics.timer('client.send.including_middleware'):
+            with self.metrics.timer('client.send.including_middleware', resolution=TimerResolution.MICROSECONDS):
                 wrapper(request_id, meta, job_request)
             return request_id
         finally:
             self.metrics.commit()
 
     def _get_response(self):
-        with self.metrics.timer('client.receive.excluding_middleware'):
+        with self.metrics.timer('client.receive.excluding_middleware', resolution=TimerResolution.MICROSECONDS):
             request_id, meta, message = self.transport.receive_response_message()
             if message is None:
                 return None, None
@@ -143,7 +144,7 @@ class ServiceHandler(object):
         )
         try:
             while True:
-                with self.metrics.timer('client.receive.including_middleware'):
+                with self.metrics.timer('client.receive.including_middleware', resolution=TimerResolution.MICROSECONDS):
                     request_id, response = wrapper()
                 if response is None:
                     break
