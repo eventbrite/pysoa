@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.32.0 (2018-03-01)
+-------------------
+NOTE: This release contains a breaking change, not for existing services/code, but for existing metrics graphs and reports utilizing any of the timer metrics PySOA records. Previously, the value these graphs and reports displayed represented a number with millisecond units. Now, they will be a number with microsecond units. As such, without the context of this change in mind, performance will appear to get worse by three orders of magnitude across the board on all existing graphs after a release deployment.
+- [MAJOR] Switch to microsecond resolution for metrics timers
+- [MINOR] Add support for metric timer resolution
+
 0.31.0 (2018-02-27)
 -------------------
 - Ensure actionless job request causes validation error
