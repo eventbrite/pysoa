@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.32.1 (2018-03-13)
+-------------------
+- Re-raise InvalidExpansionKey for expansion exception when request has invalid key
+
 0.32.0 (2018-03-01)
 -------------------
 NOTE: This release contains a breaking change, not for existing services/code, but for existing metrics graphs and reports utilizing any of the timer metrics PySOA records. Previously, the value these graphs and reports displayed represented a number with millisecond units. Now, they will be a number with microsecond units. As such, without the context of this change in mind, performance will appear to get worse by three orders of magnitude across the board on all existing graphs after a release deployment.
