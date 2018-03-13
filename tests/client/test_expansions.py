@@ -342,3 +342,25 @@ class TestClientWithExpansions(TestCase):
         self.assertEqual(err.code, 'INVALID')
         self.assertEqual(err.field, 'id')
         self.assertEqual(err.message, 'Invalid publisher ID')
+
+    def test_expansion_client_key_error(self):
+        errors = [{
+            'code': 'INVALID',
+            'field': 'id',
+            'message': 'Invalid author ID',
+        }]
+        self.client._get_handler('author_info_service').transport.stub_action('get_authors_by_ids', errors=errors)
+
+        with self.assertRaises(self.client.InvalidExpansionKey) as err:
+            self.client.call_action(
+                service_name='book_info_service',
+                action='get_book',
+                body={
+                    'id': 1,
+                },
+                expansions={
+                    'book_type': ['author_rule_typo_key'],
+                },
+            )
+        message, = err.exception.args
+        self.assertEqual(message, 'Invalid key in expansion request: author_rule_typo_key')

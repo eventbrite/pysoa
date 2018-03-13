@@ -188,6 +188,9 @@ class Client(object):
     class ImproperlyConfigured(Exception):
         pass
 
+    class InvalidExpansionKey(Exception):
+        pass
+
     class JobError(Exception):
         """
         Raised by Client.call_action(s) when a job response contains one or more job errors.
@@ -297,8 +300,12 @@ class Client(object):
     def _perform_expansion(self, skeleton_response, expansions):
         # Perform expansions
         if expansions and hasattr(self, 'expansion_converter'):
-            objs_to_expand = self._extract_candidate_objects(skeleton_response.actions, expansions)
-            self._expand_objects(objs_to_expand)
+            try:
+                objs_to_expand = self._extract_candidate_objects(skeleton_response.actions, expansions)
+            except KeyError as key_error:
+                raise self.InvalidExpansionKey("Invalid key in expansion request: {}".format(key_error.args[0]))
+            else:
+                self._expand_objects(objs_to_expand)
 
     def _extract_candidate_objects(self, actions, expansions):
         # Build initial list of objects to expand
