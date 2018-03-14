@@ -31,7 +31,10 @@ from pysoa.server.errors import (
     ActionError,
     JobError,
 )
-from pysoa.server.logging import PySOALogContextFilter
+from pysoa.server.logging import (
+    PySOALogContextFilter,
+    RecursivelyCensoredDictWrapper,
+)
 from pysoa.server.types import EnrichedActionRequest
 from pysoa.server.schemas import JobRequestSchema
 from pysoa.server.settings import PolymorphicServerSettings
@@ -96,7 +99,9 @@ class Server(object):
             self.perform_idle_actions()
             return
         PySOALogContextFilter.set_logging_request_context(request_id=request_id, **job_request['context'])
-        self.job_logger.log(self.request_log_success_level, 'Job request: %s', job_request)
+
+        request_for_logging = RecursivelyCensoredDictWrapper(job_request)
+        self.job_logger.log(self.request_log_success_level, 'Job request: %s', request_for_logging)
 
         try:
             self.perform_pre_request_actions()
@@ -113,6 +118,8 @@ class Server(object):
                 response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
             self.transport.send_response_message(request_id, meta, response_message)
 
+            response_for_logging = RecursivelyCensoredDictWrapper(response_message)
+
             if job_response.errors or any(a.errors for a in job_response.actions):
                 if (
                     self.request_log_error_level > self.request_log_success_level and
@@ -121,10 +128,10 @@ class Server(object):
                     # When we originally logged the request, it may have been hidden because the effective logging level
                     # threshold was greater than the level at which we logged the request. So re-log the request at the
                     # error level, if set higher.
-                    self.job_logger.log(self.request_log_error_level, 'Job request: %s', job_request)
-                self.job_logger.log(self.request_log_error_level, 'Job response: %s', response_message)
+                    self.job_logger.log(self.request_log_error_level, 'Job request: %s', request_for_logging)
+                self.job_logger.log(self.request_log_error_level, 'Job response: %s', response_for_logging)
             else:
-                self.job_logger.log(self.request_log_success_level, 'Job response: %s', response_message)
+                self.job_logger.log(self.request_log_success_level, 'Job response: %s', response_for_logging)
         finally:
             PySOALogContextFilter.clear_logging_request_context()
             self.perform_post_request_actions()

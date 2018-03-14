@@ -1,10 +1,14 @@
 from __future__ import absolute_import, unicode_literals
 
 import mock
+import six
 import threading
 import unittest
 
-from pysoa.server.logging import PySOALogContextFilter
+from pysoa.server.logging import (
+    PySOALogContextFilter,
+    RecursivelyCensoredDictWrapper,
+)
 
 
 class TestPySOALogContextFilter(unittest.TestCase):
@@ -117,3 +121,151 @@ class TestPySOALogContextFilter(unittest.TestCase):
         self.assertTrue(log_filter.filter(record))
         self.assertEqual('', record.correlation_id)
         self.assertEqual('', record.request_id)
+
+
+class TestRecursivelyCensoredDictWrapper(unittest.TestCase):
+    def test_non_dict(self):
+        with self.assertRaises(ValueError):
+            # noinspection PyTypeChecker
+            RecursivelyCensoredDictWrapper(['this', 'is', 'a', 'list'])
+
+    def test_simple_dict(self):
+        original = {
+            'hello': 'world',
+            'password': 'censor!',
+            'credit_card': '1234567890123456',
+            'passphrase': True,
+            'cvv': 938,
+        }
+
+        wrapped = RecursivelyCensoredDictWrapper(original)
+
+        expected = {
+            'hello': 'world',
+            'password': '**********',
+            'credit_card': '**********',
+            'passphrase': True,
+            'cvv': '**********',
+        }
+
+        self.assertEqual(expected, eval(repr(wrapped)))
+        self.assertEqual(repr(wrapped), str(wrapped))
+        if six.PY2:
+            self.assertEqual(six.text_type(repr(wrapped)), six.text_type(wrapped))
+        else:
+            self.assertEqual(six.binary_type(repr(wrapped), 'utf-8'), six.binary_type(wrapped))
+
+        # Make sure the original dict wasn't modified
+        self.assertEqual(
+            {
+                'hello': 'world',
+                'password': 'censor!',
+                'credit_card': '1234567890123456',
+                'passphrase': True,
+                'cvv': 938,
+            },
+            original,
+        )
+
+    def test_complex_dict(self):
+        original = {
+            'a_list': [
+                'a',
+                True,
+                109.8277,
+                {'username': 'nick', 'passphrase': 'this should be censored'},
+                {'username': 'allison', 'passphrase': ''},
+            ],
+            'a_set': {
+                'b',
+                False,
+                18273,
+            },
+            'a_tuple': (
+                'c',
+                True,
+                42,
+                {'cc_number': '9876543210987654', 'cvv': '987', 'expiration': '12-20', 'pin': '4096'},
+            ),
+            'passwords': ['Make It Censored', None, '', 'Hello, World!'],
+            'credit_card_numbers': ('1234', '5678', '9012'),
+            'cvv2': {'a', None, '', 'b'},
+            'pin': frozenset({'c', 'd', ''}),
+            'foo': 'bar',
+            'passphrases': {
+                'not_sensitive': 'not censored',
+                'bankAccount': 'this should also be censored',
+            }
+        }
+
+        wrapped = RecursivelyCensoredDictWrapper(original)
+
+        expected = {
+            'a_list': [
+                'a',
+                True,
+                109.8277,
+                {'username': 'nick', 'passphrase': '**********'},
+                {'username': 'allison', 'passphrase': ''},
+            ],
+            'a_set': {
+                'b',
+                False,
+                18273,
+            },
+            'a_tuple': (
+                'c',
+                True,
+                42,
+                {'cc_number': '**********', 'cvv': '**********', 'expiration': '12-20', 'pin': '**********'},
+            ),
+            'passwords': ['**********', None, '', '**********'],
+            'credit_card_numbers': ('**********', '**********', '**********'),
+            'cvv2': {'**********', None, '', '**********'},
+            'pin': frozenset({'**********', '**********', ''}),
+            'foo': 'bar',
+            'passphrases': {
+                'not_sensitive': 'not censored',
+                'bankAccount': '**********',
+            }
+        }
+
+        self.assertEqual(expected, eval(repr(wrapped)))
+        self.assertEqual(repr(wrapped), str(wrapped))
+        if six.PY2:
+            self.assertEqual(six.text_type(repr(wrapped)), six.text_type(wrapped))
+        else:
+            self.assertEqual(six.binary_type(repr(wrapped), 'utf-8'), six.binary_type(wrapped))
+
+        self.assertEqual(
+            {
+                'a_list': [
+                    'a',
+                    True,
+                    109.8277,
+                    {'username': 'nick', 'passphrase': 'this should be censored'},
+                    {'username': 'allison', 'passphrase': ''},
+                ],
+                'a_set': {
+                    'b',
+                    False,
+                    18273,
+                },
+                'a_tuple': (
+                    'c',
+                    True,
+                    42,
+                    {'cc_number': '9876543210987654', 'cvv': '987', 'expiration': '12-20', 'pin': '4096'},
+                ),
+                'passwords': ['Make It Censored', None, '', 'Hello, World!'],
+                'credit_card_numbers': ('1234', '5678', '9012'),
+                'cvv2': {'a', None, '', 'b'},
+                'pin': frozenset({'c', 'd', ''}),
+                'foo': 'bar',
+                'passphrases': {
+                    'not_sensitive': 'not censored',
+                    'bankAccount': 'this should also be censored',
+                }
+            },
+            original,
+        )
