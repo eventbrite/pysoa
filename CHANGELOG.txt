@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.33.0 (2018-03-19)
+-------------------
+- [MINOR] Censor sensitive fields in the request and response log
+
 0.32.1 (2018-03-13)
 -------------------
 - Re-raise InvalidExpansionKey for expansion exception when request has invalid key
