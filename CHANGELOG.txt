@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.34.0 (2018-03-27)
+-------------------
+- Improve logging defaults and support for Syslog
+
 0.33.1 (2018-03-19)
 -------------------
 - Corrected binary distribution wheel
