@@ -80,17 +80,20 @@ class TestPySOALogContextFilter(unittest.TestCase):
         log_filter = PySOALogContextFilter()
 
         self.assertTrue(log_filter.filter(record))
-        self.assertEqual('', record.correlation_id)
-        self.assertEqual('', record.request_id)
+        self.assertEqual('--', record.correlation_id)
+        self.assertEqual('--', record.request_id)
+        self.assertEqual('unknown', record.service_name)
 
+        PySOALogContextFilter.set_service_name('foo_qux')
         PySOALogContextFilter.set_logging_request_context(filter='mine', **{'logger': 'yours'})
         self.assertEqual({'filter': 'mine', 'logger': 'yours'}, PySOALogContextFilter.get_logging_request_context())
 
         record.reset_mock()
 
         self.assertTrue(log_filter.filter(record))
-        self.assertEqual('', record.correlation_id)
-        self.assertEqual('', record.request_id)
+        self.assertEqual('--', record.correlation_id)
+        self.assertEqual('--', record.request_id)
+        self.assertEqual('foo_qux', record.service_name)
 
         PySOALogContextFilter.set_logging_request_context(request_id=4321, **{'correlation_id': 'abc1234'})
         self.assertEqual(
@@ -103,6 +106,7 @@ class TestPySOALogContextFilter(unittest.TestCase):
         self.assertTrue(log_filter.filter(record))
         self.assertEqual('abc1234', record.correlation_id)
         self.assertEqual(4321, record.request_id)
+        self.assertEqual('foo_qux', record.service_name)
 
         PySOALogContextFilter.clear_logging_request_context()
         self.assertEqual({'filter': 'mine', 'logger': 'yours'}, PySOALogContextFilter.get_logging_request_context())
@@ -110,8 +114,9 @@ class TestPySOALogContextFilter(unittest.TestCase):
         record.reset_mock()
 
         self.assertTrue(log_filter.filter(record))
-        self.assertEqual('', record.correlation_id)
-        self.assertEqual('', record.request_id)
+        self.assertEqual('--', record.correlation_id)
+        self.assertEqual('--', record.request_id)
+        self.assertEqual('foo_qux', record.service_name)
 
         PySOALogContextFilter.clear_logging_request_context()
         self.assertIsNone(PySOALogContextFilter.get_logging_request_context())
@@ -119,8 +124,9 @@ class TestPySOALogContextFilter(unittest.TestCase):
         record.reset_mock()
 
         self.assertTrue(log_filter.filter(record))
-        self.assertEqual('', record.correlation_id)
-        self.assertEqual('', record.request_id)
+        self.assertEqual('--', record.correlation_id)
+        self.assertEqual('--', record.request_id)
+        self.assertEqual('foo_qux', record.service_name)
 
 
 class TestRecursivelyCensoredDictWrapper(unittest.TestCase):

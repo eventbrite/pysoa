@@ -1,4 +1,6 @@
-from __future__ import unicode_literals
+from __future__ import absolute_import, unicode_literals
+
+from logging.handlers import SysLogHandler
 
 from conformity import fields
 
@@ -123,11 +125,17 @@ class ServerSettings(SOASettings):
                 'console': {
                     'format': '%(asctime)s %(levelname)7s %(correlation_id)s %(request_id)s: %(message)s'
                 },
+                'syslog': {
+                    'format': (
+                        '%(service_name)s_service: %(name)s %(levelname)s %(module)s %(process)d '
+                        'correlation_id %(correlation_id)s request_id %(request_id)s %(message)s'
+                    ),
+                },
             },
             'filters': {
                 'pysoa_logging_context_filter': {
                     '()': 'pysoa.server.logging.PySOALogContextFilter',
-                }
+                },
             },
             'handlers': {
                 'console': {
@@ -136,7 +144,16 @@ class ServerSettings(SOASettings):
                     'formatter': 'console',
                     'filters': ['pysoa_logging_context_filter'],
                 },
+                'syslog': {
+                    'level': 'INFO',
+                    'class': 'logging.handlers.SysLogHandler',
+                    'facility': SysLogHandler.LOG_LOCAL7,
+                    'address': ('localhost', 514),
+                    'formatter': 'syslog',
+                    'filters': ['pysoa_logging_context_filter'],
+                },
             },
+            'loggers': {},
             'root': {
                 'handlers': ['console'],
                 'level': 'INFO',

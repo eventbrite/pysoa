@@ -13,14 +13,17 @@ class PySOALogContextFilter(logging.Filter):
     def filter(self, record):
         context = self.get_logging_request_context()
         if context:
-            record.correlation_id = context.get('correlation_id') or ''
-            record.request_id = context.get('request_id') or ''
+            record.correlation_id = context.get('correlation_id') or '--'
+            record.request_id = context.get('request_id') or '--'
         else:
-            record.correlation_id = ''
-            record.request_id = ''
+            record.correlation_id = '--'
+            record.request_id = '--'
+        record.service_name = self._service_name or 'unknown'
         return True
 
     _logging_context = threading.local()
+
+    _service_name = None
 
     @classmethod
     def set_logging_request_context(cls, **context):
@@ -38,6 +41,10 @@ class PySOALogContextFilter(logging.Filter):
         if getattr(cls._logging_context, 'context_stack', None):
             return cls._logging_context.context_stack[-1]
         return None
+
+    @classmethod
+    def set_service_name(cls, service_name):
+        cls._service_name = service_name
 
 
 class RecursivelyCensoredDictWrapper(object):

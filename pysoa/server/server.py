@@ -453,6 +453,8 @@ class Server(object):
                     )
             settings = cls.settings_class(settings_dict)
 
+        PySOALogContextFilter.set_service_name(cls.service_name)
+
         # Set up logging
         logging.config.dictConfig(settings['logging'])
 
