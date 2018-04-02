@@ -91,7 +91,8 @@ def _clean_files(file_list):
     return file_names
 
 
-class AbstractReloader(six.with_metaclass(abc.ABCMeta, object)):
+@six.add_metaclass(abc.ABCMeta)
+class AbstractReloader(object):
     """
     This is the abstract base reloader, which handles most of the code associated with watching files for changes and
     reloading the application when changes are detected. All base classes must implement the logic for actually

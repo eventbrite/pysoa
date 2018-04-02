@@ -61,12 +61,13 @@ class LocalClientTransport(ClientTransport):
         self.server.transport = self
         self.server.setup()
 
-    def send_request_message(self, request_id, meta, message_string):
+    def send_request_message(self, request_id, meta, body, _=None):
         """
-        Receives a request from the client and handles and dispatches in
-        in-thread.
+        Receives a request from the client and handles and dispatches in in-thread. `message_expiry_in_seconds` is not
+        supported. Messages do not expire, as the server handles the request immediately in the same thread before
+        this method returns. This method blocks until the server has completed handling the request.
         """
-        self._current_request = (request_id, meta, message_string)
+        self._current_request = (request_id, meta, body)
         try:
             self.server.handle_next_request()
         finally:
@@ -74,8 +75,8 @@ class LocalClientTransport(ClientTransport):
 
     def receive_request_message(self):
         """
-        Gives the server the current request (we are actually inside the stack
-        of send_request_message so we know this is OK)
+        Gives the server the current request (we are actually inside the stack of send_request_message so we know this
+        is OK).
         """
         if self._current_request:
             try:
@@ -83,31 +84,36 @@ class LocalClientTransport(ClientTransport):
             finally:
                 self._current_request = None
         else:
-            raise RuntimeError("Local server tried to receive message more than once")
+            raise RuntimeError('Local server tried to receive message more than once')
 
-    def send_response_message(self, request_id, meta, message_string):
+    def send_response_message(self, request_id, meta, body):
         """
-        Add the response to the deque
+        Add the response to the deque.
         """
-        self.response_messages.append(
-            (request_id, meta, message_string,)
-        )
+        self.response_messages.append((request_id, meta, body))
 
-    def receive_response_message(self):
+    def receive_response_message(self, _=None):
         """
-        Give them a message from the deque
+        Receives a message from the deque. `receive_timeout_in_seconds` is not supported. Receive does not time out,
+        because by the time the thread calls this method, a response is already available in the deque, or something
+        happened and a response will never be available. This method does not wait and returns immediately.
         """
         if self.response_messages:
             return self.response_messages.popleft()
         return None, None, None
 
 
-# noinspection PyAbstractClass
 class LocalServerTransport(ServerTransport):
     """
-    Empty class that we use as an import stub for local transport before
-    we swap in the Client transport instance to do double duty.
+    Empty class that we use as an import stub for local transport before we swap in the Client transport instance to do
+    double duty.
     """
+
+    def receive_request_message(self):
+        raise TypeError('The LocalServerTransport cannot be used directly; it is a stub.')
+
+    def send_response_message(self, request_id, meta, body):
+        raise TypeError('The LocalServerTransport cannot be used directly; it is a stub.')
 
 
 class LocalTransportSchema(BasicClassSchema):

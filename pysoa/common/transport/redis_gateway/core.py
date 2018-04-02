@@ -59,7 +59,8 @@ class RedisTransportCore(object):
     )
 
     message_expiry_in_seconds = attr.ib(
-        # How long after a message is sent before it's considered "expired" and not received
+        # How long after a message is sent before it's considered "expired" and not received by default, unless
+        # overridden in the send_message argument `message_expiry_in_seconds`
         default=60,
         convert=int,
     )
@@ -87,7 +88,8 @@ class RedisTransportCore(object):
     )
 
     receive_timeout_in_seconds = attr.ib(
-        # How long to block when waiting to receive a message
+        # How long to block when waiting to receive a message by default, unless overridden in the receive_message
+        # argument `receive_timeout_in_seconds`
         default=5,
         convert=int,
     )
@@ -158,20 +160,34 @@ class RedisTransportCore(object):
 
         return self._serializer
 
-    def send_message(self, queue_name, request_id, meta, body):
+    def send_message(self, queue_name, request_id, meta, body, message_expiry_in_seconds=None):
         """
         Send a message to the specified queue in Redis.
 
         :param queue_name: The name of the queue to which to send the message
+        :type queue_name: union(str, unicode)
         :param request_id: The message's request ID
-        :param meta: The meta information, if any (should be an empty dict if no metadata)
+        :type request_id: int
+        :param meta: The message meta information, if any (should be an empty dict if no metadata)
+        :type meta: dict
         :param body: The message body (should be a dict)
-        :raise
+        :type body: dict
+        :param message_expiry_in_seconds: The optional message expiry, which defaults to the setting with the same name
+        :type message_expiry_in_seconds: int
+
+        :raise: InvalidMessageError, MessageTooLarge, MessageSendError
         """
         if request_id is None:
             raise InvalidMessageError('No request ID')
 
-        meta['__expiry__'] = self._get_message_expiry()
+        if message_expiry_in_seconds:
+            message_expiry = time.time() + message_expiry_in_seconds
+            redis_expiry = message_expiry_in_seconds + 10
+        else:
+            message_expiry = time.time() + self.message_expiry_in_seconds
+            redis_expiry = self.message_expiry_in_seconds
+
+        meta['__expiry__'] = message_expiry
 
         message = {'request_id': request_id, 'meta': meta, 'body': body}
 
@@ -198,7 +214,7 @@ class RedisTransportCore(object):
                     self.backend_layer.send_message_to_queue(
                         queue_key=queue_key,
                         message=serialized_message,
-                        expiry=self.message_expiry_in_seconds,
+                        expiry=redis_expiry,
                         capacity=self.queue_capacity,
                         connection=connection,
                     )
@@ -228,7 +244,20 @@ class RedisTransportCore(object):
             )
         )
 
-    def receive_message(self, queue_name):
+    def receive_message(self, queue_name, receive_timeout_in_seconds=None):
+        """
+        Receive a message from the specified queue in Redis.
+
+        :param queue_name: The name of the queue to which to send the message
+        :type queue_name: union(str, unicode)
+        :param receive_timeout_in_seconds: The optional timeout, which defaults to the setting with the same name
+        :type receive_timeout_in_seconds: int
+
+        :return: A tuple of request ID, message meta-information dict, and message body dict
+        :rtype: tuple(int, dict, dict)
+
+        :raise: MessageReceiveError, MessageReceiveTimeout, InvalidMessageError
+        """
         queue_key = self.QUEUE_NAME_PREFIX + queue_name
 
         try:
@@ -236,7 +265,10 @@ class RedisTransportCore(object):
                 connection = self.backend_layer.get_connection(queue_key)
             # returns message or None if no new messages within timeout
             with self._get_timer('receive.pop_from_redis_queue'):
-                result = connection.blpop([queue_key], timeout=self.receive_timeout_in_seconds)
+                result = connection.blpop(
+                    [queue_key],
+                    timeout=receive_timeout_in_seconds or self.receive_timeout_in_seconds,
+                )
             serialized_message = None
             if result:
                 serialized_message = result[1]
@@ -267,9 +299,6 @@ class RedisTransportCore(object):
             raise InvalidMessageError('No request ID for service {}'.format(self.service_name))
 
         return request_id, message.get('meta', {}), message.get('body')
-
-    def _get_message_expiry(self):
-        return time.time() + self.message_expiry_in_seconds
 
     @staticmethod
     def _is_message_expired(message):

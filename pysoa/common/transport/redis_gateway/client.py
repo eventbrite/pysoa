@@ -31,7 +31,7 @@ class RedisClientTransport(ClientTransport):
     def requests_outstanding(self):
         return self._requests_outstanding
 
-    def send_request_message(self, request_id, meta, body):
+    def send_request_message(self, request_id, meta, body, message_expiry_in_seconds=None):
         self._requests_outstanding += 1
         meta['reply_to'] = '{receive_queue_name}{thread_id}'.format(
             receive_queue_name=self._receive_queue_name,
@@ -39,15 +39,18 @@ class RedisClientTransport(ClientTransport):
         )
 
         with self.metrics.timer('client.transport.redis_gateway.send', resolution=TimerResolution.MICROSECONDS):
-            self.core.send_message(self._send_queue_name, request_id, meta, body)
+            self.core.send_message(self._send_queue_name, request_id, meta, body, message_expiry_in_seconds)
 
-    def receive_response_message(self):
+    def receive_response_message(self, receive_timeout_in_seconds=None):
         if self._requests_outstanding > 0:
             with self.metrics.timer('client.transport.redis_gateway.receive', resolution=TimerResolution.MICROSECONDS):
-                request_id, meta, response = self.core.receive_message('{receive_queue_name}{thread_id}'.format(
-                    receive_queue_name=self._receive_queue_name,
-                    thread_id=get_hex_thread_id(),
-                ))
+                request_id, meta, response = self.core.receive_message(
+                    '{receive_queue_name}{thread_id}'.format(
+                        receive_queue_name=self._receive_queue_name,
+                        thread_id=get_hex_thread_id(),
+                    ),
+                    receive_timeout_in_seconds,
+                )
             self._requests_outstanding -= 1
             return request_id, meta, response
         else:

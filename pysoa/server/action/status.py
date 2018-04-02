@@ -1,5 +1,6 @@
 from __future__ import absolute_import, unicode_literals
 
+import abc
 import platform
 import sys
 
@@ -36,13 +37,11 @@ class BaseStatusAction(Action):
     """
 
     def __init__(self, *args, **kwargs):
-        if self.__class__ is BaseStatusAction:
-            raise RuntimeError('You cannot use BaseStatusAction directly; it must be subclassed')
         super(BaseStatusAction, self).__init__(*args, **kwargs)
 
         self.diagnostics = {}
 
-    @property
+    @abc.abstractproperty
     def _version(self):
         raise NotImplementedError('version must be defined using StatusActionFactory')
 

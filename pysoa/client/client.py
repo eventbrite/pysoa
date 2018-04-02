@@ -84,27 +84,30 @@ class ServiceHandler(object):
             base = ware(base)
         return base
 
-    def _base_send_request(self, request_id, meta, job_request):
+    def _base_send_request(self, request_id, meta, job_request, message_expiry_in_seconds=None):
         with self.metrics.timer('client.send.excluding_middleware', resolution=TimerResolution.MICROSECONDS):
             if isinstance(job_request, JobRequest):
                 job_request = attr.asdict(job_request, dict_factory=UnicodeKeysDict)
             meta['__request_serialized__'] = False
-            self.transport.send_request_message(request_id, meta, job_request)
+            self.transport.send_request_message(request_id, meta, job_request, message_expiry_in_seconds)
 
-    def send_request(self, job_request):
+    def send_request(self, job_request, message_expiry_in_seconds=None):
         """
         Send a JobRequest, and return a request ID.
 
         The context and control_extra arguments may be used to include extra values in the
         context and control headers, respectively.
 
-        Args:
-            job_request: JobRequest object
-        Returns:
-            int
-        Raises:
-            ConnectionError, InvalidField, MessageSendError, MessageSendTimeout,
-            MessageTooLarge
+        :param job_request: The job request object to send
+        :type job_request: JobRequest
+        :param message_expiry_in_seconds: How soon the message will expire if not received by a server (defaults to
+                                          sixty seconds unless the settings are otherwise)
+        :type message_expiry_in_seconds: int
+
+        :return: The request ID
+        :rtype: int
+
+        :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge
         """
         request_id = self.request_counter
         self.request_counter += 1
@@ -115,28 +118,32 @@ class ServiceHandler(object):
         )
         try:
             with self.metrics.timer('client.send.including_middleware', resolution=TimerResolution.MICROSECONDS):
-                wrapper(request_id, meta, job_request)
+                wrapper(request_id, meta, job_request, message_expiry_in_seconds)
             return request_id
         finally:
             self.metrics.commit()
 
-    def _get_response(self):
+    def _get_response(self, receive_timeout_in_seconds=None):
         with self.metrics.timer('client.receive.excluding_middleware', resolution=TimerResolution.MICROSECONDS):
-            request_id, meta, message = self.transport.receive_response_message()
+            request_id, meta, message = self.transport.receive_response_message(receive_timeout_in_seconds)
             if message is None:
                 return None, None
             else:
                 return request_id, JobResponse(**message)
 
-    def get_all_responses(self):
+    def get_all_responses(self, receive_timeout_in_seconds=None):
         """
         Receive all available responses from the transport as a generator.
 
-        Yields:
-            (int, JobResponse)
-        Raises:
-            ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage,
-            StopIteration
+        :param receive_timeout_in_seconds: How long to block without receiving a message before raising
+                                           `MessageReceiveTimeout` (defaults to five seconds unless the settings are
+                                           otherwise).
+        :type receive_timeout_in_seconds: int
+
+        :return: A generator that yields (request ID, job response)
+        :rtype: generator
+
+        :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
         """
         wrapper = self._make_middleware_stack(
             [m.response for m in self.middleware],
@@ -145,7 +152,7 @@ class ServiceHandler(object):
         try:
             while True:
                 with self.metrics.timer('client.receive.including_middleware', resolution=TimerResolution.MICROSECONDS):
-                    request_id, response = wrapper()
+                    request_id, response = wrapper(receive_timeout_in_seconds)
                 if response is None:
                     break
                 yield request_id, response
@@ -238,15 +245,37 @@ class Client(object):
 
         Returns the action response or raises an exception if the action response is an error.
 
-        Args:
-            service_name: string
-            action: string
-            body: dict
-            switches: list of ints
-            context: dict
-            correlation_id: string
-        Returns:
-            ActionResponse
+        :param service_name: The name of the service to call
+        :type service_name: union(str, unicode)
+        :param action: The name of the action to call
+        :type action: union(str, unicode)
+        :param body: The action request body
+        :type body: dict
+        :param expansions: A dictionary representing the expansions to perform
+        :type expansions: dict
+        :param raise_action_errors: Whether to raise a CallActionError if any action responses contain errors (defaults
+                                    to `True`)
+        :type raise_action_errors: bool
+        :param timeout: If provided, this will override the default transport timeout values to; requests will expire
+                        after this number of seconds plus some buffer defined by the transport, and the client will not
+                        block waiting for a response for longer than this amount of time.
+        :type timeout: int
+        :param switches: A list of switch value integers
+        :type switches: list
+        :param correlation_id: The request correlation ID
+        :type correlation_id: union(str, unicode)
+        :param continue_on_error: Whether to continue executing further actions once one action has returned errors
+        :type continue_on_error: bool
+        :param context: A dictionary of extra values to include in the context header
+        :type context: dict
+        :param control_extra: A dictionary of extra values to include in the control header
+        :type control_extra: dict
+
+        :return: The action response
+        :rtype: ActionResponse
+
+        :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge,
+                MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
         """
         action_request = ActionRequest(
             action=action,
@@ -258,7 +287,7 @@ class Client(object):
             **kwargs
         ).actions[0]
 
-    def call_actions(self, service_name, actions, expansions=None, raise_action_errors=True, **kwargs):
+    def call_actions(self, service_name, actions, expansions=None, raise_action_errors=True, timeout=None, **kwargs):
         """
         Build and send a single job request with one or more actions.
 
@@ -267,21 +296,42 @@ class Client(object):
 
         This method performs expansions if the Client is configured with an expansion converter.
 
-        Args:
-            service_name: string
-            actions: list of ActionRequest or dict
-            switches: list
-            context: dict
-            correlation_id: string
-            continue_on_error: bool
-            control_extra: dict
-            raise_action_errors (bool): Fail if the response contains action error responses.
-        Returns:
-            JobResponse
+        :param service_name: The name of the service to call
+        :type service_name: union(str, unicode)
+        :param actions: A list of `ActionRequest` objects or dicts that can be converted to `ActionRequest` objects
+        :type actions: list
+        :param expansions: A dictionary representing the expansions to perform
+        :type expansions: dict
+        :param raise_action_errors: Whether to raise a CallActionError if any action responses contain errors (defaults
+                                    to `True`)
+        :type raise_action_errors: bool
+        :param timeout: If provided, this will override the default transport timeout values to; requests will expire
+                        after this number of seconds plus some buffer defined by the transport, and the client will not
+                        block waiting for a response for longer than this amount of time.
+        :type timeout: int
+        :param switches: A list of switch value integers
+        :type switches: list
+        :param correlation_id: The request correlation ID
+        :type correlation_id: union(str, unicode)
+        :param continue_on_error: Whether to continue executing further actions once one action has returned errors
+        :type continue_on_error: bool
+        :param context: A dictionary of extra values to include in the context header
+        :type context: dict
+        :param control_extra: A dictionary of extra values to include in the control header
+        :type control_extra: dict
+
+        :return: The job response
+        :rtype: JobResponse
+
+        :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge,
+                MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
         """
+        if timeout:
+            kwargs['message_expiry_in_seconds'] = timeout
+
         request_id = self.send_request(service_name, actions, **kwargs)
         # Dump everything from the generator. There should only be one response.
-        responses = list(self.get_all_responses(service_name))
+        responses = list(self.get_all_responses(service_name, receive_timeout_in_seconds=timeout))
         response_id, response = responses[0]
         if response_id != request_id:
             raise Exception('Got response with ID {} for request with ID {}'.format(response_id, request_id))
@@ -440,6 +490,7 @@ class Client(object):
         continue_on_error=False,
         context=None,
         control_extra=None,
+        message_expiry_in_seconds=None,
     ):
         """
         Build and send a JobRequest, and return a request ID.
@@ -447,20 +498,30 @@ class Client(object):
         The context and control_extra arguments may be used to include extra values in the
         context and control headers, respectively.
 
-        Args:
-            service_name: string
-            actions: list of ActionRequest
-            switches: list of int
-            correlation_id: string
-            continue_on_error: bool
-            context: dict of extra values to include in the context header
-            control_extra: dict of extra values to include in the control header
-        Returns:
-            int
-        Raises:
-            ConnectionError, InvalidField, MessageSendError, MessageSendTimeout,
-            MessageTooLarge
+        :param service_name: The name of the service from which to receive responses
+        :type service_name: union(str, unicode)
+        :param actions: A list of `ActionRequest` objects
+        :type actions: list
+        :param switches: A list of switch value integers
+        :type switches: union(list, set)
+        :param correlation_id: The request correlation ID
+        :type correlation_id: union(str, unicode)
+        :param continue_on_error: Whether to continue executing further actions once one action has returned errors
+        :type continue_on_error: bool
+        :param context: A dictionary of extra values to include in the context header
+        :type context: dict
+        :param control_extra: A dictionary of extra values to include in the control header
+        :type control_extra: dict
+        :param message_expiry_in_seconds: How soon the message will expire if not received by a server (defaults to
+                                          sixty seconds unless the settings are otherwise)
+        :type message_expiry_in_seconds: int
+
+        :return: The request ID
+        :rtype: int
+
+        :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge
         """
+
         handler = self._get_handler(service_name)
         control = self._make_control_header(
             continue_on_error=continue_on_error,
@@ -472,17 +533,24 @@ class Client(object):
             context_extra=context,
         )
         job_request = JobRequest(actions=actions, control=control, context=context or {})
-        return handler.send_request(job_request)
+        return handler.send_request(job_request, message_expiry_in_seconds)
 
-    def get_all_responses(self, service_name):
+    def get_all_responses(self, service_name, receive_timeout_in_seconds=None):
         """
         Receive all available responses from the service as a generator.
 
-        Yields:
-            (int, JobResponse)
-        Raises:
-            ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage,
-            StopIteration
+        :param service_name: The name of the service from which to receive responses
+        :type service_name: union(str, unicode)
+        :param receive_timeout_in_seconds: How long to block without receiving a message before raising
+                                           `MessageReceiveTimeout` (defaults to five seconds unless the settings are
+                                           otherwise).
+        :type receive_timeout_in_seconds: int
+
+        :return: A generator that yields (request ID, job response)
+        :rtype: generator
+
+        :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
         """
+
         handler = self._get_handler(service_name)
-        return handler.get_all_responses()
+        return handler.get_all_responses(receive_timeout_in_seconds)

@@ -41,18 +41,8 @@ class _ComplexStatusAction(BaseStatusAction):
 
 class TestBaseStatusAction(unittest.TestCase):
     def test_cannot_instantiate_base_action(self):
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(TypeError):
             BaseStatusAction()
-
-    def test_build_implemented_version_not_implemented(self):
-        class _Action(BaseStatusAction):
-            pass
-
-        action = _Action()
-        self.assertIsNone(action._build)
-
-        with self.assertRaises(NotImplementedError):
-            print(action._version)
 
     def test_basic_status_works(self):
         action_request = EnrichedActionRequest(action='status', body={}, switches=None)
