@@ -8,9 +8,13 @@ from pysoa.client import Client
 from pysoa.common.types import (
     ActionRequest,
     Error,
+    JobResponse,
 )
 from pysoa.server.action import Action
-from pysoa.server.errors import ActionError
+from pysoa.server.errors import (
+    ActionError,
+    JobError,
+)
 from pysoa.server.server import Server
 from pysoa.test.factories import ActionFactory
 from pysoa.test.server import ServerTestCase
@@ -313,6 +317,36 @@ class TestStubAction(ServerTestCase):
         self.assertEqual('BAR_BAD', e.exception.actions[0].errors[0].code)
         self.assertEqual('bar', e.exception.actions[0].errors[0].field)
         self.assertEqual('Uh-uh', e.exception.actions[0].errors[0].message)
+
+        self.assertEqual(1, stub_test_action_2.call_count)
+        self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
+        stub_test_action_2.assert_called_once_with({'a': 'body'})
+
+    @stub_action('test_service', 'test_action_2')
+    def test_mock_action_with_job_error_side_effect_raises_job_error_exception(self, stub_test_action_2):
+        stub_test_action_2.side_effect = JobError(errors=[Error(code='BAR_BAD_JOB', message='Uh-uh job')])
+
+        with self.assertRaises(Client.JobError) as e:
+            self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
+
+        self.assertEqual('BAR_BAD_JOB', e.exception.errors[0].code)
+        self.assertIsNone(e.exception.errors[0].field)
+        self.assertEqual('Uh-uh job', e.exception.errors[0].message)
+
+        self.assertEqual(1, stub_test_action_2.call_count)
+        self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
+        stub_test_action_2.assert_called_once_with({'a': 'body'})
+
+    @stub_action('test_service', 'test_action_2')
+    def test_mock_action_with_job_error_response_raises_job_error_exception(self, stub_test_action_2):
+        stub_test_action_2.return_value = JobResponse(errors=[Error(code='BAR_BAD_JOB', message='Uh-uh job')])
+
+        with self.assertRaises(Client.JobError) as e:
+            self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
+
+        self.assertEqual('BAR_BAD_JOB', e.exception.errors[0].code)
+        self.assertIsNone(e.exception.errors[0].field)
+        self.assertEqual('Uh-uh job', e.exception.errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
