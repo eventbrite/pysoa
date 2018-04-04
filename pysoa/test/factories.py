@@ -14,7 +14,7 @@ class ServerSettingsFactory(factory.Factory):
 
     data = factory.Dict({
         'transport': {
-            'path': 'pysoa.common.transport.base:ServerTransport',
+            'path': 'pysoa.common.transport.local:LocalServerTransport',
         },
     })
 
@@ -25,7 +25,7 @@ class ServerSettingsFactory(factory.Factory):
         kwargs['data'] = dict(
             kwargs['data'],
             transport={
-                'path': 'pysoa.common.transport.base:ServerTransport',
+                'path': 'pysoa.common.transport.local:LocalServerTransport',
             },
         )
         return kwargs

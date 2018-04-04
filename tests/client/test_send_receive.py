@@ -23,10 +23,10 @@ SERVICE_NAME = 'test_service'
 class MutateRequestMiddleware(ClientMiddleware):
 
     def request(self, send_request):
-        def handler(request_id, meta, request):
+        def handler(request_id, meta, request, message_expiry_in_seconds):
             if request.control.get('test_request_middleware'):
                 request.actions[0].body['middleware_was_here'] = True
-            return send_request(request_id, meta, request)
+            return send_request(request_id, meta, request, message_expiry_in_seconds)
         return handler
 
 
@@ -36,10 +36,10 @@ class RaiseExceptionOnRequestMiddleware(ClientMiddleware):
         pass
 
     def request(self, send_request):
-        def handler(request_id, meta, request):
+        def handler(request_id, meta, request, message_expiry_in_seconds):
             if request.actions and request.actions[0].body.get('middleware_was_here') is True:
                 raise self.MiddlewareProcessedRequest()
-            return send_request(request_id, meta, request)
+            return send_request(request_id, meta, request, message_expiry_in_seconds)
         return handler
 
 
@@ -51,9 +51,9 @@ class CatchExceptionOnRequestMiddleware(ClientMiddleware):
         self.request_count = 0
 
     def request(self, send_request):
-        def handler(request_id, meta, request):
+        def handler(request_id, meta, request, message_expiry_in_seconds):
             try:
-                return send_request(request_id, meta, request)
+                return send_request(request_id, meta, request, message_expiry_in_seconds)
             except Exception:
                 self.error_count += 1
                 raise
@@ -65,8 +65,8 @@ class CatchExceptionOnRequestMiddleware(ClientMiddleware):
 class MutateResponseMiddleware(ClientMiddleware):
 
     def response(self, get_response):
-        def handler():
-            request_id, response = get_response()
+        def handler(receive_timeout_in_seconds):
+            request_id, response = get_response(receive_timeout_in_seconds)
             if response and response.actions:
                 response.actions[0].body['middleware_was_here'] = True
             return request_id, response
@@ -79,8 +79,8 @@ class RaiseExceptionOnResponseMiddleware(ClientMiddleware):
         pass
 
     def response(self, get_response):
-        def handler():
-            request_id, response = get_response()
+        def handler(receive_timeout_in_seconds):
+            request_id, response = get_response(receive_timeout_in_seconds)
             if response and response.actions and response.actions[0].body.get('middleware_was_here') is True:
                 raise self.MiddlewareProcessedResponse()
             return request_id, response
@@ -95,9 +95,9 @@ class CatchExceptionOnResponseMiddleware(ClientMiddleware):
         self.request_count = 0
 
     def response(self, get_response):
-        def handler():
+        def handler(receive_timeout_in_seconds):
             try:
-                return get_response()
+                return get_response(receive_timeout_in_seconds)
             except Exception:
                 self.error_count += 1
                 raise
@@ -151,7 +151,7 @@ class TestClientSendReceive(TestCase):
         request_id = client.send_request(
             SERVICE_NAME,
             action_request,
-            switches=set([1]),
+            switches={1},
         )
         self.assertTrue(request_id >= 0)
         responses = list(client.get_all_responses(SERVICE_NAME))

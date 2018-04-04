@@ -14,7 +14,10 @@ which type of serializer to use.
 """
 from __future__ import absolute_import, unicode_literals
 
+import abc
 import threading
+
+import six
 
 from pysoa.common.metrics import NoOpMetricsRecorder
 
@@ -23,72 +26,82 @@ def get_hex_thread_id():
     return '{:012x}'.format(threading.current_thread().ident)
 
 
+@six.add_metaclass(abc.ABCMeta)
 class ClientTransport(object):
 
     def __init__(self, service_name, metrics=NoOpMetricsRecorder()):
         self.service_name = service_name
         self.metrics = metrics
 
-    def send_request_message(self, request_id, meta, message_string):
+    @abc.abstractmethod
+    def send_request_message(self, request_id, meta, body, message_expiry_in_seconds=None):
         """
-        Send a serialized request message.
+        Send a request message.
 
-        Args:
-            request_id: int
-            meta: dict
-            message_string: bytes (string)
-        Returns:
-            None
-        Raises:
-            ConnectionError, MessageSendError, MessageSendTimeout, MessageTooLarge
+        :param request_id: The request ID
+        :type request_id: int
+        :param meta: Meta information about the message
+        :type meta: dict
+        :param body: The message body
+        :type body: dict
+        :param message_expiry_in_seconds: How soon the message should expire if not retrieved by a server
+                                          (implementations should provide a sane default or setting for default)
+        :type message_expiry_in_seconds: int
+
+        :raise: ConnectionError, MessageSendError, MessageSendTimeout, MessageTooLarge
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
-    def receive_response_message(self):
+    @abc.abstractmethod
+    def receive_response_message(self, receive_timeout_in_seconds=None):
         """
-        Receive a response message from the backend and return a 3-tuple of
-        (request_id, meta, message).
+        Receive a response message from the backend and return a 3-tuple of (request_id, meta dict, message dict).
 
-        Returns:
-            (int, string)
-        Raises:
-            ConnectionError, MessageReceiveError, MessageReceiveTimeout
+        :param receive_timeout_in_seconds: How long to block waiting for a response to become available
+                                           (implementations should provide a sane default or setting for default)
+        :type receive_timeout_in_seconds: int
+
+        :return: A tuple of the request ID, meta dict, and message dict, in that order
+        :rtype: tuple
+
+        :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
 
+@six.add_metaclass(abc.ABCMeta)
 class ServerTransport(object):
 
     def __init__(self, service_name, metrics=NoOpMetricsRecorder()):
         self.service_name = service_name
         self.metrics = metrics
 
+    @abc.abstractmethod
     def receive_request_message(self):
         """
-        Receive a request message from the backend and return a 3-tuple of
-        (request_id, meta, message). The metadata may include client reply-to information
-        that should be passed back to send_response_message.
+        Receive a request message from the backend and return a 3-tuple of (request_id, meta dict, message dict). The
+        metadata may include client reply-to information that should be passed back to send_response_message.
 
-        Returns:
-            (int, dict, string)
-        Raises:
-            ConnectionError, MessageReceiveError, MessageReceiveTimeout
-        """
-        raise NotImplementedError
+        :return: A tuple of the request ID, meta dict, and message dict, in that order
+        :rtype: tuple
 
-    def send_response_message(self, request_id, meta, message_string):
+        :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout
         """
-        Send a response message. The meta dict returned by
-        receive_request_message should be passed verbatim as the second
-        argument.
+        raise NotImplementedError()
 
-        Args:
-            request_id: int
-            meta: dict
-            message_string: bytes (string)
-        Returns:
-            None
-        Raises:
-            ConnectionError, MessageSendError, MessageSendTimeout, MessageTooLarge
+    @abc.abstractmethod
+    def send_response_message(self, request_id, meta, body):
         """
-        raise NotImplementedError
+        Send a response message. The meta dict returned by receive_request_message should be passed verbatim as the
+        second argument.
+
+        :param request_id: The request ID
+        :type request_id: int
+        :param meta: Meta information about the message
+        :type meta: dict
+        :param body: The message body
+        :type body: dict
+
+        :raise: ConnectionError, MessageSendError, MessageSendTimeout, MessageTooLarge
+        """
+        raise NotImplementedError()

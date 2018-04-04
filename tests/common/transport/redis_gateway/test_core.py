@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import datetime
+import time
 import timeit
 import unittest
 import uuid
@@ -179,13 +180,14 @@ class TestRedisTransportCore(unittest.TestCase):
         with self.assertRaises(MessageTooLarge):
             core.send_message('test_message_too_large', uuid.uuid4().hex, {}, message)
 
-    def test_simple_send_and_receive(self):
+    def test_simple_send_and_receive_default_expiry(self):
         core = self._get_core()
 
         request_id = uuid.uuid4().hex
-        meta = {'app': 'ppa'}
+        meta = {'app': 52}
         message = {'test': 'payload'}
 
+        t = time.time()
         core.send_message('test_simple_send_and_receive', request_id, meta, message)
 
         response = core.receive_message('test_simple_send_and_receive')
@@ -193,6 +195,26 @@ class TestRedisTransportCore(unittest.TestCase):
         self.assertEqual(request_id, response[0])
         self.assertEqual(meta, response[1])
         self.assertEqual(message, response[2])
+
+        self.assertTrue((t + 59.9) < meta['__expiry__'] < (t + 61.1))
+
+    def test_simple_send_and_receive_expiry_override(self):
+        core = self._get_core()
+
+        request_id = uuid.uuid4().hex
+        meta = {'app': 52}
+        message = {'test': 'payload'}
+
+        t = time.time()
+        core.send_message('test_simple_send_and_receive', request_id, meta, message, message_expiry_in_seconds=10)
+
+        response = core.receive_message('test_simple_send_and_receive')
+
+        self.assertEqual(request_id, response[0])
+        self.assertEqual(meta, response[1])
+        self.assertEqual(message, response[2])
+
+        self.assertTrue((t + 9.9) < meta['__expiry__'] < (t + 10.1))
 
     def test_send_queue_full(self):
         core = self._get_core(queue_full_retries=1, queue_capacity=3)
@@ -241,13 +263,27 @@ class TestRedisTransportCore(unittest.TestCase):
         self.assertEqual(request_id5, response[0])
         self.assertEqual('payload5', response[2]['test'])
 
-    def test_receive_timeout(self):
+    def test_receive_timeout_default(self):
         core = self._get_core(receive_timeout_in_seconds=1)
 
+        start = timeit.default_timer()
         with self.assertRaises(MessageReceiveTimeout) as error_context:
             core.receive_message('test_receive_timeout')
+        elapsed = timeit.default_timer() - start
 
         self.assertTrue('received' in error_context.exception.args[0])
+        self.assertTrue(0.9 < elapsed < 1.1)
+
+    def test_receive_timeout_override(self):
+        core = self._get_core()
+
+        start = timeit.default_timer()
+        with self.assertRaises(MessageReceiveTimeout) as error_context:
+            core.receive_message('test_receive_timeout', receive_timeout_in_seconds=1)
+        elapsed = timeit.default_timer() - start
+
+        self.assertTrue('received' in error_context.exception.args[0])
+        self.assertTrue(0.9 < elapsed < 1.1)
 
     def test_expired_message(self):
         core = self._get_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)

@@ -48,7 +48,8 @@ class TestClientTransport(unittest.TestCase):
                     thread_id=get_hex_thread_id(),
                 ),
             },
-            message
+            message,
+            None,
         )
 
     def test_send_request_message_another_service(self, mock_core):
@@ -57,7 +58,7 @@ class TestClientTransport(unittest.TestCase):
         request_id = uuid.uuid4().hex
         message = {'another': 'message'}
 
-        transport.send_request_message(request_id, {}, message)
+        transport.send_request_message(request_id, {}, message, 25)
 
         mock_core.return_value.send_message.assert_called_once_with(
             'service.geo',
@@ -68,7 +69,8 @@ class TestClientTransport(unittest.TestCase):
                     thread_id=get_hex_thread_id(),
                 ),
             },
-            message
+            message,
+            25,
         )
 
     def test_receive_response_message(self, mock_core):
@@ -92,6 +94,7 @@ class TestClientTransport(unittest.TestCase):
                 client_id=transport.client_id,
                 thread_id=get_hex_thread_id(),
             ),
+            None,
         )
 
     def test_receive_response_message_another_service(self, mock_core):
@@ -104,7 +107,7 @@ class TestClientTransport(unittest.TestCase):
 
         mock_core.return_value.receive_message.return_value = request_id, meta, message
 
-        response = transport.receive_response_message()
+        response = transport.receive_response_message(15)
 
         self.assertEqual(request_id, response[0])
         self.assertEqual(meta, response[1])
@@ -115,6 +118,7 @@ class TestClientTransport(unittest.TestCase):
                 client_id=transport.client_id,
                 thread_id=get_hex_thread_id(),
             ),
+            15,
         )
 
     def test_requests_outstanding(self, mock_core):

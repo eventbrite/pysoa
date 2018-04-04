@@ -1,5 +1,6 @@
 from __future__ import absolute_import, unicode_literals
 
+import abc
 import binascii
 import itertools
 import random
@@ -44,6 +45,7 @@ redis.call('expire', KEYS[1], ARGV[1])
         self._call(keys=[queue_key], args=[expiry, capacity, message], connection=connection)
 
 
+@six.add_metaclass(abc.ABCMeta)
 class BaseRedisClient(object):
     DEFAULT_RECEIVE_TIMEOUT = 5
     RESPONSE_QUEUE_SPECIFIER = '!'
@@ -69,6 +71,7 @@ class BaseRedisClient(object):
             # It's a request queue, so use a random connection
             return self._get_connection(next(self._connection_index_generator))
 
+    @abc.abstractmethod
     def _get_connection(self, index=None):
         """
         Returns the correct connection for the current thread. Pass `index` to use a server based on consistent hashing

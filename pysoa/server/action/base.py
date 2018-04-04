@@ -1,10 +1,15 @@
 from __future__ import absolute_import, unicode_literals
 
+import abc
+
+import six
+
 from pysoa.common.constants import ERROR_CODE_INVALID
 from pysoa.common.types import ActionResponse, Error
 from pysoa.server.errors import ActionError, ResponseValidationError
 
 
+@six.add_metaclass(abc.ABCMeta)
 class Action(object):
     """
     Base class from which all SOA Service Actions inherit.
@@ -30,6 +35,7 @@ class Action(object):
         """
         self.settings = settings
 
+    @abc.abstractmethod
     def run(self, request):
         """
         Override this to perform your business logic, and either return a dict

@@ -1,17 +1,21 @@
 from __future__ import unicode_literals
 
+import abc
 import enum
 
 from conformity import fields
+import six
 
 from pysoa.common.schemas import BasicClassSchema
 
 
+@six.add_metaclass(abc.ABCMeta)
 class Counter(object):
     """
     Defines an interface for incrementing a counter.
     """
 
+    @abc.abstractmethod
     def increment(self, amount=1):
         """
         Increments the counter.
@@ -27,17 +31,20 @@ class TimerResolution(enum.IntEnum):
     NANOSECONDS = 10**9
 
 
+@six.add_metaclass(abc.ABCMeta)
 class Timer(object):
     """
     Defines an interface for timing activity. Can be used as a context manager to time wrapped activity.
     """
 
+    @abc.abstractmethod
     def start(self):
         """
         Starts the timer.
         """
         raise NotImplementedError()
 
+    @abc.abstractmethod
     def stop(self):
         """
         Stops the timer.
@@ -52,6 +59,7 @@ class Timer(object):
         return False
 
 
+@six.add_metaclass(abc.ABCMeta)
 class MetricsRecorder(object):
     """
     Defines an interface for recording metrics. All metrics recorders registered with PySOA must implement this
@@ -59,6 +67,7 @@ class MetricsRecorder(object):
     timers to also have associated counters, your implementation of this recorder must take care of filling that gap.
     """
 
+    @abc.abstractmethod
     def counter(self, name, **kwargs):
         """
         Returns a counter that can be incremented. Implementations do not have to return an instance of `Counter`, but
@@ -72,6 +81,7 @@ class MetricsRecorder(object):
         """
         raise NotImplementedError()
 
+    @abc.abstractmethod
     def timer(self, name, resolution=TimerResolution.MILLISECONDS, **kwargs):
         """
         Returns a timer that can be started and stopped. Implementations do not have to return an instance of `Timer`,
