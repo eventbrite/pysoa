@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.35.0 (2018-04-05)
+-------------------
+- [MINOR] Add stock ability to include other services' status in status
+- [MAJOR] Add support for setting a custom timeout when sending a request
+
 0.34.0 (2018-03-27)
 -------------------
 - Improve logging defaults and support for Syslog
