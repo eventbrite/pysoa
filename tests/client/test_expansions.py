@@ -252,6 +252,108 @@ class TestClientWithExpansions(TestCase):
             expected_car_response,
         )
 
+    def test_call_actions_parallel_with_expansions(self):
+        expected_book_response = {
+            'book_obj': {
+                '_type': 'book_type',
+                'id': 1,
+                'author_id': 2,
+                'publish_id': 3,
+                'author_profile': {
+                    '_type': 'author_type',
+                    'id': 2,
+                    'stuff': 'things',
+                },
+                'publisher_profile': {
+                    '_type': 'publisher_type',
+                    'id': 3,
+                    'address_id': 4,
+                    'address_profile': {
+                        '_type': 'address_type',
+                        'id': 4,
+                    },
+                },
+            },
+        }
+        expected_car_response = {
+            'car_obj': {
+                '_type': 'car_type',
+                'id': 5,
+                'automaker_id': 6,
+                'automaker_profile': {
+                    '_type': 'auto_type',
+                    'id': 6,
+                },
+            },
+        }
+
+        actions = self.client.call_actions_parallel(
+            service_name='book_info_service',
+            actions=[
+                {'action': 'get_book', 'body': {'id': 1}},
+                {'action': 'get_car', 'body': {'id': 5}},
+            ],
+            expansions={
+                'book_type': ['author_rule', 'publisher_rule.address_rule'],
+                'car_type': ['automaker_rule'],
+            },
+        )
+
+        actions = list(actions)
+        self.assertEqual(2, len(actions))
+        self.assertEqual(expected_book_response, actions[0].body)
+        self.assertEqual(expected_car_response, actions[1].body)
+
+    def test_call_jobs_parallel_with_expansions(self):
+        expected_book_response = {
+            'book_obj': {
+                '_type': 'book_type',
+                'id': 1,
+                'author_id': 2,
+                'publish_id': 3,
+                'author_profile': {
+                    '_type': 'author_type',
+                    'id': 2,
+                    'stuff': 'things',
+                },
+                'publisher_profile': {
+                    '_type': 'publisher_type',
+                    'id': 3,
+                    'address_id': 4,
+                    'address_profile': {
+                        '_type': 'address_type',
+                        'id': 4,
+                    },
+                },
+            },
+        }
+        expected_car_response = {
+            'car_obj': {
+                '_type': 'car_type',
+                'id': 5,
+                'automaker_id': 6,
+                'automaker_profile': {
+                    '_type': 'auto_type',
+                    'id': 6,
+                },
+            },
+        }
+
+        job_responses = self.client.call_jobs_parallel(
+            jobs=[
+                {'service_name': 'book_info_service', 'actions': [{'action': 'get_book', 'body': {'id': 1}}]},
+                {'service_name': 'book_info_service', 'actions': [{'action': 'get_car', 'body': {'id': 5}}]},
+            ],
+            expansions={
+                'book_type': ['author_rule', 'publisher_rule.address_rule'],
+                'car_type': ['automaker_rule'],
+            },
+        )
+
+        self.assertEqual(2, len(job_responses))
+        self.assertEqual(expected_book_response, job_responses[0].actions[0].body)
+        self.assertEqual(expected_car_response, job_responses[1].actions[0].body)
+
     def test_call_action_with_expansions(self):
         expected_response = {
             'book_obj': {

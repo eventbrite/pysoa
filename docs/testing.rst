@@ -1,14 +1,13 @@
-.. contents:: Contents
-   :depth: 3
-   :backlinks: none
-
-
 Testing with PySOA
-------------------
+==================
 
 PySOA comes with several facilities for testing—both for testing services themselves and for testing code that interacts
 with PySOA services. This document describes these libraries and techniques. As always, all strings in the examples
 are unicode strings (the default in Python 3; use ``from __future__ import unicode_literals`` for Python 2).
+
+.. contents:: Contents
+   :depth: 3
+   :backlinks: none
 
 
 Using the ``ServerTestCase``

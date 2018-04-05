@@ -10,6 +10,15 @@ import six
 from pysoa.client.expander import ExpansionConverter
 from pysoa.client.settings import PolymorphicClientSettings
 from pysoa.common.metrics import TimerResolution
+from pysoa.common.transport.exceptions import (
+    ConnectionError,
+    InvalidMessageError,
+    MessageReceiveError,
+    MessageReceiveTimeout,
+    MessageSendError,
+    MessageSendTimeout,
+    MessageTooLarge,
+)
 from pysoa.common.types import (
     ActionRequest,
     JobRequest,
@@ -180,8 +189,8 @@ class Client(object):
 
         self.handlers = {}
         self.settings = {}
-        config = config or {}
-        for service_name, service_config in config.items():
+        self.config = config or {}
+        for service_name, service_config in self.config.items():
             self.settings[service_name] = self.settings_class(service_config)
 
         if expansion_config:
@@ -243,12 +252,13 @@ class Client(object):
         """
         Build and send a single job request with one action.
 
-        Returns the action response or raises an exception if the action response is an error.
+        Returns the action response or raises an exception if the action response is an error (unless
+        `raise_action_errors` is passed as `False`).
 
         :param service_name: The name of the service to call
-        :type service_name: union(str, unicode)
+        :type service_name: union[str, unicode]
         :param action: The name of the action to call
-        :type action: union(str, unicode)
+        :type action: union[str, unicode]
         :param body: The action request body
         :type body: dict
         :param expansions: A dictionary representing the expansions to perform
@@ -263,7 +273,7 @@ class Client(object):
         :param switches: A list of switch value integers
         :type switches: list
         :param correlation_id: The request correlation ID
-        :type correlation_id: union(str, unicode)
+        :type correlation_id: union[str, unicode]
         :param continue_on_error: Whether to continue executing further actions once one action has returned errors
         :type continue_on_error: bool
         :param context: A dictionary of extra values to include in the context header
@@ -275,7 +285,7 @@ class Client(object):
         :rtype: ActionResponse
 
         :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge,
-                MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
+                MessageReceiveError, MessageReceiveTimeout, InvalidMessage, JobError, CallActionError
         """
         action_request = ActionRequest(
             action=action,
@@ -291,15 +301,15 @@ class Client(object):
         """
         Build and send a single job request with one or more actions.
 
-        Returns a list of action responses, one for each action, or raises an exception if any action response is an
-        error.
+        Returns a list of action responses, one for each action in the same order as provided, or raises an exception
+        if any action response is an error (unless `raise_action_errors` is passed as `False`).
 
         This method performs expansions if the Client is configured with an expansion converter.
 
         :param service_name: The name of the service to call
-        :type service_name: union(str, unicode)
-        :param actions: A list of `ActionRequest` objects or dicts that can be converted to `ActionRequest` objects
-        :type actions: list
+        :type service_name: union[str, unicode]
+        :param actions: A list of `ActionRequest` objects and/or dicts that can be converted to `ActionRequest` objects
+        :type actions: iterable[union[ActionRequest, dict]]
         :param expansions: A dictionary representing the expansions to perform
         :type expansions: dict
         :param raise_action_errors: Whether to raise a CallActionError if any action responses contain errors (defaults
@@ -312,7 +322,7 @@ class Client(object):
         :param switches: A list of switch value integers
         :type switches: list
         :param correlation_id: The request correlation ID
-        :type correlation_id: union(str, unicode)
+        :type correlation_id: union[str, unicode]
         :param continue_on_error: Whether to continue executing further actions once one action has returned errors
         :type continue_on_error: bool
         :param context: A dictionary of extra values to include in the context header
@@ -324,7 +334,7 @@ class Client(object):
         :rtype: JobResponse
 
         :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge,
-                MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
+                MessageReceiveError, MessageReceiveTimeout, InvalidMessage, JobError, CallActionError
         """
         if timeout:
             kwargs['message_expiry_in_seconds'] = timeout
@@ -343,41 +353,227 @@ class Client(object):
             if error_actions:
                 raise self.CallActionError(error_actions)
         if expansions:
-            self._perform_expansion(response, expansions)
+            self._perform_expansion(response.actions, expansions)
 
         return response
 
-    def _perform_expansion(self, skeleton_response, expansions):
+    def call_actions_parallel(self, service_name, actions, **kwargs):
+        """
+        Build and send multiple job requests to one service, each job with one action, to be executed in parallel, and
+        return once all responses have been received.
+
+        Returns a list of action responses, one for each action in the same order as provided, or raises an exception
+        if any action response is an error (unless `raise_action_errors` is passed as `False`) or if any job response
+        is an error.
+
+        This method performs expansions if the Client is configured with an expansion converter.
+
+        :param service_name: The name of the service to call
+        :type service_name: union[str, unicode]
+        :param actions: A list of `ActionRequest` objects and/or dicts that can be converted to `ActionRequest` objects
+        :type actions: iterable[union[ActionRequest, dict]]
+        :param expansions: A dictionary representing the expansions to perform
+        :type expansions: dict
+        :param raise_action_errors: Whether to raise a CallActionError if any action responses contain errors (defaults
+                                    to `True`)
+        :type raise_action_errors: bool
+        :param timeout: If provided, this will override the default transport timeout values to; requests will expire
+                        after this number of seconds plus some buffer defined by the transport, and the client will not
+                        block waiting for a response for longer than this amount of time.
+        :type timeout: int
+        :param switches: A list of switch value integers
+        :type switches: list
+        :param correlation_id: The request correlation ID
+        :type correlation_id: union[str, unicode]
+        :param continue_on_error: Whether to continue executing further actions once one action has returned errors
+        :type continue_on_error: bool
+        :param context: A dictionary of extra values to include in the context header
+        :type context: dict
+        :param control_extra: A dictionary of extra values to include in the control header
+        :type control_extra: dict
+
+        :return: A generator of action responses
+        :rtype: generator[ActionResponse]
+
+        :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge,
+                MessageReceiveError, MessageReceiveTimeout, InvalidMessage, JobError, CallActionError
+        """
+        if 'raise_job_errors' in kwargs:
+            raise TypeError("call_actions_parallel() got a prohibited keyword argument 'raise_job_errors")
+        if 'catch_transport_errors' in kwargs:
+            raise TypeError("call_actions_parallel() got a prohibited keyword argument 'catch_transport_errors")
+
+        job_responses = self.call_jobs_parallel(
+            jobs=({'service_name': service_name, 'actions': [action]} for action in actions),
+            **kwargs
+        )
+
+        return (job.actions[0] for job in job_responses)
+
+    def call_jobs_parallel(
+        self,
+        jobs,
+        expansions=None,
+        raise_job_errors=True,
+        raise_action_errors=True,
+        catch_transport_errors=False,
+        timeout=None,
+        **kwargs
+    ):
+        """
+        Build and send multiple job requests to one or more services, each with one or more actions, to be executed in
+        parallel, and return once all responses have been received.
+
+        Returns a list of job responses, one for each job in the same order as provided, or raises an exception if any
+        job response is an error (unless `raise_job_errors` is passed as `False`) or if any action response is an
+        error (unless `raise_action_errors` is passed as `False`).
+
+        This method performs expansions if the Client is configured with an expansion converter.
+
+        :param jobs: A list of job request dicts, each containing `service_name` and `actions`, where `actions` is a
+                     list of `ActionRequest` objects and/or dicts that can be converted to `ActionRequest` objects
+        :type jobs: iterable[dict(service_name=union[str, unicode], actions=list[union[ActionRequest, dict]])]
+        :param expansions: A dictionary representing the expansions to perform
+        :type expansions: dict
+        :param raise_job_errors: Whether to raise a JobError if any job responses contain errors (defaults to `True`)
+        :type raise_job_errors: bool
+        :param raise_action_errors: Whether to raise a CallActionError if any action responses contain errors (defaults
+                                    to `True`)
+        :type raise_action_errors: bool
+        :param catch_transport_errors: Whether to catch transport errors and return them instead of letting them
+                                       propagate. By default (`False`), the errors `ConnectionError`,
+                                       `InvalidMessageError`, `MessageReceiveError`, `MessageReceiveTimeout`,
+                                       `MessageSendError`, `MessageSendTimeout`, and `MessageTooLarge`, when raised by
+                                       the transport, cause the entire process to terminate, potentially losing
+                                       responses. If this argument is set to `True`, those errors are, instead, caught,
+                                       and they are returned in place of their corresponding responses in the returned
+                                       list of job responses.
+        :type catch_transport_errors: bool
+        :param timeout: If provided, this will override the default transport timeout values to; requests will expire
+                        after this number of seconds plus some buffer defined by the transport, and the client will not
+                        block waiting for a response for longer than this amount of time.
+        :type timeout: int
+        :param switches: A list of switch value integers
+        :type switches: list
+        :param correlation_id: The request correlation ID
+        :type correlation_id: union[str, unicode]
+        :param continue_on_error: Whether to continue executing further actions once one action has returned errors
+        :type continue_on_error: bool
+        :param context: A dictionary of extra values to include in the context header
+        :type context: dict
+        :param control_extra: A dictionary of extra values to include in the control header
+        :type control_extra: dict
+
+        :return: The job response
+        :rtype: list[union(JobResponse, Exception)]
+
+        :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge,
+                MessageReceiveError, MessageReceiveTimeout, InvalidMessage, JobError, CallActionError
+        """
+        if timeout:
+            kwargs['message_expiry_in_seconds'] = timeout
+
+        error_key = 0
+        transport_errors = {}
+
+        response_reassembly_keys = []
+        service_request_ids = {}
+        for job in jobs:
+            try:
+                request_id = self.send_request(job['service_name'], job['actions'], **kwargs)
+                service_request_ids.setdefault(job['service_name'], set()).add(request_id)
+            except (ConnectionError, InvalidMessageError, MessageSendError, MessageSendTimeout, MessageTooLarge) as e:
+                if not catch_transport_errors:
+                    raise
+                request_id = error_key = error_key - 1
+                transport_errors[(job['service_name'], request_id)] = e
+
+            response_reassembly_keys.append((job['service_name'], request_id))
+
+        service_responses = {}
+        for service_name, request_ids in six.iteritems(service_request_ids):
+            try:
+                for request_id, response in self.get_all_responses(service_name, receive_timeout_in_seconds=timeout):
+                    if request_id not in request_ids:
+                        raise Exception(
+                            'Got response ID {}, not in set of expected IDs {}'.format(request_id, request_ids)
+                        )
+                    service_responses[(service_name, request_id)] = response
+                    if catch_transport_errors:
+                        # We don't need the set to be reduced unless we're catching errors
+                        request_ids.remove(request_id)
+            except (ConnectionError, InvalidMessageError, MessageReceiveError, MessageReceiveTimeout) as e:
+                if not catch_transport_errors:
+                    raise
+                for request_id in request_ids:
+                    transport_errors[(service_name, request_id)] = e
+
+        responses = []
+        actions_to_expand = []
+        for service_name, request_id in response_reassembly_keys:
+            if request_id < 0:
+                # A transport error occurred during send, and we are catching errors, so add it to the responses
+                responses.append(transport_errors[(service_name, request_id)])
+                continue
+
+            if (service_name, request_id) not in service_responses:
+                if (service_name, request_id) in transport_errors:
+                    # A transport error occurred during receive, and we are catching errors, so add it to the responses
+                    responses.append(transport_errors[(service_name, request_id)])
+                    continue
+
+                # It shouldn't be possible for this to happen unless the code has a bug, but let's raise a meaningful
+                # exception just in case a bug exists, because KeyError will not be helpful.
+                raise Exception('There was no response for service {}, request {}'.format(service_name, request_id))
+
+            response = service_responses[(service_name, request_id)]
+            if raise_job_errors and response.errors:
+                raise self.JobError(response.errors)
+            if raise_action_errors:
+                error_actions = [action for action in response.actions if action.errors]
+                if error_actions:
+                    raise self.CallActionError(error_actions)
+            if expansions:
+                actions_to_expand.extend(response.actions)
+
+            responses.append(response)
+
+        if expansions:
+            self._perform_expansion(actions_to_expand, expansions)
+
+        return responses
+
+    def _perform_expansion(self, actions, expansions):
         # Perform expansions
         if expansions and hasattr(self, 'expansion_converter'):
             try:
-                objs_to_expand = self._extract_candidate_objects(skeleton_response.actions, expansions)
-            except KeyError as key_error:
-                raise self.InvalidExpansionKey("Invalid key in expansion request: {}".format(key_error.args[0]))
+                objects_to_expand = self._extract_candidate_objects(actions, expansions)
+            except KeyError as e:
+                raise self.InvalidExpansionKey('Invalid key in expansion request: {}'.format(e.args[0]))
             else:
-                self._expand_objects(objs_to_expand)
+                self._expand_objects(objects_to_expand)
 
     def _extract_candidate_objects(self, actions, expansions):
         # Build initial list of objects to expand
-        objs_to_expand = []
+        objects_to_expand = []
         for type_node in self.expansion_converter.dict_to_trees(expansions):
             for action in actions:
                 exp_objects = type_node.find_objects(action.body)
-                objs_to_expand.extend(
+                objects_to_expand.extend(
                     (exp_object, type_node.expansions)
                     for exp_object in exp_objects
                 )
-        return objs_to_expand
+        return objects_to_expand
 
-    def _expand_objects(self, objs_to_expand):
+    def _expand_objects(self, objects_to_expand):
             # Keep track of expansion action errors that need to be raised
             expansion_errors = []
             # Initialize service request cache
             exp_service_requests = {}
             # Loop until we have no outstanding requests or responses
-            while objs_to_expand or any(exp_service_requests.values()):
+            while objects_to_expand or any(exp_service_requests.values()):
                 # Send pending expansion requests to services
-                for obj_to_expand, expansion_nodes in objs_to_expand:
+                for obj_to_expand, expansion_nodes in objects_to_expand:
                     for expansion_node in expansion_nodes:
                         # Only expand if expansion has not already been satisfied
                         if expansion_node.dest_field not in obj_to_expand:
@@ -400,7 +596,7 @@ class Client(object):
                             }
 
                 # We have expanded all pending objects. Empty the queue.
-                objs_to_expand = []
+                objects_to_expand = []
 
                 # Receive expansion responses from services for which we have
                 # outstanding requests
@@ -427,7 +623,7 @@ class Client(object):
 
                             # Potentially add additional pending expansion requests.
                             if expansion_node.expansions:
-                                objs_to_expand.extend(
+                                objects_to_expand.extend(
                                     (exp_object, expansion_node.expansions)
                                     for exp_object in expansion_node.find_objects(value)
                                 )
@@ -499,13 +695,13 @@ class Client(object):
         context and control headers, respectively.
 
         :param service_name: The name of the service from which to receive responses
-        :type service_name: union(str, unicode)
+        :type service_name: union[str, unicode]
         :param actions: A list of `ActionRequest` objects
         :type actions: list
         :param switches: A list of switch value integers
-        :type switches: union(list, set)
+        :type switches: union[list, set]
         :param correlation_id: The request correlation ID
-        :type correlation_id: union(str, unicode)
+        :type correlation_id: union[str, unicode]
         :param continue_on_error: Whether to continue executing further actions once one action has returned errors
         :type continue_on_error: bool
         :param context: A dictionary of extra values to include in the context header
@@ -540,7 +736,7 @@ class Client(object):
         Receive all available responses from the service as a generator.
 
         :param service_name: The name of the service from which to receive responses
-        :type service_name: union(str, unicode)
+        :type service_name: union[str, unicode]
         :param receive_timeout_in_seconds: How long to block without receiving a message before raising
                                            `MessageReceiveTimeout` (defaults to five seconds unless the settings are
                                            otherwise).

@@ -200,7 +200,6 @@ class TestBaseStatusAction(unittest.TestCase):
             'bar': {},
             'baz': {},
             'qux': {},
-            'fred': {},
         })
 
         action_request = EnrichedActionRequest(action='status', body={}, switches=None, client=client)
@@ -240,15 +239,7 @@ class TestBaseStatusAction(unittest.TestCase):
             ('QUX_TRANSPORT_ERROR', 'Timeout calling qux'),
             response.body['healthcheck']['errors'],
         )
-        fred_unknown_error_found = False
-        for error in response.body['healthcheck']['errors']:
-            if error[0] == 'FRED_UNKNOWN_ERROR':
-                fred_unknown_error_found = True
-        self.assertTrue(
-            fred_unknown_error_found,
-            'FRED_UNKNOWN_ERROR not found in %s' % (response.body['healthcheck']['errors'], ),
-        )
-        self.assertEqual(4, len(response.body['healthcheck']['errors']))
+        self.assertEqual(3, len(response.body['healthcheck']['errors']))
         self.assertEqual(
             {
                 'services': {

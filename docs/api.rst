@@ -1,12 +1,12 @@
+The PySOA API
+=============
+
+Services in ``pysoa`` are built around a client-server model with a simple service API. The core abstractions of this
+API are Jobs and Actions. An Action is a unit of work performed by a Server, and a Job is a container of Actions.
+
 .. contents:: Contents
    :depth: 3
    :backlinks: none
-
-
-Core concepts
--------------
-
-Services in ``pysoa`` are built around a client-server model with a simple service API. The core abstractions of this API are Jobs and Actions. An Action is a unit of work performed by a Server, and a Job is a container of Actions.
 
 
 Basic request flow
@@ -74,7 +74,7 @@ Error
 
 
 Servers
--------
++++++++
 
 
 The ``server`` module contains everything necessary to write a ``pysoa`` service. The ``Action`` class provides the parent class for your service's Actions, which are the main units of business logic, while ``Server`` class provides the framework for running a request-response loop.
@@ -87,7 +87,7 @@ The ``Action`` class provides an interface allowing subclasses to easily validat
 
 
 ``Server``
-++++++++++
+**********
 
 Properties:
 
@@ -102,7 +102,7 @@ Methods:
 
 
 ``Action``
-++++++++++
+**********
 
 Properties:
 
@@ -116,7 +116,7 @@ Methods:
 
 
 Server configuration
-++++++++++++++++++++
+********************
 
 The ``Server`` base class takes configuration in the form of a dict with the following format::
 
@@ -142,13 +142,13 @@ Key:
 
 
 Django integration
-++++++++++++++++++
+******************
 
 The ``Server`` class is able to get configuration from Django settings automatically. If the ``use_django`` property on the ``Server`` subclass is ``True``, the ``main`` method will automatically import the Django settings module and look for configuration under the name ``SOA_SERVER_SETTINGS``.
 
 
 Versioning using switches
-+++++++++++++++++++++++++
+*************************
 
 Switches are like a special argument that every action in a job gets. In terms of code, switches are simply integers passed by the Client in the control header of every ``JobRequest``, and then by the Server into every action in that job.
 
@@ -172,7 +172,7 @@ Switches came from a need to version individual service actions, rather than ver
 
 
 Clients
--------
++++++++
 
 Code that needs to call one or more services will do so using a ``Client``. A single ``Client`` can be configured to call any number of services.
 
@@ -180,13 +180,13 @@ The ``client`` submodule provides the ``Client`` class as well as base classes f
 
 
 ``Client``
-++++++++++
+**********
 
 Methods:
 
 - ``__init__`` - Args:
 
-  + ``config``: Configuration dict (see `Configuring Servers and Clients`_).
+  + ``config``: Configuration dict (see `Client configuration`_).
   + ``expansions`` (optional): A mapping of service name to expansion (see `Expansions`_).
   + ``settings_class`` (optional): A ``Settings`` subclass to use for configuration validation. Defaults to the class's ``settings_class`` property.
   + ``context``: A dict of context information that will be included in the ``JobRequest.context`` on every request.
@@ -215,7 +215,7 @@ Methods:
 
 
 Client configuration
-++++++++++++++++++++
+********************
 
 The ``Client`` class takes configuration in the form of a dict with the following format::
 
@@ -242,7 +242,7 @@ recommended, as connections will be re-established for every client without it.
 
 
 Expansions
-++++++++++
+**********
 
 Expansions allow ``Client.call_actions`` to automatically "expand" fields in a service response by making further service calls and adding those responses to the original response.
 
@@ -252,7 +252,7 @@ The ``Client.call_actions`` and ``Client.call_action`` methods take a keyword ar
 
 
 Configuring expansions
-**********************
+----------------------
 
 Expansions are configured on the ``Client`` instance by using the ``expansions`` argument on initialization. This argument accepts a dict with the following format::
 
@@ -311,7 +311,7 @@ Type expansions detail the expansions that are supported for each type. If a ``C
 
 
 Expansions example
-******************
+------------------
 
 Consider a ``Client`` with the following expansions config::
 
@@ -406,7 +406,7 @@ The ``bar_example`` response is added to the original response from the ``foo_ex
     
 
 Client exceptions
-+++++++++++++++++
+*****************
 
 - ``ImproperlyConfigured``: The ``Client`` tried to call a service for which it did not have configuration.
 
@@ -417,12 +417,12 @@ Client exceptions
 
 
 Serialization
--------------
++++++++++++++
 
 The ``Serializer`` class allows Clients and Servers to communicate using a common format. This library provides serializer classes for the JSON and msgpack formats, and the base ``Serializer`` class can be extended to use any format that a developer may wish to use. The ``Serializer`` interface is simple:
 
 ``Serializer``
-++++++++++++++
+**************
 
 Properties:
 
@@ -436,11 +436,11 @@ Methods:
 
 
 Provided serializers
-++++++++++++++++++++
+********************
 
 
 MessagePack Serializer
-**********************
+----------------------
 
 - Backend: `msgpack-python <https://pypi.python.org/pypi/msgpack-python>`_
 - Types supported: ``int``, ``str``, ``dict``, ``list``, ``tuple``, ``bytes`` (Python 3 only), ``date``, ``time``, ``datetime``, and ``currint.Amount``
@@ -448,7 +448,7 @@ MessagePack Serializer
 
 
 JSON Serializer
-***************
+---------------
 
 - Backend: `json <https://docs.python.org/2/library/json.html>`_
 - Types supported: ``int``, ``str``, ``dict``, ``list``, ``tuple``
@@ -456,7 +456,7 @@ JSON Serializer
 
 
 Serializer configuration
-++++++++++++++++++++++++
+************************
 
 The config schema for ``Serializer`` objects is just the basic ``pysoa`` plugin schema::
 
@@ -467,7 +467,7 @@ The config schema for ``Serializer`` objects is just the basic ``pysoa`` plugin 
 
 
 Serializer exceptions
-+++++++++++++++++++++
+*********************
 
 - ``InvalidField``: Raised when the serializer fails to serialize a message. Contains the arguments from the original exception raised by the serialization backend's encoding function.
 
@@ -476,12 +476,12 @@ Serializer exceptions
 
 
 Transport
----------
++++++++++
 
 The ``transport`` module provides an interface for sending messages between clients and servers. There are two base classes:
 
 ``ClientTransport``
-+++++++++++++++++++
+*******************
 
 Methods:
 
@@ -499,7 +499,7 @@ Methods:
 
 
 ``ServerTransport``
-+++++++++++++++++++
+*******************
 
 Methods:
 
@@ -517,7 +517,7 @@ Methods:
 
 
 Transport configuration
-+++++++++++++++++++++++
+***********************
 
 The config schema for ``Transport`` classes is the same as for other ``pysoa`` plugins::
 
@@ -528,7 +528,7 @@ The config schema for ``Transport`` classes is the same as for other ``pysoa`` p
 
 
 Transport exceptions
-++++++++++++++++++++
+********************
 
 - ``InvalidMessageError``: The transport tried to send or receive a message that was malformed.
 - ``MessageTooLarge``: The message passed to the transport exceeded the maximum size allowed by the transport.
@@ -540,21 +540,21 @@ Transport exceptions
 
 
 Redis Gateway Transport
-+++++++++++++++++++++++
+***********************
 
 The ``transport.redis_gateway`` module provides a transport implementation that uses Redis (in simple or Sentinel mode)
 for sending and receiving messages. This is the recommended transport for use with ``pysoa``, as it provides a
 convenient and performant backend for asynchronous service requests.
 
 Standard and Sentinel modes
-***************************
+---------------------------
 
 The Redis Gateway transport has two primary modes of operation: in "standard" mode, the channel layer will connect to a
 specified list of Redis hosts, while in "Sentinel" mode, the channel layer will connect to a list of Sentinel hosts and
 use Sentinel to find its Redis hosts.
 
 Configuration
-*************
+-------------
 
 The Redis Gateway transport takes the following extra keyword arguments for configuration:
 
@@ -586,13 +586,13 @@ The Redis Gateway transport takes the following extra keyword arguments for conf
 
 
 Middleware
-----------
+++++++++++
 
 Middleware for both ``Server`` and ``Client`` uses an onion calling pattern, where each middleware accepts a callable and returns a callable. Each middleware in the stack is called with the middleware below it, and the base level middleware is called with a base processing method from the ``Server`` or ``Client``.
 
 
 ``ServerMiddleware``
-++++++++++++++++++++
+********************
 
 The ``ServerMiddleware`` class has an interface that allows it to act at a Job level or at an Action level, or both, depending on which part(s) of the interface it implements:
 
@@ -604,7 +604,7 @@ Methods:
 
 
 ``ClientMiddleware``
-++++++++++++++++++++
+********************
 
 Client middleware works similarly to server middleware, using an onion calling pattern. Client middleware is built around the client request/response workflow. The ``ClientMiddleware`` class has two methods, ``request`` and ``response``, each of which wraps a callable that does the work of sending or receiving, respectively.
 
@@ -614,7 +614,7 @@ Client middleware works similarly to server middleware, using an onion calling p
 
 
 Middleware configuration
-++++++++++++++++++++++++
+************************
 
 ``Middleware`` classes are configured using the standard ``pysoa`` plugin schema::
 
@@ -625,14 +625,14 @@ Middleware configuration
 
 
 Metrics
--------
++++++++
 PySOA is capable of recording detailed metrics about the performance of its client and server transports and sending
 and receiving processes. If you wish to gather metrics about the performance of PySOA, you will need to enable this
 metrics recording in your server settings and/or in your client settings and provide an object which PySOA can use to
 record these metrics.
 
 ``MetricsRecorder``
-+++++++++++++++++++
+*******************
 
 Metrics in PySOA are recorded with an implementation of the ``MetricsRecorder`` abstract class. By default, PySOA ships
 with and uses a ``NoOpMetricsRecorder`` that performs no action recorder of metrics. In order to record metrics in your
@@ -641,7 +641,7 @@ record counters and timers. The documentation for ``Counter``, ``Timer``, and ``
 ``pysoa/common/metrics.py`` details how to implement these classes.
 
 Metrics configuration
-+++++++++++++++++++++
+*********************
 
 Metrics are configured using the standard ``pysoa`` plugin schema::
 
@@ -655,7 +655,7 @@ are recorded`_ below). We recommend your ``MetricsRecorder`` append some type of
 it so that you can group all PySOA metrics together.
 
 Which metrics are recorded
-++++++++++++++++++++++++++
+**************************
 
 These are all the metrics recorded in PySOA:
 
@@ -719,7 +719,7 @@ These are all the metrics recorded in PySOA:
 
 
 Customizing configuration
--------------------------
++++++++++++++++++++++++++
 
 The ``settings`` module provides classes that contain and validate settings for Clients and Servers. It has three primary functions: schema validation, defaults and import resolution.
 
@@ -788,7 +788,7 @@ The ``settings`` module provides classes that contain and validate settings for 
 
 
 Included ``Settings`` subclasses
-++++++++++++++++++++++++++++++++
+********************************
 
 ``pysoa.common.settings.SOASettings`` provides a schema that is shared by both Servers and Clients. It's schema:
 
