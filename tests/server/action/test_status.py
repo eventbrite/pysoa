@@ -8,13 +8,20 @@ from conformity.fields.basic import Boolean
 import six
 
 import pysoa
-from pysoa.common.types import ActionResponse
+from pysoa.client.client import Client
+from pysoa.common.transport.exceptions import MessageReceiveTimeout
+from pysoa.common.types import (
+    ActionResponse,
+    Error,
+    JobResponse,
+)
 from pysoa.server.action.status import (
     BaseStatusAction,
     make_default_status_action_class,
     StatusActionFactory,
 )
 from pysoa.server.types import EnrichedActionRequest
+from pysoa.test.stub_service import stub_action
 
 
 class _ComplexStatusAction(BaseStatusAction):
@@ -37,6 +44,12 @@ class _ComplexStatusAction(BaseStatusAction):
         return [
             [True, 'ANOTHER_CODE', 'This is an error'],
         ]
+
+
+class _CheckOtherServicesAction(BaseStatusAction):
+    _version = '8.71.2'
+
+    check_client_settings = BaseStatusAction._check_client_settings
 
 
 class TestBaseStatusAction(unittest.TestCase):
@@ -161,3 +174,91 @@ class TestBaseStatusAction(unittest.TestCase):
         action = action_class({})
         self.assertEqual(six.text_type(conformity.__version__), action._version)
         self.assertIsNone(action._build)
+
+    def test_check_client_settings_no_settings(self):
+        client = Client({})
+
+        action_request = EnrichedActionRequest(action='status', body={}, switches=None, client=client)
+
+        response = _CheckOtherServicesAction()(action_request)
+
+        self.assertIsInstance(response, ActionResponse)
+        self.assertEqual(
+            {
+                'conformity': six.text_type(conformity.__version__),
+                'pysoa': six.text_type(pysoa.__version__),
+                'python': six.text_type(platform.python_version()),
+                'version': '8.71.2',
+                'healthcheck': {'diagnostics': {}, 'errors': [], 'warnings': []},
+            },
+            response.body,
+        )
+
+    def test_check_client_settings_with_settings(self):
+        client = Client({
+            'foo': {},
+            'bar': {},
+            'baz': {},
+            'qux': {},
+            'fred': {},
+        })
+
+        action_request = EnrichedActionRequest(action='status', body={}, switches=None, client=client)
+
+        baz_body = {
+            'conformity': '1.2.3',
+            'pysoa': '1.0.2',
+            'python': '3.7.4',
+            'version': '9.7.8',
+        }
+
+        with stub_action('foo', 'status') as foo_stub,\
+                stub_action('bar', 'status', errors=[Error('BAR_ERROR', 'Bar error')]),\
+                stub_action('baz', 'status', body=baz_body),\
+                stub_action('qux', 'status') as qux_stub:
+            foo_stub.return_value = JobResponse(errors=[Error('FOO_ERROR', 'Foo error')])
+            qux_stub.side_effect = MessageReceiveTimeout('Timeout calling qux')
+
+            response = _CheckOtherServicesAction()(action_request)
+
+        self.assertIsInstance(response, ActionResponse)
+        self.assertEqual(six.text_type(conformity.__version__), response.body['conformity'])
+        self.assertEqual(six.text_type(pysoa.__version__), response.body['pysoa'])
+        self.assertEqual(six.text_type(platform.python_version()), response.body['python'])
+        self.assertEqual('8.71.2', response.body['version'])
+        self.assertIn('healthcheck', response.body)
+        self.assertEqual([], response.body['healthcheck']['warnings'])
+        self.assertIn(
+            ('FOO_CALL_ERROR', six.text_type([Error('FOO_ERROR', 'Foo error')])),
+            response.body['healthcheck']['errors'],
+        )
+        self.assertIn(
+            ('BAR_STATUS_ERROR', six.text_type([Error('BAR_ERROR', 'Bar error')])),
+            response.body['healthcheck']['errors'],
+        )
+        self.assertIn(
+            ('QUX_TRANSPORT_ERROR', 'Timeout calling qux'),
+            response.body['healthcheck']['errors'],
+        )
+        fred_unknown_error_found = False
+        for error in response.body['healthcheck']['errors']:
+            if error[0] == 'FRED_UNKNOWN_ERROR':
+                fred_unknown_error_found = True
+        self.assertTrue(
+            fred_unknown_error_found,
+            'FRED_UNKNOWN_ERROR not found in %s' % (response.body['healthcheck']['errors'], ),
+        )
+        self.assertEqual(4, len(response.body['healthcheck']['errors']))
+        self.assertEqual(
+            {
+                'services': {
+                    'baz': {
+                        'conformity': '1.2.3',
+                        'pysoa': '1.0.2',
+                        'python': '3.7.4',
+                        'version': '9.7.8',
+                    },
+                },
+            },
+            response.body['healthcheck']['diagnostics'],
+        )

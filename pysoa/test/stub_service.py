@@ -21,9 +21,10 @@ from pysoa.common.types import (
     JobResponse,
 )
 from pysoa.server import Server
-from pysoa.server.action import (
-    Action,
+from pysoa.server.action import Action
+from pysoa.server.errors import (
     ActionError,
+    JobError,
 )
 
 
@@ -347,6 +348,8 @@ class stub_action(object):  # noqa
                 try:
                     mock_response = mock_action(action_request.body or {})
                     if isinstance(mock_response, JobResponse):
+                        if mock_response.errors:
+                            raise Client.JobError(errors=mock_response.errors)
                         mock_response = mock_response.actions[0]
                     elif isinstance(mock_response, dict):
                         mock_response = ActionResponse(self.action, body=mock_response)
@@ -354,6 +357,8 @@ class stub_action(object):  # noqa
                         mock_response = ActionResponse(self.action)
                 except ActionError as e:
                     mock_response = ActionResponse(self.action, errors=e.errors)
+                except JobError as e:
+                    raise Client.JobError(errors=e.errors)
                 job_response.actions.insert(i, mock_response)
             if kwargs.get('continue_on_error', False) is False:
                 # Simulate the server job halting on the first action error

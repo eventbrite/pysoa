@@ -9,6 +9,12 @@ from conformity import fields
 import six
 
 import pysoa
+from pysoa.common.transport.exceptions import (
+    MessageReceiveError,
+    MessageReceiveTimeout,
+    MessageSendError,
+    MessageSendTimeout,
+)
 from pysoa.server.action import Action
 
 
@@ -21,12 +27,12 @@ class BaseStatusAction(Action):
     If you want to use default StatusAction use StatusActionFactory(version), passing in the version of your service.
     If you do not specify an action with name `status` in your server, this will be done on your behalf.
 
-    If you want to make a custom StatusAction, subclass this class, make self._version return your service's version,
-    self._build optionally return your service's build string, and add any additional health check methods you desire.
-    Health check methods must start with the word check_.
+    If you want to make a custom StatusAction, subclass this class, make self._version return your service's version
+    string, self._build optionally return your service's build string, and add any additional health check methods you
+    desire. Health check methods must start with the word check_.
 
-    Health check methods must take no arguments, and return a list of tuples in the format
-    `(is_error, code, description)`.
+    Health check methods accept a single argument, the request object (an instance of `ActionRequest`), and return a
+    list of tuples in the format `(is_error, code, description)` (or a false-y value if there are no problems):
 
         - is_error: `True` if this is an error, `False` if it is a warning.
         - code: Invariant string for this error, like "MYSQL_FAILURE"
@@ -34,6 +40,16 @@ class BaseStatusAction(Action):
 
     Health check methods can also write to the self.diagnostics dictionary to add additional data which will be sent
     back with the response if they like. They are responsible for their own key management in this situation.
+
+    This base status action comes with a disabled-by-default health check method named `_check_client_settings` (the
+    leading underscore disables it), which calls `status` on all other services that this service is configured to call
+    (using `verbose: False`, which guarantees no further recursive status checking) and includes those responses in
+    this action's response. To enable this health check, simply reference it as a new, valid `check_` method name, like
+    so:
+
+        class MyStatusAction(BaseStatusAction):
+            ...
+            check_client_settings = BaseStatusAction._check_client_settings
     """
 
     def __init__(self, *args, **kwargs):
@@ -53,7 +69,9 @@ class BaseStatusAction(Action):
         'Returns version info for the service, Python, PySOA, and Conformity. If the service has a build string, that '
         'is also returned. If the service has defined additional health check behavior and the `verbose` request '
         'attribute is not set to `False`, those additional health checks are performed and returned in the '
-        '`healthcheck` response attribute.'
+        '`healthcheck` response attribute. If the `verbose` request attribute is set to `False`, the additional '
+        'health checks are not performed and `healthcheck` is not included in the response (importantly, the `check_` '
+        'methods are not invoked).'
     )
 
     request_schema = fields.Nullable(fields.Dictionary(
@@ -130,7 +148,11 @@ class BaseStatusAction(Action):
             check_methods = [getattr(self, x) for x in dir(self) if x.startswith('check_')]
             for check_method in check_methods:
                 # Call the check, and see if it returned anything
-                problems = check_method()
+                # TODO: Remove the try/except before 1.0.0, after all uses have been updated to accept an argument
+                try:
+                    problems = check_method(request)
+                except TypeError:
+                    problems = check_method()
                 if problems:
                     for is_error, code, description in problems:
                         # Parcel out the values into the right return list
@@ -146,6 +168,44 @@ class BaseStatusAction(Action):
             }
 
         return status
+
+    def _check_client_settings(self, request):
+        """
+        This method checks any client settings configured for this service to call other services, calls the `status`
+        action of each configured service with `verbose: False` (which guarantees no further recursive status checking),
+        adds that diagnostic information, and reports any problems. To include this check in your status action, define
+        `check_client_settings = BaseStatusAction._check_client_settings` in your status action class definition.
+        """
+        if not request.client.settings:
+            # There's no need to even add diagnostic details if no client settings are configured
+            return
+
+        self.diagnostics['services'] = {}
+
+        problems = []
+
+        for service_name, _ in six.iteritems(request.client.settings):
+            try:
+                response = request.client.call_action(service_name, 'status', body={'verbose': False}, timeout=2)
+                self.diagnostics['services'][service_name] = response.body
+            except request.client.JobError as e:
+                problems.append(
+                    (True, '{}_CALL_ERROR'.format(service_name.upper()), six.text_type(e.errors)),
+                )
+            except request.client.CallActionError as e:
+                problems.append(
+                    (True, '{}_STATUS_ERROR'.format(service_name.upper()), six.text_type(e.actions[0].errors)),
+                )
+            except (MessageReceiveError, MessageReceiveTimeout, MessageSendError, MessageSendTimeout) as e:
+                problems.append(
+                    (True, '{}_TRANSPORT_ERROR'.format(service_name.upper()), six.text_type(e)),
+                )
+            except Exception as e:
+                problems.append(
+                    (True, '{}_UNKNOWN_ERROR'.format(service_name.upper()), six.text_type(e)),
+                )
+
+        return problems
 
 
 # noinspection PyPep8Naming
