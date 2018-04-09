@@ -11,6 +11,7 @@ python:
   - '3.4'
   - '3.5'
   - '3.6'
+cache: pip
 install:
   - export PKG_CONFIG_PATH="$(python-config --prefix)/lib/pkgconfig:/opt/python/3.3.6/lib/pkgconfig:$PKG_CONFIG_PATH"
   - echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
