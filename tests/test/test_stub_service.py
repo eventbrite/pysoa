@@ -573,6 +573,160 @@ class TestStubAction(ServerTestCase):
         stub_test_action_1.assert_called_once_with({'a': 'b'})
         stub_test_action_2.assert_called_once_with({'c': 'd'})
 
+    @stub_action('test_service', 'test_action_1', body={'food': 'chicken'})
+    def test_send_receive_one_stub_simple(self, stub_test_action_1):
+        request_id = self.client.send_request('test_service', [{'action': 'test_action_1', 'body': {'menu': 'look'}}])
+
+        self.assertIsNotNone(request_id)
+
+        responses = list(self.client.get_all_responses('test_service'))
+        self.assertEqual(1, len(responses))
+
+        received_request_id, response = responses[0]
+        self.assertEqual(request_id, received_request_id)
+        self.assertIsNotNone(response)
+        self.assertEqual([], response.errors)
+        self.assertEqual(1, len(response.actions))
+        self.assertEqual([], response.actions[0].errors)
+        self.assertEqual({'food': 'chicken'}, response.actions[0].body)
+
+        stub_test_action_1.assert_called_once_with({'menu': 'look'})
+
+    @stub_action('test_service', 'test_action_1')
+    def test_send_receive_one_stub_multiple_calls(self, stub_test_action_1):
+        stub_test_action_1.side_effect = ({'look': 'menu'}, {'pepperoni': 'pizza'}, {'cheese': 'pizza'})
+
+        request_id1 = self.client.send_request(
+            'test_service',
+            [
+                {'action': 'test_action_1', 'body': {'menu': 'look'}},
+                {'action': 'test_action_1', 'body': {'pizza': 'pepperoni'}},
+            ]
+        )
+        request_id2 = self.client.send_request(
+            'test_service',
+            [
+                {'action': 'test_action_1', 'body': {'pizza': 'cheese'}},
+            ]
+        )
+
+        self.assertIsNotNone(request_id1)
+        self.assertIsNotNone(request_id2)
+
+        responses = list(self.client.get_all_responses('test_service'))
+        self.assertEqual(2, len(responses))
+
+        response_dict = {k: v for k, v in responses}
+        self.assertIn(request_id1, response_dict)
+        self.assertIn(request_id2, response_dict)
+
+        response = response_dict[request_id1]
+        self.assertIsNotNone(response)
+        self.assertEqual([], response.errors)
+        self.assertEqual(2, len(response.actions))
+        self.assertEqual([], response.actions[0].errors)
+        self.assertEqual({'look': 'menu'}, response.actions[0].body)
+        self.assertEqual({'pepperoni': 'pizza'}, response.actions[1].body)
+
+        response = response_dict[request_id2]
+        self.assertIsNotNone(response)
+        self.assertEqual([], response.errors)
+        self.assertEqual(1, len(response.actions))
+        self.assertEqual([], response.actions[0].errors)
+        self.assertEqual({'cheese': 'pizza'}, response.actions[0].body)
+
+        stub_test_action_1.assert_has_calls(
+            [
+                mock.call({'menu': 'look'}),
+                mock.call({'pizza': 'pepperoni'}),
+                mock.call({'pizza': 'cheese'}),
+            ],
+            any_order=True,
+        )
+
+    @stub_action('test_service', 'test_action_1')
+    def test_send_receive_one_stub_one_real_call_mixture(self, stub_test_action_1):
+        stub_test_action_1.side_effect = (
+            ActionResponse(action='does not matter', body={'look': 'menu'}),
+            ActionResponse(action='no', errors=[Error(code='WEIRD', field='pizza', message='Weird error about pizza')]),
+            ActionError(errors=[Error(code='COOL', message='Another error')]),
+        )
+
+        request_id1 = self.client.send_request(
+            'test_service',
+            [
+                {'action': 'test_action_1', 'body': {'menu': 'look'}},
+                {'action': 'test_action_2'},
+                {'action': 'test_action_1', 'body': {'pizza': 'pepperoni'}},
+                {'action': 'test_action_2'},
+                {'action': 'test_action_2'},
+            ],
+            continue_on_error=True,
+        )
+        request_id2 = self.client.send_request(
+            'test_service',
+            [
+                {'action': 'test_action_1', 'body': {'pizza': 'cheese'}},
+            ]
+        )
+        request_id3 = self.client.send_request(
+            'test_service',
+            [
+                {'action': 'test_action_2'},
+            ]
+        )
+
+        self.assertIsNotNone(request_id1)
+        self.assertIsNotNone(request_id2)
+        self.assertIsNotNone(request_id3)
+
+        responses = list(self.client.get_all_responses('test_service'))
+        self.assertEqual(3, len(responses))
+
+        response_dict = {k: v for k, v in responses}
+        self.assertIn(request_id1, response_dict)
+        self.assertIn(request_id2, response_dict)
+        self.assertIn(request_id3, response_dict)
+
+        response = response_dict[request_id1]
+        self.assertIsNotNone(response)
+        self.assertEqual([], response.errors)
+        self.assertEqual(5, len(response.actions))
+        self.assertEqual([], response.actions[0].errors)
+        self.assertEqual({'look': 'menu'}, response.actions[0].body)
+        self.assertEqual([], response.actions[1].errors)
+        self.assertEqual({'value': 0}, response.actions[1].body)
+        self.assertEqual(
+            [Error(code='WEIRD', field='pizza', message='Weird error about pizza')],
+            response.actions[2].errors,
+        )
+        self.assertEqual([], response.actions[3].errors)
+        self.assertEqual({'value': 0}, response.actions[3].body)
+        self.assertEqual([], response.actions[4].errors)
+        self.assertEqual({'value': 0}, response.actions[4].body)
+
+        response = response_dict[request_id2]
+        self.assertIsNotNone(response)
+        self.assertEqual([], response.errors)
+        self.assertEqual(1, len(response.actions))
+        self.assertEqual([Error(code='COOL', message='Another error')], response.actions[0].errors)
+
+        response = response_dict[request_id3]
+        self.assertIsNotNone(response)
+        self.assertEqual([], response.errors)
+        self.assertEqual(1, len(response.actions))
+        self.assertEqual([], response.actions[0].errors)
+        self.assertEqual({'value': 0}, response.actions[0].body)
+
+        stub_test_action_1.assert_has_calls(
+            [
+                mock.call({'menu': 'look'}),
+                mock.call({'pizza': 'pepperoni'}),
+                mock.call({'pizza': 'cheese'}),
+            ],
+            any_order=True,
+        )
+
 
 @stub_action('test_service', 'test_action_2')
 class TestStubActionAsDecoratedClass(ServerTestCase):

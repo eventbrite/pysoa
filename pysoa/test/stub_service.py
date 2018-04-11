@@ -1,6 +1,9 @@
 from __future__ import absolute_import, unicode_literals
 
-from collections import OrderedDict
+from collections import (
+    defaultdict,
+    OrderedDict,
+)
 from functools import wraps
 import re
 
@@ -14,13 +17,8 @@ from pysoa.client.client import (
 from pysoa.client.settings import ClientSettings
 from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.exceptions import (
-    ConnectionError,
-    InvalidMessageError,
     MessageReceiveError,
     MessageReceiveTimeout,
-    MessageSendError,
-    MessageSendTimeout,
-    MessageTooLarge,
 )
 from pysoa.common.transport.local import LocalClientTransport
 from pysoa.common.types import (
@@ -184,6 +182,19 @@ class StubServer(Server):
         self.action_class_map[action] = _make_stub_action(action, body, errors)
 
 
+class _StubActionRequestCounter(object):
+    def __init__(self):
+        self._counter = 0
+
+    def get_next(self):
+        value = self._counter
+        self._counter += 1
+        return value
+
+
+_global_stub_action_request_counter = _StubActionRequestCounter()
+
+
 class stub_action(object):  # noqa
     """
     Stub an action temporarily. This is useful for things like unit testing, where you really need to test the code
@@ -301,165 +312,178 @@ class stub_action(object):  # noqa
         self.attribute_name = None
         self.new = mock.DEFAULT
 
+        self._stub_action_responses_outstanding = defaultdict(dict)
+        self._stub_action_responses_to_merge = defaultdict(dict)
+
     def __enter__(self):
-        self._wrapped_client_call_actions_method = Client.call_actions
-        self._wrapped_client_call_jobs_parallel = Client.call_jobs_parallel
+        self._wrapped_client_send_request = Client.send_request
+        self._wrapped_client_get_all_responses = Client.get_all_responses
+        self._services_with_calls_sent_to_wrapped_client = set()
 
         mock_action = self._MockAction(name='{}.{}'.format(self.service, self.action))
 
         if self.body or self.errors:
-            mock_client = StubClient()
-            mock_client.stub_action(self.service, self.action, body=self.body, errors=self.errors)
-            mock_action.side_effect = lambda body: self._wrapped_client_call_actions_method(
-                mock_client,
-                self.service,
-                [ActionRequest(self.action, body=body)],
-                raise_action_errors=False,
+            mock_action.side_effect = lambda _: ActionResponse(self.action, errors=self.errors, body=self.body)
+
+        @wraps(Client.send_request)
+        def wrapped_send_request(client, service_name, actions, *args, **kwargs):
+            assert isinstance(service_name, six.text_type), 'Called service name "{}" must be unicode'.format(
+                service_name,
             )
 
-        @wraps(Client.call_jobs_parallel)
-        def wrapped_call_jobs_parallel(client, jobs, *args, **kwargs):
-            jobs_to_reinsert = set()
-            actions_to_reinsert = OrderedDict()
-            for j_i, job_request in enumerate(jobs):
-                service_name, actions = job_request['service_name'], job_request['actions']
-                assert isinstance(service_name, six.text_type), 'Called service name "{}" must be unicode'.format(
-                    service_name,
+            actions_to_send_to_mock = OrderedDict()
+            actions_to_send_to_wrapped_client = []
+            for i, action_request in enumerate(actions):
+                action_name = getattr(action_request, 'action', None) or action_request['action']
+                assert isinstance(action_name, six.text_type), 'Called action name "{}" must be unicode'.format(
+                    action_name,
                 )
 
-                if service_name == self.service:
-                    for a_i, action_request in enumerate(actions):
-                        action_name = getattr(action_request, 'action', None) or action_request['action']
-                        assert isinstance(action_name, six.text_type), 'Called action name "{}" must be unicode'.format(
-                            action_name,
-                        )
+                if service_name == self.service and action_name == self.action:
+                    # If the service AND action name match, we should send the request to our mocked client
+                    if not isinstance(action_request, ActionRequest):
+                        action_request = ActionRequest(**action_request)
+                    actions_to_send_to_mock[i] = action_request
+                else:
+                    # If the service OR action name DO NOT match, we should delegate the request to the wrapped client
+                    actions_to_send_to_wrapped_client.append(action_request)
 
-                        if action_name == self.action:
-                            # If the service AND action name match, we should send the request to our mocked client...
-                            if not isinstance(action_request, ActionRequest):
-                                action_request = ActionRequest(**action_request)
-                            # ...Record the exact location that this mocked action needs to get re-inserted
-                            actions_to_reinsert.setdefault(j_i, OrderedDict())[a_i] = action_request
-                            # ...Clear the action from the actions that will be passed to the original method
-                            actions[a_i] = None
+            request_id = _global_stub_action_request_counter.get_next()
 
-                    # Remove all cleared actions from this job's list of actions
-                    job_request['actions'] = [a for a in actions if a is not None]
-                    if not job_request['actions']:
-                        # If all of the job's actions have been removed...
-                        # ...Record the exact location that this mocked job needs to get re-inserted
-                        jobs_to_reinsert.add(j_i)
-                        # ...Clear the job from the jobs that will be passed to the original method
-                        jobs[j_i] = None
+            continue_on_error = kwargs.get('continue_on_error', False)
 
-            # Remove all cleared jobs from the list of jobs
-            jobs = [j for j in jobs if j is not None]
+            if actions_to_send_to_wrapped_client:
+                # If any un-stubbed actions need to be sent to the original client, send them
+                self._services_with_calls_sent_to_wrapped_client.add(service_name)
+                unwrapped_request_id = self._wrapped_client_send_request(
+                    client,
+                    service_name,
+                    actions_to_send_to_wrapped_client,
+                    *args,
+                    **kwargs
+                )
+                if not actions_to_send_to_mock:
+                    # If there are no stubbed actions to mock, just return the un-stubbed request ID
+                    return unwrapped_request_id
 
-            # Hold off on raising errors until both mock and real responses are merged
-            raise_job_errors = kwargs.get('raise_job_errors', True)
-            raise_action_errors = kwargs.get('raise_action_errors', True)
-            kwargs['raise_job_errors'] = False
-            kwargs['raise_action_errors'] = False
+                self._stub_action_responses_to_merge[service_name][unwrapped_request_id] = (
+                    request_id,
+                    continue_on_error,
+                )
 
-            if jobs:
-                job_responses = self._wrapped_client_call_jobs_parallel(client, jobs, *args, **kwargs)
-            else:
-                job_responses = []
-
-            for j_i, job_actions in six.iteritems(actions_to_reinsert):
-                if j_i in jobs_to_reinsert:
-                    job_responses.insert(j_i, JobResponse())
-                job_response = job_responses[j_i]
-
-                for a_i, action_request in six.iteritems(job_actions):
-                    try:
-                        mock_response = mock_action(action_request.body or {})
-                        if isinstance(mock_response, JobResponse):
-                            if mock_response.errors:
-                                job_response.errors = mock_response.errors
-                                break
+            ordered_actions_for_merging = OrderedDict()
+            job_response_transport_exception = None
+            job_response = JobResponse()
+            for i, action_request in actions_to_send_to_mock.items():
+                mock_response = None
+                try:
+                    mock_response = mock_action(action_request.body or {})
+                    if isinstance(mock_response, JobResponse):
+                        job_response.errors.extend(mock_response.errors)
+                        if mock_response.actions:
                             mock_response = mock_response.actions[0]
-                        elif isinstance(mock_response, dict):
-                            mock_response = ActionResponse(self.action, body=mock_response)
-                        elif not isinstance(mock_response, ActionResponse):
-                            mock_response = ActionResponse(self.action)
-                    except ActionError as e:
-                        mock_response = ActionResponse(self.action, errors=e.errors)
-                    except JobError as e:
-                        job_response.errors = e.errors
-                        break
-                    except (
-                        ConnectionError,
-                        InvalidMessageError,
-                        MessageReceiveError,
-                        MessageReceiveTimeout,
-                        MessageSendError,
-                        MessageSendTimeout,
-                        MessageTooLarge
-                    ) as e:
-                        if not kwargs.get('catch_transport_errors', False):
-                            raise
-                        job_responses[j_i] = e
-                        break
-                    job_response.actions.insert(a_i, mock_response)
-                if kwargs.get('continue_on_error', False) is False:
-                    # Simulate the server job halting on the first action error
-                    first_error_index = -1
-                    for i, action_result in enumerate(job_response.actions):
-                        if action_result.errors:
-                            first_error_index = i
-                            break
-                    if first_error_index >= 0:
-                        job_response.actions = job_response.actions[:first_error_index + 1]
+                    elif isinstance(mock_response, dict):
+                        mock_response = ActionResponse(self.action, body=mock_response)
+                    elif not isinstance(mock_response, ActionResponse):
+                        mock_response = ActionResponse(self.action)
+                except ActionError as e:
+                    mock_response = ActionResponse(self.action, errors=e.errors)
+                except JobError as e:
+                    job_response.errors.extend(e.errors)
+                except (MessageReceiveError, MessageReceiveTimeout) as e:
+                    job_response_transport_exception = e
 
-            for job_response in job_responses:
-                if isinstance(job_response, Exception):
-                    continue
-                if raise_job_errors and job_response.errors:
-                    raise client.JobError(errors=job_response.errors)
-                if raise_action_errors:
-                    error_actions = [action for action in job_response.actions if action.errors]
-                    if error_actions:
-                        raise Client.CallActionError(error_actions)
+                if mock_response:
+                    ordered_actions_for_merging[i] = mock_response
+                    job_response.actions.append(mock_response)
+                    if not continue_on_error and mock_response.errors:
+                        break
 
-            return job_responses
-        wrapped_call_jobs_parallel.description = '<stub {service}.{action} wrapper around {wrapped}>'.format(
+                if job_response.errors:
+                    break
+
+            if actions_to_send_to_wrapped_client:
+                # If the responses will have to be merged by get_all_responses, replace the list with the ordered dict
+                job_response.actions = ordered_actions_for_merging
+
+            self._stub_action_responses_outstanding[service_name][request_id] = (
+                job_response_transport_exception or job_response
+            )
+            return request_id
+        wrapped_send_request.description = '<stub {service}.{action} wrapper around {wrapped}>'.format(
             service=self.service,
             action=self.action,
-            wrapped=getattr(Client.call_jobs_parallel, 'description', Client.call_jobs_parallel.__repr__()),
+            wrapped=getattr(Client.send_request, 'description', Client.send_request.__repr__()),
         )  # This description is a helpful debugging tool
 
-        @wraps(Client.call_actions)
-        def wrapped_call_actions(client, service_name, actions, *args, **kwargs):
-            return wrapped_call_jobs_parallel(
-                client,
-                [{'service_name': service_name, 'actions': actions}],
-                *args,
-                **kwargs
-            )[0]
-        wrapped_call_actions.description = '<stub {service}.{action} wrapper around {wrapped}>'.format(
+        @wraps(Client.get_all_responses)
+        def wrapped_get_all_responses(client, service_name, *args, **kwargs):
+            if service_name in self._services_with_calls_sent_to_wrapped_client:
+                # Check if the any requests were actually sent wrapped client for this service; we do this because
+                # the service may exist solely as a stubbed service, and calling the wrapped get_all_responses
+                # will result in an error in this case.
+                for request_id, response in self._wrapped_client_get_all_responses(
+                    client,
+                    service_name,
+                    *args,
+                    **kwargs
+                ):
+                    if request_id in self._stub_action_responses_to_merge[service_name]:
+                        request_id, continue_on_error = self._stub_action_responses_to_merge[service_name].pop(
+                            request_id,
+                        )
+                        response_to_merge = self._stub_action_responses_outstanding[service_name].pop(request_id)
+
+                        if isinstance(response_to_merge, Exception):
+                            raise response_to_merge
+
+                        for i, action_response in six.iteritems(response_to_merge.actions):
+                            response.actions.insert(i, action_response)
+
+                        if not continue_on_error:
+                            # Simulate the server job halting on the first action error
+                            first_error_index = -1
+                            for i, action_result in enumerate(response.actions):
+                                if action_result.errors:
+                                    first_error_index = i
+                                    break
+                            if first_error_index >= 0:
+                                response.actions = response.actions[:first_error_index + 1]
+
+                        response.errors.extend(response_to_merge.errors)
+                    yield request_id, response
+
+            if self._stub_action_responses_to_merge[service_name]:
+                raise Exception('Something very bad happened, and there are still stubbed responses to merge!')
+
+            for request_id, response in six.iteritems(self._stub_action_responses_outstanding[service_name]):
+                if isinstance(response, Exception):
+                    raise response
+                yield request_id, response
+
+            self._stub_action_responses_outstanding[service_name] = {}
+        wrapped_get_all_responses.description = '<stub {service}.{action} wrapper around {wrapped}>'.format(
             service=self.service,
             action=self.action,
-            wrapped=getattr(Client.call_actions, 'description', Client.call_actions.__repr__()),
+            wrapped=getattr(Client.get_all_responses, 'description', Client.get_all_responses.__repr__()),
         )  # This description is a helpful debugging tool
 
-        # Wrap Client.call_actions whose original version was saved in self._wrapped_client_call_actions_method (which
-        # itself might be another wrapper if we have stubbed multiple actions).
-        Client.call_actions = wrapped_call_actions
+        # Wrap Client.send_request, whose original version was saved in self._wrapped_client_send_request (which itself
+        # might be another wrapper if we have stubbed multiple actions).
+        Client.send_request = wrapped_send_request
 
-        # Wrap Client.call_jobs_parallel whose original version was saved in
-        # self._wrapped_client_call_jobs_parallel_method (which itself might be another wrapper if we have stubbed
-        # multiple actions).
-        Client.call_jobs_parallel = wrapped_call_jobs_parallel
+        # Wrap Client.get_all_responses, whose original version was saved in self._wrapped_client_get_all_responses
+        # (which itself might be another wrapper if we have stubbed multiple actions).
+        Client.get_all_responses = wrapped_get_all_responses
 
         self.enabled = True
         return mock_action
 
     def __exit__(self, *args):
-        # Unwrap Client.call_actions to its previous version (which might itself be another wrapper if we have
-        # stubbed multiple actions).
-        Client.call_actions = self._wrapped_client_call_actions_method
-        Client.call_jobs_parallel = self._wrapped_client_call_jobs_parallel
+        # Unwrap Client.send_request and Client.get_all_responses to their previous versions (which might themselves be
+        # other wrappers if we have stubbed multiple actions).
+        Client.send_request = self._wrapped_client_send_request
+        Client.get_all_responses = self._wrapped_client_get_all_responses
         self.enabled = False
 
     def __call__(self, func):
