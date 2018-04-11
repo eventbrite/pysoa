@@ -9,12 +9,6 @@ from conformity import fields
 import six
 
 import pysoa
-from pysoa.common.transport.exceptions import (
-    MessageReceiveError,
-    MessageReceiveTimeout,
-    MessageSendError,
-    MessageSendTimeout,
-)
 from pysoa.server.action import Action
 
 
@@ -182,28 +176,38 @@ class BaseStatusAction(Action):
 
         self.diagnostics['services'] = {}
 
-        problems = []
+        service_names = list(six.iterkeys(request.client.settings))
+        try:
+            job_responses = request.client.call_jobs_parallel(
+                [
+                    {'service_name': service_name, 'actions': [{'action': 'status', 'body': {'verbose': False}}]}
+                    for service_name in service_names
+                ],
+                timeout=2,
+                catch_transport_errors=True,
+                raise_action_errors=False,
+                raise_job_errors=False,
+            )
+        except Exception as e:
+            return [(True, 'CHECK_SERVICES_UNKNOWN_ERROR', six.text_type(e))]
 
-        for service_name, _ in six.iteritems(request.client.settings):
-            try:
-                response = request.client.call_action(service_name, 'status', body={'verbose': False}, timeout=2)
-                self.diagnostics['services'][service_name] = response.body
-            except request.client.JobError as e:
+        problems = []
+        for i, service_name in enumerate(service_names):
+            response = job_responses[i]
+            if isinstance(response, Exception):
                 problems.append(
-                    (True, '{}_CALL_ERROR'.format(service_name.upper()), six.text_type(e.errors)),
+                    (True, '{}_TRANSPORT_ERROR'.format(service_name.upper()), six.text_type(response)),
                 )
-            except request.client.CallActionError as e:
+            elif response.errors:
                 problems.append(
-                    (True, '{}_STATUS_ERROR'.format(service_name.upper()), six.text_type(e.actions[0].errors)),
+                    (True, '{}_CALL_ERROR'.format(service_name.upper()), six.text_type(response.errors)),
                 )
-            except (MessageReceiveError, MessageReceiveTimeout, MessageSendError, MessageSendTimeout) as e:
+            elif response.actions[0].errors:
                 problems.append(
-                    (True, '{}_TRANSPORT_ERROR'.format(service_name.upper()), six.text_type(e)),
+                    (True, '{}_STATUS_ERROR'.format(service_name.upper()), six.text_type(response.actions[0].errors)),
                 )
-            except Exception as e:
-                problems.append(
-                    (True, '{}_UNKNOWN_ERROR'.format(service_name.upper()), six.text_type(e)),
-                )
+            else:
+                self.diagnostics['services'][service_name] = response.actions[0].body
 
         return problems
 

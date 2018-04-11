@@ -5,6 +5,11 @@ from setuptools import setup, find_packages
 from pysoa import __version__
 
 
+def readme():
+    with open('README.rst') as f:
+        return f.read()
+
+
 install_requires = [
     'enum34;python_version<"3.4"',
     'six~=1.10',
@@ -31,13 +36,7 @@ setup(
     author='Eventbrite, Inc.',
     author_email='opensource@eventbrite.com',
     description='A Python library for writing (micro)services and their clients',
-    long_description=(
-        'A general-purpose library for writing Python (micro)services and their '
-        'clients, based on an RPC (remote procedure call) calling style. '
-        'Provides both a client and a server, which can be used directly by '
-        'themselves or, extended with extra functionality using middleware. '
-        'For more, see https://github.com/eventbrite/pysoa'
-    ),
+    long_description=readme(),
     url='http://github.com/eventbrite/pysoa',
     packages=list(map(str, find_packages(exclude=['*.tests', '*.tests.*', 'tests.*', 'tests']))),
     include_package_data=True,

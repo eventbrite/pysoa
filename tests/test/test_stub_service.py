@@ -7,6 +7,7 @@ import mock
 from pysoa.client import Client
 from pysoa.common.types import (
     ActionRequest,
+    ActionResponse,
     Error,
     JobResponse,
 )
@@ -389,6 +390,188 @@ class TestStubAction(ServerTestCase):
         self.assertEqual('entity_id', response.actions[1].errors[0].field)
         self.assertEqual('Your entity ID was missing', response.actions[1].errors[0].message)
         self.assertTrue(mock_test_action_2.called)
+
+    @stub_action('test_service', 'test_action_2', body={'three': 'four'})
+    @stub_action('test_service', 'test_action_1', body={'one': 'two'})
+    def test_two_stubs_with_parallel_calls_all_stubbed(self, stub_test_action_1, stub_test_action_2):
+        job_responses = self.client.call_jobs_parallel(
+            [
+                {'service_name': 'test_service', 'actions': [{'action': 'test_action_1', 'body': {'a': 'b'}}]},
+                {'service_name': 'test_service', 'actions': [{'action': 'test_action_2', 'body': {'c': 'd'}}]},
+            ],
+        )
+
+        self.assertIsNotNone(job_responses)
+        self.assertEqual(2, len(job_responses))
+        self.assertEqual(1, len(job_responses[0].actions))
+        self.assertEqual({'one': 'two'}, job_responses[0].actions[0].body)
+        self.assertEqual(1, len(job_responses[1].actions))
+        self.assertEqual({'three': 'four'}, job_responses[1].actions[0].body)
+
+        stub_test_action_1.assert_called_once_with({'a': 'b'})
+        stub_test_action_2.assert_called_once_with({'c': 'd'})
+
+    @stub_action('test_service', 'test_action_2')
+    @mock.patch(__name__ + '._test_function')
+    def test_one_stub_with_parallel_calls(self, mock_randint, stub_test_action_2):
+        mock_randint.side_effect = (42, 17, 31)
+        stub_test_action_2.return_value = {'concert': 'tickets'}
+
+        job_responses = self.client.call_jobs_parallel(
+            [
+                {'service_name': 'test_service', 'actions': [{'action': 'test_action_1'}]},
+                {'service_name': 'test_service', 'actions': [
+                    {'action': 'test_action_2', 'body': {'slide': 'rule'}},
+                    {'action': 'test_action_1'},
+                ]},
+                {'service_name': 'test_service', 'actions': [{'action': 'test_action_1'}]},
+            ],
+        )
+
+        self.assertIsNotNone(job_responses)
+        self.assertEqual(3, len(job_responses))
+        self.assertEqual(1, len(job_responses[0].actions))
+        self.assertEqual({'value': 42}, job_responses[0].actions[0].body)
+        self.assertEqual(2, len(job_responses[1].actions))
+        self.assertEqual({'concert': 'tickets'}, job_responses[1].actions[0].body)
+        self.assertEqual({'value': 17}, job_responses[1].actions[1].body)
+        self.assertEqual(1, len(job_responses[2].actions))
+        self.assertEqual({'value': 31}, job_responses[2].actions[0].body)
+
+        stub_test_action_2.assert_called_once_with({'slide': 'rule'})
+
+    @stub_action('test_service', 'test_action_2')
+    @stub_action('test_service', 'test_action_1')
+    def test_two_stubs_with_parallel_calls(self, stub_test_action_1, stub_test_action_2):
+        stub_test_action_1.return_value = {'value': 1}
+        stub_test_action_2.return_value = {'another_value': 2}
+
+        job_responses = Client(dict(self.client.config, **_secondary_stub_client_settings)).call_jobs_parallel(
+            [
+                {'service_name': 'test_service', 'actions': [
+                    {'action': 'test_action_1', 'body': {'input_attribute': True}},
+                    {'action': 'test_action_2', 'body': {'another_variable': 'Cool'}},
+                ]},
+                {'service_name': 'cat', 'actions': [{'action': 'meow'}]},
+                {'service_name': 'dog', 'actions': [{'action': 'bark'}]},
+                {'service_name': 'test_service', 'actions': [{'action': 'does_not_exist'}]},
+            ],
+            raise_action_errors=False,
+        )
+
+        self.assertIsNotNone(job_responses)
+        self.assertEqual(4, len(job_responses))
+        self.assertEqual(2, len(job_responses[0].actions))
+        self.assertEqual({'value': 1}, job_responses[0].actions[0].body)
+        self.assertEqual({'another_value': 2}, job_responses[0].actions[1].body)
+        self.assertEqual(1, len(job_responses[1].actions))
+        self.assertEqual({'type': 'squeak'}, job_responses[1].actions[0].body)
+        self.assertEqual(1, len(job_responses[2].actions))
+        self.assertEqual({'sound': 'woof'}, job_responses[2].actions[0].body)
+        self.assertEqual(1, len(job_responses[3].actions))
+        self.assertEqual(
+            [Error(
+                code='UNKNOWN',
+                message='The action "does_not_exist" was not found on this server.',
+                field='action',
+            )],
+            job_responses[3].actions[0].errors
+        )
+
+        stub_test_action_1.assert_called_once_with({'input_attribute': True})
+        stub_test_action_2.assert_called_once_with({'another_variable': 'Cool'})
+
+    @stub_action('test_service', 'test_action_2', body={'three': 'four'})
+    @stub_action('test_service', 'test_action_1')
+    def test_two_stubs_with_parallel_calls_and_job_response_errors_raised(self, stub_test_action_1, stub_test_action_2):
+        stub_test_action_1.return_value = JobResponse(errors=[Error(code='BAD_JOB', message='You are a bad job')])
+
+        with self.assertRaises(self.client.JobError) as error_context:
+            self.client.call_jobs_parallel(
+                [
+                    {'service_name': 'test_service', 'actions': [{'action': 'test_action_1', 'body': {'a': 'b'}}]},
+                    {'service_name': 'test_service', 'actions': [{'action': 'test_action_2', 'body': {'c': 'd'}}]},
+                ],
+            )
+
+        self.assertEqual([Error(code='BAD_JOB', message='You are a bad job')], error_context.exception.errors)
+
+        stub_test_action_1.assert_called_once_with({'a': 'b'})
+        stub_test_action_2.assert_called_once_with({'c': 'd'})
+
+    @stub_action('test_service', 'test_action_2', body={'three': 'four'})
+    @stub_action('test_service', 'test_action_1')
+    def test_two_stubs_with_parallel_calls_and_job_errors_not_raised(self, stub_test_action_1, stub_test_action_2):
+        stub_test_action_1.side_effect = JobError(errors=[Error(code='BAD_JOB', message='You are a bad job')])
+
+        job_responses = self.client.call_jobs_parallel(
+            [
+                {'service_name': 'test_service', 'actions': [{'action': 'test_action_1', 'body': {'a': 'b'}}]},
+                {'service_name': 'test_service', 'actions': [{'action': 'test_action_2', 'body': {'c': 'd'}}]},
+            ],
+            raise_job_errors=False,
+        )
+
+        self.assertIsNotNone(job_responses)
+        self.assertEqual(2, len(job_responses))
+        self.assertEqual(0, len(job_responses[0].actions))
+        self.assertEqual([Error(code='BAD_JOB', message='You are a bad job')], job_responses[0].errors)
+        self.assertEqual(1, len(job_responses[1].actions))
+        self.assertEqual({'three': 'four'}, job_responses[1].actions[0].body)
+
+        stub_test_action_1.assert_called_once_with({'a': 'b'})
+        stub_test_action_2.assert_called_once_with({'c': 'd'})
+
+    @stub_action('test_service', 'test_action_2', body={'three': 'four'})
+    @stub_action('test_service', 'test_action_1')
+    def test_two_stubs_with_parallel_calls_and_action_errors_raised(self, stub_test_action_1, stub_test_action_2):
+        stub_test_action_1.side_effect = ActionError(errors=[Error(code='BAD_ACTION', message='You are a bad actor')])
+
+        with self.assertRaises(self.client.CallActionError) as error_context:
+            self.client.call_jobs_parallel(
+                [
+                    {'service_name': 'test_service', 'actions': [{'action': 'test_action_1', 'body': {'a': 'b'}}]},
+                    {'service_name': 'test_service', 'actions': [{'action': 'test_action_2', 'body': {'c': 'd'}}]},
+                ],
+            )
+
+        self.assertEqual(
+            [Error(code='BAD_ACTION', message='You are a bad actor')],
+            error_context.exception.actions[0].errors,
+        )
+
+        stub_test_action_1.assert_called_once_with({'a': 'b'})
+        stub_test_action_2.assert_called_once_with({'c': 'd'})
+
+    @stub_action('test_service', 'test_action_2', body={'three': 'four'})
+    @stub_action('test_service', 'test_action_1')
+    def test_two_stubs_with_parallel_calls_and_action_response_errors_not_raised(
+        self,
+        stub_test_action_1,
+        stub_test_action_2,
+    ):
+        stub_test_action_1.return_value = ActionResponse(
+            action='test_action_1',
+            errors=[Error(code='BAD_ACTION', message='You are a bad actor')],
+        )
+
+        job_responses = self.client.call_jobs_parallel(
+            [
+                {'service_name': 'test_service', 'actions': [{'action': 'test_action_1', 'body': {'a': 'b'}}]},
+                {'service_name': 'test_service', 'actions': [{'action': 'test_action_2', 'body': {'c': 'd'}}]},
+            ],
+            raise_action_errors=False,
+        )
+
+        self.assertIsNotNone(job_responses)
+        self.assertEqual(2, len(job_responses))
+        self.assertEqual(1, len(job_responses[0].actions))
+        self.assertEqual([Error(code='BAD_ACTION', message='You are a bad actor')], job_responses[0].actions[0].errors)
+        self.assertEqual(1, len(job_responses[1].actions))
+        self.assertEqual({'three': 'four'}, job_responses[1].actions[0].body)
+
+        stub_test_action_1.assert_called_once_with({'a': 'b'})
+        stub_test_action_2.assert_called_once_with({'c': 'd'})
 
 
 @stub_action('test_service', 'test_action_2')

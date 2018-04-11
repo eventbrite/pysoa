@@ -13,6 +13,15 @@ from pysoa.client.client import (
 )
 from pysoa.client.settings import ClientSettings
 from pysoa.common.metrics import NoOpMetricsRecorder
+from pysoa.common.transport.exceptions import (
+    ConnectionError,
+    InvalidMessageError,
+    MessageReceiveError,
+    MessageReceiveTimeout,
+    MessageSendError,
+    MessageSendTimeout,
+    MessageTooLarge,
+)
 from pysoa.common.transport.local import LocalClientTransport
 from pysoa.common.types import (
     ActionRequest,
@@ -294,6 +303,7 @@ class stub_action(object):  # noqa
 
     def __enter__(self):
         self._wrapped_client_call_actions_method = Client.call_actions
+        self._wrapped_client_call_jobs_parallel = Client.call_jobs_parallel
 
         mock_action = self._MockAction(name='{}.{}'.format(self.service, self.action))
 
@@ -307,75 +317,127 @@ class stub_action(object):  # noqa
                 raise_action_errors=False,
             )
 
-        @wraps(Client.call_actions)
-        def wrapped(client, service_name, actions, *args, **kwargs):
-            assert isinstance(service_name, six.text_type), 'Called service name "{}" must be unicode'.format(
-                service_name,
-            )
-
-            requests_to_send_to_mock_client = OrderedDict()
-            requests_to_send_to_wrapped_client = []
-            for i, action_request in enumerate(actions):
-                action_name = getattr(action_request, 'action', None) or action_request['action']
-                assert isinstance(action_name, six.text_type), 'Called action name "{}" must be unicode'.format(
-                    action_name,
-                )
-
-                if service_name == self.service and action_name == self.action:
-                    # If the service AND action name match, we should send the request to our mocked client
-                    if not isinstance(action_request, ActionRequest):
-                        action_request = ActionRequest(action_request)
-                    requests_to_send_to_mock_client[i] = action_request
-                else:
-                    # If the service OR action name DO NOT match, we should delegate the request to the wrapped client
-                    requests_to_send_to_wrapped_client.append(action_request)
-
-            # Hold off on raising action errors until both mock and real responses are merged
-            raise_action_errors = kwargs.get('raise_action_errors', True)
-            kwargs['raise_action_errors'] = False
-            # Run the real and mocked jobs and merge the results, to simulate a single job
-            if requests_to_send_to_wrapped_client:
-                job_response = self._wrapped_client_call_actions_method(
-                    client,
+        @wraps(Client.call_jobs_parallel)
+        def wrapped_call_jobs_parallel(client, jobs, *args, **kwargs):
+            jobs_to_reinsert = set()
+            actions_to_reinsert = OrderedDict()
+            for j_i, job_request in enumerate(jobs):
+                service_name, actions = job_request['service_name'], job_request['actions']
+                assert isinstance(service_name, six.text_type), 'Called service name "{}" must be unicode'.format(
                     service_name,
-                    requests_to_send_to_wrapped_client,
-                    *args,
-                    **kwargs
                 )
-            else:
-                job_response = JobResponse()
-            for i, action_request in requests_to_send_to_mock_client.items():
-                try:
-                    mock_response = mock_action(action_request.body or {})
-                    if isinstance(mock_response, JobResponse):
-                        if mock_response.errors:
-                            raise Client.JobError(errors=mock_response.errors)
-                        mock_response = mock_response.actions[0]
-                    elif isinstance(mock_response, dict):
-                        mock_response = ActionResponse(self.action, body=mock_response)
-                    elif not isinstance(mock_response, ActionResponse):
-                        mock_response = ActionResponse(self.action)
-                except ActionError as e:
-                    mock_response = ActionResponse(self.action, errors=e.errors)
-                except JobError as e:
-                    raise Client.JobError(errors=e.errors)
-                job_response.actions.insert(i, mock_response)
-            if kwargs.get('continue_on_error', False) is False:
-                # Simulate the server job halting on the first action error
-                first_error_index = -1
-                for i, action_result in enumerate(job_response.actions):
-                    if action_result.errors:
-                        first_error_index = i
-                        break
-                if first_error_index >= 0:
-                    job_response.actions = job_response.actions[:first_error_index + 1]
-            if raise_action_errors:
-                error_actions = [action for action in job_response.actions if action.errors]
-                if error_actions:
-                    raise Client.CallActionError(error_actions)
 
-            return job_response
-        wrapped.description = '<stub {service}.{action} wrapper around {wrapped}>'.format(
+                if service_name == self.service:
+                    for a_i, action_request in enumerate(actions):
+                        action_name = getattr(action_request, 'action', None) or action_request['action']
+                        assert isinstance(action_name, six.text_type), 'Called action name "{}" must be unicode'.format(
+                            action_name,
+                        )
+
+                        if action_name == self.action:
+                            # If the service AND action name match, we should send the request to our mocked client...
+                            if not isinstance(action_request, ActionRequest):
+                                action_request = ActionRequest(**action_request)
+                            # ...Record the exact location that this mocked action needs to get re-inserted
+                            actions_to_reinsert.setdefault(j_i, OrderedDict())[a_i] = action_request
+                            # ...Clear the action from the actions that will be passed to the original method
+                            actions[a_i] = None
+
+                    # Remove all cleared actions from this job's list of actions
+                    job_request['actions'] = [a for a in actions if a is not None]
+                    if not job_request['actions']:
+                        # If all of the job's actions have been removed...
+                        # ...Record the exact location that this mocked job needs to get re-inserted
+                        jobs_to_reinsert.add(j_i)
+                        # ...Clear the job from the jobs that will be passed to the original method
+                        jobs[j_i] = None
+
+            # Remove all cleared jobs from the list of jobs
+            jobs = [j for j in jobs if j is not None]
+
+            # Hold off on raising errors until both mock and real responses are merged
+            raise_job_errors = kwargs.get('raise_job_errors', True)
+            raise_action_errors = kwargs.get('raise_action_errors', True)
+            kwargs['raise_job_errors'] = False
+            kwargs['raise_action_errors'] = False
+
+            if jobs:
+                job_responses = self._wrapped_client_call_jobs_parallel(client, jobs, *args, **kwargs)
+            else:
+                job_responses = []
+
+            for j_i, job_actions in six.iteritems(actions_to_reinsert):
+                if j_i in jobs_to_reinsert:
+                    job_responses.insert(j_i, JobResponse())
+                job_response = job_responses[j_i]
+
+                for a_i, action_request in six.iteritems(job_actions):
+                    try:
+                        mock_response = mock_action(action_request.body or {})
+                        if isinstance(mock_response, JobResponse):
+                            if mock_response.errors:
+                                job_response.errors = mock_response.errors
+                                break
+                            mock_response = mock_response.actions[0]
+                        elif isinstance(mock_response, dict):
+                            mock_response = ActionResponse(self.action, body=mock_response)
+                        elif not isinstance(mock_response, ActionResponse):
+                            mock_response = ActionResponse(self.action)
+                    except ActionError as e:
+                        mock_response = ActionResponse(self.action, errors=e.errors)
+                    except JobError as e:
+                        job_response.errors = e.errors
+                        break
+                    except (
+                        ConnectionError,
+                        InvalidMessageError,
+                        MessageReceiveError,
+                        MessageReceiveTimeout,
+                        MessageSendError,
+                        MessageSendTimeout,
+                        MessageTooLarge
+                    ) as e:
+                        if not kwargs.get('catch_transport_errors', False):
+                            raise
+                        job_responses[j_i] = e
+                        break
+                    job_response.actions.insert(a_i, mock_response)
+                if kwargs.get('continue_on_error', False) is False:
+                    # Simulate the server job halting on the first action error
+                    first_error_index = -1
+                    for i, action_result in enumerate(job_response.actions):
+                        if action_result.errors:
+                            first_error_index = i
+                            break
+                    if first_error_index >= 0:
+                        job_response.actions = job_response.actions[:first_error_index + 1]
+
+            for job_response in job_responses:
+                if isinstance(job_response, Exception):
+                    continue
+                if raise_job_errors and job_response.errors:
+                    raise client.JobError(errors=job_response.errors)
+                if raise_action_errors:
+                    error_actions = [action for action in job_response.actions if action.errors]
+                    if error_actions:
+                        raise Client.CallActionError(error_actions)
+
+            return job_responses
+        wrapped_call_jobs_parallel.description = '<stub {service}.{action} wrapper around {wrapped}>'.format(
+            service=self.service,
+            action=self.action,
+            wrapped=getattr(Client.call_jobs_parallel, 'description', Client.call_jobs_parallel.__repr__()),
+        )  # This description is a helpful debugging tool
+
+        @wraps(Client.call_actions)
+        def wrapped_call_actions(client, service_name, actions, *args, **kwargs):
+            return wrapped_call_jobs_parallel(
+                client,
+                [{'service_name': service_name, 'actions': actions}],
+                *args,
+                **kwargs
+            )[0]
+        wrapped_call_actions.description = '<stub {service}.{action} wrapper around {wrapped}>'.format(
             service=self.service,
             action=self.action,
             wrapped=getattr(Client.call_actions, 'description', Client.call_actions.__repr__()),
@@ -383,7 +445,13 @@ class stub_action(object):  # noqa
 
         # Wrap Client.call_actions whose original version was saved in self._wrapped_client_call_actions_method (which
         # itself might be another wrapper if we have stubbed multiple actions).
-        Client.call_actions = wrapped
+        Client.call_actions = wrapped_call_actions
+
+        # Wrap Client.call_jobs_parallel whose original version was saved in
+        # self._wrapped_client_call_jobs_parallel_method (which itself might be another wrapper if we have stubbed
+        # multiple actions).
+        Client.call_jobs_parallel = wrapped_call_jobs_parallel
+
         self.enabled = True
         return mock_action
 
@@ -391,6 +459,7 @@ class stub_action(object):  # noqa
         # Unwrap Client.call_actions to its previous version (which might itself be another wrapper if we have
         # stubbed multiple actions).
         Client.call_actions = self._wrapped_client_call_actions_method
+        Client.call_jobs_parallel = self._wrapped_client_call_jobs_parallel
         self.enabled = False
 
     def __call__(self, func):
