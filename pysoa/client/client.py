@@ -6,6 +6,7 @@ import time
 import uuid
 
 import attr
+from collections import OrderedDict
 import six
 
 from pysoa.client.expander import ExpansionConverter
@@ -34,6 +35,7 @@ class ServiceHandler(object):
     _transport_cache = {}
 
     def __init__(self, service_name, settings):
+        self.service_name = service_name
         self.metrics = settings['metrics']['object'](**settings['metrics'].get('kwargs', {}))
 
         transport_cache_time_in_seconds = 0
@@ -64,6 +66,7 @@ class ServiceHandler(object):
         # Make sure the request counter starts at a random location to avoid clashing with other clients
         # sharing the same connection
         self.request_counter = random.randint(1, 1000000)
+        self.unexpected_responses = OrderedDict()
 
     @staticmethod
     def _construct_transport(service_name, metrics, settings, metrics_key='client.transport.initialize'):
@@ -134,6 +137,9 @@ class ServiceHandler(object):
             self.metrics.commit()
 
     def _get_response(self, receive_timeout_in_seconds=None):
+        if self.unexpected_responses:
+            return self.unexpected_responses.popitem(last=False)
+
         with self.metrics.timer('client.receive.excluding_middleware', resolution=TimerResolution.MICROSECONDS):
             request_id, meta, message = self.transport.receive_response_message(receive_timeout_in_seconds)
             if message is None:
@@ -155,6 +161,11 @@ class ServiceHandler(object):
 
         :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
         """
+
+        # Return all previously unexpected responses first
+        #while self.unexpected_responses:
+        #    yield self.unexpected_responses.popitem(last=False)
+
         wrapper = self._make_middleware_stack(
             [m.response for m in self.middleware],
             self._get_response,
@@ -168,6 +179,45 @@ class ServiceHandler(object):
                 yield request_id, response
         finally:
             self.metrics.commit()
+
+    def get_response_for_request(self, expected_request_id, receive_timeout_in_seconds=None):
+        """
+        Receive the response for a particular request.
+
+        :param expected_request_id: ID of a request previously made via send_request.
+        :type expected_request_id: int
+        :param receive_timeout_in_seconds: How long to block without receiving a message before raising
+                                           `MessageReceiveTimeout` (defaults to five seconds unless the settings are
+                                           otherwise).
+        :type receive_timeout_in_seconds: int
+
+        :return: The expected JobResponse object.
+        :rtype: JobResponse
+
+        :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
+        """
+        unexpected_responses = OrderedDict()
+
+        try:
+            start_time = time.time()
+            if receive_timeout_in_seconds is None:
+                end_time = 500 #six.sys.maxsize
+            else:
+                end_time = start_time + receive_timeout_in_seconds
+
+            while start_time < end_time:
+                receive_timeout_in_seconds = int(end_time - start_time)
+                for request_id, response in self.get_all_responses(receive_timeout_in_seconds):
+                    if request_id != expected_request_id:
+                        unexpected_responses[request_id] = response
+                    else:
+                        return response
+                start_time = time.time()
+        finally:
+            self.unexpected_responses = unexpected_responses
+
+        # Expected message not received within the allotted time.
+        raise MessageReceiveTimeout('Expected message not received for service {}'.format(self.service_name))
 
 
 class Client(object):
@@ -341,11 +391,10 @@ class Client(object):
             kwargs['message_expiry_in_seconds'] = timeout
 
         request_id = self.send_request(service_name, actions, **kwargs)
-        # Dump everything from the generator. There should only be one response.
-        responses = list(self.get_all_responses(service_name, receive_timeout_in_seconds=timeout))
-        response_id, response = responses[0]
-        if response_id != request_id:
-            raise Exception('Got response with ID {} for request with ID {}'.format(response_id, request_id))
+
+        # Wait for the expected response
+        response = self.get_response_for_request(service_name, request_id, receive_timeout_in_seconds=timeout)
+
         # Process errors at the Job and Action level
         if response.errors:
             raise self.JobError(response.errors)
@@ -769,3 +818,25 @@ class Client(object):
 
         handler = self._get_handler(service_name)
         return handler.get_all_responses(receive_timeout_in_seconds)
+
+    def get_response_for_request(self, service_name, request_id, receive_timeout_in_seconds=None):
+        """
+        Receive the response for a particular request.
+
+        :param service_name: The name of the service from which to receive the response
+        :type service_name: union[str, unicode]
+        :param request_id: The ID of a request previously made via send_request.
+        :type request_id: int
+        :param receive_timeout_in_seconds: How long to block without receiving a message before raising
+                                           `MessageReceiveTimeout` (defaults to five seconds unless the settings are
+                                           otherwise).
+        :type receive_timeout_in_seconds: int
+
+        :return: The expected JobResponse object.
+        :rtype: JobResponse
+
+        :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
+        """
+
+        handler = self._get_handler(service_name)
+        return handler.get_response_for_request(request_id, receive_timeout_in_seconds)
