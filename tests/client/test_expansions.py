@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 from unittest import TestCase
 
 from pysoa.client.client import Client
+from pysoa.test.stub_service import stub_action
 
 
 class TestClientWithExpansions(TestCase):
@@ -242,6 +243,230 @@ class TestClientWithExpansions(TestCase):
                 'car_type': ['automaker_rule'],
             },
         )
+        self.assertEqual(
+            response.actions[0].body,
+            expected_book_response,
+        )
+
+        self.assertEqual(
+            response.actions[1].body,
+            expected_car_response,
+        )
+
+    def test_call_actions_with_expansions_and_stubbed_initial_call(self):
+        expected_book_response = {
+            'book_obj': {
+                '_type': 'book_type',
+                'id': 10573,
+                'author_id': 2,
+                'publish_id': 3,
+                'author_profile': {
+                    '_type': 'author_type',
+                    'id': 2,
+                    'stuff': 'things',
+                },
+                'publisher_profile': {
+                    '_type': 'publisher_type',
+                    'id': 3,
+                    'address_id': 4,
+                    'address_profile': {
+                        '_type': 'address_type',
+                        'id': 4,
+                    },
+                },
+            },
+        }
+        expected_car_response = {
+            'car_obj': {
+                '_type': 'car_type',
+                'id': 5,
+                'automaker_id': 6,
+                'automaker_profile': {
+                    '_type': 'auto_type',
+                    'id': 6,
+                },
+            },
+        }
+
+        with stub_action('book_info_service', 'get_book', body={'book_obj': {
+            '_type': 'book_type',
+            'id': 10573,
+            'author_id': 2,
+            'publish_id': 3,
+        }}):
+            response = self.client.call_actions(
+                service_name='book_info_service',
+                actions=[
+                    {
+                        'action': 'get_book',
+                        'body': {
+                            'id': 1,
+                        },
+                    },
+                    {
+                        'action': 'get_car',
+                        'body': {
+                            'id': 5,
+                        }
+                    },
+                ],
+                expansions={
+                    'book_type': ['author_rule', 'publisher_rule.address_rule'],
+                    'car_type': ['automaker_rule'],
+                },
+            )
+        self.assertEqual(
+            response.actions[0].body,
+            expected_book_response,
+        )
+
+        self.assertEqual(
+            response.actions[1].body,
+            expected_car_response,
+        )
+
+    def test_call_actions_with_expansions_and_stubbed_expansion_call(self):
+        expected_book_response = {
+            'book_obj': {
+                '_type': 'book_type',
+                'id': 1,
+                'author_id': 2,
+                'publish_id': 3,
+                'author_profile': {
+                    '_type': 'author_type',
+                    'id': 201838,
+                    'things': 'stuff',
+                },
+                'publisher_profile': {
+                    '_type': 'publisher_type',
+                    'id': 3,
+                    'address_id': 4,
+                    'address_profile': {
+                        '_type': 'address_type',
+                        'id': 4,
+                    },
+                },
+            },
+        }
+        expected_car_response = {
+            'car_obj': {
+                '_type': 'car_type',
+                'id': 5,
+                'automaker_id': 6,
+                'automaker_profile': {
+                    '_type': 'auto_type',
+                    'id': 6,
+                },
+            },
+        }
+
+        with stub_action('author_info_service', 'get_authors_by_ids', body={'authors_detail': {
+            '2': {
+                '_type': 'author_type',
+                'id': 201838,
+                'things': 'stuff',
+            },
+        }}):
+            response = self.client.call_actions(
+                service_name='book_info_service',
+                actions=[
+                    {
+                        'action': 'get_book',
+                        'body': {
+                            'id': 1,
+                        },
+                    },
+                    {
+                        'action': 'get_car',
+                        'body': {
+                            'id': 5,
+                        }
+                    },
+                ],
+                expansions={
+                    'book_type': ['author_rule', 'publisher_rule.address_rule'],
+                    'car_type': ['automaker_rule'],
+                },
+            )
+        self.assertEqual(
+            response.actions[0].body,
+            expected_book_response,
+        )
+
+        self.assertEqual(
+            response.actions[1].body,
+            expected_car_response,
+        )
+
+    def test_call_actions_with_expansions_and_stubbed_initial_and_expansion_calls(self):
+        expected_book_response = {
+            'book_obj': {
+                '_type': 'book_type',
+                'id': 10573,
+                'author_id': 2,
+                'publish_id': 3,
+                'author_profile': {
+                    '_type': 'author_type',
+                    'id': 201838,
+                    'things': 'stuff',
+                },
+                'publisher_profile': {
+                    '_type': 'publisher_type',
+                    'id': 3,
+                    'address_id': 4,
+                    'address_profile': {
+                        '_type': 'address_type',
+                        'id': 4,
+                    },
+                },
+            },
+        }
+        expected_car_response = {
+            'car_obj': {
+                '_type': 'car_type',
+                'id': 5,
+                'automaker_id': 6,
+                'automaker_profile': {
+                    '_type': 'auto_type',
+                    'id': 6,
+                },
+            },
+        }
+
+        with stub_action('author_info_service', 'get_authors_by_ids', body={'authors_detail': {
+            '2': {
+                '_type': 'author_type',
+                'id': 201838,
+                'things': 'stuff',
+            },
+        }}), \
+                stub_action('book_info_service', 'get_book', body={'book_obj': {
+                    '_type': 'book_type',
+                    'id': 10573,
+                    'author_id': 2,
+                    'publish_id': 3,
+                }}):
+            response = self.client.call_actions(
+                service_name='book_info_service',
+                actions=[
+                    {
+                        'action': 'get_book',
+                        'body': {
+                            'id': 1,
+                        },
+                    },
+                    {
+                        'action': 'get_car',
+                        'body': {
+                            'id': 5,
+                        }
+                    },
+                ],
+                expansions={
+                    'book_type': ['author_rule', 'publisher_rule.address_rule'],
+                    'car_type': ['automaker_rule'],
+                },
+            )
         self.assertEqual(
             response.actions[0].body,
             expected_book_response,
