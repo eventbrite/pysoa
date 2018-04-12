@@ -290,8 +290,9 @@ To satisfy an expansion, the expansion processing code needs to know which servi
         <type>: {
             <expansion name>: {
                 "type": <expansion type>,
+                "route": <expansion route>,
                 "source_field": <source field name>,
-                "dest_field": <destination field name>,
+                "destination_field": <destination field name>,
                 "raise_action_errors": <bool>,
             },
             ...
@@ -303,7 +304,8 @@ Key:
 
 - ``<type>``: A type for which you are defining expansions.
 - ``<expansion name>``: The name of an expansion.
-- ``<expansion type>``: The type of the expansion. This is used to look up the appropriate expansion route in the Type Route Configuration.
+- ``<expansion type>``: The type of the expansion. This is used to look up the type for nested expansions.
+- ``<expansion route>``: The route to the expansion. This is used to look up the appropriate expansion route in the Type Route Configuration.
 - ``<source field name>``: The name of the field on an object of type ``<type>`` that contains the value of the expansion identifier.
 - ``<destination field name>``: The name of the field on an object of type ``<type>`` that will be filled with the expanded value.
 
@@ -317,7 +319,7 @@ Consider a ``Client`` with the following expansions config::
 
     {
         "type_routes": {
-            "bar": {
+            "bar_route": {
                 "service": "bar_example",
                 "action": "get_bar",
                 "request_field": "id",
@@ -328,8 +330,9 @@ Consider a ``Client`` with the following expansions config::
             "foo": {
                 "bar": {
                     "type": "bar",
+                    "route": "bar_route",
                     "source_field": "bar_id",
-                    "dest_field": "bar",
+                    "destination_field": "bar",
                 },
             },
         },
@@ -390,7 +393,7 @@ The ``bar_example`` service returns the following response::
         },
     }
 
-The ``bar_example`` response is added to the original response from the ``foo_example`` service, replacing the ``bar_id`` field (``source_field``) with the ``bar`` field  (``dest_field``). The final response body looks like::
+The ``bar_example`` response is added to the original response from the ``foo_example`` service, replacing the ``bar_id`` field (``source_field``) with the ``bar`` field  (``destination_field``). The final response body looks like::
 
     {
         "foo": {

@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+import collections
 import random
 import time
 import uuid
@@ -352,8 +353,10 @@ class Client(object):
             error_actions = [action for action in response.actions if action.errors]
             if error_actions:
                 raise self.CallActionError(error_actions)
+
         if expansions:
-            self._perform_expansion(response.actions, expansions)
+            kwargs.pop('continue_on_error', None)
+            self._perform_expansion(response.actions, expansions, **kwargs)
 
         return response
 
@@ -539,11 +542,12 @@ class Client(object):
             responses.append(response)
 
         if expansions:
-            self._perform_expansion(actions_to_expand, expansions)
+            kwargs.pop('continue_on_error', None)
+            self._perform_expansion(actions_to_expand, expansions, **kwargs)
 
         return responses
 
-    def _perform_expansion(self, actions, expansions):
+    def _perform_expansion(self, actions, expansions, **kwargs):
         # Perform expansions
         if expansions and hasattr(self, 'expansion_converter'):
             try:
@@ -551,84 +555,99 @@ class Client(object):
             except KeyError as e:
                 raise self.InvalidExpansionKey('Invalid key in expansion request: {}'.format(e.args[0]))
             else:
-                self._expand_objects(objects_to_expand)
+                self._expand_objects(objects_to_expand, **kwargs)
 
     def _extract_candidate_objects(self, actions, expansions):
         # Build initial list of objects to expand
         objects_to_expand = []
         for type_node in self.expansion_converter.dict_to_trees(expansions):
             for action in actions:
-                exp_objects = type_node.find_objects(action.body)
+                expansion_objects = type_node.find_objects(action.body)
                 objects_to_expand.extend(
-                    (exp_object, type_node.expansions)
-                    for exp_object in exp_objects
+                    (expansion_object, type_node.expansions)
+                    for expansion_object in expansion_objects
                 )
         return objects_to_expand
 
-    def _expand_objects(self, objects_to_expand):
-            # Keep track of expansion action errors that need to be raised
-            expansion_errors = []
-            # Initialize service request cache
-            exp_service_requests = {}
-            # Loop until we have no outstanding requests or responses
-            while objects_to_expand or any(exp_service_requests.values()):
-                # Send pending expansion requests to services
-                for obj_to_expand, expansion_nodes in objects_to_expand:
-                    for expansion_node in expansion_nodes:
-                        # Only expand if expansion has not already been satisfied
-                        if expansion_node.dest_field not in obj_to_expand:
-                            # Get the cached expansion identifier value
-                            value = obj_to_expand[expansion_node.source_field]
-                            # Call the action and map the request_id to the
-                            # object we're expanding and the corresponding
-                            # expansion node.
-                            request_id = self.send_request(
-                                expansion_node.service,
-                                actions=[ActionRequest(
-                                    action=expansion_node.action,
-                                    body={expansion_node.request_field: [value]}
-                                )],
-                                continue_on_error=False,
-                            )
-                            exp_service_requests.setdefault(expansion_node.service, {})[request_id] = {
-                                'object': obj_to_expand,
-                                'expansion': expansion_node,
-                            }
+    def _expand_objects(self, objects_to_expand, **kwargs):
+        # Keep track of expansion action errors that need to be raised
+        expansion_errors_to_raise = []
+        # Loop until we have no outstanding objects to expand
+        while objects_to_expand:
+            # Form a collection of optimized bulk requests that need to be made, a map of service name to a map of
+            # action names to a dict instructing how to call the action and with what parameters
+            pending_expansion_requests = collections.defaultdict(lambda: collections.defaultdict(dict))
 
-                # We have expanded all pending objects. Empty the queue.
-                objects_to_expand = []
+            # Initialize mapping of service request IDs to expansion objects
+            expansion_service_requests = collections.defaultdict(dict)
 
-                # Receive expansion responses from services for which we have
-                # outstanding requests
-                for exp_service, exp_requests in exp_service_requests.items():
-                    if exp_requests:
-                        # Receive all available responses from the service
-                        for exp_request_id, exp_response in self.get_all_responses(exp_service):
-                            # Pop the request mapping off the list of pending
-                            # requests and get the value of the expansion from the
-                            # response.
-                            exp_request = exp_requests.pop(exp_request_id)
-                            exp_object = exp_request['object']
-                            expansion_node = exp_request['expansion']
-                            exp_action_response = exp_response.actions[0]
-                            if exp_action_response.errors and expansion_node.raise_action_errors:
-                                expansion_errors.append(exp_action_response)
+            # Formulate pending expansion requests to services
+            for object_to_expand, expansion_nodes in objects_to_expand:
+                for expansion_node in expansion_nodes:
+                    # Only expand if expansion has not already been satisfied and object contains truth-y source field
+                    if (
+                        expansion_node.destination_field not in object_to_expand and
+                        object_to_expand.get(expansion_node.source_field)
+                    ):
+                        # Get the expansion identifier value
+                        value = object_to_expand[expansion_node.source_field]
+                        # Call the action and map the request_id to the object we're expanding and the corresponding
+                        # expansion node.
+                        request_instruction = pending_expansion_requests[expansion_node.service][expansion_node.action]
+                        request_instruction.setdefault('field', expansion_node.request_field)
+                        request_instruction.setdefault('values', set()).add(value)
+                        request_instruction.setdefault('object_nodes', []).append({
+                            'object': object_to_expand,
+                            'expansion': expansion_node,
+                        })
+
+            # Make expansion requests
+            for service_name, actions in six.iteritems(pending_expansion_requests):
+                for action_name, instructions in six.iteritems(actions):
+                    request_id = self.send_request(
+                        service_name,
+                        actions=[
+                            {'action': action_name, 'body': {instructions['field']: list(instructions['values'])}},
+                        ],
+                        **kwargs
+                    )
+                    expansion_service_requests[service_name][request_id] = instructions['object_nodes']
+
+            # We have queued up requests for all expansions. Empty the queue, but we may add more to it.
+            objects_to_expand = []
+
+            # Receive expansion responses from services for which we have outstanding requests
+            for service_name, request_ids_to_objects in expansion_service_requests.items():
+                if request_ids_to_objects:
+                    # Receive all available responses from the service
+                    for request_id, response in self.get_all_responses(service_name):
+                        # Pop the request mapping off the list of pending requests and get the value of the expansion
+                        # from the response.
+                        for object_node in request_ids_to_objects.pop(request_id):
+                            object_to_expand = object_node['object']
+                            expansion_node = object_node['expansion']
+
+                            action_response = response.actions[0]
+                            if action_response.errors and expansion_node.raise_action_errors:
+                                expansion_errors_to_raise.append(action_response)
+
                             # If everything is okay, replace the expansion object with the response value
-                            if exp_action_response.body:
-                                value = exp_action_response.body[expansion_node.response_field]
-                                # Add the expansion value to the object
-                                # Assume there is one item, and discard the id-key
-                                (dest_obj, ) = value.values()
-                                exp_object[expansion_node.dest_field] = dest_obj
+                            if action_response.body:
+                                values = action_response.body[expansion_node.response_field]
+                                response_key = object_to_expand[expansion_node.source_field]
+                                if response_key in values:
+                                    # It's okay if there isn't a matching value for this expansion; just means no match
+                                    object_to_expand[expansion_node.destination_field] = values[response_key]
 
-                            # Potentially add additional pending expansion requests.
-                            if expansion_node.expansions:
-                                objects_to_expand.extend(
-                                    (exp_object, expansion_node.expansions)
-                                    for exp_object in expansion_node.find_objects(value)
-                                )
-            if expansion_errors:
-                raise self.CallActionError(expansion_errors)
+                                # Potentially add additional pending expansion requests.
+                                if expansion_node.expansions:
+                                    objects_to_expand.extend(
+                                        (exp_object, expansion_node.expansions)
+                                        for exp_object in expansion_node.find_objects(values)
+                                    )
+
+            if expansion_errors_to_raise:
+                raise self.CallActionError(expansion_errors_to_raise)
 
     # Asynchronous request and response methods
 
