@@ -6,7 +6,6 @@ import time
 import uuid
 
 import attr
-from collections import OrderedDict
 import six
 
 from pysoa.client.expander import ExpansionConverter

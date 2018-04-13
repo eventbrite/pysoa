@@ -538,8 +538,9 @@ class stub_action(object):  # noqa
         # (which itself might be another wrapper if we have stubbed multiple actions).
         Client.get_all_responses = wrapped_get_all_responses
 
-        # Wrap Client.get_response_for_request, whose original version was saved in self._wrapped_client_get_response_for_request
-        # (which itself might be another wrapper if we have stubbed multiple actions).
+        # Wrap Client.get_response_for_request, whose original version was saved in
+        # self._wrapped_client_get_response_for_request (which itself might be another wrapper if we have stubbed
+        # multiple actions).
         Client.get_response_for_request = wrapped_get_response_for_request
 
         self.enabled = True
