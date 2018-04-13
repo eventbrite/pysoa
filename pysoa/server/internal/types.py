@@ -4,7 +4,7 @@ import six
 class SwitchSet(frozenset):
     """Immutable set subtype for interacting with switches"""
 
-    def __new__(cls, switches=[]):
+    def __new__(cls, switches=None):
         """Create a new SwitchSet instance
 
         Args:
@@ -19,7 +19,7 @@ class SwitchSet(frozenset):
 
         return super(SwitchSet, cls).__new__(
             cls,
-            cls._process_switches(switches),
+            cls._process_switches(switches or []),
         )
 
     def __contains__(self, switch):

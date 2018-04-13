@@ -1,0 +1,61 @@
+# This is a simple comment that should be ignored
+test name: root_action_returns_7_from_49
+test description: Test that the root action returns the number 7 for input 49
+root: input int: number: 49
+root: expect: no errors
+root: expect int: attribute value: number_root: 7
+
+test name: root_action_returns_3_from_27_and_3
+test description: Test that the root action returns the number 3 for input 27 and base 3
+root: input int: number: 27
+root: input int: base: 3
+root: expect: no errors
+root: expect int: attribute value: number_root: 3
+root: expect not present: attribute value: number
+root: expect not present: attribute value: base
+
+test name: root_action_returns_4_from_1024_and_5
+test description: Test that the root action returns the number 4 for input 1024 and base 5
+root: input int: number: 1024
+root: input int: base: 5
+root: expect: no errors
+root: expect int: attribute value: number_root: 4
+root: expect: not attribute value: number:
+root: expect: not attribute value: base:
+
+test name: root_action_does_not_accept_float_input
+test description: Test that the root action returns errors with a float input
+root: input float: number: 7.9
+root: expect: error: code = INVALID, field = number
+root: expect: not error: code = INVALID, field = base
+
+test name: root_action_does_not_accept_float_base
+test description: Test that the root action returns errors with a float base
+root: input int: number: 64
+root: input float: base: 2.5
+root: expect: exact error: code = INVALID, field = base
+
+test name: root_action_does_not_accept_float_input_with_message
+test description: Test that the root action returns errors with a float input
+root: input float: number: 7.9
+root: expect: error: code = INVALID, message = Not a integer
+
+test name: root_action_does_not_accept_float_input_with_field_and_message
+test description: Test that the root action returns errors with a float input
+root: input float: number: 7.9
+root: expect: error: code = INVALID, field = number, message = Not a integer
+root: expect: not error: code = INVALID, field = base, message = Not a integer
+
+test name: can_trigger_multiple_errors
+test description: Test that we can trigger multiple errors
+root: input float: number: 8.1
+root: input float: base: 2.3
+root: expect: error: code = INVALID, field = number
+root: expect: error: code = INVALID, field = base
+
+test name: can_trigger_multiple_exact_errors
+test description: Test that we can trigger multiple exact errors with no other errors
+root: input float: number: 8.1
+root: input float: base: 2.3
+root: expect: exact error: code = INVALID, field = number
+root: expect: exact error: code = INVALID, field = base

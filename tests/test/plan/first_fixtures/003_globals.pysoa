@@ -1,0 +1,37 @@
+# In this file, we test that globals work properly
+stubbed_out: global input int: user_id: 56
+echo: global job context input int: switches.0: 5
+echo: global job context input int: switches.1: 7
+echo: global job context input str: locale: es_SP
+echo: global job context input str: correlation_id: 1234abc5678def
+echo: global job control input str: remote_control: play
+echo: global input: food: sands
+echo: global input: drink: trees
+echo: global expect: no errors
+echo: global expect str: attribute value: request_body.food: sands
+echo: global expect str: attribute value: request_context.correlation_id: 1234abc5678def
+
+test name: unaltered
+test description: Test that all the globals are echoed unaltered
+echo: expect str: attribute value: request_body.drink: trees
+echo: expect str: attribute value: request_context.locale: es_SP
+echo: expect int: attribute value: request_switches.0: 5
+echo: expect int: attribute value: request_switches.1: 7
+echo: expect str: attribute value: request_control.remote_control: play
+
+test name: with_changes
+test description: Test that local changes override global directives
+stubbed_out: expect: no errors
+echo: input: drink: oceans
+echo: input: username: [[STUBBED_OUT.user.username]]
+echo: job context input str: locale: en_US
+echo: job context input int: switches.1: 8
+echo: job context input int: switches.2: 15
+echo: job control input str: remote_control: pause
+echo: expect str: attribute value: request_body.drink: oceans
+echo: expect str: attribute value: request_body.username: user_56
+echo: expect str: attribute value: request_context.locale: en_US
+echo: expect int: attribute value: request_switches.0: 5
+echo: expect int: attribute value: request_switches.1: 8
+echo: expect int: attribute value: request_switches.2: 15
+echo: expect str: attribute value: request_control.remote_control: pause

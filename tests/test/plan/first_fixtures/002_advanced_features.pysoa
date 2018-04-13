@@ -1,0 +1,61 @@
+test name: non_existent_action_returns_error
+test description: Test than calling a non-existent action returns an error
+non_existent: input: hello: world
+non_existent: expect: exact error: code = UNKNOWN, field = action
+
+test name: stub_actions_work
+test description: Test that calling a non-existent action with a stub method on the test class works
+stubbed_out: input int: user_id: 15
+stubbed_out: expect: no errors
+stubbed_out: expect int: attribute value: user.id: 15
+stubbed_out: expect str: attribute value: user.username: user_15
+stubbed_out.1: input int: user_id: 91
+stubbed_out.1: expect: no errors
+stubbed_out.1: expect int: attribute value: user.id: 91
+stubbed_out.1: expect str: attribute value: user.username: user_91
+
+test name: carry_overs_work
+test description: Test that carry-overs from the previous call are available to the next call
+stubbed_out.0: input int: user_id: 42
+stubbed_out.0: expect: no errors
+stubbed_out.1: input int: user_id: 314
+stubbed_out.1: expect: no errors
+# This ensures that the default action index of zero works
+login.0: input: username: [[STUBBED_OUT.user.username]]
+login.0: expect: no errors
+login.0: expect any str: attribute value: session.session_id
+login.0: expect str: attribute value: session.user: user_42
+# This ensures that the explicit action index works
+login.1: input: username: [[STUBBED_OUT.1.user.username]]
+login.1: expect: no errors
+login.1: expect any str: attribute value: session.session_id
+login.1: expect str: attribute value: session.user: user_314
+
+test name: model_constants_work
+test description: Test that model constants defined in the test class work
+# This ensures that a base dict works
+login.0: input: username: [[test_first_user.username]]
+login.0: expect: no errors
+login.0: expect any str: attribute value: session.session_id
+login.0: expect str: attribute value: session.user: beamerblvd
+# This ensures that a non-action dict with an index works
+login.1: input: username: [[test_users.1.username]]
+login.1: expect: no errors
+login.1: expect any str: attribute value: session.session_id
+login.1: expect str: attribute value: session.user: allison.agd
+
+test name: job_errors_work
+test description: Test that job error expectations work
+stub_job_error: expect: job error: code = CAT_ERROR
+stub_job_error: expect: not job error: code = HORSE_ERROR
+
+test name: multiple_job_errors_work
+test description: Test that job error expectations work with multiple using exact
+stub_job_error: expect: exact job error: code = CAT_ERROR
+stub_job_error: expect: exact job error: code = DOG_ERROR
+
+test name: skipping_works
+test description: This tests that skipping works ... this test case should never be executed
+test skip: This test is skipped to test that skipping works
+login.0: input: username: pumpkin
+login.0: expect: no errors
