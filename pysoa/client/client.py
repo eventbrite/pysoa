@@ -34,7 +34,6 @@ class ServiceHandler(object):
     _transport_cache = {}
 
     def __init__(self, service_name, settings):
-        self.service_name = service_name
         self.metrics = settings['metrics']['object'](**settings['metrics'].get('kwargs', {}))
 
         transport_cache_time_in_seconds = 0

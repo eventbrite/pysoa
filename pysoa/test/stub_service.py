@@ -314,7 +314,6 @@ class stub_action(object):  # noqa
 
         self._stub_action_responses_outstanding = defaultdict(dict)
         self._stub_action_responses_to_merge = defaultdict(dict)
-        self._stub_action_unwrapped_call_id_map = {}
 
     def __enter__(self):
         self._wrapped_client_send_request = Client.send_request
@@ -371,7 +370,6 @@ class stub_action(object):  # noqa
                     request_id,
                     continue_on_error,
                 )
-                self._stub_action_unwrapped_call_id_map[request_id] = unwrapped_request_id
 
             ordered_actions_for_merging = OrderedDict()
             job_response_transport_exception = None
