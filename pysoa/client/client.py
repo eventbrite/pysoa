@@ -155,6 +155,7 @@ class ServiceHandler(object):
 
         :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
         """
+
         wrapper = self._make_middleware_stack(
             [m.response for m in self.middleware],
             self._get_response,
@@ -340,12 +341,27 @@ class Client(object):
         if timeout:
             kwargs['message_expiry_in_seconds'] = timeout
 
-        request_id = self.send_request(service_name, actions, **kwargs)
-        # Dump everything from the generator. There should only be one response.
+        expected_request_id = self.send_request(service_name, actions, **kwargs)
+
+        # Get all responses
         responses = list(self.get_all_responses(service_name, receive_timeout_in_seconds=timeout))
-        response_id, response = responses[0]
-        if response_id != request_id:
-            raise Exception('Got response with ID {} for request with ID {}'.format(response_id, request_id))
+
+        # Try to find the expected response
+        found = False
+        for request_id, response in responses:
+            if request_id == expected_request_id:
+                found = True
+                break
+        if not found:
+            # This error should be impossible if `get_all_responses` is behaving correctly, but let's raise a
+            # meaningful error just in case.
+            raise Exception(
+                'Got unexpected response(s) with ID(s) {} for request with ID {}'.format(
+                    [r[0] for r in responses],
+                    expected_request_id,
+                )
+            )
+
         # Process errors at the Job and Action level
         if response.errors:
             raise self.JobError(response.errors)
