@@ -314,10 +314,12 @@ class stub_action(object):  # noqa
 
         self._stub_action_responses_outstanding = defaultdict(dict)
         self._stub_action_responses_to_merge = defaultdict(dict)
+        self._stub_action_unwrapped_call_id_map = {}
 
     def __enter__(self):
         self._wrapped_client_send_request = Client.send_request
         self._wrapped_client_get_all_responses = Client.get_all_responses
+        self._wrapped_client_get_response_for_request = Client.get_response_for_request
         self._services_with_calls_sent_to_wrapped_client = set()
 
         mock_action = self._MockAction(name='{}.{}'.format(self.service, self.action))
@@ -370,6 +372,7 @@ class stub_action(object):  # noqa
                     request_id,
                     continue_on_error,
                 )
+                self._stub_action_unwrapped_call_id_map[request_id] = unwrapped_request_id
 
             ordered_actions_for_merging = OrderedDict()
             job_response_transport_exception = None
@@ -468,6 +471,65 @@ class stub_action(object):  # noqa
             wrapped=getattr(Client.get_all_responses, 'description', Client.get_all_responses.__repr__()),
         )  # This description is a helpful debugging tool
 
+        @wraps(Client.get_response_for_request)
+        def wrapped_get_response_for_request(client, service_name, request_id, *args, **kwargs):
+            if (
+                service_name in self._stub_action_responses_outstanding
+                and request_id in self._stub_action_responses_outstanding[service_name]
+            ):
+                # Alright, we have mocked actions, and maybe unmocked that we need to merge.
+                unwrapped_request_id = self._stub_action_unwrapped_call_id_map.pop(request_id, None)
+                if unwrapped_request_id:
+                    # Alright, we gotta merge
+                    response = self._wrapped_client_get_response_for_request(
+                        client,
+                        service_name,
+                        unwrapped_request_id,
+                        *args,
+                        **kwargs
+                    )
+                    _, continue_on_error = self._stub_action_responses_to_merge[service_name].pop(unwrapped_request_id)
+                    response_to_merge = self._stub_action_responses_outstanding[service_name].pop(request_id)
+
+                    if isinstance(response_to_merge, Exception):
+                        raise response_to_merge
+
+                    for i, action_response in six.iteritems(response_to_merge.actions):
+                        response.actions.insert(i, action_response)
+
+                    if not continue_on_error:
+                        # Simulate the server job halting on the first action error
+                        first_error_index = -1
+                        for i, action_result in enumerate(response.actions):
+                            if action_result.errors:
+                                first_error_index = i
+                                break
+                        if first_error_index >= 0:
+                            response.actions = response.actions[:first_error_index + 1]
+
+                    response.errors.extend(response_to_merge.errors)
+                else:
+                    response = self._stub_action_responses_outstanding[service_name].pop(request_id)
+            else:
+                # No mocked actions. Just return the original.
+                response = self._wrapped_client_get_response_for_request(
+                    client,
+                    service_name,
+                    request_id,
+                    *args,
+                    **kwargs
+                )
+
+            if self._stub_action_responses_to_merge[service_name]:
+                raise Exception('Something very bad happened, and there are still stubbed responses to merge!')
+            self._stub_action_responses_outstanding[service_name] = {}
+            return response
+        wrapped_get_response_for_request.description = '<stub {service}.{action} wrapper around {wrapped}>'.format(
+            service=self.service,
+            action=self.action,
+            wrapped=getattr(Client.get_response_for_request, 'description', Client.get_response_for_request.__repr__()),
+        )  # This description is a helpful debugging tool
+
         # Wrap Client.send_request, whose original version was saved in self._wrapped_client_send_request (which itself
         # might be another wrapper if we have stubbed multiple actions).
         Client.send_request = wrapped_send_request
@@ -475,6 +537,10 @@ class stub_action(object):  # noqa
         # Wrap Client.get_all_responses, whose original version was saved in self._wrapped_client_get_all_responses
         # (which itself might be another wrapper if we have stubbed multiple actions).
         Client.get_all_responses = wrapped_get_all_responses
+
+        # Wrap Client.get_response_for_request, whose original version was saved in self._wrapped_client_get_response_for_request
+        # (which itself might be another wrapper if we have stubbed multiple actions).
+        Client.get_response_for_request = wrapped_get_response_for_request
 
         self.enabled = True
         return mock_action
@@ -484,6 +550,7 @@ class stub_action(object):  # noqa
         # other wrappers if we have stubbed multiple actions).
         Client.send_request = self._wrapped_client_send_request
         Client.get_all_responses = self._wrapped_client_get_all_responses
+        Client.get_response_for_request = self._wrapped_client_get_response_for_request
         self.enabled = False
 
     def __call__(self, func):
