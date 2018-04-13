@@ -171,30 +171,6 @@ class ServiceHandler(object):
         finally:
             self.metrics.commit()
 
-    def get_response_for_request(self, expected_request_id, receive_timeout_in_seconds=None):
-        """
-        Receive the response for a particular request.
-
-        :param expected_request_id: ID of a request previously made via send_request.
-        :type expected_request_id: int
-        :param receive_timeout_in_seconds: How long to block without receiving a message before raising
-                                           `MessageReceiveTimeout` (defaults to five seconds unless the settings are
-                                           otherwise).
-        :type receive_timeout_in_seconds: int
-
-        :return: The expected JobResponse object.
-        :rtype: JobResponse
-
-        :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
-        """
-
-        for request_id, response in self.get_all_responses(receive_timeout_in_seconds):
-            if request_id == expected_request_id:
-                return response
-
-        # Expected message not received within the allotted time.
-        raise MessageReceiveTimeout('Expected message not received for service {}'.format(self.service_name))
-
 
 class Client(object):
     """The Client provides a simple interface for calling actions on Servers."""
@@ -366,10 +342,26 @@ class Client(object):
         if timeout:
             kwargs['message_expiry_in_seconds'] = timeout
 
-        request_id = self.send_request(service_name, actions, **kwargs)
+        expected_request_id = self.send_request(service_name, actions, **kwargs)
 
-        # Wait for the expected response
-        response = self.get_response_for_request(service_name, request_id, receive_timeout_in_seconds=timeout)
+        # Get all responses
+        responses = list(self.get_all_responses(service_name, receive_timeout_in_seconds=timeout))
+
+        # Try to find the expected response
+        found = False
+        for request_id, response in responses:
+            if request_id == expected_request_id:
+                found = True
+                break
+        if not found:
+            # This error should be impossible if `get_all_responses` is behaving correctly, but let's raise a
+            # meaningful error just in case.
+            raise Exception(
+                'Got unexpected response(s) with ID(s) {} for request with ID {}'.format(
+                    [r[0] for r in responses],
+                    expected_request_id,
+                )
+            )
 
         # Process errors at the Job and Action level
         if response.errors:
@@ -794,25 +786,3 @@ class Client(object):
 
         handler = self._get_handler(service_name)
         return handler.get_all_responses(receive_timeout_in_seconds)
-
-    def get_response_for_request(self, service_name, request_id, receive_timeout_in_seconds=None):
-        """
-        Receive the response for a particular request.
-
-        :param service_name: The name of the service from which to receive the response
-        :type service_name: union[str, unicode]
-        :param request_id: The ID of a request previously made via send_request.
-        :type request_id: int
-        :param receive_timeout_in_seconds: How long to block without receiving a message before raising
-                                           `MessageReceiveTimeout` (defaults to five seconds unless the settings are
-                                           otherwise).
-        :type receive_timeout_in_seconds: int
-
-        :return: The expected JobResponse object.
-        :rtype: JobResponse
-
-        :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
-        """
-
-        handler = self._get_handler(service_name)
-        return handler.get_response_for_request(request_id, receive_timeout_in_seconds)
