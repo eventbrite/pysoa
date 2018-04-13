@@ -66,7 +66,6 @@ class ServiceHandler(object):
         # Make sure the request counter starts at a random location to avoid clashing with other clients
         # sharing the same connection
         self.request_counter = random.randint(1, 1000000)
-        self.unexpected_responses = OrderedDict()
 
     @staticmethod
     def _construct_transport(service_name, metrics, settings, metrics_key='client.transport.initialize'):
@@ -137,9 +136,6 @@ class ServiceHandler(object):
             self.metrics.commit()
 
     def _get_response(self, receive_timeout_in_seconds=None):
-        if self.unexpected_responses:
-            return self.unexpected_responses.popitem(last=False)
-
         with self.metrics.timer('client.receive.excluding_middleware', resolution=TimerResolution.MICROSECONDS):
             request_id, meta, message = self.transport.receive_response_message(receive_timeout_in_seconds)
             if message is None:
@@ -161,10 +157,6 @@ class ServiceHandler(object):
 
         :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
         """
-
-        # Return all previously unexpected responses first
-        #while self.unexpected_responses:
-        #    yield self.unexpected_responses.popitem(last=False)
 
         wrapper = self._make_middleware_stack(
             [m.response for m in self.middleware],
@@ -196,16 +188,10 @@ class ServiceHandler(object):
 
         :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
         """
-        unexpected_responses = OrderedDict()
 
-        try:
-            for request_id, response in self.get_all_responses(receive_timeout_in_seconds):
-                if request_id != expected_request_id:
-                    unexpected_responses[request_id] = response
-                else:
-                    return response
-        finally:
-            self.unexpected_responses = unexpected_responses
+        for request_id, response in self.get_all_responses(receive_timeout_in_seconds):
+            if request_id == expected_request_id:
+                return response
 
         # Expected message not received within the allotted time.
         raise MessageReceiveTimeout('Expected message not received for service {}'.format(self.service_name))
