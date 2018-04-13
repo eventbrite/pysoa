@@ -199,20 +199,11 @@ class ServiceHandler(object):
         unexpected_responses = OrderedDict()
 
         try:
-            start_time = time.time()
-            if receive_timeout_in_seconds is None:
-                end_time = six.sys.maxsize
-            else:
-                end_time = start_time + receive_timeout_in_seconds
-
-            while start_time < end_time:
-                receive_timeout_in_seconds = int(end_time - start_time) if receive_timeout_in_seconds is not None else None
-                for request_id, response in self.get_all_responses(receive_timeout_in_seconds):
-                    if request_id != expected_request_id:
-                        unexpected_responses[request_id] = response
-                    else:
-                        return response
-                start_time = time.time()
+            for request_id, response in self.get_all_responses(receive_timeout_in_seconds):
+                if request_id != expected_request_id:
+                    unexpected_responses[request_id] = response
+                else:
+                    return response
         finally:
             self.unexpected_responses = unexpected_responses
 
