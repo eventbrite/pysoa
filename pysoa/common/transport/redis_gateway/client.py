@@ -7,6 +7,7 @@ from pysoa.common.transport.base import (
     ClientTransport,
     get_hex_thread_id,
 )
+from pysoa.common.transport.exceptions import MessageReceiveTimeout
 from pysoa.common.transport.redis_gateway.backend.base import BaseRedisClient
 from pysoa.common.transport.redis_gateway.core import RedisTransportCore
 from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
@@ -44,13 +45,17 @@ class RedisClientTransport(ClientTransport):
     def receive_response_message(self, receive_timeout_in_seconds=None):
         if self._requests_outstanding > 0:
             with self.metrics.timer('client.transport.redis_gateway.receive', resolution=TimerResolution.MICROSECONDS):
-                request_id, meta, response = self.core.receive_message(
-                    '{receive_queue_name}{thread_id}'.format(
-                        receive_queue_name=self._receive_queue_name,
-                        thread_id=get_hex_thread_id(),
-                    ),
-                    receive_timeout_in_seconds,
-                )
+                try:
+                    request_id, meta, response = self.core.receive_message(
+                        '{receive_queue_name}{thread_id}'.format(
+                            receive_queue_name=self._receive_queue_name,
+                            thread_id=get_hex_thread_id(),
+                        ),
+                        receive_timeout_in_seconds,
+                    )
+                except MessageReceiveTimeout:
+                    self.metrics.counter('client.transport.redis_gateway.receive.error.timeout').increment()
+                    raise
             self._requests_outstanding -= 1
             return request_id, meta, response
         else:
