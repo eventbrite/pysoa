@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.36.1 (2018-04-14)
+-------------------
+- [PATCH] Add client receive timeout metric
+
 0.36.0 (2018-04-13)
 -------------------
 - [MINOR] Better handling of out-of-order responses
