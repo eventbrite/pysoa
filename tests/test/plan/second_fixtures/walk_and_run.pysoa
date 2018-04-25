@@ -1,0 +1,18 @@
+# A rather simple test, but it ensures that our plans and fixtures keep separated
+test name: walking_and_running
+test description: Test walking and running
+walk.0: input int: value: 10
+walk.0: expect: no errors
+walk.0: expect int: attribute value: value: 11
+run.0: input int: value: [[WALK.0.value]]
+run.0: expect: no errors
+run.0: expect int: attribute value: value: 16
+walk.1: input int: value: [[RUN.0.value]]
+walk.1: expect: no errors
+walk.1: expect int: attribute value: value: 17
+walk.2: input int: value: [[WALK.1.value]]
+walk.2: expect: no errors
+walk.2: expect int: attribute value: value: 18
+run.1: input int: value: [[WALK.2.value]]
+run.1: expect: no errors
+run.1: expect int: attribute value: value: 23

@@ -11,24 +11,29 @@ def readme():
 
 
 install_requires = [
-    'enum34;python_version<"3.4"',
-    'six~=1.10',
     'attrs~=17.4',
-    'conformity~=1.9',
+    'conformity~=1.11',
     'currint~=1.6',
-    'redis~=2.10',
+    'enum34;python_version<"3.4"',
     'msgpack-python~=0.4',
+    'redis~=2.10',
+    'six~=1.10',
+]
+
+pytest_plugin_requires = [
+    'mock>=2.0',
+    'pyparsing~=2.2',
+    'pytest',
+    'pytz>=2018.4',
 ]
 
 tests_require = [
-    'pytest',
-    'pytest-cov',
-    'mock>=2.0',
     'factory_boy~=2.8.0',
+    'freezegun~=0.3',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
-    'freezegun~=0.3',
-]
+    'pytest-cov',
+] + pytest_plugin_requires
 
 setup(
     name='pysoa',
@@ -46,6 +51,12 @@ setup(
     test_suite='tests',
     extras_require={
         'testing': tests_require,
+        'pytest': pytest_plugin_requires,
+    },
+    entry_points={
+        'pytest11': [
+            'pysoa_test_plan=pysoa.test.plugins.pytest',
+        ]
     },
     license='Apache 2.0',
     classifiers=[

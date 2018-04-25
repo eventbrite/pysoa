@@ -1,0 +1,223 @@
+test name: simple
+test description: Test that some simple data types work
+types_echo: input int: an_int: 57
+types_echo: input float: a_float: 22.5
+types_echo: input bool: a_bool: TrUE
+types_echo: input bytes: a_bytes: This should be converted to a byte string
+types_echo: input str: a_string: This should remain a unicode string
+types_echo: input datetime: a_datetime: 2018,4,1,12,31,57
+types_echo: input date: a_date: 2017,1,17
+types_echo: input time: a_time: 11,31,52
+types_echo: expect: no errors
+types_echo: expect int: attribute value: r_an_int: 57
+types_echo: expect float: attribute value: r_a_float: 22.5
+types_echo: expect bool: attribute value: r_a_bool: true
+types_echo: expect bytes: attribute value: r_a_bytes: This should be converted to a byte string
+types_echo: expect str: attribute value: r_a_string: This should remain a unicode string
+types_echo: expect datetime: attribute value: r_a_datetime: 2018,4,1,12,31,57
+types_echo: expect date: attribute value: r_a_date: 2017,1,17
+types_echo: expect time: attribute value: r_a_time: 11,31,52
+
+test name: defaults
+test description: Test that defaults work
+types_echo: input int: an_int:
+types_echo: input float: a_float:
+types_echo: input bool: a_bool:
+types_echo: input bytes: a_bytes:
+types_echo: input str: a_string:
+types_echo: input emptylist: a_list:
+types_echo: input emptydict: a_dict:
+types_echo: expect: no errors
+types_echo: expect int: attribute value: r_an_int: 0
+types_echo: expect float: attribute value: r_a_float: 0.0
+types_echo: expect bool: attribute value: r_a_bool: False
+types_echo: expect bytes: attribute value: r_a_bytes:
+types_echo: expect str: attribute value: r_a_string:
+types_echo: expect emptylist: attribute value: r_a_list:
+types_echo: expect emptydict: attribute value: r_a_dict:
+
+test name: any
+test description: Test that any-value works
+types_echo: input int: an_int: 57
+types_echo: input float: a_float: 22.5
+types_echo: input bool: a_bool: TrUE
+types_echo: input bytes: a_bytes: This should be converted to a byte string
+types_echo: input str: a_string: This should remain a unicode string
+types_echo: input datetime: a_datetime: 2018,4,1,12,31,57
+types_echo: input date: a_date: 2017,1,17
+types_echo: input time: a_time: 11,31,52
+types_echo: expect: no errors
+types_echo: expect any int: attribute value: r_an_int
+types_echo: expect any float: attribute value: r_a_float
+types_echo: expect any bool: attribute value: r_a_bool
+types_echo: expect any bytes: attribute value: r_a_bytes
+types_echo: expect any str: attribute value: r_a_string
+types_echo: expect any datetime: attribute value: r_a_datetime
+types_echo: expect any date: attribute value: r_a_date
+types_echo: expect any time: attribute value: r_a_time
+
+test name: regex
+test description: Test regular expressions
+types_echo.0: input: a_string: This is a cool string
+types_echo.0: expect: no errors
+types_echo.0: expect regex: attribute value: r_a_string: ^This is a cool
+types_echo.1: input: a_string: The quick brown fox jumped over the lazy dog
+types_echo.1: expect: no errors
+types_echo.1: expect not regex: attribute value: r_a_string: ^The quick brown cow
+
+test name: empty_string
+test description: Test empty string
+types_echo: input emptystr: a_string:
+types_echo: expect: no errors
+types_echo: expect emptystr: attribute value: r_a_string:
+
+test name: big_integer
+test description: Test that a big integer works
+types_echo: input int: an_int: 8273827393847282938472728293737171628
+types_echo: expect: no errors
+types_echo: expect int: attribute value: r_an_int: 8273827393847282938472728293737171628
+
+test name: false_bool
+test description: Test that false booleans work
+types_echo: input bool: a_bool: false
+types_echo: expect: no errors
+types_echo: expect bool: attribute value: r_a_bool: false
+
+test name: base64_bytes
+test description: Test that base64-encoded byte strings make the round trip
+types_echo.0: input base64_bytes: a_bytes: SGVsbG8sIHdvcmxk
+types_echo.0: expect: no errors
+types_echo.0: expect bytes: attribute value: r_a_bytes: Hello, world
+types_echo.1: input bytes: a_bytes: Goodbye, universe
+types_echo.1: expect: no errors
+types_echo.1: expect base64_bytes: attribute value: r_a_bytes: R29vZGJ5ZSwgdW5pdmVyc2U=
+
+test name: image_bytes
+test description: Test that getting an image's bytes content works
+get_tiny_image: expect: no errors
+get_tiny_image: expect base64_bytes: attribute value: tiny_image: R0lGODlhAQABAIABAP///wAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
+
+test name: none
+test description: Test that None works
+types_echo: input none: a_dict:
+types_echo: expect: no errors
+types_echo: expect none: attribute value: r_a_dict:
+
+test name: encoded_strings
+test description: Test that encoded strings make the round trip
+types_echo.0: input encoded_ascii: a_string: item\x0b name
+types_echo.0: expect: no errors
+types_echo.0: expect encoded_unicode: attribute value: r_a_string: item\u000B name
+types_echo.1: input encoded_unicode: a_string: weird\u000B thing
+types_echo.1: expect: no errors
+types_echo.1: expect encoded_ascii: attribute value: r_a_string: weird\x0b thing
+types_echo.2: input: a_string: My feeling is 😜
+types_echo.2: expect: no errors
+types_echo.2: expect encoded_unicode: attribute value: r_a_string: My feeling is \U0001f61c
+types_echo.3: input encoded_unicode: a_string: Your feeling is \U0001f61e
+types_echo.3: expect: no errors
+types_echo.3: expect: attribute value: r_a_string: Your feeling is 😞
+
+test name: different_date_times
+test description: Test that different datetime values work
+freeze time: 2018-04-15T12:31:17Z
+types_echo.0: input datetime: a_datetime: now
+types_echo.0: expect: no errors
+types_echo.0: expect datetime: attribute value: r_a_datetime: 2018,4,15,12,31,17
+types_echo.1: input datetime: a_datetime: utc_now
+types_echo.1: expect: no errors
+types_echo.1: expect datetime: attribute value: r_a_datetime: utc_now
+types_echo.2: input datetime: a_datetime: midnight
+types_echo.2: expect: no errors
+types_echo.2: expect datetime: attribute value: r_a_datetime: 2018,4,15,0,0,0
+types_echo.3: input datetime: a_datetime: utc_midnight
+types_echo.3: expect: no errors
+types_echo.3: expect datetime: attribute value: r_a_datetime: utc_midnight
+
+test name: date_times_with_deltas
+test description: Test that datetime values with deltas work
+types_echo.0: freeze time: 2018-04-17T18:19:20Z
+types_echo.0: input datetime: a_datetime: now 3
+types_echo.0: expect: no errors
+types_echo.0: expect datetime: attribute value: r_a_datetime: 2018,04,20,18,19,20
+types_echo.1: freeze time: 2018-04-17T18:19:20Z
+types_echo.1: input datetime: a_datetime: utc_now +0,6,15
+types_echo.1: expect: no errors
+types_echo.1: expect datetime: attribute value: r_a_datetime: utc_now +0,6,15
+types_echo.2: freeze time: 2018-04-17T21:22:23Z
+types_echo.2: input datetime: a_datetime: midnight +0,3
+types_echo.2: expect: no errors
+types_echo.2: expect datetime: attribute value: r_a_datetime: 2018,04,17,3,0,0
+types_echo.3: freeze time: 2018-04-17T21:22:23Z
+types_echo.3: input datetime: a_datetime: utc_midnight 0,0,0,30
+types_echo.3: expect: no errors
+types_echo.3: expect datetime: attribute value: r_a_datetime: utc_midnight 0,0,0,30
+
+test name: different_dates
+test description: Test that different dates work
+types_echo.0: input date: a_date: today
+types_echo.0: expect: no errors
+types_echo.0: expect date: attribute value: r_a_date: today
+types_echo.1: input date: a_date: utc_today
+types_echo.1: expect: no errors
+types_echo.1: expect date: attribute value: r_a_date: utc_today
+
+test name: different_times
+test description: Test that different times work
+freeze time: 2018-04-17T18:19:20Z
+types_echo.0: input time: a_time: now
+types_echo.0: expect: no errors
+types_echo.0: expect time: attribute value: r_a_time: 18,19,20
+types_echo.1: input time: a_time: utc_now
+types_echo.1: expect: no errors
+types_echo.1: expect time: attribute value: r_a_time: utc_now
+types_echo.2: input time: a_time: midnight
+types_echo.2: expect: no errors
+types_echo.2: expect time: attribute value: r_a_time: 0,0,0
+
+test name: times_with_deltas
+test description: Test that time values with deltas work
+freeze time: now
+types_echo.0: input time: a_time: now 0,6,15
+types_echo.0: expect: no errors
+types_echo.0: expect time: attribute value: r_a_time: now 0,6,15
+types_echo.1: input time: a_time: utc_now 0,3
+types_echo.1: expect: no errors
+types_echo.1: expect time: attribute value: r_a_time: utc_now 0,3
+types_echo.2: input time: a_time: midnight 0,0,0,30
+types_echo.2: expect: no errors
+types_echo.2: expect time: attribute value: r_a_time: midnight 0,0,0,30
+
+test name: freeze_actions_together
+test description: Test that we can freeze what happens in all the actions
+freeze time: 2018-04-20T04:20:20Z
+get_current_datetime.0: expect: no errors
+get_current_datetime.0: expect datetime: attribute value: current_datetime: 2018,4,20,4,20,20
+get_current_datetime.1: expect: no errors
+get_current_datetime.1: expect datetime: attribute value: current_datetime: 2018,4,20,4,20,20
+get_current_datetime.2: expect: no errors
+get_current_datetime.2: expect datetime: attribute value: current_datetime: 2018,4,20,4,20,20
+
+test name: freeze_actions_individually
+test description: Test that we can freeze what happens per-action
+get_current_datetime.0:freeze time: 2018-04-20T04:20:20Z
+get_current_datetime.0: expect: no errors
+get_current_datetime.0: expect datetime: attribute value: current_datetime: 2018,4,20,4,20,20
+get_current_datetime.1:freeze time: 2018-04-21T04:22:23Z
+get_current_datetime.1: expect: no errors
+get_current_datetime.1: expect datetime: attribute value: current_datetime: 2018,4,21,4,22,23
+get_current_datetime.2:freeze time: 2017-01-17T18:19:20Z
+get_current_datetime.2: expect: no errors
+get_current_datetime.2: expect datetime: attribute value: current_datetime: 2017,1,17,18,19,20
+
+test name: freeze_non_interference
+test description: Test that freezing for the action overrides freezing for the test case
+freeze time: 2018-04-20T04:20:20Z
+get_current_datetime.0: expect: no errors
+get_current_datetime.0: expect datetime: attribute value: current_datetime: 2018,4,20,4,20,20
+get_current_datetime.1:freeze time: 2018-04-21T04:22:23Z
+get_current_datetime.1: expect: no errors
+get_current_datetime.1: expect datetime: attribute value: current_datetime: 2018,4,21,4,22,23
+get_current_datetime.2:freeze time: 2017-01-17T18:19:20Z
+get_current_datetime.2: expect: no errors
+get_current_datetime.2: expect datetime: attribute value: current_datetime: 2017,1,17,18,19,20

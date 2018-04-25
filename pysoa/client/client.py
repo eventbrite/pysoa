@@ -255,7 +255,8 @@ class Client(object):
         Build and send a single job request with one action.
 
         Returns the action response or raises an exception if the action response is an error (unless
-        `raise_action_errors` is passed as `False`).
+        `raise_action_errors` is passed as `False`) or if the job response is an error (unless `raise_job_errors` is
+        passed as `False`).
 
         :param service_name: The name of the service to call
         :type service_name: union[str, unicode]
@@ -265,6 +266,8 @@ class Client(object):
         :type body: dict
         :param expansions: A dictionary representing the expansions to perform
         :type expansions: dict
+        :param raise_job_errors: Whether to raise a JobError if the job response contains errors (defaults to `True`)
+        :type raise_job_errors: bool
         :param raise_action_errors: Whether to raise a CallActionError if any action responses contain errors (defaults
                                     to `True`)
         :type raise_action_errors: bool
@@ -299,12 +302,22 @@ class Client(object):
             **kwargs
         ).actions[0]
 
-    def call_actions(self, service_name, actions, expansions=None, raise_action_errors=True, timeout=None, **kwargs):
+    def call_actions(
+        self,
+        service_name,
+        actions,
+        expansions=None,
+        raise_job_errors=True,
+        raise_action_errors=True,
+        timeout=None,
+        **kwargs
+    ):
         """
         Build and send a single job request with one or more actions.
 
         Returns a list of action responses, one for each action in the same order as provided, or raises an exception
-        if any action response is an error (unless `raise_action_errors` is passed as `False`).
+        if any action response is an error (unless `raise_action_errors` is passed as `False`) or if the job response
+        is an error (unless `raise_job_errors` is passed as `False`).
 
         This method performs expansions if the Client is configured with an expansion converter.
 
@@ -314,6 +327,8 @@ class Client(object):
         :type actions: iterable[union[ActionRequest, dict]]
         :param expansions: A dictionary representing the expansions to perform
         :type expansions: dict
+        :param raise_job_errors: Whether to raise a JobError if the job response contains errors (defaults to `True`)
+        :type raise_job_errors: bool
         :param raise_action_errors: Whether to raise a CallActionError if any action responses contain errors (defaults
                                     to `True`)
         :type raise_action_errors: bool
@@ -348,6 +363,7 @@ class Client(object):
 
         # Try to find the expected response
         found = False
+        response = None
         for request_id, response in responses:
             if request_id == expected_request_id:
                 found = True
@@ -363,7 +379,7 @@ class Client(object):
             )
 
         # Process errors at the Job and Action level
-        if response.errors:
+        if response.errors and raise_job_errors:
             raise self.JobError(response.errors)
         if raise_action_errors:
             error_actions = [action for action in response.actions if action.errors]
@@ -383,7 +399,7 @@ class Client(object):
 
         Returns a list of action responses, one for each action in the same order as provided, or raises an exception
         if any action response is an error (unless `raise_action_errors` is passed as `False`) or if any job response
-        is an error.
+        is an error (unless `raise_job_errors` is passed as `False`).
 
         This method performs expansions if the Client is configured with an expansion converter.
 
@@ -393,6 +409,8 @@ class Client(object):
         :type actions: iterable[union[ActionRequest, dict]]
         :param expansions: A dictionary representing the expansions to perform
         :type expansions: dict
+        :param raise_job_errors: Whether to raise a JobError if any job responses contain errors (defaults to `True`)
+        :type raise_job_errors: bool
         :param raise_action_errors: Whether to raise a CallActionError if any action responses contain errors (defaults
                                     to `True`)
         :type raise_action_errors: bool

@@ -23,7 +23,9 @@ units of code. If you are less strict about this, or if you want to write integr
 Setting Up a Test Case Class
 ****************************
 
-The initial part of writing such tests is setting up your test case with your server class::
+The initial part of writing such tests is setting up your test case with your server class:
+
+.. code:: python
 
     from pysoa.test.server import ServerTestCase
 
@@ -32,9 +34,7 @@ The initial part of writing such tests is setting up your test case with your se
 
     class TestMyAction(ServerTestCase):
         server_class = ExampleServer
-        server_settings = {
-            'service_name': 'example',
-        }
+        server_settings = {}
 
 
 As simple as this code looks, it does a lot! Before each test method runs, it configures ``ExampleServer`` (your class
@@ -42,8 +42,8 @@ that extends ``pysoa.server.Server``) as a local service. It then configures a c
 as ``self.client``) to call that service locally.
 
 If your service has special settings that need to be configured, you can set them up by customizing the
-``server_settings`` class attribute; however, in most cases, all you need is the service name field for unit testing.
-If you do not specify ``server_settings``, it will look for Django ``settings.SOA_SERVER_SETTINGS`` if you have
+``server_settings`` class attribute; however, in most cases, all you need is an empty dict with no settings. If you do
+not specify ``server_settings``, it will look for Django ``settings.SOA_SERVER_SETTINGS`` if you have
 ``ExampleServer.use_django`` set to ``True``, otherwise it will look for the environmental variable
 ``PYSOA_SETTINGS_MODULE`` and import and use the ``SOA_SERVER_SETTINGS`` constant in that module. If it can't find any
 of these, every test in the test case will fail in ``setUp``. Whatever your settings source, the transport will be
@@ -80,7 +80,9 @@ This test class also provides the following extension assertion methods:
 Examples
 ********
 
-Here is a full example using all the asserts::
+Here is a full example using all the asserts:
+
+.. code:: python
 
     class TestManageObjectActions(ServerTestCase):
         server_class = ExampleServer
@@ -208,7 +210,9 @@ action and want to assert their different values.
 Examples
 ********
 
-The sample test case below demonstrates the many ways that you can use ``stub_action``::
+The sample test case below demonstrates the many ways that you can use ``stub_action``:
+
+.. code:: python
 
     @stub_action('user', 'get_user', body={'user': {'id': 1234, 'username': 'John', 'email': 'john@example.org'}})
     class TestSomeCode(unittest.TestCase):
@@ -314,7 +318,9 @@ An easier solution for this is to configure a PySOA ``StubServer``, ``StubClient
 ``pysoa.test.stub_service``). The default polymorphic server and client classes make this extremely easy. The following
 config dict can be passed like any normal configuration as the ``config`` argument to a new ``Client``. You can put
 multiple services in the dict, and they do not have to all be stub services, so you can mix in a stub configuration
-with your real configurations if you so wish. ::
+with your real configurations if you so wish.
+
+.. code:: python
 
     SOA_CLIENT_SETTINGS = {
         ...
@@ -341,3 +347,630 @@ actions.
 As with any normal client settings, ``stub_action`` will also override ``StubClient`` settings, so you can use these
 settings for handling most tests but still use ``stub_action('analytics', 'record_analytic', ...)`` for testing
 specific behavior for which you need to control expectations and make assertions.
+
+
+.. DO NOT EDIT THE CONTENTS BETWEEN THE FOLLOWING TWO "BEGIN" and "END" comments
+
+.. BEGIN AUTO-GENERATED TEST PLAN DOCUMENTATION
+
+PySOA Test Plans
+++++++++++++++++
+
+Another option for testing PySOA services is to use its test plan system. Test plans extend
+``pysoa.test.plan:ServicePlanTestCase`` and define a collection of plain text fixture files (with extension ``.pysoa``)
+that use a specialized syntax for describing test cases that call actions on your service.
+
+To best understand PySOA test plans and this documentation, you'll need to understand a little bit of nomenclature:
+
+- **Test Plan**: A class that extends ``pysoa.test.plan:ServicePlanTestCase`` and declares a directory in which test
+  fixtures can be discovered for that test plan. If you want, you can have a single test plan for all of the test
+  fixtures in your service. You can also have multiple test plans, each with one or more fixtures. The advantage of
+  using multiple test plans is that each test plan class can have unique setup activities.
+- **Test Fixture**: A ``.pysoa`` file containing one or more test cases defined using the PySOA Test Plan syntax. A
+  test fixture's name is the test fixture file name absent the ``.pysoa`` extension and any directories.
+- **Test Case**: A individual test case within a given test fixture. Each test case must have a name (letters, numbers,
+  and underscores, only) and a description (a natural language sentence describing its purpose). A test case must have
+  one or more action cases.
+- **Action Case**: An individual call to a service action within a test case. Each action case has an associated set of
+  inputs used to make the action call and expectations used to assert the results of the action call.
+
+
+Running Test Plans
+******************
+
+PySOA test plans are collected and executed with a PyTest plugin, which is not installed by default. To enable this
+plugin, you need to add ``pysoa[pytest]`` to your test requirements. Example:
+
+.. code:: python
+
+    tests_require = [
+        'pysoa[pytest]',
+        ...
+    ]
+
+Once you do this and install your testing dependencies, you will be able to run your service's test plans. Without
+this, the presence of test plans in your service will result in errors during testing.
+
+By default, all normal tests and test plan tests will run when you invoke ``pytest`` without arguments. If you pass a
+directory to ``pytest``, it will run all normal tests and test plan tests in that directory. (NOTE: For the purposes
+of directory collection, test plans reside in the test case class that declares them.) You can also easily filter the
+tests fixtures and test cases that are run using the ``pytest`` arguments::
+
+    # This will match all fixture AND non-fixture test cases with the name: get_user
+    pytest -k get_user
+    # This will match only fixture test cases with the name: get_user
+    pytest --pysoa-test-case get_user
+    # This will match only fixture test cases with names matching the regular expression ^get\_user.*
+    pytest --pysoa-test-case-regex 'get\_user.*'
+    # This will match only test cases within test fixtures with the name: user_actions
+    pytest --pysoa-fixture user_actions
+    # This will match only test cases named get_user within test fixtures named user_actions
+    pytest --pysoa-fixture user_actions --pysoa-test-case get_user
+
+Note that ``--pysoa-test-case`` and ``--pysoa-test-case-regex`` are mutually exclusive arguments. Use ``pytest --help``
+to get more information about available plugin arguments.
+
+
+Creating a Test Plan with ``ServicePlanTestCase``
+*************************************************
+
+In order to create test plans, the first thing you need to do is create a test case class that extends
+``pysoa.test.plan:ServicePlanTestCase``. This class extends ``ServerTestCase`` (see `Using the ServerTestCase`_),
+so you need to define the same ``server_class`` and ``server_settings`` attributes. Additionally, you need to define
+either ``fixture_path`` or ``custom_fixtures``. You can also optionally specify ``model_constants``, which is used to
+provide stock values for variable substitution (more on that later). Here are two possible examples:
+
+.. code:: python
+
+    import os
+
+    from pysoa.test.plan import ServicePlanTestCase
+
+    from user_service.server import Server
+
+
+    class UserServiceFixtures(ServicePlanTestCase):
+        server_class = Server
+        server_settings = {}
+        fixture_path = os.path.dirname(__file__) + '/service_fixtures'
+
+
+    class ExtraServiceFixtures(ServicePlanTestCase):
+        server_class = Server
+        server_settings = {}
+        custom_fixtures = (
+            os.path.dirname(__file__) + '/extra_fixtures/special_actions_1.pysoa',
+            os.path.dirname(__file__) + '/extra_fixtures/special_actions_2.pysoa',
+        )
+        model_constants = {
+            'test_users': [
+                {'id': '1838', 'username': 'john.smith'},
+                {'id': '1792', 'username': 'jane.sanders'},
+            ],
+        }
+
+
+``ServicePlanTestCase`` provides a number of hooks that you can use to set up and tear down plans, fixtures, test
+cases, and action cases. To learn more about these hooks, see the docstrings in ``ServicePlanTestCase`` for the
+following methods. In each case, if you override the hook, you must call ``super`` as the first line in your hook.
+
+- ``setUpClass``
+- ``set_up_test_fixture``
+- ``setUp``
+- ``set_up_test_case``
+- ``set_up_test_case_action``
+- ``tear_down_test_case_action``
+- ``tear_don_test_case``
+- ``tearDown``
+- ``tear_down_test_fixture``
+- ``tearDownClass``
+
+
+Writing a Test Fixture
+**********************
+
+Within a test fixture, an individual test case is a block of text with the first ``test name:`` line being the name of
+the test, followed by multiple directives to instruct the behavior of the test. A blank line ends the test case::
+
+    test name: this_is_the_test_name_must_be_valid_method_name
+    test description: This describes what the test does
+    action1_name: input: foo_request_var_name: bar_value
+    action1_name: expect: no errors
+    action1_name: expect: attribute value: baz_response_var_name: qux_value
+    # This is a comment
+    action2_name: input: foo: bar
+
+    test name: this_is_the_next_test
+    etc...
+
+
+You may also set global directives that will apply to all of the following tests in the same file with the ``global``
+modifier (but will not apply to tests defined before the global directives)::
+
+    get_user: global input int: user_id: [[test_users.1.id]]
+    get_user: global job context input int: switches.0: 5
+
+    test name: get_user_url_works
+    test description: Test that get_user_url works
+    get_user: expect: no errors
+    get_user_url: input: username: [[GET_USER.0.user.username]]
+    get_user_url: job context input: locale: en_US
+    get_user_url: expect: no errors
+    get_user_url: expect: attribute value: user_url: https://example.net/en/u/[[GET_USER.0.user.username]]/
+
+
+This later case makes use of variable substitutions. The first one, ``[[test_users.1.id]]``, gets replaced with the
+``id`` value from the second dict (index 1) in the ``test_users`` list in the ``model_constants`` class attribute
+defined earlier. The first two lines of this example define global directives that, by themselves, do nothing. In the
+test case, the ``get_user: expect: no errors`` directive executes the ``get_user`` action defined from the global
+directives. This makes all the response values from that ``get_user`` action available for variable substitutions for
+all future action cases in this test case (but not for future test cases). The ``get_user_url`` action case makes use
+of this with the ``[[GET_USER.0.user.username]]`` variable substitution, which references the username from the user
+dict returned by the response to the first (index 0) call to ``get_user``.
+
+You'll notice that this variable substitution has an index of 0, even though our ``get_user`` action call did not. By
+default, the first call to an action in a test case has an index of 0. However, subsequent calls to the same action
+in the same test case will require an explicit index. For clarity, it is often best to include indexes with all action
+calls when your test case calls an action multiple times::
+
+    test name: get_user_multiple_times
+    test description: Demonstrate action indexes
+    get_user.0: input: id: 1838
+    get_user.0: expect: no errors
+    get_user.1: input: id: 1792
+    get_user.1: expect: no errors
+
+Input data and attribute value expectations are defined using path structures that get translated into dictionaries and
+lists based on a string path in the following format:
+
+- Dots indicate nested data structures
+- Numeric path names indicate array indices
+- Individual path elements that contain dots or which want to be stringified numbers can be escaped by enclosing in {}.
+
+Examples::
+
+    foo.bar.baz         => {'foo': {'bar': {'baz': $value }}}
+    foo.bar.0           => {'foo': {'bar': [ $value ]}}}
+    foo.bar.0.baz       => {'foo': {'bar': [{'baz': $value }]}}}
+    foo.{bar.baz}       => {'foo': {'bar.baz': $value }}
+    foo.{0}             => {'foo': {'0': $value }}
+
+There are many directives available to you for creating rich and complex test fixtures and test cases. The rest of
+this section's documentation details those directives.
+
+
+Test Fixture Full Grammar
+-------------------------
+
+This is the full grammar for test fixture files, presented in the same style as the `Python Grammar Specification
+<https://docs.python.org/3/reference/grammar.html>`_. Detailed usage for each directive and the supported data types
+follows. ::
+
+    NEWLINE: [\n]
+    ALPHA: [a-zA-Z]+
+    NUM: [0-9]+
+    ALPHANUM: [a-zA-Z0-9]+
+    NAME: ALPHA (ALPHANUM | '_')*
+    HYPHENATED_NAME: NAME (NAME | '-')*
+    PLAIN_LANGUAGE: ~NEWLINE
+
+    action: NAME
+    action_index: NUM
+    comment: PLAIN_LANGUAGE
+    data_type: 'base64_bytes' | 'bool' | 'bytes' | 'date' | 'datetime' | 'decimal' | 'emptydict' | 'emptylist' |
+        'emptystr' | 'encoded_ascii' | 'encoded_unicode' | 'float' | 'int' | 'none' | 'None' | 'not regex' | 'regex' |
+        'str' | 'time'
+    description: PLAIN_LANGUAGE
+    error_code: NAME
+    error_message: PLAIN_LANGUAGE
+    field_name: HYPHENATED_NAME (HYPHENATED_NAME | '.')*
+    job_slot: 'context' | 'control'
+    name: NAME
+    reason: PLAIN_LANGUAGE
+    value: PLAIN_LANGUAGE
+    variable_name: ALPHANUM (ALPHANUM | [-_.{}])*
+
+    fixture_comment: '#' comment
+    test_name: 'test name' ':' name
+    test_description: 'test description' ':' description
+    test_skip: 'test skip' ['global'] ':' reason
+    input: action ['.' action_index] ':' ['global'] ['job' job_slot] 'input' [data_type] ':' variable_name ':' value
+    expect_error_field_message: action ['.' action_index] ':' ['global'] 'expect' ':' ['not'] ['exact'] ['job'] 'error'
+        ':' 'code' '=' error_code ',' 'field' '=' field_name ',' 'message' '=' error_message
+    expect_error_message: action ['.' action_index] ':' ['global'] 'expect' ':' ['not'] ['exact'] ['job'] 'error' ':'
+        'code' '=' error_code ',' 'message' '=' error_message
+    expect_error_field: action ['.' action_index] ':' ['global'] 'expect' ':' ['not'] ['exact'] ['job'] 'error' ':'
+        'code' '=' error_code ',' 'field' '=' field_name
+    expect_error: action ['.' action_index] ':' ['global'] 'expect' ':' ['not'] ['exact'] ['job'] 'error' ':' 'code'
+        '=' error_code
+    expect_no_errors: action ['.' action_index] ':' ['global'] 'expect' ':' 'no errors'
+    expect_value: action ['.' action_index] ':' ['global'] 'expect' [data_type] ':' ['not'] 'attribute value' ':'
+        variable_name ':' value
+    expect_any_value: action ['.' action_index] ':' ['global'] 'expect' 'any' [data_type] ':' 'attribute value' ':'
+        variable_name [ ':']
+    expect_none: action ['.' action_index] ':' ['global'] 'expect' 'NONE' ':' 'attribute value' ':' variable_name [ ':']
+    expect_not_present: action ['.' action_index] ':' ['global'] 'expect not present' ':' 'attribute value' ':'
+        variable_name [ ':']
+    freeze_time_test: 'freeze time' ':' value
+    freeze_time_action: action ['.' action_index] ':' ['global'] 'freeze time' ':' value
+
+    global_directive: fixture_comment | test_skip | input | expect_error_field_message | expect_error_message |
+        expect_error_field | expect_error | expect_no_errors | expect_value | expect_any_value | expect_none |
+        expect_not_present | freeze_time_action
+
+    test_directive: fixture_comment | test_skip | input | expect_error_field_message | expect_error_message |
+        expect_error_field | expect_error | expect_no_errors | expect_value | expect_any_value | expect_none |
+        expect_not_present | freeze_time_test | freeze_time_action
+
+    global_case: global_directive NEWLINE (global_directive NEWLINE)*
+    test_case: test_name NEWLINE test_description NEWLINE test_directive NEWLINE (test_directive NEWLINE)*
+
+    fixture: (global_case | test_case) NEWLINE ((global_case | test_case) NEWLINE)*
+
+
+Some notes about this grammar:
+
+- A blank line ends the test case.
+- ``action_index`` defaults to ``0`` if not specified.
+- ``data_type`` defaults to ``str`` (a unicode string) if not specified.
+
+
+Data Type Descriptions
+----------------------
+
+This is an explanation for all available data types:
+
+- ``base64_bytes``: Same as ``bytes``, except the value in the fixture directive is base64-encoded and should be
+  decoded before use
+- ``bool``: A boolean
+- ``bytes``: A byte array, equivalent to ``bytes`` in Python 3 and ``str`` in Python 3
+- ``date``: A ``datetime.date`` object
+- ``datetime``: A ``datetime.datetime`` object
+- ``decimal``: A ``decimal.Decimal`` object
+- ``emptydict``: A zero-length dict (``{}``)
+- ``emptylist``: A zero-length list (``[]``)
+- ``emptystr``: A zero-length unicode string
+- ``encoded_ascii``: A should-be-unicode string, except the value in the fixture directive has ASCII escape sequences
+  that should be decoded before use
+- ``encoded_unicode``: A unicode string, except the value in the fixture directive has Unicode escape sequences that
+  should be decoded before use
+- ``float``: A floating-point decimal
+- ``int``: An integer, equivalent to a Python 3 ``int`` in either Python 2 or 3
+- ``none``: ``None``
+- ``None``: ``None``
+- ``not regex``: Used for expectations only, the string value must *not* match this regular expression
+- ``regex``: Used for expectations only, the string value must match this regular expression
+- ``str``: A unicode string, equivalent to ``str`` in Python 3 and ``unicode`` in Python 2
+- ``time``: A ``datetime.time`` object
+
+
+Dates and Times:
+~~~~~~~~~~~~~~~~
+
+Some important notes about dates and times:
+
+- When the data type is ``time``, you can use ``[hour],[minute],[second],[millisecond]`` to pass integer arguments
+  directly to the ``time`` type constructor, or you can use one of the following:
+
+  + ``now``: current ``time`` (in local time one)
+  + ``utc_now``: current ``time`` (in UTC time)
+  + ``midnight``: a midnight time (all zeroes)
+
+- When the data type is ``date``, you can use ``today`` to use current date, or ``[year],[month],[day]`` to pass
+  integer arguments directly to the ``date`` type constructor.
+- When the data type is ``datetime``, you can use ``[year],[month],[day],[hour],[minute],[second],[millisecond]`` to
+  pass integer arguments directly to the ``datetime`` constructor, or you can use one of the following:
+
+  + ``now``: current ``datetime`` (in local timezone)
+  + ``utc_now``: current ``datetime`` (in UTC timezone)
+  + ``midnight``: start of the date ``datetime`` (in local timezone)
+  + ``utc_midnight``: start of the date ``datetime`` (in UTC timezone)
+
+- If you need to specify a time delta, you can do so using the same ``timedelta`` arguments in the order ``days``,
+  ``hours``, ``minutes``, ``seconds`` and ``microseconds``), like:
+
+  + ``now +1``: current ``datetime`` plus 1 day (in local timezone)
+  + ``utc_now +0,6``: current ``datetime`` or ``time`` plus 6 hours (in UTC timezone)
+  + ``midnight +0,3,30``: start of the date ``datetime`` or midnight ``time`` plus 3 hours 30 minutes (in local
+    timezone)
+  + ``utc_midnight +4,12``: start of the date ``datetime`` plus 4 days 12 hours (in UTC timezone)
+
+
+Detailed Syntax Description
+---------------------------
+
+You should familiarize yourself with the details of all available directives:
+
+
+Fixture Comment Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+All lines that start with ``#`` are comments.
+
+(from: ``pysoa.test.plan.grammar.directives.plans``)
+
+Syntax::
+
+    '#' comment
+
+
+Test Name Directive
+~~~~~~~~~~~~~~~~~~~
+
+The (required) name of the test, which must be a valid method name in Python syntax.
+
+(from: ``pysoa.test.plan.grammar.directives.plans``)
+
+Syntax::
+
+    'test name' ':' name
+
+
+Test Description Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The (required) description for the test, which can be a regular, plain-language sentence.
+
+(from: ``pysoa.test.plan.grammar.directives.plans``)
+
+Syntax::
+
+    'test description' ':' description
+
+
+Test Skip Directive
+~~~~~~~~~~~~~~~~~~~
+
+Use this directive to skip a test or, with ``global``, to skip all tests in the entire fixture
+
+(from: ``pysoa.test.plan.grammar.directives.plans``)
+
+Syntax::
+
+    'test skip' ['global'] ':' reason
+
+
+Input Directive
+~~~~~~~~~~~~~~~
+
+Set inputs that will be sent for an action in the service request.
+
+Using ``job control`` will put the value in the job control header instead of the action request.
+
+Using ``job context`` will put the value in the job context header instead of the action request.
+
+(from: ``pysoa.test.plan.grammar.directives.inputs``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] ['job' job_slot] 'input' [data_type] ':' variable_name ':' value
+
+
+Expect Error Field Message Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Set expectations that specific errors will (or will not) be in the service response. Any error that that matches
+this code, field, *and* message will fulfill this expectation.
+
+If ``not`` is used, the absence of the error will be asserted (it negates the expectation exactly). As long as no
+error has this code, field, *and* message, this expectation will pass.
+
+If ``exact`` is used, then all of the errors you define must match all of the errors in your response, and your
+response cannot have any non-matching extra errors. ``exact`` and non-``exact`` are mutually-exclusive
+expectations: an action case that has a mixture of ``exact`` and non-``exact`` error expectations will fail. For
+each error case, you must use one or the other.
+
+If ``job`` is used, then the job response will be examined for the error instead of the action response.
+
+(from: ``pysoa.test.plan.grammar.directives.expects_errors``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'expect' ':' ['not'] ['exact'] ['job'] 'error' ':' 'code' '=' error_code
+        ',' 'field' '=' field_name ',' 'message' '=' error_message
+
+
+Expect Error Message Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Set expectations that specific errors will (or will not) be in the service response. Any error that that matches
+this code *and* message, whether or not it has a field value, will fulfill this expectation.
+
+If ``not`` is used, the absence of the error will be asserted (it negates the expectation exactly). As long as no
+error has this code *and* message (even if some errors have this code and other errors have this message), this
+expectation will pass.
+
+If ``exact`` is used, then all of the errors you define must match all of the errors in your response, and your
+response cannot have any non-matching extra errors. ``exact`` and non-``exact`` are mutually-exclusive
+expectations: an action case that has a mixture of ``exact`` and non-``exact`` error expectations will fail. For
+each error case, you must use one or the other.
+
+If ``job`` is used, then the job response will be examined for the error instead of the action response.
+
+(from: ``pysoa.test.plan.grammar.directives.expects_errors``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'expect' ':' ['not'] ['exact'] ['job'] 'error' ':' 'code' '=' error_code
+        ',' 'message' '=' error_message
+
+
+Expect Error Field Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Set expectations that specific errors will (or will not) be in the service response. Any error that that matches
+this code *and* field, whether or not it has a message value, will fulfill this expectation.
+
+If ``not`` is used, the absence of the error will be asserted (it negates the expectation exactly). As long as no
+error has this code *and* field (even if some errors have this code and other errors have this field), this
+expectation will pass.
+
+If ``exact`` is used, then all of the errors you define must match all of the errors in your response, and your
+response cannot have any non-matching extra errors. ``exact`` and non-``exact`` are mutually-exclusive
+expectations: an action case that has a mixture of ``exact`` and non-``exact`` error expectations will fail. For
+each error case, you must use one or the other.
+
+If ``job`` is used, then the job response will be examined for the error instead of the action response.
+
+(from: ``pysoa.test.plan.grammar.directives.expects_errors``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'expect' ':' ['not'] ['exact'] ['job'] 'error' ':' 'code' '=' error_code
+        ',' 'field' '=' field_name
+
+
+Expect Error Directive
+~~~~~~~~~~~~~~~~~~~~~~
+
+Set expectations that specific errors will (or will not) be in the service response. Any error that that matches
+this code, whether or not it has a field or message, will fulfill this expectation.
+
+If ``not`` is used, the absence of the error will be asserted (it negates the expectation exactly). As long as no
+error has this code, this expectation will pass.
+
+If ``exact`` is used, then all of the errors you define must match all of the errors in your response, and your
+response cannot have any non-matching extra errors. ``exact`` and non-``exact`` are mutually-exclusive
+expectations: an action case that has a mixture of ``exact`` and non-``exact`` error expectations will fail. For
+each error case, you must use one or the other.
+
+If ``job`` is used, then the job response will be examined for the error instead of the action response.
+
+(from: ``pysoa.test.plan.grammar.directives.expects_errors``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'expect' ':' ['not'] ['exact'] ['job'] 'error' ':' 'code' '=' error_code
+
+
+Expect No Errors Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Expect that no errors are reported back in the service call response. Any error in either the job response or the
+action response will cause this expectation to fail.
+
+(from: ``pysoa.test.plan.grammar.directives.expects_errors``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'expect' ':' 'no errors'
+
+
+Expect Value Directive
+~~~~~~~~~~~~~~~~~~~~~~
+
+Set expectations for values to be in the service call response.
+
+Using the ``not`` qualifier in the test will check to make sure that the field has any value other than the one
+specified.
+
+(from: ``pysoa.test.plan.grammar.directives.expects_values``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'expect' [data_type] ':' ['not'] 'attribute value' ':' variable_name ':'
+        value
+
+
+Expect Any Value Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Set expectations for values to be in the service call response where any value for the given data type will be
+accepted.
+
+(from: ``pysoa.test.plan.grammar.directives.expects_values``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'expect' 'any' [data_type] ':' 'attribute value' ':' variable_name [ ':']
+
+
+Expect None Directive
+~~~~~~~~~~~~~~~~~~~~~
+
+Set expectations for values to be in the service call response where ``None`` value is expected.
+
+(from: ``pysoa.test.plan.grammar.directives.expects_values``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'expect' 'NONE' ':' 'attribute value' ':' variable_name [ ':']
+
+
+Expect Not Present Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Set expectation that the given field will not be present (even as a key) in the response.
+
+(from: ``pysoa.test.plan.grammar.directives.expects_values``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'expect not present' ':' 'attribute value' ':' variable_name [ ':']
+
+
+Freeze Time Test Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Freeze Time using freezegun for the duration of an entire test plan.
+
+This will span all actions within the plan, no matter where the statement is located.
+
+(from: ``pysoa.test.plan.grammar.directives.time``)
+
+Syntax::
+
+    'freeze time' ':' value
+
+
+Freeze Time Action Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Freeze Time using freezegun for the duration of a single action.
+
+(from: ``pysoa.test.plan.grammar.directives.time``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'freeze time' ':' value
+
+
+Extending Test Plans
+********************
+
+You can extend test plan syntax to create your own directives, allowing you to add even more features to your test
+plans. The base for all directive behavior is contained in the class ``pysoa.test.plan.grammar.directive:Directive``.
+Your directives must extend that class directly or indirectly. Extending the base class directly gives you the ability
+to manipulate test case-level and global test case-level behavior. In most cases, you'll want to extend
+``pysoa.test.plan.grammar.directive:ActionDirective``, which is the base class for all action case behavior. For more
+information about how to use and extend these classes, read their extensive docstrings.
+
+Once you have created one or more new directives, you can register them with the PySOA Test Plan system using one of
+the following techniques:
+
+- Call ``pysoa.test.plan.grammar.directive:register_directive`` to register your directive with the test plan system
+  manually. However, this requires your code that calls that function to be loaded before the PyTest process starts,
+  which can be tricky to achieve.
+- Use the Python entry point named ``pysoa.test.plan.grammar.directives`` in your ``setup.py`` file. This is a more
+  reliable approach that works in all scenarios. Example:
+
+  .. code:: python
+
+      from setuptools import setup
+
+      ...
+
+      setup(
+          name='base_service',
+          description='A layer on top of PySOA that serves as the base for all of our micro services',
+          ...
+          entry_points={
+              'pysoa.test.plan.grammar.directives': [
+                  'auth_token_directive = base_service.test.directives:AuthTokenDirective',
+                  'authentication_directive = base_service.test.directives:AuthProcessingDirective',
+              ],
+          },
+          ...
+      )
+
+.. END AUTO-GENERATED TEST PLAN DOCUMENTATION
