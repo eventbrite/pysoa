@@ -13,6 +13,7 @@ from _pytest.unittest import (
 )
 from _pytest._code.code import TracebackEntry
 from _pytest._code.source import Source
+from _pytest.mark import MARK_GEN
 
 
 __test_plan_prune_traceback = True  # ensure code in this file is not included in failure stack traces
@@ -214,6 +215,15 @@ class ServicePlanTestCaseTestFunction(TestCaseFunction):
 
         self.fixture_test_case_data = fixture_test_case_data
 
+        # Copy any class-level PyTest markers from the ServicePlanTestCase class to each fixture test case
+        # This allows things like pytest.mark.skip[if], pytest.mark.django_db, etc. to work
+        for mark in _get_unpacked_marks(parent.obj):
+            mark_copy = getattr(MARK_GEN, mark.name)(*mark.args, **mark.kwargs)
+            self.add_marker(mark_copy)
+
+            if mark.name == 'skip' or (mark.name == 'skipif' and mark.args and mark.args[0]):
+                PLUGIN_STATISTICS['fixture_tests_skipped'] += 1
+
     # noinspection SpellCheckingInspection
     def runtest(self):
         """
@@ -246,14 +256,6 @@ class ServicePlanTestCaseTestFunction(TestCaseFunction):
         elif self.fixture_test_case_data.skip:
             skipped = True
             skipped_why = self.fixture_test_case_data.skip
-        else:
-            for mark in _get_unpacked_marks(cls):
-                if mark.name == 'skip':
-                    skipped = True
-                    skipped_why = mark.kwargs.get('reason') or skipped_why
-                elif mark.name == 'skipif' and mark.args and mark.args[0]:
-                    skipped = True
-                    skipped_why = mark.kwargs.get('reason') or skipped_why
 
         if skipped:
             # If the class or fixture or fixture test case was skipped
