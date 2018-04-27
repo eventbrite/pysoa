@@ -23,7 +23,7 @@ install_requires = [
 pytest_plugin_requires = [
     'mock>=2.0',
     'pyparsing~=2.2',
-    'pytest',
+    'pytest~=3.1',
     'pytz>=2018.4',
 ]
 
@@ -32,7 +32,7 @@ tests_require = [
     'freezegun~=0.3',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
-    'pytest-cov',
+    'pytest-cov~=2.5',
 ] + pytest_plugin_requires
 
 setup(

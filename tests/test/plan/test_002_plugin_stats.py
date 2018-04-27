@@ -367,7 +367,14 @@ def test_expected_pytest_skipped_fixtures_ooo():
     """
     Test that nothing was executed in TestPyTestSkippedFixtures
     """
-    assert fixtures_test_module.TestPyTestSkippedFixtures.order_of_operations == ['setUpClass', 'tearDownClass']
+    assert fixtures_test_module.TestPyTestSkippedFixtures.order_of_operations == []
+
+
+def test_expected_pytest_skipped_if_fixtures_ooo():
+    """
+    Test that nothing was executed in TestPyTestSkippedIfFixtures
+    """
+    assert fixtures_test_module.TestPyTestSkippedIfFixtures.order_of_operations == []
 
 
 def test_expected_global_skipped_fixtures_ooo():
