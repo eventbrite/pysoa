@@ -1,5 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
+import inspect
+
 import six
 
 from pysoa.test.plan.grammar.data_types import (
@@ -234,7 +236,7 @@ for __directive_class in get_all_directives():
     __doc__ += (
         '' + __name + '\n' +
         ('~' * len(__name)) + '\n\n' +
-        '\n'.join(x.strip(' \n\t') for x in (__directive_class.__doc__ or '').split('\n')).strip(' \n\t') + '\n\n' +
+        inspect.cleandoc(__directive_class.__doc__ or '') + '\n\n' +
         '(from: ``' + __directive_class.__module__ + '``)' + '\n\n' +
         'Syntax::\n\n' + __wrap_documentation_line(repr(__directive_class())) + '\n\n\n'
     )
