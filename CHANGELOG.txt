@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.37.1 (2018-04-27)
+-------------------
+- Properly copy PyTest marks to fixture test cases
+- Improve auto-docs using built-in method designed for it
+
 0.37.0 (2018-04-25)
 -------------------
 - [MAJOR] Add extensive test plan system with customized test plan syntax
