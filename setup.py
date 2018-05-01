@@ -12,7 +12,7 @@ def readme():
 
 install_requires = [
     'attrs~=17.4',
-    'conformity~=1.11',
+    'conformity~=1.12',
     'currint~=1.6',
     'enum34;python_version<"3.4"',
     'msgpack-python~=0.4',

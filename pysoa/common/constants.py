@@ -1,4 +1,10 @@
-ERROR_CODE_INVALID = 'INVALID'
-ERROR_CODE_MISSING = 'MISSING'
-ERROR_CODE_UNKNOWN = 'UNKNOWN'
+from __future__ import absolute_import, unicode_literals
+
+from conformity.error import (  # noqa
+    ERROR_CODE_INVALID,
+    ERROR_CODE_MISSING,
+    ERROR_CODE_UNKNOWN,
+)
+
+
 ERROR_CODE_SERVER_ERROR = 'SERVER_ERROR'
