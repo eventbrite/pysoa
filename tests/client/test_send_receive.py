@@ -1,4 +1,6 @@
-from __future__ import unicode_literals
+from __future__ import absolute_import, unicode_literals
+
+from unittest import TestCase
 
 from pysoa.client.client import Client
 from pysoa.client.middleware import ClientMiddleware
@@ -21,9 +23,8 @@ from pysoa.common.types import (
 )
 from pysoa.server.errors import JobError
 from pysoa.server.server import Server
+from pysoa.test.compatibility import mock
 
-import mock
-from unittest import TestCase
 
 SERVICE_NAME = 'test_service'
 

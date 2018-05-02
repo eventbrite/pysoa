@@ -1,6 +1,5 @@
 from __future__ import absolute_import, unicode_literals
 
-import mock
 import threading
 import time
 import unittest
@@ -10,6 +9,7 @@ from pysoa.common.transport.exceptions import MessageReceiveTimeout
 from pysoa.common.transport.redis_gateway.client import RedisClientTransport
 from pysoa.common.transport.redis_gateway.constants import REDIS_BACKEND_TYPE_STANDARD
 from pysoa.common.transport.redis_gateway.server import RedisServerTransport
+from pysoa.test.compatibility import mock
 
 
 class _FakeBackend(object):

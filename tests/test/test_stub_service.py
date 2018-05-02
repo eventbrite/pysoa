@@ -2,8 +2,6 @@ from __future__ import absolute_import, unicode_literals
 
 import random
 
-import mock
-
 from pysoa.client import Client
 from pysoa.common.types import (
     ActionRequest,
@@ -17,6 +15,7 @@ from pysoa.server.errors import (
     JobError,
 )
 from pysoa.server.server import Server
+from pysoa.test.compatibility import mock
 from pysoa.test.factories import ActionFactory
 from pysoa.test.server import ServerTestCase
 from pysoa.test.stub_service import stub_action

@@ -3,11 +3,10 @@ from __future__ import absolute_import, unicode_literals
 import unittest
 import uuid
 
-import mock
-
 from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.base import get_hex_thread_id
 from pysoa.common.transport.redis_gateway.client import RedisClientTransport
+from pysoa.test.compatibility import mock
 
 
 @mock.patch('pysoa.common.transport.redis_gateway.client.RedisTransportCore')
