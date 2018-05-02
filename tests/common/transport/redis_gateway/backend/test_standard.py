@@ -2,7 +2,6 @@ from __future__ import absolute_import, unicode_literals
 
 import unittest
 
-import mock
 from mockredis import client as mockredis
 from mockredis.exceptions import ResponseError
 from mockredis.script import Script
@@ -10,6 +9,7 @@ import msgpack
 import six
 
 from pysoa.common.transport.redis_gateway.backend.standard import StandardRedisClient
+from pysoa.test.compatibility import mock
 
 #####
 # The following MockRedis fixes were submitted as part of https://github.com/locationlabs/mockredis/pull/133. They can

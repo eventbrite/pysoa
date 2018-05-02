@@ -8,7 +8,6 @@ import uuid
 
 import attr
 import freezegun
-import mock
 
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
 from pysoa.common.transport.exceptions import (
@@ -24,6 +23,7 @@ from pysoa.common.transport.redis_gateway.constants import (
     REDIS_BACKEND_TYPE_SENTINEL,
 )
 from pysoa.common.transport.redis_gateway.core import RedisTransportCore
+from pysoa.test.compatibility import mock
 
 from .backend.test_standard import mockredis  # To ensure all the patching over there happens over here
 

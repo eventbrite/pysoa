@@ -1,7 +1,6 @@
 from __future__ import absolute_import, unicode_literals
 
 import importlib
-import mock
 import os
 import signal
 import sys
@@ -21,6 +20,7 @@ from pysoa.server.autoreload import (
     get_reloader,
     NEED_RELOAD_EXIT_CODE,
 )
+from pysoa.test.compatibility import mock
 import pysoa.version
 
 

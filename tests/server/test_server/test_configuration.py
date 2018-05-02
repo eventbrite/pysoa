@@ -1,8 +1,10 @@
-import mock
+from __future__ import absolute_import, unicode_literals
+
 from unittest import TestCase
 
 from pysoa.server.server import Server
 from pysoa.test import factories
+from pysoa.test.compatibility import mock
 
 
 class BaseTestServiceServer(Server):
@@ -19,10 +21,10 @@ class ServerInitializationTests(TestCase):
 
     def test_service_name_not_set(self):
         TestServiceServer = type(
-            'TestServiceServer',
+            str('TestServiceServer'),
             (BaseTestServiceServer,),
             {
-                'service_name': None,
+                str('service_name'): None,
             },
         )
 

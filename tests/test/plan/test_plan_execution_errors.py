@@ -3,8 +3,7 @@ from __future__ import absolute_import, unicode_literals
 import os
 import unittest
 
-import mock
-
+from pysoa.test.compatibility import mock
 from pysoa.test.plan import ServicePlanTestCase
 from pysoa.test.plan.errors import (
     FixtureLoadError,
@@ -425,7 +424,7 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
 
         test.addError.assert_not_called()
-        test.addFailure.assert_called_once()
+        test.assertEqual(1, test.addFailure.call_count)
 
     def test_error_on_set_up_test_case_no_other_errors(self):
         test_case = {'my': 'case'}
@@ -584,7 +583,7 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
         test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_called_once()
+        test.assertEqual(1, test.addError.call_count)
         test.addFailure.assert_not_called()
 
     def test_keyboard_error_on_tear_down_test_case_no_other_errors(self):
@@ -663,7 +662,7 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
         test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_called_once()
+        test.assertEqual(1, test.addError.call_count)
         test.addFailure.assert_not_called()
 
     def test_keyboard_error_on_tear_down_no_other_errors(self):
@@ -821,7 +820,7 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
         test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_called_once()
+        test.assertEqual(1, test.addError.call_count)
         test.addFailure.assert_not_called()
 
     def test_other_error_on_assert_test_fixture_results_some_other_errors(self):
@@ -861,7 +860,7 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
         test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_called_once()
+        test.assertEqual(1, test.addError.call_count)
         test.addFailure.assert_not_called()
 
     def test_keyboard_error_on_tear_down_test_fixture(self):

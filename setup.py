@@ -10,7 +10,7 @@ def readme():
         return f.read()
 
 
-install_requires = [
+base_requirements = [
     'attrs~=17.4',
     'conformity~=1.12',
     'currint~=1.6',
@@ -20,20 +20,23 @@ install_requires = [
     'six~=1.10',
 ]
 
-pytest_plugin_requires = [
-    'mock>=2.0',
+test_helper_requirements = [
+    'mock>=2.0;python_version<"3.3"',
+]
+
+test_plan_requirements = test_helper_requirements + [
     'pyparsing~=2.2',
     'pytest~=3.1',
     'pytz>=2018.4',
 ]
 
-tests_require = [
+test_requirements = [
     'factory_boy~=2.8.0',
     'freezegun~=0.3',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
     'pytest-cov~=2.5',
-] + pytest_plugin_requires
+] + test_plan_requirements
 
 setup(
     name='pysoa',
@@ -45,13 +48,14 @@ setup(
     url='http://github.com/eventbrite/pysoa',
     packages=list(map(str, find_packages(exclude=['*.tests', '*.tests.*', 'tests.*', 'tests']))),
     include_package_data=True,
-    install_requires=install_requires,
-    tests_require=tests_require,
+    install_requires=base_requirements,
+    tests_require=test_requirements,
     setup_requires=['pytest-runner'],
     test_suite='tests',
     extras_require={
-        'testing': tests_require,
-        'pytest': pytest_plugin_requires,
+        'testing': test_requirements,
+        'test_helpers': test_helper_requirements,
+        'test_plans': test_plan_requirements,
     },
     entry_points={
         'pytest11': [

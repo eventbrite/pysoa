@@ -1,6 +1,5 @@
 from __future__ import absolute_import, unicode_literals
 
-import mock
 import six
 import threading
 import unittest
@@ -9,6 +8,7 @@ from pysoa.server.logging import (
     PySOALogContextFilter,
     RecursivelyCensoredDictWrapper,
 )
+from pysoa.test.compatibility import mock
 
 
 class TestPySOALogContextFilter(unittest.TestCase):

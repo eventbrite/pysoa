@@ -1,9 +1,9 @@
-from __future__ import unicode_literals
+from __future__ import absolute_import, unicode_literals
 
-import mock
 from unittest import TestCase
 
 from pysoa.client.client import Client
+from pysoa.test.compatibility import mock
 from pysoa.test.stub_service import stub_action
 
 

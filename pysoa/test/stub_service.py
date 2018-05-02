@@ -7,7 +7,6 @@ from collections import (
 from functools import wraps
 import re
 
-import mock
 import six
 
 from pysoa.client.client import (
@@ -33,6 +32,7 @@ from pysoa.server.errors import (
     ActionError,
     JobError,
 )
+from pysoa.test.compatibility import mock
 
 
 def _make_stub_action(action_name, body=None, errors=None):
