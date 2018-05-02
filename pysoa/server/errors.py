@@ -1,3 +1,6 @@
+from __future__ import unicode_literals
+
+
 class JobError(Exception):
     def __init__(self, errors):
         self.errors = errors
@@ -19,7 +22,7 @@ class ResponseValidationError(Exception):
         self.errors = errors
 
     def __str__(self):
-        return "%s had an invalid response:\n%s" % (
+        return '{} had an invalid response:\n\t{}'.format(
             self.action,
-            "\n".join("%s: %s" % (error.pointer, error.message) for error in self.errors)
+            '\n\t'.join('{} {}: {}'.format(error.pointer, error.code, error.message) for error in self.errors)
         )

@@ -4,9 +4,14 @@ import abc
 
 import six
 
-from pysoa.common.constants import ERROR_CODE_INVALID
-from pysoa.common.types import ActionResponse, Error
-from pysoa.server.errors import ActionError, ResponseValidationError
+from pysoa.common.types import (
+    ActionResponse,
+    Error,
+)
+from pysoa.server.errors import (
+    ActionError,
+    ResponseValidationError,
+)
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -59,7 +64,7 @@ class Action(object):
         if self.request_schema:
             errors = [
                 Error(
-                    code=ERROR_CODE_INVALID,
+                    code=error.code,
                     message=error.message,
                     field=error.pointer,
                 )

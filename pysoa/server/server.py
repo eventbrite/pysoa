@@ -12,7 +12,6 @@ import signal
 import attr
 from pysoa.client import Client
 from pysoa.common.constants import (
-    ERROR_CODE_INVALID,
     ERROR_CODE_SERVER_ERROR,
     ERROR_CODE_UNKNOWN,
 )
@@ -168,7 +167,7 @@ class Server(object):
             # Validate JobRequest message
             validation_errors = [
                 Error(
-                    code=ERROR_CODE_INVALID,
+                    code=error.code,
                     message=error.message,
                     field=error.pointer,
                 )
