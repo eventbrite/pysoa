@@ -16,6 +16,14 @@ from _pytest._code.source import Source
 from _pytest.mark import MARK_GEN
 
 
+try:
+    import pyparsing
+    TEST_PLANS_ENABLED = True
+except ImportError:
+    pyparsing = None
+    TEST_PLANS_ENABLED = False
+
+
 __test_plan_prune_traceback = True  # ensure code in this file is not included in failure stack traces
 
 
@@ -44,6 +52,8 @@ def pytest_addoption(parser):
 
     :param parser: The PyTest wrapper around the ``argparse`` library parser
     """
+    if not TEST_PLANS_ENABLED:
+        return
 
     group = parser.getgroup('pysoa', 'pysoa test plans')
     group.addoption(
@@ -114,6 +124,8 @@ def pytest_pycollect_makeitem(collector, name, obj):
              collector system will call the next available plugin or hook to do the same.
     :rtype: PyCollector
     """
+    if not TEST_PLANS_ENABLED:
+        return
 
     # Lazy importing ensures that pytest-cov loads up coverage before this plugin loads other classes in PySOA
     from pysoa.test.plan import ServicePlanTestCase
@@ -490,6 +502,8 @@ def pytest_collection_modifyitems(config, items):
                   other plugins as well as fixture test cases). Any modifications must happen against this argument
                   directly (a new array can't be created and returned).
     """
+    if not TEST_PLANS_ENABLED:
+        return
 
     reporter = None
     # noinspection PyBroadException
