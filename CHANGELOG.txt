@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.38.0 (2018-05-03)
+-------------------
+- [MINOR] Add idle timer for tracking how long servers stay idle
+- [PATCH] Ensure an error response is sent if response too large
+- [MINOR] Don't require mock library for `stub_service`, tests in Python 3
+- [MINOR] Use error codes supplied by Conformity
+
 0.37.1 (2018-04-27)
 -------------------
 - Properly copy PyTest marks to fixture test cases
