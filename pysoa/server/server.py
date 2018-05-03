@@ -91,7 +91,15 @@ class Server(object):
 
         self._default_status_action_class = None
 
+        self._idle_timer = None
+
     def handle_next_request(self):
+        if not self._idle_timer:
+            # This method may be called multiple times before receiving a request, so we only create and start a timer
+            # if it's the first call or if the idle timer was stopped on the last call.
+            self._idle_timer = self.metrics.timer('server.idle_time')
+            self._idle_timer.start()
+
         # Get the next JobRequest
         try:
             request_id, meta, job_request = self.transport.receive_request_message()
@@ -99,6 +107,11 @@ class Server(object):
             # no new message, nothing to do
             self.perform_idle_actions()
             return
+
+        # We are no longer idle, so stop the timer and reset for the next idle period
+        self._idle_timer.stop()
+        self._idle_timer = None
+
         PySOALogContextFilter.set_logging_request_context(request_id=request_id, **job_request['context'])
 
         request_for_logging = RecursivelyCensoredDictWrapper(job_request)
