@@ -12,12 +12,14 @@ import signal
 import attr
 from pysoa.client import Client
 from pysoa.common.constants import (
+    ERROR_CODE_RESPONSE_TOO_LARGE,
     ERROR_CODE_SERVER_ERROR,
     ERROR_CODE_UNKNOWN,
 )
 from pysoa.common.transport.exceptions import (
     MessageReceiveError,
     MessageReceiveTimeout,
+    MessageTooLarge,
 )
 from pysoa.common.types import (
     ActionResponse,
@@ -108,29 +110,50 @@ class Server(object):
             # Process and run the Job
             job_response = self.process_job(job_request)
 
-            # Send the JobResponse
+            # Prepare the JobResponse for sending by converting it to a message dict
             try:
                 response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
             except Exception as e:
                 self.metrics.counter('server.error.response_conversion_failure').increment()
                 job_response = self.handle_error(e, variables={'job_response': job_response})
                 response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
-            self.transport.send_response_message(request_id, meta, response_message)
 
             response_for_logging = RecursivelyCensoredDictWrapper(response_message)
 
-            if job_response.errors or any(a.errors for a in job_response.actions):
-                if (
-                    self.request_log_error_level > self.request_log_success_level and
-                    self.job_logger.getEffectiveLevel() > self.request_log_success_level
-                ):
-                    # When we originally logged the request, it may have been hidden because the effective logging level
-                    # threshold was greater than the level at which we logged the request. So re-log the request at the
-                    # error level, if set higher.
-                    self.job_logger.log(self.request_log_error_level, 'Job request: %s', request_for_logging)
-                self.job_logger.log(self.request_log_error_level, 'Job response: %s', response_for_logging)
-            else:
-                self.job_logger.log(self.request_log_success_level, 'Job response: %s', response_for_logging)
+            # Send the response message
+            try:
+                self.transport.send_response_message(request_id, meta, response_message)
+            except MessageTooLarge:
+                self.metrics.counter('server.error.response_too_large').increment()
+                self.logger.error(
+                    'Could not send a response because it was too large',
+                    exc_info=True,
+                    extra={'data': {'request': request_for_logging, 'response': response_for_logging}},
+                )
+                job_response = JobResponse(errors=[
+                    Error(
+                        code=ERROR_CODE_RESPONSE_TOO_LARGE,
+                        message='Could not send the response because it was too large',
+                    ),
+                ])
+                self.transport.send_response_message(
+                    request_id,
+                    meta,
+                    attr.asdict(job_response, dict_factory=UnicodeKeysDict),
+                )
+            finally:
+                if job_response.errors or any(a.errors for a in job_response.actions):
+                    if (
+                        self.request_log_error_level > self.request_log_success_level and
+                        self.job_logger.getEffectiveLevel() > self.request_log_success_level
+                    ):
+                        # When we originally logged the request, it may have been hidden because the effective logging
+                        # level threshold was greater than the level at which we logged the request. So re-log the
+                        # request at the error level, if set higher.
+                        self.job_logger.log(self.request_log_error_level, 'Job request: %s', request_for_logging)
+                    self.job_logger.log(self.request_log_error_level, 'Job response: %s', response_for_logging)
+                else:
+                    self.job_logger.log(self.request_log_success_level, 'Job response: %s', response_for_logging)
         finally:
             PySOALogContextFilter.clear_logging_request_context()
             self.perform_post_request_actions()
@@ -216,14 +239,15 @@ class Server(object):
             'message': 'Internal server error: %s' % error_str,
             'traceback': traceback_str,
         }
+
         if variables is not None:
             try:
                 error_dict['variables'] = {key: repr(value) for key, value in variables.items()}
             except Exception:
                 self.metrics.counter('server.error.variable_formatting_failure').increment()
                 error_dict['variables'] = 'Error formatting variables'
-        job_response = JobResponse(errors=[error_dict])
-        return job_response
+
+        return JobResponse(errors=[error_dict])
 
     def execute_job(self, job_request):
         """
