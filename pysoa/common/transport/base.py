@@ -30,6 +30,13 @@ def get_hex_thread_id():
 class ClientTransport(object):
 
     def __init__(self, service_name, metrics=NoOpMetricsRecorder()):
+        """
+        :param service_name: The name of the service to which this transport will send requests (and from which it will
+                             receive responses)
+        :type service_name: union[str, unicode]
+        :param metrics: The optional metrics recorder
+        :type metrics: MetricsRecorder
+        """
         self.service_name = service_name
         self.metrics = metrics
 
@@ -73,6 +80,12 @@ class ClientTransport(object):
 class ServerTransport(object):
 
     def __init__(self, service_name, metrics=NoOpMetricsRecorder()):
+        """
+        :param service_name: The name of the service for which this transport will receive requests and send responses
+        :type service_name: union[str, unicode]
+        :param metrics: The optional metrics recorder
+        :type metrics: MetricsRecorder
+        """
         self.service_name = service_name
         self.metrics = metrics
 

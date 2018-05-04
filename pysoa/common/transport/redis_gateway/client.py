@@ -16,6 +16,16 @@ from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
 class RedisClientTransport(ClientTransport):
 
     def __init__(self, service_name, metrics, **kwargs):
+        """
+        In addition to the two named positional arguments, this constructor expects keyword arguments abiding by the
+        Redis transport settings schema.
+
+        :param service_name: The name of the service to which this transport will send requests (and from which it will
+                             receive responses)
+        :type service_name: union[str, unicode]
+        :param metrics: The optional metrics recorder
+        :type metrics: MetricsRecorder
+        """
         super(RedisClientTransport, self).__init__(service_name, metrics)
 
         self.client_id = uuid.uuid4().hex
@@ -30,6 +40,11 @@ class RedisClientTransport(ClientTransport):
 
     @property
     def requests_outstanding(self):
+        """
+        Indicates the number of requests currently outstanding, which still need to be received. If this value is less
+        than 1, calling `receive_response_message` will result in a return value of `(None, None, None)` instead of
+        raising a `MessageReceiveTimeout`.
+        """
         return self._requests_outstanding
 
     def send_request_message(self, request_id, meta, body, message_expiry_in_seconds=None):

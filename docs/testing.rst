@@ -25,7 +25,7 @@ Setting Up a Test Case Class
 
 The initial part of writing such tests is setting up your test case with your server class:
 
-.. code:: python
+.. code-block:: python
 
     from pysoa.test.server import ServerTestCase
 
@@ -82,7 +82,7 @@ Examples
 
 Here is a full example using all the asserts:
 
-.. code:: python
+.. code-block:: python
 
     class TestManageObjectActions(ServerTestCase):
         server_class = ExampleServer
@@ -212,7 +212,7 @@ Examples
 
 The sample test case below demonstrates the many ways that you can use ``stub_action``:
 
-.. code:: python
+.. code-block:: python
 
     @stub_action('user', 'get_user', body={'user': {'id': 1234, 'username': 'John', 'email': 'john@example.org'}})
     class TestSomeCode(unittest.TestCase):
@@ -320,7 +320,7 @@ config dict can be passed like any normal configuration as the ``config`` argume
 multiple services in the dict, and they do not have to all be stub services, so you can mix in a stub configuration
 with your real configurations if you so wish.
 
-.. code:: python
+.. code-block:: python
 
     SOA_CLIENT_SETTINGS = {
         ...
@@ -339,7 +339,7 @@ with your real configurations if you so wish.
     }
 
 
-The ``action_map`` contains a dict of action names to action results. It can contain either a response body dict
+The ``action_map`` contains a dict of action names to action responses. It can contain either a response body dict
 ``body`` key or an error list ``errors`` key with the same semantics as the ``body`` and ``errors`` arguments to
 ``stub_action``, respectively. You won't be able to make assertions on the calls made (or not made) to these stubbed
 actions.
@@ -381,7 +381,7 @@ Running Test Plans
 PySOA test plans are collected and executed with a PyTest plugin, which is not installed by default. To enable this
 plugin, you need to add ``pysoa[pytest]`` to your test requirements. Example:
 
-.. code:: python
+.. code-block:: python
 
     tests_require = [
         'pysoa[pytest]',
@@ -420,7 +420,7 @@ so you need to define the same ``server_class`` and ``server_settings`` attribut
 either ``fixture_path`` or ``custom_fixtures``. You can also optionally specify ``model_constants``, which is used to
 provide stock values for variable substitution (more on that later). Here are two possible examples:
 
-.. code:: python
+.. code-block:: python
 
     import os
 
@@ -954,7 +954,7 @@ the following techniques:
 - Use the Python entry point named ``pysoa.test.plan.grammar.directives`` in your ``setup.py`` file. This is a more
   reliable approach that works in all scenarios. Example:
 
-  .. code:: python
+  .. code-block:: python
 
       from setuptools import setup
 

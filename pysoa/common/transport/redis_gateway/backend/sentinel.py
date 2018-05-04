@@ -37,7 +37,6 @@ class SentinelRedisClient(BaseRedisClient):
         hosts=None,
         connection_kwargs=None,
         sentinel_services=None,
-        sentinel_refresh_interval=0,  # noqa TODO Unused; remove this after all settings have been changed
         sentinel_failover_retries=0,
     ):
         # Master client caching

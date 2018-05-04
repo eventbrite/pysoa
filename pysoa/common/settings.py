@@ -211,7 +211,10 @@ class SOASettings(Settings):
     schema = {
         # Paths to the classes to use and then kwargs to pass
         'transport': BasicClassSchema(),
-        'middleware': fields.List(BasicClassSchema()),
+        'middleware': fields.List(
+            BasicClassSchema(),
+            description='The list of all middleware objects that should be applied to this server or client',
+        ),
         'metrics': MetricsSchema(),
     }
 

@@ -19,13 +19,19 @@ from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
 class ClientSettings(SOASettings):
     """Generic settings for a Client."""
     schema = {
-        'middleware': fields.List(BasicClassSchema(ClientMiddleware)),
+        'middleware': fields.List(
+            BasicClassSchema(ClientMiddleware),
+            description='The list of all `ClientMiddleware` objects that should be applied to requests made from this '
+                        'client to the associated service',
+        ),
         'transport': BasicClassSchema(BaseClientTransport),
         'transport_cache_time_in_seconds': fields.Integer(
             gte=0,
             description='If enabled, uses a per-service transport cache that is keyed off the service name and '
                         'transport settings, persists across all clients in memory, and expires after this number of '
-                        'seconds. By default, a new transport is created for every new client.',
+                        'seconds. By default, a new transport is created for every new client. Note that this is safe '
+                        'in a multi-processing environment, but not in a multi-threaded environment. You should '
+                        'disable this in a multi-threaded environment.',
         ),
     }
     defaults = {
@@ -74,6 +80,6 @@ class PolymorphicClientSettings(ClientSettings):
                     RedisClientTransport,
                 ),
                 '__default__': BasicClassSchema(BaseClientTransport),
-            }
+            },
         ),
     }

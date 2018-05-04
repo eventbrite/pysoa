@@ -137,9 +137,16 @@ class SwitchedAction(object):
 
     def __call__(self, action_request):
         """
-        Main entry point for actions from the `Server` (or potentially from tests).
+        Main entry point for actions from the `Server` (or potentially from tests). Finds the appropriate real action
+        to invoke based on the switches enabled in the request, initializes the action with the server settings, and
+        then calls the action with the request object, returning its response directly.
 
         :param action_request: The request object
         :type action_request: EnrichedActionRequest
+
+        :return: The response object
+        :rtype: ActionResponse
+
+        :raise: ActionError, ResponseValidationError
         """
         return self.get_uninitialized_action(action_request)(self.settings)(action_request)

@@ -44,12 +44,16 @@ import pysoa.version
 
 class Server(object):
     """
-    Base class from which all SOA Service Servers inherit.
+    The base class from which all PySOA service servers inherit, and contains the code that does all of the heavy
+    lifting for receiving and handling requests, passing those requests off to the relevant actions, and sending
+    the actions' responses back to the caller.
 
-    Required Attributes for Subclasses:
-        service_name: a string name of the service.
-        action_class_map: a dictionary mapping action name strings
-            to Action subclasses.
+    Required attributes that all concrete subclasses must provide:
+
+    - `service_name`: A (unicode) string name of the service.
+    - `action_class_map`: An object supporting `__contains__` and `__getitem__` (typically a `dict`) whose keys are
+      action names and whose values are callable objects that return a callable action when called (such as subclasses
+      of `Action` which, when "called" [constructed], yield a callable object [instance of the subclass])
     """
 
     settings_class = PolymorphicServerSettings
@@ -59,6 +63,10 @@ class Server(object):
     action_class_map = {}
 
     def __init__(self, settings):
+        """
+        :param settings: The settings object, which must be an instance of `ServerSettings` or one of its subclasses
+        :type settings: ServerSettings
+        """
         # Check subclassing setup
         if not self.service_name:
             raise AttributeError('Server subclass must set service_name')
@@ -94,6 +102,10 @@ class Server(object):
         self._idle_timer = None
 
     def handle_next_request(self):
+        """
+        Retrieves the next request from the transport, or returns if it times out (no request has been made), and then
+        processes that request, sends its response, and returns when done.
+        """
         if not self._idle_timer:
             # This method may be called multiple times before receiving a request, so we only create and start a timer
             # if it's the first call or if the idle timer was stopped on the last call.
@@ -173,17 +185,27 @@ class Server(object):
 
     def make_client(self, context):
         """
-        Gets a client router to pass down to middleware or Actions that will
-        propagate the passed `context`.
+        Gets a `Client` that will propagate the passed `context` in order to to pass it down to middleware or Actions.
+
+        :return: A client configured with this server's `client_routing` settings
+        :rtype: Client
         """
         return Client(self.settings['client_routing'], context=context)
 
     @staticmethod
     def make_middleware_stack(middleware, base):
         """
-        Given a list of in-order middleware callables `middleware`
-        and a base function `base`, chains them together so each middleware is
-        fed the function below, and returns the top level ready to call.
+        Given a list of in-order middleware callable objects `middleware` and a base function `base`, chains them
+        together so each middleware is fed the function below, and returns the top level ready to call.
+
+        :param middleware: The middleware stack
+        :type middleware: iterable[callable]
+        :param base: The base callable that the lowest-order middleware wraps
+        :type base: callable
+
+        :return: The topmost middleware, which calls the next middleware ... which calls the lowest-order middleware,
+                 which calls the `base` callable.
+        :rtype: callable
         """
         for ware in reversed(middleware):
             base = ware(base)
@@ -191,12 +213,15 @@ class Server(object):
 
     def process_job(self, job_request):
         """
-        Validate, execute, and run Job-level middleware for JobRequests.
+        Validate, execute, and run the job request, wrapping it with any applicable job middleware.
 
-        Args:
-            job_request: a JobRequest dictionary.
-        Returns:
-            A JobResponse instance.
+        :param job_request: The job request
+        :type job_request: dict
+
+        :return: A `JobResponse` object
+        :rtype: JobResponse
+
+        :raise: JobError
         """
 
         try:
@@ -236,7 +261,15 @@ class Server(object):
 
     def handle_error(self, error, variables=None):
         """
-        Makes a last-ditch error response
+        Makes and returns a last-ditch error response.
+
+        :param error: The error (exception) that happened
+        :type error: Exception
+        :param variables: A dictionary of context-relevant variables to include in the error response
+        :type variables: dict
+
+        :return: A `JobResponse` object
+        :rtype: JobResponse
         """
         # Get the error and traceback if we can
         try:
@@ -264,7 +297,13 @@ class Server(object):
 
     def execute_job(self, job_request):
         """
-        Processes and runs the ActionRequests on the Job.
+        Processes and runs the action requests contained in the job and returns a `JobResponse`.
+
+        :param job_request: The job request
+        :type job_request: dict
+
+        :return: A `JobResponse` object
+        :rtype: JobResponse
         """
         # Run the Job's Actions
         job_response = JobResponse()
@@ -327,6 +366,9 @@ class Server(object):
         return job_response
 
     def handle_shutdown_signal(self, *_):
+        """
+        Handles the reception of a shutdown signal.
+        """
         if self.shutting_down:
             self.logger.warning('Received double interrupt, forcing shutdown')
             sys.exit(1)
@@ -335,6 +377,10 @@ class Server(object):
             self.shutting_down = True
 
     def harakiri(self, *_):
+        """
+        Handles the reception of a timeout signal indicating that a request has been processing for too long, as
+        defined by the Harakiri settings.
+        """
         if self.shutting_down:
             self.logger.warning('Graceful shutdown failed after {}s. Exiting now!'.format(
                 self.settings['harakiri']['shutdown_grace']
@@ -353,7 +399,6 @@ class Server(object):
         Runs just before the server starts, if you need to do one-time loads or cache warming. Call super().setup() if
         you override.
         """
-        pass
 
     def _close_old_django_connections(self):
         if self.use_django:
@@ -407,7 +452,8 @@ class Server(object):
 
     def run(self):
         """
-        Start the SOA Server run loop.
+        Starts the server run loop and returns after the server shuts down due to a shutdown-request, Harakiri signal,
+        or unhandled exception.
         """
 
         self.logger.info(
@@ -443,7 +489,7 @@ class Server(object):
     @classmethod
     def main(cls):
         """
-        Command-line entry point for running a PySOA service Server.
+        Command-line entry point for running a PySOA server.
         """
         parser = argparse.ArgumentParser(
             description='Server for the {} SOA service'.format(cls.service_name),
@@ -458,7 +504,7 @@ class Server(object):
             # to get our settings, so the caller needs to set DJANGO_SETTINGS_MODULE.
             parser.add_argument(
                 '-s', '--settings',
-                help='The settings file to use',
+                help='The settings module to use',
                 required=True,
             )
         cmd_options, _ = parser.parse_known_args(sys.argv[1:])

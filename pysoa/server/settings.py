@@ -1,5 +1,6 @@
 from __future__ import absolute_import, unicode_literals
 
+import functools
 from logging.handlers import SysLogHandler
 
 from conformity import fields
@@ -21,14 +22,14 @@ from pysoa.server.middleware import ServerMiddleware
 _logger_schema = fields.Dictionary(
     {
         'level': fields.UnicodeString(),
-        'propagate': fields.Any(fields.Boolean(), fields.UnicodeString()),  # TODO change to just Boolean() > 2018-03-01
+        'propagate': fields.Boolean(),
         'filters': fields.List(fields.UnicodeString()),
         'handlers': fields.List(fields.UnicodeString()),
     },
     optional_keys=('level', 'propagate', 'filters', 'handlers'),
 )
 
-log_level_schema = fields.Constant('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+log_level_schema = functools.partial(fields.Constant, 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
 
 
 class ServerSettings(SOASettings):
@@ -38,7 +39,11 @@ class ServerSettings(SOASettings):
 
     schema = {
         'transport': BasicClassSchema(BaseServerTransport),
-        'middleware': fields.List(BasicClassSchema(ServerMiddleware)),
+        'middleware': fields.List(
+            BasicClassSchema(ServerMiddleware),
+            description='The list of all `ServerMiddleware` objects that should be applied to requests processed by '
+                        'this server',
+        ),
         'client_routing': fields.SchemalessDictionary(
             key_type=fields.UnicodeString(),
             value_type=fields.SchemalessDictionary(),
@@ -112,9 +117,18 @@ class ServerSettings(SOASettings):
                     description='Seconds to forcefully shutdown after harakiri is triggered if shutdown does not occur',
                 ),
             },
+            description='Instructions for automatically terminating a server process when request processing takes '
+                        'longer than expected.',
         ),
-        'request_log_success_level': log_level_schema,
-        'request_log_error_level': log_level_schema,
+        'request_log_success_level': log_level_schema(
+            description='The logging level at which full request and response contents will be logged for successful '
+                        'requests',
+        ),
+        'request_log_error_level': log_level_schema(
+            description='The logging level at which full request and response contents will be logged for requests '
+                        'whose responses contain errors (setting this to a more severe level than '
+                        '`request_log_success_level` will allow you to easily filter for unsuccessful requests)',
+        ),
     }
 
     defaults = {

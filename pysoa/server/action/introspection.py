@@ -99,10 +99,11 @@ class IntrospectionAction(Action):
     def __init__(self, server):
         """
         Construct a new introspection action. Unlike its base class, which accepts a server settings object, this
-        must be passed a `pysoa.server.server.Server` object, from which it will obtain a settings object.
+        must be passed a `Server` object, from which it will obtain a settings object. The `Server` code that calls
+        this action has special handling to address this requirement.
 
         :param server: A PySOA server instance
-        :type server: pysoa.server.server.Server
+        :type server: Server
         """
         if not isinstance(server, Server):
             raise TypeError('First argument (server) must be a Server instance')
@@ -112,6 +113,14 @@ class IntrospectionAction(Action):
         self.server = server
 
     def run(self, request):
+        """
+        Introspects all of the actions on the server and returns their documentation.
+
+        :param request: The request object
+        :type request: EnrichedActionRequest
+
+        :return: The response
+        """
         if request.body.get('action_name'):
             return self._get_response_for_single_action(request.body.get('action_name'))
 

@@ -1,6 +1,96 @@
 from __future__ import absolute_import, unicode_literals
 
+from conformity import fields
 import six
+
+from pysoa.common.settings import Settings
+
+
+class ExpansionSettings(Settings):
+    """
+    Defines the schema for configuration settings used when expanding objects on responses with the Expansions tool.
+    """
+
+    schema = {
+        'type_routes': fields.SchemalessDictionary(
+            key_type=fields.UnicodeString(
+                description='The name of the expansion route, to be referenced from the `type_expansions` '
+                            'configuration',
+            ),
+            value_type=fields.Dictionary(
+                {
+                    'service': fields.UnicodeString(
+                        description='The name of the service to call to resolve this route',
+                    ),
+                    'action': fields.UnicodeString(
+                        description='The name of the action to call to resolve this route, which must accept a single '
+                                    'request field of type `List`, to which all the identifiers for matching candidate '
+                                    'expansions will be passed, and which must return a single response field of type '
+                                    '`Dictionary`, from which all expansion objects will be obtained',
+                    ),
+                    'request_field': fields.UnicodeString(
+                        description='The name of the `List` identifier field to place in the `ActionRequest` body when '
+                                    'making the request to the named service and action',
+                    ),
+                    'response_field': fields.UnicodeString(
+                        description='The name of the `Dictionary` field returned in the `ActionResponse`, from which '
+                                    'the expanded objects will be extracted',
+                    ),
+                },
+                description='The instructions for resolving this type route',
+            ),
+            description='The definition of all recognized types that can be expanded into and information about how '
+                        'to resolve objects of those types through action calls',
+        ),
+        'type_expansions': fields.SchemalessDictionary(
+            key_type=fields.UnicodeString(
+                description='The name of the type for which the herein defined expansions can be sought, which will be '
+                            "matched with a key from the `expansions` dict passed to one of `Client`'s `call_***` "
+                            'methods, and which must also match the value of a `_type` field found on response objects '
+                            'on which extra data will be expanded',
+            ),
+            value_type=fields.SchemalessDictionary(
+                key_type=fields.UnicodeString(
+                    description='The name of an expansion, which will be matched with a value from the `expansions` '
+                                "dict passed to one of `Client`'s `call_***` methods corresponding to the type key in "
+                                'that dict',
+                ),
+                value_type=fields.Dictionary(
+                    {
+                        'type': fields.Nullable(fields.UnicodeString(
+                            description='The type of object this expansion yields, which must map back to a '
+                                        '`type_expansions` key in order to support nested/recursive expansions, and '
+                                        'may be `None` if you do not wish to support nested/recursive expansions for '
+                                        'this expansion',
+                        )),
+                        'route': fields.UnicodeString(
+                            description='The route to use to resolve this expansion, which must match a key in the '
+                                        '`type_routes` configuration',
+                        ),
+                        'source_field': fields.UnicodeString(
+                            description='The name of the field in the base object that contains the identifier used '
+                                        'for obtaining the expansion object (the identifier will be passed to the '
+                                        '`request_field` in the route when resolving the expansion)',
+                        ),
+                        'destination_field': fields.UnicodeString(
+                            description='The name of a not-already-existent field in the base object into which the '
+                                        'expansion object will be placed after it is obtained from the route',
+                        ),
+                        'raise_action_errors': fields.Boolean(
+                            description='Whether to raise action errors encountered when expanding objects these '
+                                        'objects (by default, action errors are suppressed, which differs from the '
+                                        'behavior of the `Client` to raise action errors during normal requests)',
+                        ),
+                    },
+                    optional_keys=('raise_action_errors', ),
+                    description='The definition of one specific possible expansion for this object type',
+                ),
+                description='The definition of all possible expansions for this object type',
+            ),
+            description='The definition of all types that may contain identifiers that can be expanded into objects '
+                        'using the `type_routes` configurations',
+        ),
+    }
 
 
 class TypeNode(object):
