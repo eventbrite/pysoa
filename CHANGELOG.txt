@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.38.1 (2018-05-04)
+-------------------
+- [PATCH] Fix optionality of test plans
+
 0.38.0 (2018-05-03)
 -------------------
 - [MINOR] Add idle timer for tracking how long servers stay idle
