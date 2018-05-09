@@ -1,5 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
+import re
+
 from conformity import fields
 import six
 
@@ -7,8 +9,13 @@ from pysoa.common.constants import ERROR_CODE_INVALID
 from pysoa.common.types import Error
 from pysoa.server.action.base import Action
 from pysoa.server.action.status import BaseStatusAction
+from pysoa.server.action.switched import SwitchedAction
 from pysoa.server.errors import ActionError
+from pysoa.server.internal.types import get_switch
 from pysoa.server.server import Server
+
+
+SWITCHED_ACTION_RE = re.compile(r'^(?P<action>[a-zA-Z0-9_-]+)(\[(switch:(?P<switch>\d+)|(?P<default>DEFAULT))\])$')
 
 
 class IntrospectionAction(Action):
@@ -34,7 +41,10 @@ class IntrospectionAction(Action):
         "This action returns detailed information about the service's defined actions and the request and response "
         "schemas for each action, along with any documentation defined for the action or for the service itself. It "
         "can be passed a single action name to return information limited to that single action. Otherwise, it will "
-        "return information for all of the service's actions."
+        "return information for all of the service's actions. If an action is a switched action (meaning the action "
+        "extends `SwitchedAction`, and which action code runs is controlled with SOA switches), multiple action "
+        "introspection results will be returned for that action, each with a name ending in either `[switch:N]` (where "
+        "`N` is the switch value) or `[DEFAULT]` for the default action."
     )
 
     request_schema = fields.Dictionary(
@@ -103,24 +113,58 @@ class IntrospectionAction(Action):
 
     def run(self, request):
         if request.body.get('action_name'):
-            action_name = request.body['action_name']
-            if action_name not in self.server.action_class_map and action_name not in ('status', 'introspect'):
-                raise ActionError(errors=[
-                    Error(code=ERROR_CODE_INVALID, message='Action not defined in service', field='action_name'),
-                ])
+            return self._get_response_for_single_action(request.body.get('action_name'))
 
-            if action_name in self.server.action_class_map:
-                action_class = self.server.action_class_map[action_name]
-            elif action_name == 'introspect':
-                action_class = self.__class__
+        return self._get_response_for_all_actions()
+
+    def _get_response_for_single_action(self, request_action_name):
+        action_name = request_action_name
+        switch = None
+
+        if SWITCHED_ACTION_RE.match(action_name):
+            match = SWITCHED_ACTION_RE.match(action_name)
+            action_name = match.group(str('action'))
+            if match.group(str('default')):
+                switch = SwitchedAction.DEFAULT_ACTION
             else:
-                action_class = BaseStatusAction
+                switch = int(match.group(str('switch')))
 
-            return {
-                'action_names': [action_name],
-                'actions': {action_name: self._introspect_action(action_class)}
-            }
+        if action_name not in self.server.action_class_map and action_name not in ('status', 'introspect'):
+            raise ActionError(errors=[
+                Error(code=ERROR_CODE_INVALID, message='Action not defined in service', field='action_name'),
+            ])
 
+        if action_name in self.server.action_class_map:
+            action_class = self.server.action_class_map[action_name]
+            if issubclass(action_class, SwitchedAction):
+                if switch:
+                    if switch == SwitchedAction.DEFAULT_ACTION:
+                        action_class = action_class.switch_to_action_map[-1][1]
+                    else:
+                        for matching_switch, action_class in action_class.switch_to_action_map:
+                            if switch == matching_switch:
+                                break
+                else:
+                    response = {
+                        'action_names': [],
+                        'actions': {}
+                    }
+                    for sub_name, sub_class in self._iterate_switched_actions(action_name, action_class):
+                        response['action_names'].append(sub_name)
+                        response['actions'][sub_name] = self._introspect_action(sub_class)
+                    response['action_names'] = list(sorted(response['action_names']))
+                    return response
+        elif action_name == 'introspect':
+            action_class = self.__class__
+        else:
+            action_class = BaseStatusAction
+
+        return {
+            'action_names': [request_action_name],
+            'actions': {request_action_name: self._introspect_action(action_class)}
+        }
+
+    def _get_response_for_all_actions(self):
         response = {
             'actions': {},
             'action_names': [],
@@ -136,12 +180,32 @@ class IntrospectionAction(Action):
             response['actions']['status'] = self._introspect_action(BaseStatusAction)
 
         for action_name, action_class in six.iteritems(self.server.action_class_map):
-            response['action_names'].append(action_name)
-            response['actions'][action_name] = self._introspect_action(action_class)
+            if issubclass(action_class, SwitchedAction):
+                for sub_action_name, sub_action_class in self._iterate_switched_actions(action_name, action_class):
+                    response['action_names'].append(sub_action_name)
+                    response['actions'][sub_action_name] = self._introspect_action(sub_action_class)
+            else:
+                response['action_names'].append(action_name)
+                response['actions'][action_name] = self._introspect_action(action_class)
 
         response['action_names'] = list(sorted(response['action_names']))
 
         return response
+
+    @staticmethod
+    def _iterate_switched_actions(action_name, action_class):
+        found_default = False
+        last_index = len(action_class.switch_to_action_map) - 1
+        for i, (switch, sub_action_class) in enumerate(action_class.switch_to_action_map):
+            if switch == SwitchedAction.DEFAULT_ACTION:
+                sub_action_name = '{}[DEFAULT]'.format(action_name)
+                found_default = True
+            elif not found_default and i == last_index:
+                sub_action_name = '{}[DEFAULT]'.format(action_name)
+            else:
+                sub_action_name = '{}[switch:{}]'.format(action_name, get_switch(switch))
+
+            yield sub_action_name, sub_action_class
 
     @staticmethod
     def _introspect_action(action_class):
