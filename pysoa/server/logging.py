@@ -75,6 +75,9 @@ class RecursivelyCensoredDictWrapper(object):
         'secrets', 'secret_keys', 'secret-keys', 'secretKeys',
         'security_code', 'security-code', 'securityCode',
         'security_codes', 'security-codes', 'securityCodes',
+        'auth', 'token', 'auth_token', 'auth-token', 'authToken',
+        'authorization', 'authorization_token', 'authorization-token', 'authorizationToken',
+        'authentication', 'authentication_token', 'authentication-token', 'authenticationToken',
 
         # Credit cards, banking, and related
         'credit_card', 'credit-card', 'creditCard', 'credit_card_number', 'credit-card-number', 'creditCardNumber',
