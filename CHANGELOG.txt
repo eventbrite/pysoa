@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.38.2 (2018-05-09)
+-------------------
+- [PATCH] Import Mock if installed before unittest.mock
+
 0.38.1 (2018-05-04)
 -------------------
 - [PATCH] Fix optionality of test plans
