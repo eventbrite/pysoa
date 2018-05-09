@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.39.0 (2018-05-09)
+-------------------
+- [MINOR] Add more field names to the set of log redactions
+
 0.38.2 (2018-05-09)
 -------------------
 - [PATCH] Import Mock if installed before unittest.mock
