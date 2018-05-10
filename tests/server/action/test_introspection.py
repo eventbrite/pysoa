@@ -10,6 +10,7 @@ from pysoa.server.action.status import (
     BaseStatusAction,
     StatusActionFactory,
 )
+from pysoa.server.action.switched import SwitchedAction
 from pysoa.server.errors import ActionError
 from pysoa.server.server import Server
 from pysoa.server.types import EnrichedActionRequest
@@ -31,6 +32,20 @@ class FakeActionTwo(object):
             'okay': fields.Boolean(description='Whether it is okay'),
             'reason': fields.Nullable(fields.UnicodeString(description='Why it is not okay')),
         }
+    )
+
+
+class SwitchedActionOne(SwitchedAction):
+    switch_to_action_map = (
+        (5, FakeActionTwo),
+        (3, FakeActionOne),
+    )
+
+
+class SwitchedActionTwo(SwitchedAction):
+    switch_to_action_map = (
+        (4, FakeActionOne),
+        (SwitchedAction.DEFAULT_ACTION, FakeActionTwo),
     )
 
 
@@ -58,6 +73,19 @@ class FakeServerTwo(Server):
         'introspect': IntrospectionAction,
         'one': FakeActionOne,
         'two': FakeActionTwo,
+    }
+
+    settings = {}
+
+    # noinspection PyMissingConstructor
+    def __init__(self):
+        pass  # Do not call super
+
+
+class FakeServerThree(Server):
+    action_class_map = {
+        'my_switched_action': SwitchedActionOne,
+        'your_switched_action': SwitchedActionTwo,
     }
 
     settings = {}
@@ -196,7 +224,7 @@ class TestIntrospectionAction(unittest.TestCase):
                     },
                 },
             },
-            response.body
+            response.body,
         )
 
     def test_whole_server_complex(self):
@@ -232,5 +260,142 @@ class TestIntrospectionAction(unittest.TestCase):
                     },
                 },
             },
-            response.body
+            response.body,
+        )
+
+    def test_single_action_switched(self):
+        action = IntrospectionAction(FakeServerThree())
+
+        response = action(EnrichedActionRequest(
+            action='introspect',
+            body={'action_name': 'my_switched_action[DEFAULT]'},
+        ))
+        self.assertEqual([], response.errors)
+        self.assertEqual(
+            {
+                'action_names': ['my_switched_action[DEFAULT]'],
+                'actions': {
+                    'my_switched_action[DEFAULT]': {
+                        'documentation': 'The real documentation',
+                        'request_schema': None,
+                        'response_schema': None,
+                    },
+                },
+            },
+            response.body,
+        )
+
+        response = action(EnrichedActionRequest(
+            action='introspect',
+            body={'action_name': 'my_switched_action[switch:3]'},
+        ))
+        self.assertEqual([], response.errors)
+        self.assertEqual(
+            {
+                'action_names': ['my_switched_action[switch:3]'],
+                'actions': {
+                    'my_switched_action[switch:3]': {
+                        'documentation': 'The real documentation',
+                        'request_schema': None,
+                        'response_schema': None,
+                    },
+                },
+            },
+            response.body,
+        )
+
+        response = action(EnrichedActionRequest(
+            action='introspect',
+            body={'action_name': 'my_switched_action[switch:5]'},
+        ))
+        self.assertEqual([], response.errors)
+        self.assertEqual(
+            {
+                'action_names': ['my_switched_action[switch:5]'],
+                'actions': {
+                    'my_switched_action[switch:5]': {
+                        'documentation': 'Test action documentation',
+                        'request_schema': FakeActionTwo.request_schema.introspect(),
+                        'response_schema': FakeActionTwo.response_schema.introspect(),
+                    },
+                },
+            },
+            response.body,
+        )
+
+        response = action(EnrichedActionRequest(
+            action='introspect',
+            body={'action_name': 'your_switched_action'},
+        ))
+        self.assertEqual([], response.errors)
+        self.assertEqual(
+            {
+                'action_names': ['your_switched_action[DEFAULT]', 'your_switched_action[switch:4]'],
+                'actions': {
+                    'your_switched_action[switch:4]': {
+                        'documentation': 'The real documentation',
+                        'request_schema': None,
+                        'response_schema': None,
+                    },
+                    'your_switched_action[DEFAULT]': {
+                        'documentation': 'Test action documentation',
+                        'request_schema': FakeActionTwo.request_schema.introspect(),
+                        'response_schema': FakeActionTwo.response_schema.introspect(),
+                    },
+                },
+            },
+            response.body,
+        )
+
+    def test_whole_server_switched(self):
+        action = IntrospectionAction(FakeServerThree())
+
+        response = action(EnrichedActionRequest(action='introspect', body={}))
+
+        self.assertEqual([], response.errors)
+        self.assertEqual(
+            {
+                'documentation': None,
+                'action_names': [
+                    'introspect',
+                    'my_switched_action[DEFAULT]',
+                    'my_switched_action[switch:5]',
+                    'status',
+                    'your_switched_action[DEFAULT]',
+                    'your_switched_action[switch:4]',
+                ],
+                'actions': {
+                    'introspect': {
+                        'documentation': IntrospectionAction.description,
+                        'request_schema': IntrospectionAction.request_schema.introspect(),
+                        'response_schema': IntrospectionAction.response_schema.introspect(),
+                    },
+                    'my_switched_action[DEFAULT]': {
+                        'documentation': 'The real documentation',
+                        'request_schema': None,
+                        'response_schema': None,
+                    },
+                    'my_switched_action[switch:5]': {
+                        'documentation': 'Test action documentation',
+                        'request_schema': FakeActionTwo.request_schema.introspect(),
+                        'response_schema': FakeActionTwo.response_schema.introspect(),
+                    },
+                    'status': {
+                        'documentation': BaseStatusAction.description,
+                        'request_schema': BaseStatusAction.request_schema.introspect(),
+                        'response_schema': BaseStatusAction.response_schema.introspect(),
+                    },
+                    'your_switched_action[switch:4]': {
+                        'documentation': 'The real documentation',
+                        'request_schema': None,
+                        'response_schema': None,
+                    },
+                    'your_switched_action[DEFAULT]': {
+                        'documentation': 'Test action documentation',
+                        'request_schema': FakeActionTwo.request_schema.introspect(),
+                        'response_schema': FakeActionTwo.response_schema.introspect(),
+                    },
+                },
+            },
+            response.body,
         )
