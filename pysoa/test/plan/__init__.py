@@ -58,7 +58,7 @@ Running Test Plans
 PySOA test plans are collected and executed with a PyTest plugin, which is not installed by default. To enable this
 plugin, you need to add ``pysoa[pytest]`` to your test requirements. Example:
 
-.. code:: python
+.. code-block:: python
 
     tests_require = [
         'pysoa[pytest]',
@@ -97,7 +97,7 @@ so you need to define the same ``server_class`` and ``server_settings`` attribut
 either ``fixture_path`` or ``custom_fixtures``. You can also optionally specify ``model_constants``, which is used to
 provide stock values for variable substitution (more on that later). Here are two possible examples:
 
-.. code:: python
+.. code-block:: python
 
     import os
 
@@ -166,7 +166,7 @@ the following techniques:
 - Use the Python entry point named ``pysoa.test.plan.grammar.directives`` in your ``setup.py`` file. This is a more
   reliable approach that works in all scenarios. Example:
 
-  .. code:: python
+  .. code-block:: python
 
       from setuptools import setup
 

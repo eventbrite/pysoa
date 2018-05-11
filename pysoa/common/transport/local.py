@@ -18,6 +18,16 @@ class LocalClientTransport(ClientTransport):
     """A transport that incorporates a server for running a service and client in a single thread."""
 
     def __init__(self, service_name, metrics, server_class, server_settings):
+        """
+        :param service_name: The service name
+        :type service_name: union[str, unicode]
+        :param metrics: The metrics recorder
+        :type metrics: MetricsRecorder
+        :param server_class: The server class for which this transport will serve as a client
+        :type server_class: class
+        :param server_settings: The server settings that will be passed to the server class on instantiation
+        :type server_settings: dict
+        """
         super(LocalClientTransport, self).__init__(service_name, metrics)
 
         # If the server is specified as a path, resolve it to a class
@@ -110,19 +120,44 @@ class LocalServerTransport(ServerTransport):
     """
 
     def receive_request_message(self):
+        """
+        Does nothing, because this will never be called (the same-named method on the `LocalClientTransport` is called,
+        instead).
+        """
         raise TypeError('The LocalServerTransport cannot be used directly; it is a stub.')
 
     def send_response_message(self, request_id, meta, body):
+        """
+        Does nothing, because this will never be called (the same-named method on the `LocalClientTransport` is called,
+        instead).
+        """
         raise TypeError('The LocalServerTransport cannot be used directly; it is a stub.')
 
 
 class LocalTransportSchema(BasicClassSchema):
     contents = {
-        'path': fields.UnicodeString(),
+        'path': fields.UnicodeString(
+            description='The path to the local client transport, in the format `module.name:ClassName`',
+        ),
         'kwargs': fields.Dictionary({
             # server class can be an import path or a class object
-            'server_class': fields.Any(fields.UnicodeString(), fields.ObjectInstance(six.class_types)),
+            'server_class': fields.Any(
+                fields.UnicodeString(
+                    description='The path to the `Server` class, in the format `module.name:ClassName`',
+                ),
+                fields.ObjectInstance(
+                    six.class_types,
+                    description='A reference to the `Server`-extending class/type',
+                ),
+                description='The path to the `Server` class to use locally (as a library), or a reference to the '
+                            '`Server`-extending class/type itself',
+            ),
             # No deeper validation because the Server will perform its own validation
-            'server_settings': fields.SchemalessDictionary(key_type=fields.UnicodeString()),
+            'server_settings': fields.SchemalessDictionary(
+                key_type=fields.UnicodeString(),
+                description='The settings to use when instantiating the `server_class`'
+            ),
         }),
     }
+
+    description = 'The settings for the local transport'

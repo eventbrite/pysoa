@@ -5,8 +5,13 @@ from conformity import fields
 
 class BasicClassSchema(fields.Dictionary):
     contents = {
-        'path': fields.UnicodeString(),
-        'kwargs': fields.SchemalessDictionary(key_type=fields.UnicodeString()),
+        'path': fields.UnicodeString(
+            description='The path to the class to be imported and used, in the format `module.name:ClassName`',
+        ),
+        'kwargs': fields.SchemalessDictionary(
+            key_type=fields.UnicodeString(),
+            description='Any keyword arguments that should be passed to the class when constructing a new instance',
+        ),
     }
     optional_keys = ['kwargs']
     object_type = None

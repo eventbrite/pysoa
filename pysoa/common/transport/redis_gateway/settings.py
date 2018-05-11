@@ -9,7 +9,9 @@ from pysoa.common.transport.redis_gateway.constants import REDIS_BACKEND_TYPES
 
 class RedisTransportSchema(BasicClassSchema):
     contents = {
-        'path': fields.UnicodeString(),
+        'path': fields.UnicodeString(
+            description='The path to the Redis client or server transport, in the format `module.name:ClassName`',
+        ),
         'kwargs': fields.Dictionary(
             {
                 'backend_layer_kwargs': fields.Dictionary(
@@ -22,7 +24,8 @@ class RedisTransportSchema(BasicClassSchema):
                                 fields.Tuple(fields.UnicodeString(), fields.Integer()),
                                 fields.UnicodeString(),
                             ),
-                            description='The list of Redis hosts',
+                            description='The list of Redis hosts, where each is a tuple of `("address", port)` or the '
+                                        'simple string address.',
                         ),
                         'redis_db': fields.Integer(
                             description='The Redis database, a shortcut for putting this in `connection_kwargs`.',
@@ -34,9 +37,6 @@ class RedisTransportSchema(BasicClassSchema):
                             description='How many times to retry (with a delay) getting a connection from the Sentinel '
                                         'when a master cannot be found (cluster is in the middle of a failover); '
                                         'should only be used for Sentinel backend type'
-                        ),
-                        'sentinel_refresh_interval': fields.Integer(
-                            description='Deprecated; unused; to be removed before final release.',
                         ),
                         'sentinel_services': fields.List(
                             fields.UnicodeString(),
@@ -50,7 +50,6 @@ class RedisTransportSchema(BasicClassSchema):
                         'redis_db',
                         'redis_port',
                         'sentinel_failover_retries',
-                        'sentinel_refresh_interval',
                         'sentinel_services',
                     ],
                     allow_extra_keys=False,
@@ -88,3 +87,5 @@ class RedisTransportSchema(BasicClassSchema):
             allow_extra_keys=False,
         ),
     }
+
+    description = 'The settings for the Redis transport'

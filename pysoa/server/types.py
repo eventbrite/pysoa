@@ -19,7 +19,3 @@ class EnrichedActionRequest(ActionRequest):
     context = attr.ib(default=attr.Factory(dict))
     control = attr.ib(default=attr.Factory(dict))
     client = attr.ib(default=None)
-
-    @property
-    def expansions(self):
-        self.context.get('expansions')

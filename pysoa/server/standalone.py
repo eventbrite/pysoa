@@ -127,22 +127,22 @@ def _run_server_reloader_wrapper(args, server_class):
 
 def simple_main(server_getter):
     """
-    Call this within __main__ to start the service as a standalone server without Django support. Your server should
+    Call this within `__main__` to start the service as a standalone server without Django support. Your server should
     not have `use_django=True`. If it does, see `django_main`, instead.
 
-    :param server_getter: A callable that returns the service's Server class (not an instance of it)
+    :param server_getter: A callable that returns the service's `Server` class (not an instance of it)
     """
     _run_server_reloader_wrapper(_get_args(_get_arg_parser()), server_getter())
 
 
 def django_main(server_getter):
     """
-    Call this within __main__ to start the service as a standalone server with Django support. Your server should have
+    Call this within `__main__` to start the service as a standalone server with Django support. Your server should have
     `use_django=True`. If it does not, see `simple_main`, instead.
 
-    :param server_getter: A callable that returns the service's Server class (not an instance of it). Your service code
-                          should not be imported until the `server_getter` callable is called, otherwise Django errors
-                          will occur.
+    :param server_getter: A callable that returns the service's `Server` class (not an instance of it). Your service
+                          code should not be imported until the `server_getter` callable is called, otherwise Django
+                          errors will occur.
     """
     import os
     # noinspection PyUnresolvedReferences,PyPackageRequirements

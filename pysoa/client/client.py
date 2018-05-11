@@ -8,7 +8,10 @@ import uuid
 import attr
 import six
 
-from pysoa.client.expander import ExpansionConverter
+from pysoa.client.expander import (
+    ExpansionConverter,
+    ExpansionSettings,
+)
 from pysoa.client.settings import PolymorphicClientSettings
 from pysoa.common.metrics import TimerResolution
 from pysoa.common.transport.exceptions import (
@@ -30,10 +33,14 @@ from pysoa.utils import dict_to_hashable
 
 
 class ServiceHandler(object):
-    """Does the basic work of communicating with an individual service."""
+    """Does the low-level work of communicating with an individual service through its configured transport."""
     _transport_cache = {}
 
     def __init__(self, service_name, settings):
+        """
+        :param service_name: The name of the service which this handler calls
+        :param settings: The client settings object for this service (and only this service)
+        """
         self.metrics = settings['metrics']['object'](**settings['metrics'].get('kwargs', {}))
 
         transport_cache_time_in_seconds = 0
@@ -73,8 +80,8 @@ class ServiceHandler(object):
     @classmethod
     def _get_cached_transport(cls, service_name, metrics, settings, cache_time_in_seconds):
         """
-            Caches configured transports for up to cache_time_in_seconds to prevent the bottleneck.
-            """
+        Caches configured transports for up to cache_time_in_seconds to prevent the bottleneck.
+        """
         cache_key = (service_name, dict_to_hashable(settings))
         if cache_key not in cls._transport_cache or cls._transport_cache[cache_key][0] < time.time():
             cls._transport_cache[cache_key] = (
@@ -172,18 +179,28 @@ class ServiceHandler(object):
 
 
 class Client(object):
-    """The Client provides a simple interface for calling actions on Servers."""
+    """
+    The `Client` provides a simple interface for calling actions on services and supports both sequential and
+    parallel action invocation.
+    """
 
     settings_class = PolymorphicClientSettings
     handler_class = ServiceHandler
 
     def __init__(self, config, expansion_config=None, settings_class=None, context=None):
         """
-        Args:
-            config: dict of {service_name: service_settings}
-            expansions: dict of {service_name: service_expansions}
-            settings_class: Settings subclass
-            context: dict
+        :param config: The entire client configuration dict, whose keys are service names and values are settings dicts
+                       abiding by the `PolymorphicClientSettings` schema
+        :type config: dict
+        :param expansion_config: The optional expansion configuration dict, if this client supports expansions, which
+                                 is a dict abiding by the `ExpansionSettings` schema
+        :type expansion_config: dict
+        :param settings_class: An optional settings schema enforcement class or callable to use, which overrides the
+                               default of `PolymorphicClientSettings`
+        :type settings_class: union[class, callable]
+        :param context: An optional base request context that will be used for all requests this client instance sends
+                        (individual calls can add to and override the values supplied in this context dict)
+        :type: dict
         """
         if settings_class:
             self.settings_class = settings_class
@@ -196,9 +213,10 @@ class Client(object):
             self.settings[service_name] = self.settings_class(service_config)
 
         if expansion_config:
+            expansion_settings = ExpansionSettings(expansion_config)
             self.expansion_converter = ExpansionConverter(
-                type_routes=expansion_config['type_routes'],
-                type_expansions=expansion_config['type_expansions'],
+                type_routes=expansion_settings['type_routes'],
+                type_expansions=expansion_settings['type_expansions'],
             )
 
     # Exceptions
@@ -211,12 +229,15 @@ class Client(object):
 
     class JobError(Exception):
         """
-        Raised by Client.call_action(s) when a job response contains one or more job errors.
-
-        Args:
-            job: JobResponse
+        Raised by `Client.call_***` methods when a job response contains one or more job errors. Stores a list of
+        `Error` objects, and has a string representation cleanly displaying the errors.
         """
         def __init__(self, errors=None):
+            """
+            :param errors: The list of all errors in this job, available as an `errors` property on the exception
+                           instance.
+            :type errors: list[Error]
+            """
             self.errors = errors or []
 
         def __repr__(self):
@@ -228,14 +249,15 @@ class Client(object):
 
     class CallActionError(Exception):
         """
-        Raised by Client.call_action(s) when a job response contains one or more action errors.
-
-        Stores a list of ActionResponse objects, and pretty-prints their errors.
-
-        Args:
-            actions: list(ActionResponse)
+        Raised by `Client.call_***` methods when a job response contains one or more action errors. Stores a list of
+        `ActionResponse` objects, and has a string representation cleanly displaying the actions' errors.
         """
         def __init__(self, actions=None):
+            """
+            :param actions: The list of all actions that have errors (not actions without errors), available as an
+                            `actions` property on the exception instance.
+            :type actions: list[ActionResponse]
+            """
             self.actions = actions or []
 
         def __str__(self):

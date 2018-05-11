@@ -22,26 +22,26 @@ Redis Sentinel in clusters. There is also a local transport implementation for t
 
 The basic tenets of the framework are:
 
-* Services and actions both have simple names, and are called from the client by name. You can call actions
+- Services and actions both have simple names, and are called from the client by name. You can call actions
   individually, or bundle multiple action calls into a Job to be run serially (either aborting or continuing on error).
 
-* Requests and responses are simply Python ``dicts``, and PySOA uses our open source validation framework
-  `conformity <https://github.com/eventbrite/conformity>`_ in order to verify their schema on the way in and out.
+- Requests and responses are simply Python ``dicts``, and PySOA uses our open source validation framework
+  `Conformity <https://github.com/eventbrite/conformity>`_ in order to verify their schema on the way in and out.
 
-* Message bodies are encoded using `MessagePack <http://msgpack.org/>`_ by default (however, you can define your own
-  serializer), with a few non-standard types encoded using msgpack's ``ext``, such as dates, times, date-times, and
+- Message bodies are encoded using `MessagePack <http://msgpack.org/>`_ by default (however, you can define your own
+  serializer), with a few non-standard types encoded using MessagePack's ``ext``, such as dates, times, date-times, and
   amounts of currency (using our open source `currint <https://github.com/eventbrite/currint>`_ library)
 
-* Requests have a ``context``, which is sourced from the original client context (web request, API request, etc.) and
+- Requests have a ``context``, which is sourced from the original client context (web request, API request, etc.) and
   automatically chained down into subsequent client calls made inside the service. This is used for things like
   correlation IDs, locales, etc.
 
-* We include "SOA Switches" as a first-party implementation of feature flags/toggles. Like the context, they are
-  bundled along with every request and automatically chained, and are packed to try and ensure they have minimal
+- We include "SOA Switches" as a first-party implementation of feature flags/toggles. Part of the context, they are
+  bundled along with every request and automatically chained, and are packed as integers to ensure they have minimal
   overhead.
 
 This intro summarizes some of the key concepts of using PySOA. For more thorough documentation, see the
-`PySOA documentation <docs/index.rst>`_.
+`PySOA Documentation <docs/index.rst>`_.
 
 
 Servers
@@ -61,7 +61,7 @@ called with a request and return a response. We provide a base ``Action`` class 
 implement validation on requests and responses, but there is no requirement to use this if your needs are more complex.
 Actions that are classes will be passed a reference to the server's settings object when instantiated.
 
-.. code:: python
+.. code-block:: python
 
     from pysoa import server
 
@@ -92,36 +92,36 @@ Clients
 Clients are instantiated with a dictionary of service names and the transports by which they can be reached. There are
 several approaches for calling service actions with a ``Client`` object:
 
-* Calling a single action and getting the action response back directly using ``call_action``:
+- Calling a single action and getting the action response back directly using ``call_action``:
 
-  .. code:: python
+  .. code-block:: python
 
       action_response = client.call_action('example', 'square', {'number': 42})
 
-* Creating a single job of multiple action requests, and sending it off to all be processed by the same server
+- Creating a single job of multiple action requests, and sending it off to all be processed by the same server
   instance, serially:
 
-  .. code:: python
+  .. code-block:: python
 
       job_response = client.call_actions('example', [
           {'action': 'square', 'body': {'number': 42}},
           {'action': 'status', 'body': {'verbose': True}},
       ])
 
-* Creating multiple jobs, one for each action belonging to the same service, and send them off to be processed by
+- Creating multiple jobs, one for each action belonging to the same service, and send them off to be processed by
   multiple server instances in parallel:
 
-  .. code:: python
+  .. code-block:: python
 
       action_responses = client.call_actions_parallel('example', [
           {'action': 'square', 'body': {'number': 1035}},
           {'action': 'status', 'body': {'verbose': True}},
       ])
 
-* Creating multiple jobs, each with its own service name and one or more actions, and send them off to be processed by
+- Creating multiple jobs, each with its own service name and one or more actions, and send them off to be processed by
   multiple server instances in parallel:
 
-  .. code:: python
+  .. code-block:: python
 
       job_responses = client.call_jobs_parallel([
           {'service_name': 'example', 'actions': [
@@ -149,18 +149,16 @@ request-response call, either on the client or server side, to add or mutate thi
 
 For example, some of our internal server middleware:
 
-* Reads authentication tokens from the request and validates them to make sure the request is valid and not too old
-
-* Logs metrics at the start and end of an action being processed so we can track how long our code is taking to run
-
-* Catches errors in server code and logs it into Sentry so we can track and fix problems in production
+- Reads authentication tokens from the request and validates them to make sure the request is valid and not too old
+- Logs metrics at the start and end of an action being processed so we can track how long our code is taking to run
+- Catches errors in server code and logs it into Sentry so we can track and fix problems in production
 
 
 Settings
 --------
 
-Both client and server use a dict-based settings system, with a
-`conformity <https://github.com/eventbrite/conformity>`_-defined schema to ensure that whatever settings are provided
+Both client and server use a dict-based settings system, with a `Conformity
+<https://github.com/eventbrite/conformity>`_-defined schema to ensure that whatever settings are provided
 are valid (this schema is extensible by service implementations if they have special settings they need set).
 
 The server also has an integration mode with Django where it will read its settings from
@@ -182,8 +180,8 @@ There is also a ``StubClient`` available for testing code that calls services, b
 have the service code in place, and a ``stub_action`` decorator / context manager that makes easy work of using it.
 
 For more information about using these test utilities in your services or service-calling applications, see the testing
-documentation in the `PySOA documentation <docs/index.rst>`_.
+documentation in the `PySOA Documentation <docs/index.rst>`_.
 
-For testing the PySOA library directly, you must first install Lua on your system (on Mac OS X this is done with
+For testing this PySOA library directly, you must first install Lua on your system (on Mac OS X this is done with
 ``brew install lua``), ensure Lua is on your ``$PKG_CONFIG_PATH`` environment variable (in Mac OS X), and then install
 dependencies (``pip install -e .[testing]``). After this, you can simply run ``pytest`` or ``setup.py test``.

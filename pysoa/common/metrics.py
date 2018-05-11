@@ -52,9 +52,18 @@ class Timer(object):
         raise NotImplementedError()
 
     def __enter__(self):
+        """
+        Starts the timer at the start of the context manager.
+        """
         self.start()
 
     def __exit__(self, *_, **__):
+        """
+        Stops the timer at the end of the context manager. All parameters are ignored. Always returns ``False``.
+
+        :return: ``False``
+        :rtype: bool
+        """
         self.stop()
         return False
 
@@ -110,39 +119,72 @@ class MetricsRecorder(object):
 
 
 class NoOpMetricsRecorder(MetricsRecorder):
+    """
+    A dummy metrics recorder that doesn't actually record any metrics and has no overhead, used when no
+    metrics-recording settings have been configured.
+    """
     class NoOpCounter(Counter):
         def increment(self, amount=1):
-            pass
+            """
+            Does nothing.
+            :param amount: Unused
+            """
 
     class NoOpTimer(Timer):
         def start(self):
-            pass
+            """
+            Does nothing.
+            """
 
         def stop(self):
-            pass
+            """
+            Does nothing.
+            """
 
     no_op_counter = NoOpCounter()
     no_op_timer = NoOpTimer()
 
-    def __init__(self, **__):
-        pass
+    def __init__(self, *_, **__):
+        """
+        A dummy constructor that ignores all arguments
+        """
 
     def counter(self, name, **kwargs):
+        """
+        Returns a counter that does nothing.
+
+        :param name: Unused
+
+        :return: A do-nothing counter
+        :rtype: NoOpMetricsRecorder.NoOpCounter
+        """
         return self.no_op_counter
 
     def timer(self, name, **kwargs):
+        """
+        Returns a timer that does nothing.
+
+        :param name: Unused
+
+        :return: A do-nothing timer
+        :rtype: NoOpMetricsRecorder.NoOpTimer
+        """
         return self.no_op_timer
 
     def commit(self):
-        pass
+        """
+        Does nothing
+        """
 
 
 class MetricsSchema(BasicClassSchema):
     contents = {
-        'path': fields.UnicodeString(description='The module.name:ClassName path to the metrics recorder'),
+        'path': fields.UnicodeString(
+            description='The path to the class extending `MetricsRecorder`, in the format `module.name:ClassName`',
+        ),
         'kwargs': fields.Dictionary(
             {
-                'config': fields.SchemalessDictionary(),
+                'config': fields.SchemalessDictionary(description='Whatever metrics configuration is required'),
             },
             optional_keys=[
                 'config',
@@ -151,5 +193,7 @@ class MetricsSchema(BasicClassSchema):
             description='The keyword arguments that will be passed to the constructed metrics recorder',
         ),
     }
+
+    description = 'Configuration for defining a usage and performance metrics recorder'
 
     object_type = MetricsRecorder
