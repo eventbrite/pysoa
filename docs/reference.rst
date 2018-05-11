@@ -621,7 +621,7 @@ Settings Schema Definition
     Optional keys: ``kwargs``
 
 
-- ``transport_cache_time_in_seconds`` - ``integer``: If enabled, uses a per-service transport cache that is keyed off the service name and transport settings, persists across all clients in memory, and expires after this number of seconds. By default, a new transport is created for every new client. Note that this is safe in a multi-processing environment, but not in a multi-threaded environment. You should disable this in a multi-threaded environment. (additional information: ``{u'gte': 0}``)
+- ``transport_cache_time_in_seconds`` - ``anything``: This field is deprecated. The transport cache is no longer supported. This settings field will remain in place until 2018-06-15 to give a safe period for people to remove it from settings, but its value will always be ignored.
 
 Default Values
 **************

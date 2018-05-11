@@ -2,7 +2,6 @@ from __future__ import unicode_literals
 
 import collections
 import random
-import time
 import uuid
 
 import attr
@@ -29,12 +28,10 @@ from pysoa.common.types import (
     JobResponse,
     UnicodeKeysDict,
 )
-from pysoa.utils import dict_to_hashable
 
 
 class ServiceHandler(object):
     """Does the low-level work of communicating with an individual service through its configured transport."""
-    _transport_cache = {}
 
     def __init__(self, service_name, settings):
         """
@@ -43,24 +40,12 @@ class ServiceHandler(object):
         """
         self.metrics = settings['metrics']['object'](**settings['metrics'].get('kwargs', {}))
 
-        transport_cache_time_in_seconds = 0
-        if 'transport_cache_time_in_seconds' in settings:
-            transport_cache_time_in_seconds = settings['transport_cache_time_in_seconds']
-            if transport_cache_time_in_seconds < 0:
-                raise ValueError('transport_cache_time_in_seconds must be >= 0')
-        if transport_cache_time_in_seconds:
-            self.transport = self._get_cached_transport(
+        with self.metrics.timer('client.transport.initialize', resolution=TimerResolution.MICROSECONDS):
+            self.transport = settings['transport']['object'](
                 service_name,
                 self.metrics,
-                settings['transport'],
-                transport_cache_time_in_seconds,
+                **settings['transport'].get('kwargs', {})
             )
-            # If the transport is constructed anew, these will already be the same object and the below is a no-op.
-            # If the transport is retrieved from the cache, we need to use the cached transport's metrics recorder to
-            # ensure that we are publishing/committing all metrics in send_request and get_all_responses below.
-            self.metrics = self.transport.metrics
-        else:
-            self.transport = self._construct_transport(service_name, self.metrics, settings['transport'])
 
         with self.metrics.timer('client.middleware.initialize', resolution=TimerResolution.MICROSECONDS):
             self.middleware = [
@@ -71,24 +56,6 @@ class ServiceHandler(object):
         # Make sure the request counter starts at a random location to avoid clashing with other clients
         # sharing the same connection
         self.request_counter = random.randint(1, 1000000)
-
-    @staticmethod
-    def _construct_transport(service_name, metrics, settings, metrics_key='client.transport.initialize'):
-        with metrics.timer(metrics_key):
-            return settings['object'](service_name, metrics, **settings.get('kwargs', {}))
-
-    @classmethod
-    def _get_cached_transport(cls, service_name, metrics, settings, cache_time_in_seconds):
-        """
-        Caches configured transports for up to cache_time_in_seconds to prevent the bottleneck.
-        """
-        cache_key = (service_name, dict_to_hashable(settings))
-        if cache_key not in cls._transport_cache or cls._transport_cache[cache_key][0] < time.time():
-            cls._transport_cache[cache_key] = (
-                time.time() + cache_time_in_seconds,
-                cls._construct_transport(service_name, metrics, settings, 'client.transport.initialize_cache'),
-            )
-        return cls._transport_cache[cache_key][1]
 
     @staticmethod
     def _make_middleware_stack(middleware, base):
