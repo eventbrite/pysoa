@@ -1109,12 +1109,8 @@ There are several ``Settings`` subclasses provided throughout PySOA, and you can
 Client Settings
   Several classes provide schemas specifically for PySOA Clients:
 
-  - ``pysoa.client.settings.ClientSettings`` extends ``SOASettings`` to provide a client-specific schema. It adds:
-
-    - ``transport_cache_time_in_seconds``: Set this value to enable a transport cache that persists across client
-      instances (keyed off of transport settings), defaults to 0 (new transport is created every time a new client is
-      created); we recommend 60 seconds
-
+  - ``pysoa.client.settings.ClientSettings`` extends ``SOASettings`` to provide a client-specific schema. It enforces
+    that ``middleware`` is only Client middleware and that the ``transport`` is only a Client transport.
   - ``pysoa.client.settings.RedisClientSettings`` extends ``ClientSettings`` to enforce the ``RedisClientTransport``
     settings schema on the ``transport`` setting
   - ``pysoa.client.settings.LocalClientSettings`` extends ``ClientSettings`` to enforce the ``LocalClientTransport``
