@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.40.0 (2018-05-12)
+-------------------
+- [MINOR] Bump Conformity
+- [MINOR] Remove the transport cache as it is no longer needed
+- [MINOR] Add more documentation
+- [MINOR] Add a SwitchedAction class to facilitate switch usage
+
 0.39.0 (2018-05-09)
 -------------------
 - [MINOR] Add more field names to the set of log redactions
