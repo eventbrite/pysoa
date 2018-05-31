@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+import decimal
 import datetime
 
 import currint
@@ -111,7 +112,7 @@ class TestMsgpackSerializer(object):
     @pytest.mark.parametrize('value', [
         datetime.datetime(2011, 1, 24),
         datetime.datetime(1970, 1, 1),
-        datetime.datetime(2017, 4, 28, 14, 30, 21, 231),
+        datetime.datetime(2017, 4, 28, 14, 30, 21, 231718),
         datetime.datetime(3, 1, 1, 5, 30),
         datetime.datetime(9998, 3, 27, 1, 45),
     ])
@@ -143,6 +144,28 @@ class TestMsgpackSerializer(object):
         datetime.time(23, 59, 59, 999999),
     ])
     def test_time(self, value):
+        serializer = MsgpackSerializer()
+        assert serializer.blob_to_dict(serializer.dict_to_blob({'v': value}))['v'] == value
+
+    @pytest.mark.parametrize('value', [
+        decimal.Decimal('1'),
+        decimal.Decimal('-52.3847'),
+        decimal.Decimal('3.14'),
+        decimal.Decimal(
+            '3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821'
+            '480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109'
+            '7566593344612847564823378678316527120190914564856692',  # Pi to 260 post-point decimals
+        ),
+        decimal.Decimal(
+            '0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+            '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+            '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+            '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+            '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+            '0000000000000000000000000000000000000000000000000000000000000000000000001',
+        ),
+    ])
+    def test_decimal(self, value):
         serializer = MsgpackSerializer()
         assert serializer.blob_to_dict(serializer.dict_to_blob({'v': value}))['v'] == value
 
