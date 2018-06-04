@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.41.0 (2018-06-04)
+-------------------
+- [MINOR] Add static Server initializer to support settings and server patching
+- [MINOR] Add support for decimal.Decimal in MessagePack serializer
+
 0.40.0 (2018-05-12)
 -------------------
 - [MINOR] Bump Conformity
