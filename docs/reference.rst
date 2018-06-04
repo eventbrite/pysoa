@@ -1723,12 +1723,47 @@ Handles the reception of a shutdown signal.
 Handles the reception of a timeout signal indicating that a request has been processing for too long, as
 defined by the Harakiri settings.
 
+.. _pysoa.server.server.Server.initialize:
+
+``static method initialize(settings)``
+**************************************
+
+Called just before the ``Server`` class is instantiated, and passed the settings dict. Can be used to perform
+settings manipulation, server class patching (such as for performance tracing operations), and more. Use with
+great care and caution. Overriding methods must call ``super`` and return ``cls`` or a new/modified ``cls``, which
+will be used to instantiate the server. See the documentation for ``Server.main`` for full details on the chain
+of ``Server`` method calls.
+
+Parameters
+  - ``settings``
+
+Returns
+  ``type`` - The server class or a new/modified server class
+
 .. _pysoa.server.server.Server.main:
 
 ``static method main()``
 ************************
 
-Command-line entry point for running a PySOA server.
+Command-line entry point for running a PySOA server. The chain of method calls is as follows::
+
+    cls.main
+      |
+      -> cls.initialize => new_cls
+      -> new_cls.__init__ => self
+      -> self.run
+          |
+          -> self.setup
+          -> loop: self.handle_next_request while not self.shutting_down
+                    |
+                    -> transport.receive_request_message
+                    -> self.perform_idle_actions (if no request)
+                    -> self.perform_pre_request_actions
+                    -> self.process_job
+                        |
+                        -> middleware(self.execute_job)
+                    -> transport.send_response_message
+                    -> self.perform_post_request_actions
 
 .. _pysoa.server.server.Server.make_client:
 
@@ -1749,7 +1784,8 @@ Returns
 *********************************
 
 Runs periodically when the server is idle, if it has been too long since it last received a request. Call
-super().perform_idle_actions() if you override.
+super().perform_idle_actions() if you override. See the documentation for ``Server.main`` for full details on the
+chain of ``Server`` method calls.
 
 .. _pysoa.server.server.Server.perform_post_request_actions:
 
@@ -1757,7 +1793,8 @@ super().perform_idle_actions() if you override.
 *****************************************
 
 Runs just after the server processes a request. Call super().perform_post_request_actions() if you override. Be
-sure your purpose for overriding isn't better met with middleware.
+sure your purpose for overriding isn't better met with middleware. See the documentation for ``Server.main`` for
+full details on the chain of ``Server`` method calls.
 
 .. _pysoa.server.server.Server.perform_pre_request_actions:
 
@@ -1765,7 +1802,8 @@ sure your purpose for overriding isn't better met with middleware.
 ****************************************
 
 Runs just before the server accepts a new request. Call super().perform_pre_request_actions() if you override.
-Be sure your purpose for overriding isn't better met with middleware.
+Be sure your purpose for overriding isn't better met with middleware. See the documentation for ``Server.main``
+for full details on the chain of ``Server`` method calls.
 
 .. _pysoa.server.server.Server.process_job:
 
@@ -1789,7 +1827,8 @@ Raises
 ****************
 
 Starts the server run loop and returns after the server shuts down due to a shutdown-request, Harakiri signal,
-or unhandled exception.
+or unhandled exception. See the documentation for ``Server.main`` for full details on the chain of ``Server``
+method calls.
 
 .. _pysoa.server.server.Server.setup:
 
@@ -1797,7 +1836,7 @@ or unhandled exception.
 ******************
 
 Runs just before the server starts, if you need to do one-time loads or cache warming. Call super().setup() if
-you override.
+you override. See the documentation for ``Server.main`` for full details on the chain of ``Server`` method calls.
 
 
 .. _pysoa.server.settings.PolymorphicServerSettings

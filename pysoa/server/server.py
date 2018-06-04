@@ -397,7 +397,7 @@ class Server(object):
     def setup(self):
         """
         Runs just before the server starts, if you need to do one-time loads or cache warming. Call super().setup() if
-        you override.
+        you override. See the documentation for `Server.main` for full details on the chain of `Server` method calls.
         """
 
     def _close_old_django_connections(self):
@@ -425,7 +425,8 @@ class Server(object):
     def perform_pre_request_actions(self):
         """
         Runs just before the server accepts a new request. Call super().perform_pre_request_actions() if you override.
-        Be sure your purpose for overriding isn't better met with middleware.
+        Be sure your purpose for overriding isn't better met with middleware. See the documentation for `Server.main`
+        for full details on the chain of `Server` method calls.
         """
         if self.use_django:
             from django.conf import settings
@@ -439,21 +440,24 @@ class Server(object):
     def perform_post_request_actions(self):
         """
         Runs just after the server processes a request. Call super().perform_post_request_actions() if you override. Be
-        sure your purpose for overriding isn't better met with middleware.
+        sure your purpose for overriding isn't better met with middleware. See the documentation for `Server.main` for
+        full details on the chain of `Server` method calls.
         """
         self._close_old_django_connections()
 
     def perform_idle_actions(self):
         """
         Runs periodically when the server is idle, if it has been too long since it last received a request. Call
-        super().perform_idle_actions() if you override.
+        super().perform_idle_actions() if you override. See the documentation for `Server.main` for full details on the
+        chain of `Server` method calls.
         """
         self._close_old_django_connections()
 
     def run(self):
         """
         Starts the server run loop and returns after the server shuts down due to a shutdown-request, Harakiri signal,
-        or unhandled exception.
+        or unhandled exception. See the documentation for `Server.main` for full details on the chain of `Server`
+        method calls.
         """
 
         self.logger.info(
@@ -486,10 +490,43 @@ class Server(object):
             self.metrics.commit()
             self.logger.info('Server shutting down')
 
+    # noinspection PyUnusedLocal
+    @classmethod
+    def initialize(cls, settings):
+        """
+        Called just before the `Server` class is instantiated, and passed the settings dict. Can be used to perform
+        settings manipulation, server class patching (such as for performance tracing operations), and more. Use with
+        great care and caution. Overriding methods must call `super` and return `cls` or a new/modified `cls`, which
+        will be used to instantiate the server. See the documentation for `Server.main` for full details on the chain
+        of `Server` method calls.
+
+        :return: The server class or a new/modified server class
+        :rtype: type
+        """
+        return cls
+
     @classmethod
     def main(cls):
         """
-        Command-line entry point for running a PySOA server.
+        Command-line entry point for running a PySOA server. The chain of method calls is as follows::
+
+            cls.main
+              |
+              -> cls.initialize => new_cls
+              -> new_cls.__init__ => self
+              -> self.run
+                  |
+                  -> self.setup
+                  -> loop: self.handle_next_request while not self.shutting_down
+                            |
+                            -> transport.receive_request_message
+                            -> self.perform_idle_actions (if no request)
+                            -> self.perform_pre_request_actions
+                            -> self.process_job
+                                |
+                                -> middleware(self.execute_job)
+                            -> transport.send_response_message
+                            -> self.perform_post_request_actions
         """
         parser = argparse.ArgumentParser(
             description='Server for the {} SOA service'.format(cls.service_name),
@@ -500,8 +537,8 @@ class Server(object):
             help='run the server process as a daemon',
         )
         if not cls.use_django:
-            # If Django mode is turned on, we use the Django settings framework
-            # to get our settings, so the caller needs to set DJANGO_SETTINGS_MODULE.
+            # If Django mode is turned on, we use the Django settings framework to get our settings, so the caller
+            # needs to set DJANGO_SETTINGS_MODULE. Otherwise, the caller must pass in the -s/--settings argument.
             parser.add_argument(
                 '-s', '--settings',
                 help='The settings module to use',
@@ -548,7 +585,7 @@ class Server(object):
                 sys.exit()
 
         # Set up server and signal handling
-        server = cls(settings)
+        server = cls.initialize(settings)(settings)
 
         # Start server event loop
         server.run()
