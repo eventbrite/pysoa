@@ -39,7 +39,7 @@ Parameters
   - ``expansion_config`` (``dict``) - The optional expansion configuration dict, if this client supports expansions, which
     is a dict abiding by the ``ExpansionSettings`` schema
   - ``settings_class`` (``union[class, callable]``) - An optional settings schema enforcement class or callable to use, which overrides the
-    default of `PolymorphicClientSettings`
+    default of ``PolymorphicClientSettings``
   - ``context`` - An optional base request context that will be used for all requests this client instance sends
     (individual calls can add to and override the values supplied in this context dict)
     :type: dict
@@ -481,7 +481,7 @@ Settings Schema Definition
 
     Extra keys of any value are allowed. Optional keys: ``config``
 
-  - ``path`` - ``unicode``: The path to the class extending ``MetricsRecorder``, in the format `module.name:ClassName`
+  - ``path`` - ``unicode``: The path to the class extending ``MetricsRecorder``, in the format ``module.name:ClassName``
 
   Optional keys: ``kwargs``
 
@@ -498,7 +498,7 @@ Settings Schema Definition
       values
         ``anything``: *(no description)*
 
-    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format `module.name:ClassName`
+    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
 
     Optional keys: ``kwargs``
 
@@ -514,7 +514,7 @@ Settings Schema Definition
       values
         ``anything``: *(no description)*
 
-    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format `module.name:ClassName`
+    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
 
     Optional keys: ``kwargs``
 
@@ -524,10 +524,10 @@ Settings Schema Definition
 
       - ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself
 
-        - ``unicode``: The path to the ``Server`` class, in the format `module.name:ClassName`
+        - ``unicode``: The path to the ``Server`` class, in the format ``module.name:ClassName``
         - ``object_instance``: A reference to the ``Server``-extending class/type (additional information: ``{u'valid_type': "(<type 'type'>, <type 'classobj'>)"}``)
 
-      - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the `server_class`
+      - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the ``server_class``
 
         keys
           ``unicode``: *(no description)*
@@ -536,7 +536,7 @@ Settings Schema Definition
           ``anything``: *(no description)*
 
 
-    - ``path`` - ``unicode``: The path to the local client transport, in the format `module.name:ClassName`
+    - ``path`` - ``unicode``: The path to the local client transport, in the format ``module.name:ClassName``
 
     Optional keys: ``kwargs``
 
@@ -587,14 +587,14 @@ Settings Schema Definition
           values
             ``anything``: *(no description)*
 
-        - ``path`` - ``unicode``: The path to the class to be imported and used, in the format `module.name:ClassName`
+        - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
 
         Optional keys: ``kwargs``
 
 
       Optional keys: ``backend_layer_kwargs``, ``message_expiry_in_seconds``, ``queue_capacity``, ``receive_timeout_in_seconds``, ``serializer_config``, ``queue_full_retries``
 
-    - ``path`` - ``unicode``: The path to the Redis client or server transport, in the format `module.name:ClassName`
+    - ``path`` - ``unicode``: The path to the Redis client or server transport, in the format ``module.name:ClassName``
 
     Optional keys: ``kwargs``
 
@@ -604,10 +604,10 @@ Settings Schema Definition
 
       - ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself
 
-        - ``unicode``: The path to the ``Server`` class, in the format `module.name:ClassName`
+        - ``unicode``: The path to the ``Server`` class, in the format ``module.name:ClassName``
         - ``object_instance``: A reference to the ``Server``-extending class/type (additional information: ``{u'valid_type': "(<type 'type'>, <type 'classobj'>)"}``)
 
-      - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the `server_class`
+      - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the ``server_class``
 
         keys
           ``unicode``: *(no description)*
@@ -616,7 +616,7 @@ Settings Schema Definition
           ``anything``: *(no description)*
 
 
-    - ``path`` - ``unicode``: The path to the local client transport, in the format `module.name:ClassName`
+    - ``path`` - ``unicode``: The path to the local client transport, in the format ``module.name:ClassName``
 
     Optional keys: ``kwargs``
 
@@ -1978,7 +1978,7 @@ Settings Schema Definition
 
     Extra keys of any value are allowed. Optional keys: ``config``
 
-  - ``path`` - ``unicode``: The path to the class extending ``MetricsRecorder``, in the format `module.name:ClassName`
+  - ``path`` - ``unicode``: The path to the class extending ``MetricsRecorder``, in the format ``module.name:ClassName``
 
   Optional keys: ``kwargs``
 
@@ -1995,7 +1995,7 @@ Settings Schema Definition
       values
         ``anything``: *(no description)*
 
-    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format `module.name:ClassName`
+    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
 
     Optional keys: ``kwargs``
 
@@ -2013,7 +2013,7 @@ Settings Schema Definition
       values
         ``anything``: *(no description)*
 
-    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format `module.name:ClassName`
+    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
 
     Optional keys: ``kwargs``
 
@@ -2023,10 +2023,10 @@ Settings Schema Definition
 
       - ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself
 
-        - ``unicode``: The path to the ``Server`` class, in the format `module.name:ClassName`
+        - ``unicode``: The path to the ``Server`` class, in the format ``module.name:ClassName``
         - ``object_instance``: A reference to the ``Server``-extending class/type (additional information: ``{u'valid_type': "(<type 'type'>, <type 'classobj'>)"}``)
 
-      - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the `server_class`
+      - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the ``server_class``
 
         keys
           ``unicode``: *(no description)*
@@ -2035,7 +2035,7 @@ Settings Schema Definition
           ``anything``: *(no description)*
 
 
-    - ``path`` - ``unicode``: The path to the local client transport, in the format `module.name:ClassName`
+    - ``path`` - ``unicode``: The path to the local client transport, in the format ``module.name:ClassName``
 
     Optional keys: ``kwargs``
 
@@ -2086,14 +2086,14 @@ Settings Schema Definition
           values
             ``anything``: *(no description)*
 
-        - ``path`` - ``unicode``: The path to the class to be imported and used, in the format `module.name:ClassName`
+        - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
 
         Optional keys: ``kwargs``
 
 
       Optional keys: ``backend_layer_kwargs``, ``message_expiry_in_seconds``, ``queue_capacity``, ``receive_timeout_in_seconds``, ``serializer_config``, ``queue_full_retries``
 
-    - ``path`` - ``unicode``: The path to the Redis client or server transport, in the format `module.name:ClassName`
+    - ``path`` - ``unicode``: The path to the Redis client or server transport, in the format ``module.name:ClassName``
 
     Optional keys: ``kwargs``
 
@@ -2103,10 +2103,10 @@ Settings Schema Definition
 
       - ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself
 
-        - ``unicode``: The path to the ``Server`` class, in the format `module.name:ClassName`
+        - ``unicode``: The path to the ``Server`` class, in the format ``module.name:ClassName``
         - ``object_instance``: A reference to the ``Server``-extending class/type (additional information: ``{u'valid_type': "(<type 'type'>, <type 'classobj'>)"}``)
 
-      - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the `server_class`
+      - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the ``server_class``
 
         keys
           ``unicode``: *(no description)*
@@ -2115,7 +2115,7 @@ Settings Schema Definition
           ``anything``: *(no description)*
 
 
-    - ``path`` - ``unicode``: The path to the local client transport, in the format `module.name:ClassName`
+    - ``path`` - ``unicode``: The path to the local client transport, in the format ``module.name:ClassName``
 
     Optional keys: ``kwargs``
 

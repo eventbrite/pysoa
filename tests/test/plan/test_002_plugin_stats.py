@@ -9,7 +9,7 @@ def test_expected_fixtures_added():
     """
     Test that the expected number of fixtures tests were collected.
     """
-    assert PLUGIN_STATISTICS['fixture_tests_collected'] == 43
+    assert PLUGIN_STATISTICS['fixture_tests_collected'] == 48
 
 
 def test_expected_fixtures_skipped():
@@ -350,6 +350,52 @@ def test_expected_second_fixtures_ooo():
         'set_up_test_case_action.walk_and_run.walking_and_running.run',
         'tear_down_test_case_action.walk_and_run.walking_and_running.run',
         'tear_down_test_case.walk_and_run.walking_and_running',
+        'tearDown',
+        'tear_down_test_fixture',
+        'tearDownClass',
+    ]
+
+
+def test_expected_mocking_and_stubbing_fixtures_ooo():
+    """
+    Test that the order of operations for the mocking and stubbing fixtures was correct.
+    """
+    assert fixtures_test_module.TestMockingAndStubbingFixtures.order_of_operations == [
+        'setUpClass',
+        'set_up_test_fixture',
+        'setUp',
+        'set_up_test_case.mocking_test.simple_mock_works',
+        'set_up_test_case_action.mocking_test.simple_mock_works.mocking_test',
+        'tear_down_test_case_action.mocking_test.simple_mock_works.mocking_test',
+        'tear_down_test_case.mocking_test.simple_mock_works',
+        'tearDown',
+        'setUp',
+        'set_up_test_case.mocking_test.mock_randint_exception',
+        'set_up_test_case_action.mocking_test.mock_randint_exception.mocking_test',
+        'tear_down_test_case_action.mocking_test.mock_randint_exception.mocking_test',
+        'tear_down_test_case.mocking_test.mock_randint_exception',
+        'tearDown',
+        'setUp',
+        'set_up_test_case.mocking_test.mock_function_exception',
+        'set_up_test_case_action.mocking_test.mock_function_exception.mocking_test',
+        'tear_down_test_case_action.mocking_test.mock_function_exception.mocking_test',
+        'tear_down_test_case.mocking_test.mock_function_exception',
+        'tearDown',
+        'setUp',
+        'set_up_test_case.mocking_test.mock_delete',
+        'set_up_test_case_action.mocking_test.mock_delete.mocking_test',
+        'tear_down_test_case_action.mocking_test.mock_delete.mocking_test',
+        'tear_down_test_case.mocking_test.mock_delete',
+        'tearDown',
+        'setUp',
+        'set_up_test_case.mocking_test.mock_at_test_level_with_multiple_actions',
+        'set_up_test_case_action.mocking_test.mock_at_test_level_with_multiple_actions.mocking_test',
+        'tear_down_test_case_action.mocking_test.mock_at_test_level_with_multiple_actions.mocking_test',
+        'set_up_test_case_action.mocking_test.mock_at_test_level_with_multiple_actions.mocking_test',
+        'tear_down_test_case_action.mocking_test.mock_at_test_level_with_multiple_actions.mocking_test',
+        'set_up_test_case_action.mocking_test.mock_at_test_level_with_multiple_actions.mocking_test',
+        'tear_down_test_case_action.mocking_test.mock_at_test_level_with_multiple_actions.mocking_test',
+        'tear_down_test_case.mocking_test.mock_at_test_level_with_multiple_actions',
         'tearDown',
         'tear_down_test_fixture',
         'tearDownClass',

@@ -19,7 +19,7 @@ from pysoa.common.settings import Settings
 
 PARAM_DOC_RE = re.compile(r'^:param\s+(?P<arg_name>[a-zA-Z0-9_]+):')
 PARAM_TYPE_RE = re.compile(r'^:type\s+(?P<arg_name>[a-zA-Z0-9_]+):')
-SINGLE_BACKTICK_RE = re.compile(r'([^`]+)`([^`\n]+)`([^_`]+?)')
+SINGLE_BACKTICK_RE = re.compile(r'([^`]+|^)`([^`\n]+)`([^_`]+?|$)')
 
 TO_DOCUMENT = (
     'pysoa.client.client:Client',

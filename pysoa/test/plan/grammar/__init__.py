@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import inspect
+import re
 
 import six
 
@@ -19,6 +20,8 @@ import pysoa.test.plan.grammar.directives  # noqa F401
 # `docs/update_test_plan_docs.sh` from the root of this project first, to ensure that the latest generated
 # documentation makes its way into the `testing.rst` documentation file.
 ##################################################
+
+__SINGLE_BACKTICK_RE = re.compile(r'([^`]+|^)`([^`\n]+)`([^_`]+?|$)')
 
 
 def __wrap_documentation_line(documentation_line, first_indent=4, second_indent=4):
@@ -236,7 +239,7 @@ for __directive_class in get_all_directives():
     __doc__ += (
         '' + __name + '\n' +
         ('~' * len(__name)) + '\n\n' +
-        inspect.cleandoc(__directive_class.__doc__ or '') + '\n\n' +
+        __SINGLE_BACKTICK_RE.sub('\g<1>``\g<2>``\g<3>', inspect.cleandoc(__directive_class.__doc__ or '')) + '\n\n' +
         '(from: ``' + __directive_class.__module__ + '``)' + '\n\n' +
         'Syntax::\n\n' + __wrap_documentation_line(repr(__directive_class())) + '\n\n\n'
     )
