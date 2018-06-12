@@ -601,17 +601,32 @@ follows. ::
     mock_result_for_test: 'mock' ':' mock_target ':' mock_path ':' [exception | delete] value
     mock_result_for_action: action ['.' action_index] ':' ['global'] 'mock' ':' mock_target ':' mock_path ':'
         [exception | delete] value
+    stub_action_body_for_test: 'stub action' ':' stub_service ':' stub_action ':' 'body' [data_type] ':' variable_name
+        ':' value
+    stub_action_body_for_action: action ['.' action_index] ':' ['global'] 'stub action' ':' stub_service ':'
+        stub_action ':' 'body' [data_type] ':' variable_name ':' value
+    stub_action_error_for_test: 'stub action' ':' stub_service ':' stub_action ':' 'error' ':' 'code' '=' error_code
+        ',' 'field' '=' field_name ',' 'message' '=' error_message
+    stub_action_error_for_action: action ['.' action_index] ':' ['global'] 'stub action' ':' stub_service ':'
+        stub_action ':' 'error' ':' 'code' '=' error_code ',' 'field' '=' field_name ',' 'message' '=' error_message
+    stub_action_called_for_test: 'stub action' ':' stub_service ':' stub_action ':' 'expect' ['not'] 'called' ((':') |
+        ([data_type] ':' variable_name ':' value))
+    stub_action_called_for_action: action ['.' action_index] ':' ['global'] 'stub action' ':' stub_service ':'
+        stub_action ':' 'expect' ['not'] 'called' ((':') | ([data_type] ':' variable_name ':' value))
     freeze_time_test: 'freeze time' ':' value
     freeze_time_action: action ['.' action_index] ':' ['global'] 'freeze time' ':' value
 
     global_directive: fixture_comment | test_skip | input | expect_error_field_message | expect_error_message |
         expect_error_field | expect_error | expect_no_errors | expect_value | expect_any_value | expect_none |
-        expect_not_present | mock_assert_called_for_action | mock_result_for_action | freeze_time_action
+        expect_not_present | mock_assert_called_for_action | mock_result_for_action | stub_action_body_for_action |
+        stub_action_error_for_action | stub_action_called_for_action | freeze_time_action
 
     test_directive: fixture_comment | test_skip | input | expect_error_field_message | expect_error_message |
         expect_error_field | expect_error | expect_no_errors | expect_value | expect_any_value | expect_none |
         expect_not_present | mock_assert_called_for_test | mock_assert_called_for_action | mock_result_for_test |
-        mock_result_for_action | freeze_time_test | freeze_time_action
+        mock_result_for_action | stub_action_body_for_test | stub_action_body_for_action | stub_action_error_for_test |
+        stub_action_error_for_action | stub_action_called_for_test | stub_action_called_for_action | freeze_time_test |
+        freeze_time_action
 
     global_case: global_directive NEWLINE (global_directive NEWLINE)*
     test_case: test_name NEWLINE test_description NEWLINE test_directive NEWLINE (test_directive NEWLINE)*
@@ -1105,6 +1120,167 @@ directive, with these revised examples::
 Syntax::
 
     action ['.' action_index] ':' ['global'] 'mock' ':' mock_target ':' mock_path ':' [exception | delete] value
+
+
+Stub Action Body For Test Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use this directive to stub an action call to another service that your service calls and set what that stubbed
+service action should return in the response body. This is mutually exclusive with stubbing an error to be
+returned by the stubbed service action. This follows the standard path-placing syntax used for action request
+and expectation directives. This directive applies to an entire test case. The action is stubbed before the first
+action case is run, and the stub is stopped after the last action case completes. The following use of this
+directive::
+
+    stub action: user: get_user: body int: id: 12
+    stub action: user: get_user: body: first_name: John
+    stub action: user: get_user: body: last_name: Smith
+
+Is equivalent to this Python code:
+
+.. code-block:: python
+
+    with stub_action('user', 'get_user', body={'id': 12, 'first_name': 'John', 'last_name': 'Smith'}):
+        # run all actions in this test
+
+(from: ``pysoa.test.plan.grammar.directives.stub_action``)
+
+Syntax::
+
+    'stub action' ':' stub_service ':' stub_action ':' 'body' [data_type] ':' variable_name ':' value
+
+
+Stub Action Body For Action Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use this directive to stub an action call to another service that your service calls and set what that stubbed
+service action should return in the response body. This is mutually exclusive with stubbing an error to be
+returned by the stubbed service action. This follows the standard path-placing syntax used for action request
+and expectation directives. This directive applies to an individual action case. The action is stubbed immediately
+before the action case is run, and the stub is stopped immediately after the action case completes. The
+following use of this directive::
+
+    create_bookmark: stub action: user: get_user: body int: id: 12
+    create_bookmark: stub action: user: get_user: body: first_name: John
+    create_bookmark: stub action: user: get_user: body: last_name: Smith
+
+Is equivalent to this Python code:
+
+.. code-block:: python
+
+    with stub_action('user', 'get_user', body={'id': 12, 'first_name': 'John', 'last_name': 'Smith'}):
+        # run the first (possibly only) create_bookmark action case
+
+(from: ``pysoa.test.plan.grammar.directives.stub_action``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'stub action' ':' stub_service ':' stub_action ':' 'body' [data_type] ':'
+        variable_name ':' value
+
+
+Stub Action Error For Test Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use this directive to stub an action call to another service that your service calls and set an error that the
+stubbed service action should return. This is mutually exclusive with stubbing a response body to be returned by
+the stubbed service action. This follows the standard (full) error code/field/message syntax of the error
+expectations directives, and the error field may be "none" to indicate that this error should have no field name.
+This directive applies to an entire test case. The action is stubbed before the first action case is run, and the
+stub is stopped after the last action case completes. The following use of this directive::
+
+    stub action: user: get_user: error: code=NOT_FOUND, field=none, message=The user was not found
+    stub action: user: create_user: error: code=INVALID, field=first_name, message=The first name is invalid
+
+Is equivalent to this Python code:
+
+.. code-block:: python
+
+    with stub_action('user', 'get_user', errors=[Error(code='NOT_FOUND', message='The user was not found']), \
+            stub_action(
+                'user',
+                'create_user',
+                errors=[Error(code='INVALID', field='first_name', message='The first name is invalid')],
+            ):
+        # run all actions in this test
+
+(from: ``pysoa.test.plan.grammar.directives.stub_action``)
+
+Syntax::
+
+    'stub action' ':' stub_service ':' stub_action ':' 'error' ':' 'code' '=' error_code ',' 'field' '=' field_name ','
+        'message' '=' error_message
+
+
+Stub Action Error For Action Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use this directive to stub an action call to another service that your service calls and set an error that the
+stubbed service action should return. This is mutually exclusive with stubbing a response body to be returned by
+the stubbed service action. This follows the standard (full) error code/field/message syntax of the error
+expectations directives, and the error field may be "none" to indicate that this error should have no field name.
+This directive applies to an individual action case. The action is stubbed immediately before the action case is
+run, and the stub is stopped immediately after the action case completes. The following use of this directive::
+
+    stub action: user: get_user: error: code=NOT_FOUND, field=none, message=The user was not found
+    stub action: user: create_user: error: code=INVALID, field=first_name, message=The first name is invalid
+
+Is equivalent to this Python code:
+
+.. code-block:: python
+
+    with stub_action('user', 'get_user', errors=[Error(code='NOT_FOUND', message='The user was not found']), \
+            stub_action(
+                'user',
+                'create_user',
+                errors=[Error(code='INVALID', field='first_name', message='The first name is invalid')],
+            ):
+        # run all actions in this test
+
+(from: ``pysoa.test.plan.grammar.directives.stub_action``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'stub action' ':' stub_service ':' stub_action ':' 'error' ':' 'code' '='
+        error_code ',' 'field' '=' field_name ',' 'message' '=' error_message
+
+
+Stub Action Called For Test Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use this directive to stub an action call to another service that your service calls and set an expectation that
+the stubbed action will be called (or not) by the test. If you use this directive without a corresponding
+``stub action ... body`` or ``stub action ... error`` directive, the stubbed action will return an empty dict as the
+response body. You cannot combine ``expect called`` and ``expect not called`` for the same stubbed action; the two are
+mutually exclusive. If you do not specify a variable name and value, the expectation will be that the action is
+called with an empty request dict. This directive applies to an entire test case. The action is stubbed before the
+first action case is run, and the stub is stopped after the last action case completes.
+
+(from: ``pysoa.test.plan.grammar.directives.stub_action``)
+
+Syntax::
+
+    'stub action' ':' stub_service ':' stub_action ':' 'expect' ['not'] 'called' ((':') | ([data_type] ':'
+        variable_name ':' value))
+
+
+Stub Action Called For Action Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use this directive to stub an action call to another service that your service calls and set an expectation that
+the stubbed action will be called (or not) by the test. If you use this directive without a corresponding
+``stub action ... body`` or ``stub action ... error`` directive, the stubbed action will return an empty dict as the
+response body. You cannot combine ``expect called`` and ``expect not called`` for the same stubbed action; the two are
+mutually exclusive. If you do not specify a variable name and value, the expectation will be that the action is
+called with an empty request dict. This directive applies to an individual action case. The action is stubbed
+immediately before the action case is run, and the stub is stopped immediately after the action case completes.
+
+(from: ``pysoa.test.plan.grammar.directives.stub_action``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'stub action' ':' stub_service ':' stub_action ':' 'expect' ['not']
+        'called' ((':') | ([data_type] ':' variable_name ':' value))
 
 
 Freeze Time Test Directive

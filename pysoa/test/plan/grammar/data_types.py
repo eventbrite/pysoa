@@ -84,7 +84,7 @@ class AnyValue(object):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return 'any {} type value'.format(self.data_type)
+        return 'any {} type value{}'.format(self.data_type, ' or None' if self.permit_none else '')
 
     def __copy__(self):
         return self

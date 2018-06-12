@@ -15,9 +15,9 @@ from pysoa.test.plan.grammar.data_types import (
 )
 from pysoa.test.plan.grammar.directive import (
     ActionDirective,
+    register_directive,
     VarNameGrammar,
     VarValueGrammar,
-    register_directive,
 )
 from pysoa.test.plan.grammar.tools import path_put
 
