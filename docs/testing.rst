@@ -564,7 +564,11 @@ follows. ::
     error_code: NAME
     error_message: PLAIN_LANGUAGE
     field_name: HYPHENATED_NAME (HYPHENATED_NAME | '.')*
+    instruction: 'exception' | 'delete'
     job_slot: 'context' | 'control'
+    json: PLAIN_LANGUAGE
+    mock_path: NAME (NAME | '.')*
+    mock_target: NAME (NAME | '.')*
     name: NAME
     reason: PLAIN_LANGUAGE
     value: PLAIN_LANGUAGE
@@ -591,16 +595,23 @@ follows. ::
     expect_none: action ['.' action_index] ':' ['global'] 'expect' 'NONE' ':' 'attribute value' ':' variable_name [ ':']
     expect_not_present: action ['.' action_index] ':' ['global'] 'expect not present' ':' 'attribute value' ':'
         variable_name [ ':']
+    mock_assert_called_for_test: 'mock' ':' mock_target ':' 'expect' ['not'] 'called' [mock_path] ':' json
+    mock_assert_called_for_action: action ['.' action_index] ':' ['global'] 'mock' ':' mock_target ':' 'expect' ['not']
+        'called' [mock_path] ':' json
+    mock_result_for_test: 'mock' ':' mock_target ':' mock_path ':' [exception | delete] value
+    mock_result_for_action: action ['.' action_index] ':' ['global'] 'mock' ':' mock_target ':' mock_path ':'
+        [exception | delete] value
     freeze_time_test: 'freeze time' ':' value
     freeze_time_action: action ['.' action_index] ':' ['global'] 'freeze time' ':' value
 
     global_directive: fixture_comment | test_skip | input | expect_error_field_message | expect_error_message |
         expect_error_field | expect_error | expect_no_errors | expect_value | expect_any_value | expect_none |
-        expect_not_present | freeze_time_action
+        expect_not_present | mock_assert_called_for_action | mock_result_for_action | freeze_time_action
 
     test_directive: fixture_comment | test_skip | input | expect_error_field_message | expect_error_message |
         expect_error_field | expect_error | expect_no_errors | expect_value | expect_any_value | expect_none |
-        expect_not_present | freeze_time_test | freeze_time_action
+        expect_not_present | mock_assert_called_for_test | mock_assert_called_for_action | mock_result_for_test |
+        mock_result_for_action | freeze_time_test | freeze_time_action
 
     global_case: global_directive NEWLINE (global_directive NEWLINE)*
     test_case: test_name NEWLINE test_description NEWLINE test_directive NEWLINE (test_directive NEWLINE)*
@@ -907,6 +918,193 @@ Set expectation that the given field will not be present (even as a key) in the 
 Syntax::
 
     action ['.' action_index] ':' ['global'] 'expect not present' ':' 'attribute value' ':' variable_name [ ':']
+
+
+Mock Assert Called For Test Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use this to patch a target with ``unittest.Mock`` and expect it to be called with certain arguments. For example, if
+your module named ``example_service.actions.users`` imported ``random``, ``uuid``, and ``third_party_object``, you could
+mock those three imported items and expect function calls with the following::
+
+    mock: example_service.actions.users.random: expect called randint: [[0, 999], {}]
+    mock: example_service.actions.users.random: expect called randint: [[1000, 1999], {}]
+    mock: example_service.actions.users.random: expect called randint: [[2000, 2999], {}]
+    mock: example_service.actions.users.uuid: expect called uuid4: [[], {}]
+    mock: example_service.actions.users.uuid: expect called uuid4: [[], {}]
+    mock: example_service.actions.users.uuid: expect called uuid4: [[], {}]
+    mock: example_service.actions.users.third_party_object: expect called: [[], {"foo": 10382}]
+    mock: example_service.actions.users.third_party_object: expect not called foo_attribute.save:
+
+Taking a look at each line in this example:
+
+* Lines 1 through 3 set up ``random.randint`` to expect to be called three times, the first time with arguments
+  ``0`` and ``999`` and no keyword arguments, the second time with arguments ``1000`` and ``1999`` and no keyword arguments,
+  and the third time with arguments ``2000`` and ``2999`` and no keyword arguments. This is analogous to:
+
+  .. code-block:: python
+
+      mock_random.rand_int.assert_has_calls([
+          mock.call(0, 999),
+          mock.call(1000, 1999),
+          mock.call(2000, 2999),
+      ])
+      assert mock_random.rand_int.call_count == 3
+
+* Lines 4 through 6 set up ``uuid.uuid4`` to expect to be called three times, each time with no arguments or keyword
+  arguments. Note that, even with no arguments, you must specify a two-element list whose first element is a list
+  of args (in this case empty) and whose second element is a dictionary of kwargs (in this case empty) whose keys
+  must be strings (double quotes). This is analogous to:
+
+  .. code-block:: python
+
+      mock_uuid.uuid4.assert_has_calls([mock.call(), mock.call(), mock.call()])
+      assert mock_uuid.uuid4.call_count == 3
+
+* Line 7 sets up ``third_party_object`` to, itself, be called, with no arguments and with a single keyword argument
+  ``foo`` having value ``10382``. This is analogous to:
+
+  .. code-block:: python
+
+      mock_object.assert_has_calls([mock.call(foo=10382)])
+      assert mock_object.call_count == 1
+
+* Line 8 sets up ``third_party_object.foo_attribute.save`` to expect to have *not* been called. This is analogous to:
+
+  .. code-block:: python
+
+      assert mock_object.foo_attribute.save.call_count == 0
+
+These expectations are checked at the end of the test case, after all actions have run. If any expectation is not
+met, the test fails with an ``AssertionError``.
+
+(from: ``pysoa.test.plan.grammar.directives.mock``)
+
+Syntax::
+
+    'mock' ':' mock_target ':' 'expect' ['not'] 'called' [mock_path] ':' json
+
+
+Mock Assert Called For Action Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use this to patch a target with ``unittest.Mock`` and expect it to be called with certain arguments. These
+expectations are checked at the end of the action case, after the action has run, before the next action runs, and
+before any test-case-level mock expectations are checked.
+
+For full documentation on how to use this directive, see the documentation for the test-case-level
+``mock ... expect`` directive, with these revised examples::
+
+    user_action: mock: example_service.actions.users.random: expect called randint: [[0, 999], {}]
+    user_action: mock: example_service.actions.users.random: expect called randint: [[1000, 1999], {}]
+    user_action: mock: example_service.actions.users.random: expect called randint: [[2000, 2999], {}]
+    user_action: mock: example_service.actions.users.uuid: expect called uuid4: [[], {}]
+    user_action: mock: example_service.actions.users.uuid: expect called uuid4: [[], {}]
+    user_action: mock: example_service.actions.users.uuid: expect called uuid4: [[], {}]
+    user_action: mock: example_service.actions.users.third_party_object: expect called: [[], {"foo": 10382}]
+    user_action: mock: example_service.actions.users.third_party_object: expect not called foo_attribute.save:
+
+(from: ``pysoa.test.plan.grammar.directives.mock``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'mock' ':' mock_target ':' 'expect' ['not'] 'called' [mock_path] ':' json
+
+
+Mock Result For Test Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use this to patch a target with ``unittest.Mock`` and set up a return value or side effect for that mock or any of
+its attributes at any path level. For example, if your module named ``example_service.actions.users`` imported
+``random``, ``uuid``, and ``third_party_object``, you could mock those three imported items using the following potential
+directives::
+
+    mock: example_service.actions.users.random: randint.return_value: 31
+    mock: example_service.actions.users.uuid: uuid4.side_effect: "abc123"
+    mock: example_service.actions.users.uuid: uuid4.side_effect: "def456"
+    mock: example_service.actions.users.uuid: uuid4.side_effect: "ghi789"
+    mock: example_service.actions.users.third_party_object: return_value: {"id": 3, "name": "Hello, world"}
+    mock: example_service.actions.users.third_party_object: foo_attribute.return_value.bar_attribute.side_effect: exception IOError
+    mock: example_service.actions.users.third_party_object: foo_attribute.return_value.qux_attribute: delete
+
+Taking a look at each line in this example:
+
+* Line 1 sets up ``random.randint`` to return the value 31. It will return the value 31 every time it is called, no
+  matter how many times this is. This is analogous to:
+
+  .. code-block:: python
+
+      mock_random.randint.return_value = 31
+
+* Lines 2 through 4 set up ``uuid.uuid4`` to return the strings "abc123", "def456", and "ghi789," in that order.
+  Using ``side_effect`` in this manner, ``uuid.uuid4`` cannot be called more than three times during the test, per
+  standard ``Mock`` behavior. You must use ``side_effect`` in this order if you wish to specify multiple different
+  return values. This is analogous to:
+
+  .. code-block:: python
+
+      mock_uuid.uuid4.side_effect = ("abc123", "def456", "ghi789")
+
+* Line 5 sets up ``third_party_object`` to, when called, return the object ``{"id": 3, "name": "Hello, world"}``. Note
+  that, when setting up a return value or side effect, the value after the attribute path specification must be a
+  JSON-deserializable value (and strings must be in double quotes). Values that deserialize to ``dict`` objects will
+  be special dictionaries whose keys can also be accessed as attributes. This is analogous to:
+
+  .. code-block:: python
+
+      mock_object.return_value = AttrDict({"id": 3, "name": "Hello, world"})
+
+* Line 6 demonstrates setting an exception as a side-effect. Instead of following the path specification with a
+  JSON-deserializable value, you follow it with the keyword ``exception`` followed by either a ``builtin`` exception
+  name or a ``path.to.model:ExceptionName`` for non-builtin exceptions. This is analogous to:
+
+  .. code-block:: python
+
+      mock_object.foo_attribute.return_value.bar_attribute.side_effect = IOError
+
+* Line 7 demonstrates deleting the ``qux_attribute`` attribute of ``third_party_object.foo_attribute.return_value`` so
+  that ``Mock`` won't mock it. Any attempt by the underlying code to access ``qux_attribute`` will result in an
+  ``AttributeError``. This is analogous to:
+
+  .. code-block:: python
+
+      del mock_object.foo_attribute.return_value.qux_attribute
+
+This directive applies to the entire test case in which it is defined. The patch is started once, before any action
+cases run, and stopped once, after all action cases run.
+
+(from: ``pysoa.test.plan.grammar.directives.mock``)
+
+Syntax::
+
+    'mock' ':' mock_target ':' mock_path ':' [exception | delete] value
+
+
+Mock Result For Action Directive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use this to patch a target with ``unittest.Mock`` and set up a return value or side effect for that mock or any of
+its attributes at any path level. This directive applies to the specific action case in which it is defined. The
+patch is started once, after any test-case-level patches (if applicable) are started and before before the action
+is called, and stopped once, after the action returns and before any test-case-level patches (if applicable) are
+stopped.
+
+For full documentation on how to use this directive, see the documentation for the test-case-level ``mock``
+directive, with these revised examples::
+
+    user_action: mock: example_service.actions.users.random: randint.return_value: 31
+    user_action: mock: example_service.actions.users.uuid: uuid4.side_effect: "abc123"
+    user_action: mock: example_service.actions.users.uuid: uuid4.side_effect: "def456"
+    user_action: mock: example_service.actions.users.uuid: uuid4.side_effect: "ghi789"
+    user_action: mock: example_service.actions.users.third_party_object: return_value: {"id": 3, "name": "Hello, world"}
+    user_action: mock: example_service.actions.users.third_party_object: foo_attribute.return_value.bar_attribute.side_effect: exception IOError
+    user_action: mock: example_service.actions.users.third_party_object: foo_attribute.return_value.qux_attribute: delete
+
+(from: ``pysoa.test.plan.grammar.directives.mock``)
+
+Syntax::
+
+    action ['.' action_index] ':' ['global'] 'mock' ':' mock_target ':' mock_path ':' [exception | delete] value
 
 
 Freeze Time Test Directive

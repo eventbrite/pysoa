@@ -2,6 +2,7 @@ from __future__ import absolute_import, unicode_literals
 
 import datetime
 import os
+import random
 import sys
 import uuid
 import unittest
@@ -11,7 +12,10 @@ import pytest
 import six
 
 from pysoa.common.types import Error
-from pysoa.server.errors import JobError
+from pysoa.server.errors import (
+    ActionError,
+    JobError,
+)
 from pysoa.server.action.base import Action
 from pysoa.server.server import Server
 from pysoa.test.plan import ServicePlanTestCase
@@ -122,6 +126,47 @@ class RunAction(WalkAction):
     add = 5
 
 
+def function_which_shall_be_mocked(*_, **__):
+    raise NotImplementedError("Something didn't work!")
+
+
+class ExpectedException(Exception):
+    pass
+
+
+class MockingTestAction(Action):
+    request_schema = fields.Dictionary({
+        'min': fields.Integer(),
+        'max': fields.Integer(),
+        'kwargs': fields.SchemalessDictionary(key_type=fields.UnicodeString()),
+    })
+
+    response_schema = fields.Dictionary({
+        'random': fields.Integer(),
+        'response': fields.SchemalessDictionary(),
+        'extra': fields.UnicodeString(),
+    })
+
+    def run(self, request):
+        try:
+            # noinspection PyUnresolvedReferences
+            return {
+                'random': random.randint(request.body['min'], request.body['max']),
+                'response': function_which_shall_be_mocked(
+                    request.body['max'],
+                    request.body['min'],
+                    **request.body['kwargs']
+                ),
+                'extra': function_which_shall_be_mocked.extra.value().for_me,
+            }
+        except AttributeError:
+            raise ActionError(errors=[Error('ATTRIBUTE_ERROR', 'An attribute error was raised')])
+        except BytesWarning:
+            raise ActionError(errors=[Error('BYTES_WARNING', 'A bytes warning was raised')])
+        except ExpectedException:
+            raise ActionError(errors=[Error('EXPECTED_EXCEPTION', 'An expected exception was raised')])
+
+
 class FirstStubServer(Server):
     service_name = 'stub'
     action_class_map = {
@@ -139,6 +184,13 @@ class SecondStubServer(Server):
     action_class_map = {
         'walk': WalkAction,
         'run': RunAction,
+    }
+
+
+class MockingAndStubbingServer(Server):
+    service_name = 'grub'
+    action_class_map = {
+        'mocking_test': MockingTestAction,
     }
 
 
@@ -287,6 +339,15 @@ class TestSecondFixtures(PluginTestingOrderOfOperationsTestCase):
         """
         self.order_of_operations.append('test_a_unittest_skipped_case')
         self.fail('If this is not skipped, it should fail')
+
+
+@pytest.mark.skipif(sys.version_info < (2, 7), reason='These tests should all run because argument evaluates to False')
+class TestMockingAndStubbingFixtures(PluginTestingOrderOfOperationsTestCase):
+    server_class = MockingAndStubbingServer
+    server_settings = {}
+    fixture_path = os.path.dirname(__file__) + '/mocking_and_stubbing'
+
+    order_of_operations = []
 
 
 @unittest.skip(reason='Making sure skipping an entire class (and all of its fixtures) works')
