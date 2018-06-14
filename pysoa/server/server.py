@@ -10,12 +10,15 @@ import traceback
 import signal
 
 import attr
+
 from pysoa.client import Client
 from pysoa.common.constants import (
+    ERROR_CODE_RESPONSE_NOT_SERIALIZABLE,
     ERROR_CODE_RESPONSE_TOO_LARGE,
     ERROR_CODE_SERVER_ERROR,
     ERROR_CODE_UNKNOWN,
 )
+from pysoa.common.serializer.exceptions import InvalidField
 from pysoa.common.transport.exceptions import (
     MessageReceiveError,
     MessageReceiveTimeout,
@@ -140,7 +143,7 @@ class Server(object):
                 response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
             except Exception as e:
                 self.metrics.counter('server.error.response_conversion_failure').increment()
-                job_response = self.handle_error(e, variables={'job_response': job_response})
+                job_response = self.handle_exception(e, variables={'job_response': job_response})
                 response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
 
             response_for_logging = RecursivelyCensoredDictWrapper(response_message)
@@ -150,17 +153,25 @@ class Server(object):
                 self.transport.send_response_message(request_id, meta, response_message)
             except MessageTooLarge:
                 self.metrics.counter('server.error.response_too_large').increment()
-                self.logger.error(
-                    'Could not send a response because it was too large',
-                    exc_info=True,
-                    extra={'data': {'request': request_for_logging, 'response': response_for_logging}},
+                job_response = self.handle_error(
+                    ERROR_CODE_RESPONSE_TOO_LARGE,
+                    'Could not send the response because it was too large',
+                    request_for_logging,
+                    response_for_logging,
                 )
-                job_response = JobResponse(errors=[
-                    Error(
-                        code=ERROR_CODE_RESPONSE_TOO_LARGE,
-                        message='Could not send the response because it was too large',
-                    ),
-                ])
+                self.transport.send_response_message(
+                    request_id,
+                    meta,
+                    attr.asdict(job_response, dict_factory=UnicodeKeysDict),
+                )
+            except InvalidField:
+                self.metrics.counter('server.error.response_not_serializable').increment()
+                job_response = self.handle_error(
+                    ERROR_CODE_RESPONSE_NOT_SERIALIZABLE,
+                    'Could not send the response because it failed to serialize',
+                    request_for_logging,
+                    response_for_logging,
+                )
                 self.transport.send_response_message(
                     request_id,
                     meta,
@@ -255,11 +266,11 @@ class Server(object):
             # Send an error response if no middleware caught this.
             # Formatting the error might itself error, so try to catch that
             self.metrics.counter('server.error.unhandled_error').increment()
-            return self.handle_error(e)
+            return self.handle_exception(e)
 
         return job_response
 
-    def handle_error(self, error, variables=None):
+    def handle_exception(self, error, variables=None):
         """
         Makes and returns a last-ditch error response.
 
@@ -294,6 +305,14 @@ class Server(object):
                 error_dict['variables'] = 'Error formatting variables'
 
         return JobResponse(errors=[error_dict])
+
+    def handle_error(self, code, message, request_for_logging, response_for_logging):
+        self.logger.error(
+            message,
+            exc_info=True,
+            extra={'data': {'request': request_for_logging, 'response': response_for_logging}},
+        )
+        return JobResponse(errors=[Error(code=code, message=message)])
 
     def execute_job(self, job_request):
         """
