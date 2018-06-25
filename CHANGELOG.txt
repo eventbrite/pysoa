@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.42.0 (2018-06-25)
+-------------------
+- [MINOR] Add directives for using stub_action from test plans
+- [MAJOR] Fix bug causing server to shut down on unserializable responses
+- [MINOR] Add directives for using Mock from test plans
+
 0.41.0 (2018-06-04)
 -------------------
 - [MINOR] Add static Server initializer to support settings and server patching
