@@ -167,6 +167,33 @@ class MockingTestAction(Action):
             raise ActionError(errors=[Error('EXPECTED_EXCEPTION', 'An expected exception was raised')])
 
 
+class StubbingOneCallTestAction(Action):
+    request_schema = fields.SchemalessDictionary()
+    response_schema = fields.Dictionary({'forwarded_response': fields.SchemalessDictionary()})
+
+    def run(self, request):
+        try:
+            return {
+                'forwarded_response': request.client.call_action('examiner', 'magnify', body=request.body).body
+            }
+        except request.client.CallActionError as e:
+            raise ActionError(errors=e.actions[0].errors)
+
+
+class StubbingTwoCallsTestAction(Action):
+    request_schema = fields.Dictionary({'one': fields.SchemalessDictionary(), 'two':  fields.SchemalessDictionary()})
+    response_schema = fields.Dictionary({'one': fields.SchemalessDictionary(), 'two':  fields.SchemalessDictionary()})
+
+    def run(self, request):
+        try:
+            return {
+                'one': request.client.call_action('examiner', 'roll', body=request.body['one']).body,
+                'two': request.client.call_action('player', 'pitch', body=request.body['two']).body,
+            }
+        except request.client.CallActionError as e:
+            raise ActionError(errors=e.actions[0].errors)
+
+
 class FirstStubServer(Server):
     service_name = 'stub'
     action_class_map = {
@@ -191,6 +218,8 @@ class MockingAndStubbingServer(Server):
     service_name = 'grub'
     action_class_map = {
         'mocking_test': MockingTestAction,
+        'stubbing_test_one_action': StubbingOneCallTestAction,
+        'stubbing_test_two_actions': StubbingTwoCallsTestAction,
     }
 
 

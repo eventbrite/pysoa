@@ -1,0 +1,112 @@
+test name: simple_stub_works
+test description: Test that a simple stub action works
+stubbing_test_one_action: stub action: examiner: magnify: body: foo_string: Lorem ipsum
+stubbing_test_one_action: stub action: examiner: magnify: body int: bar_int: 123498
+stubbing_test_one_action: stub action: examiner: magnify: body decimal: baz_decimal: 9183.34
+stubbing_test_one_action: stub action: examiner: magnify: expect called decimal: amount: 5.5
+stubbing_test_one_action: stub action: examiner: magnify: expect called int: scope: 12
+stubbing_test_one_action: stub action: player: pitch: expect not called:
+stubbing_test_one_action: input float: amount: 5.5
+stubbing_test_one_action: input int: scope: 12
+stubbing_test_one_action: expect: no errors
+stubbing_test_one_action: expect: attribute value: forwarded_response.foo_string: Lorem ipsum
+stubbing_test_one_action: expect int: attribute value: forwarded_response.bar_int: 123498
+stubbing_test_one_action: expect decimal: attribute value: forwarded_response.baz_decimal: 9183.34
+
+test name: simple_error_works
+test description: Test that a simple stub action raises an error
+stubbing_test_one_action: stub action: examiner: magnify: error: code=BAD_ERROR, field=none, message=Well this is embarrassing
+stubbing_test_one_action: stub action: examiner: magnify: expect called float: amount: 3.6
+stubbing_test_one_action: stub action: examiner: magnify: expect called int: scope: 2
+stubbing_test_one_action: input float: amount: 3.6
+stubbing_test_one_action: input int: scope: 2
+stubbing_test_one_action: expect: error: code=BAD_ERROR, message=Well this is embarrassing
+
+test name: simple_field_error_works
+test description: Test that a simple stub action raises a field error
+stubbing_test_one_action: stub action: examiner: magnify: error: code=WORSE_ERROR, field=amount, message=Not allowed
+stubbing_test_one_action: stub action: examiner: magnify: expect called float: amount: 5.7
+stubbing_test_one_action: stub action: examiner: magnify: expect called int: scope: 1
+stubbing_test_one_action: input float: amount: 5.7
+stubbing_test_one_action: input int: scope: 1
+stubbing_test_one_action: expect: error: code=WORSE_ERROR, field=amount
+
+test name: one_stub_multiple_calls
+test description: Test that stubbing the action body once affects all action calls
+stub action: examiner: magnify: body: foo_string: dolor simet
+stub action: examiner: magnify: body int: bar_int: 719487
+stub action: examiner: magnify: body float: baz_float: 57.19
+stub action: examiner: magnify: expect called float: amount: 10.0
+stub action: examiner: magnify: expect called int: scope: 3
+stubbing_test_one_action.0: input float: amount: 10.0
+stubbing_test_one_action.0: input int: scope: 3
+stubbing_test_one_action.0: expect: no errors
+stubbing_test_one_action.0: expect: attribute value: forwarded_response.foo_string: dolor simet
+stubbing_test_one_action.0: expect int: attribute value: forwarded_response.bar_int: 719487
+stubbing_test_one_action.0: expect float: attribute value: forwarded_response.baz_float: 57.19
+stubbing_test_one_action.1: input float: amount: 10.0
+stubbing_test_one_action.1: input int: scope: 3
+stubbing_test_one_action.1: expect: no errors
+stubbing_test_one_action.1: expect: attribute value: forwarded_response.foo_string: dolor simet
+stubbing_test_one_action.1: expect int: attribute value: forwarded_response.bar_int: 719487
+stubbing_test_one_action.1: expect float: attribute value: forwarded_response.baz_float: 57.19
+stubbing_test_one_action.2: input float: amount: 10.0
+stubbing_test_one_action.2: input int: scope: 3
+stubbing_test_one_action.2: expect: no errors
+stubbing_test_one_action.2: expect: attribute value: forwarded_response.foo_string: dolor simet
+stubbing_test_one_action.2: expect int: attribute value: forwarded_response.bar_int: 719487
+stubbing_test_one_action.2: expect float: attribute value: forwarded_response.baz_float: 57.19
+
+test name: one_error_stub_multiple_error_calls
+test description: Test that stubbing the action error once affects all action calls
+stub action: examiner: magnify: error: code=REPEAT_OFFENDER, field=none, message=Once more unto the breach
+stub action: examiner: magnify: expect called float: amount: 2
+stub action: examiner: magnify: expect called int: scope: 5
+stubbing_test_one_action.0: input float: amount: 2
+stubbing_test_one_action.0: input int: scope: 5
+stubbing_test_one_action.0: expect: error: code=REPEAT_OFFENDER
+stubbing_test_one_action.1: input float: amount: 2
+stubbing_test_one_action.1: input int: scope: 5
+stubbing_test_one_action.1: expect: error: code=REPEAT_OFFENDER
+
+test name: multiple_stubs_multiple_calls
+test description: Test that multiple stubs across multiple actions don't affect each other
+stubbing_test_one_action.0: stub action: examiner: magnify: body: foo_string: Lorem ipsum
+stubbing_test_one_action.0: stub action: examiner: magnify: body int: bar_int: 123498
+stubbing_test_one_action.0: stub action: examiner: magnify: body decimal: baz_decimal: 9183.34
+stubbing_test_one_action.0: stub action: examiner: magnify: expect called decimal: amount: 5.5
+stubbing_test_one_action.0: stub action: examiner: magnify: expect called int: scope: 12
+stubbing_test_one_action.0: stub action: player: pitch: expect not called:
+stubbing_test_one_action.0: stub action: examiner: roll: expect not called:
+stubbing_test_one_action.0: input float: amount: 5.5
+stubbing_test_one_action.0: input int: scope: 12
+stubbing_test_one_action.0: expect: no errors
+stubbing_test_one_action.0: expect: attribute value: forwarded_response.foo_string: Lorem ipsum
+stubbing_test_one_action.0: expect int: attribute value: forwarded_response.bar_int: 123498
+stubbing_test_one_action.0: expect decimal: attribute value: forwarded_response.baz_decimal: 9183.34
+stubbing_test_one_action.1: stub action: examiner: magnify: error: code=BAD_ERROR, field=none, message=Well this is embarrassing
+stubbing_test_one_action.1: stub action: examiner: magnify: expect called float: amount: 3.6
+stubbing_test_one_action.1: stub action: examiner: magnify: expect called int: scope: 2
+stubbing_test_one_action.1: stub action: player: pitch: expect not called:
+stubbing_test_one_action.1: stub action: examiner: roll: expect not called:
+stubbing_test_one_action.1: input float: amount: 3.6
+stubbing_test_one_action.1: input int: scope: 2
+stubbing_test_one_action.1: expect: error: code=BAD_ERROR, message=Well this is embarrassing
+# Not stubbing for call 3, so should result in error about unconfigured client
+stubbing_test_one_action.2: input float: amount: 5.7
+stubbing_test_one_action.2: input int: scope: 1
+stubbing_test_one_action.2: expect: job error: code=SERVER_ERROR
+
+test name: multiple_stubs_one_call
+test description: Test that multiple stubs
+stubbing_test_two_actions: stub action: examiner: magnify: expect not called:
+stubbing_test_two_actions: stub action: examiner: roll: expect called decimal: qux: 3.1415
+stubbing_test_two_actions: stub action: player: pitch: body: foo: bar
+stubbing_test_two_actions: stub action: player: pitch: body int: baz: 21
+stubbing_test_two_actions: stub action: player: pitch: expect called:
+stubbing_test_two_actions: input decimal: one.qux: 3.1415
+stubbing_test_two_actions: input emptydict: two:
+stubbing_test_two_actions: expect: no errors
+stubbing_test_two_actions: expect emptydict: attribute value: one:
+stubbing_test_two_actions: expect: attribute value: two.foo: bar
+stubbing_test_two_actions: expect int: attribute value: two.baz: 21

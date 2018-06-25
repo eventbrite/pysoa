@@ -10,6 +10,7 @@ import traceback
 import signal
 
 import attr
+import six
 
 from pysoa.client import Client
 from pysoa.common.constants import (
@@ -270,12 +271,12 @@ class Server(object):
 
         return job_response
 
-    def handle_job_exception(self, error, variables=None):
+    def handle_job_exception(self, exception, variables=None):
         """
         Makes and returns a last-ditch error response.
 
-        :param error: The error (exception) that happened
-        :type error: Exception
+        :param exception: The exception that happened
+        :type exception: Exception
         :param variables: A dictionary of context-relevant variables to include in the error response
         :type variables: dict
 
@@ -284,12 +285,18 @@ class Server(object):
         """
         # Get the error and traceback if we can
         try:
-            error_str, traceback_str = str(error), traceback.format_exc()
+            error_str, traceback_str = six.text_type(exception), traceback.format_exc()
         except Exception:
             self.metrics.counter('server.error.error_formatting_failure').increment()
             error_str, traceback_str = 'Error formatting error', traceback.format_exc()
         # Log what happened
-        self.logger.exception(error)
+        self.logger.exception(exception)
+        if not isinstance(traceback_str, six.text_type):
+            try:
+                # Try to
+                traceback_str = traceback_str.decode('utf-8')
+            except UnicodeDecodeError:
+                traceback_str = 'UnicodeDecodeError: Traceback could not be decoded'
         # Make a bare bones job response
         error_dict = {
             'code': ERROR_CODE_SERVER_ERROR,

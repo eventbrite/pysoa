@@ -176,7 +176,7 @@ def recursive_parse_expr_repr(parse_expression):
             return ''.join(('[', recursive_parse_expr_repr(parse_expression.expr), ']'))
 
     if isinstance(parse_expression, (MatchFirst, Or)):
-        return ' | '.join([recursive_parse_expr_repr(x) for x in parse_expression.exprs])
+        return '(({}))'.format(') | ('.join([recursive_parse_expr_repr(x) for x in parse_expression.exprs]))
 
     if isinstance(parse_expression, White):
         return ''
