@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.43.0 (2018-06-29)
+-------------------
+- [MINOR] Fix database error sometimes encountered during idle cleanup
+
 0.42.0 (2018-06-25)
 -------------------
 - [MINOR] Add directives for using stub_action from test plans
