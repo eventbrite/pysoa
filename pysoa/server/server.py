@@ -46,6 +46,24 @@ from pysoa.server.settings import PolymorphicServerSettings
 import pysoa.version
 
 
+try:
+    from django.conf import settings as django_settings
+    from django.db import (
+        close_old_connections as django_close_old_connections,
+        reset_queries as django_reset_queries,
+    )
+    from django.db.transaction import get_autocommit as django_get_autocommit
+    from django.db.utils import DatabaseError
+except ImportError:
+    django_settings = None
+    django_close_old_connections = None
+    django_reset_queries = None
+    django_get_autocommit = None
+
+    class DatabaseError(Exception):
+        pass
+
+
 class Server(object):
     """
     The base class from which all PySOA service servers inherit, and contains the code that does all of the heavy
@@ -94,7 +112,9 @@ class Server(object):
         ]
 
         # Set up logger
+        # noinspection PyTypeChecker
         self.logger = logging.getLogger('pysoa.server')
+        # noinspection PyTypeChecker
         self.job_logger = logging.getLogger('pysoa.server.job')
 
         # Set these as the integer equivalents of the level names
@@ -284,6 +304,7 @@ class Server(object):
         :rtype: JobResponse
         """
         # Get the error and traceback if we can
+        # noinspection PyBroadException
         try:
             error_str, traceback_str = six.text_type(exception), traceback.format_exc()
         except Exception:
@@ -305,6 +326,7 @@ class Server(object):
         }
 
         if variables is not None:
+            # noinspection PyBroadException
             try:
                 error_dict['variables'] = {key: repr(value) for key, value in variables.items()}
             except Exception:
@@ -428,17 +450,21 @@ class Server(object):
 
     def _close_old_django_connections(self):
         if self.use_django:
-            from django.conf import settings
-            if not getattr(settings, 'DATABASES'):
+            if not getattr(django_settings, 'DATABASES'):
                 # No database connections are configured, so we have nothing to do
                 return
 
-            from django.db import transaction
             try:
-                if transaction.get_autocommit():
-                    from django.db import close_old_connections
+                # noinspection PyCallingNonCallable
+                if django_get_autocommit():
                     self.logger.debug('Cleaning Django connections')
-                    close_old_connections()
+                    # noinspection PyCallingNonCallable
+                    django_close_old_connections()
+            except DatabaseError:
+                # Sometimes old connections won't close because they have already been interrupted (timed out, server
+                # moved, etc.). There's no reason to interrupt server processes for this problem. We can continue on
+                # without issue.
+                pass
             except BaseException as e:
                 # `get_autocommit` fails under PyTest without `pytest.mark.django_db`, so ignore that specific error.
                 try:
@@ -446,6 +472,7 @@ class Server(object):
                     if not isinstance(e, Failed):
                         raise e
                 except ImportError:
+                    # But if we can't import PyTest, then it can't be that error, so raise
                     raise e
 
     def perform_pre_request_actions(self):
@@ -455,11 +482,10 @@ class Server(object):
         for full details on the chain of `Server` method calls.
         """
         if self.use_django:
-            from django.conf import settings
-            if getattr(settings, 'DATABASES'):
-                from django.db import reset_queries
+            if getattr(django_settings, 'DATABASES'):
                 self.logger.debug('Resetting Django query log')
-                reset_queries()
+                # noinspection PyCallingNonCallable
+                django_reset_queries()
 
         self._close_old_django_connections()
 
@@ -500,6 +526,7 @@ class Server(object):
         signal.signal(signal.SIGTERM, self.handle_shutdown_signal)
         signal.signal(signal.SIGALRM, self.harakiri)
 
+        # noinspection PyBroadException
         try:
             while not self.shutting_down:
                 # reset harakiri timeout
@@ -575,7 +602,10 @@ class Server(object):
         # Load settings from the given file (or use Django and grab from its settings)
         if cls.use_django:
             # noinspection PyUnresolvedReferences
-            from django.conf import settings as django_settings
+            if not django_settings:
+                raise ImportError(
+                    'Could not import Django. You must install Django if you enable Django support in your service.'
+                )
             try:
                 settings = cls.settings_class(django_settings.SOA_SERVER_SETTINGS)
             except AttributeError:
