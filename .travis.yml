@@ -7,13 +7,12 @@ addons:
       - liblua5.2-dev
 python:
   - '2.7'
-  - '3.3'
   - '3.4'
   - '3.5'
   - '3.6'
 cache: pip
 install:
-  - export PKG_CONFIG_PATH="$(python-config --prefix)/lib/pkgconfig:/opt/python/3.3.6/lib/pkgconfig:$PKG_CONFIG_PATH"
+  - export PKG_CONFIG_PATH="$(python-config --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
   - echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
   # The above two statements can be removed when/if https://github.com/travis-ci/travis-ci/issues/8217 is fixed
   - pip install -U pip setuptools flake8

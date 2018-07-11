@@ -65,6 +65,7 @@ class JobResponse(object):
         default=attr.Factory(list),
         convert=lambda l: [e if isinstance(e, Error) else Error(**e) for e in l],
     )
+    context = attr.ib(default=attr.Factory(dict))
     actions = attr.ib(
         default=attr.Factory(list),
         convert=lambda l: [a if isinstance(a, ActionResponse) else ActionResponse(**a) for a in l],
