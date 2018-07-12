@@ -284,6 +284,7 @@ class TestClientSendReceive(TestCase):
             response = client.call_actions(SERVICE_NAME, actions, raise_action_errors=False)
             self.assertEqual(response.actions[0].body, {'foo': 'bar'})
             self.assertEqual(response.actions[1].errors, error_expected)
+            self.assertIsNotNone(response.context['correlation_id'])
 
     def test_call_actions_raises_exception_on_job_error(self):
         """Client.call_actions raises Client.JobError when a JobError occurs on the server."""

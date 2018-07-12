@@ -278,6 +278,8 @@ class Server(object):
                 self.execute_job,
             )
             job_response = wrapper(job_request)
+            if 'correlation_id' in job_request['context']:
+                job_response.context['correlation_id'] = job_request['context']['correlation_id']
         except JobError as e:
             self.metrics.counter('server.error.job_error').increment()
             job_response = JobResponse(
