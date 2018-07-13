@@ -231,7 +231,7 @@ class Client(object):
             errors_string = '\n'.join(['{a.action}: {a.errors}'.format(a=a) for a in self.actions])
             return 'Error calling action(s):\n{}'.format(errors_string)
 
-    # Synchronous request methods
+    # Blocking methods that send a request and wait until a response is available
 
     def call_action(
         self,
@@ -342,6 +342,7 @@ class Client(object):
         :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge,
                 MessageReceiveError, MessageReceiveTimeout, InvalidMessage, JobError, CallActionError
         """
+        kwargs.pop('suppress_response', None)  # If this kwarg is used, this method would always result in a timeout
         if timeout:
             kwargs['message_expiry_in_seconds'] = timeout
 
@@ -398,8 +399,6 @@ class Client(object):
         :type actions: iterable[union[ActionRequest, dict]]
         :param expansions: A dictionary representing the expansions to perform
         :type expansions: dict
-        :param raise_job_errors: Whether to raise a JobError if any job responses contain errors (defaults to `True`)
-        :type raise_job_errors: bool
         :param raise_action_errors: Whether to raise a CallActionError if any action responses contain errors (defaults
                                     to `True`)
         :type raise_action_errors: bool
@@ -496,6 +495,7 @@ class Client(object):
         :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge,
                 MessageReceiveError, MessageReceiveTimeout, InvalidMessage, JobError, CallActionError
         """
+        kwargs.pop('suppress_response', None)  # If this kwarg is used, this method would always result in a timeout
         if timeout:
             kwargs['message_expiry_in_seconds'] = timeout
 
@@ -569,6 +569,90 @@ class Client(object):
             self._perform_expansion(actions_to_expand, expansions, **kwargs)
 
         return responses
+
+    # Methods used to send a request in a non-blocking manner and then later block for a response as a separate step
+
+    def send_request(
+        self,
+        service_name,
+        actions,
+        switches=None,
+        correlation_id=None,
+        continue_on_error=False,
+        context=None,
+        control_extra=None,
+        message_expiry_in_seconds=None,
+        suppress_response=False,
+    ):
+        """
+        Build and send a JobRequest, and return a request ID.
+
+        The context and control_extra arguments may be used to include extra values in the
+        context and control headers, respectively.
+
+        :param service_name: The name of the service from which to receive responses
+        :type service_name: union[str, unicode]
+        :param actions: A list of `ActionRequest` objects
+        :type actions: list
+        :param switches: A list of switch value integers
+        :type switches: union[list, set]
+        :param correlation_id: The request correlation ID
+        :type correlation_id: union[str, unicode]
+        :param continue_on_error: Whether to continue executing further actions once one action has returned errors
+        :type continue_on_error: bool
+        :param context: A dictionary of extra values to include in the context header
+        :type context: dict
+        :param control_extra: A dictionary of extra values to include in the control header
+        :type control_extra: dict
+        :param message_expiry_in_seconds: How soon the message will expire if not received by a server (defaults to
+                                          sixty seconds unless the settings are otherwise)
+        :type message_expiry_in_seconds: int
+        :param suppress_response: If `True`, the service will process the request normally but omit the step of
+                                  sending a response back to the client (use this feature to implement send-and-forget
+                                  patterns for asynchronous execution)
+        :type suppress_response: bool
+
+        :return: The request ID
+        :rtype: int
+
+        :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge
+        """
+
+        handler = self._get_handler(service_name)
+        control = self._make_control_header(
+            continue_on_error=continue_on_error,
+            control_extra=control_extra,
+            suppress_response=suppress_response,
+        )
+        context = self._make_context_header(
+            switches=switches,
+            correlation_id=correlation_id,
+            context_extra=context,
+        )
+        job_request = JobRequest(actions=actions, control=control, context=context or {})
+        return handler.send_request(job_request, message_expiry_in_seconds)
+
+    def get_all_responses(self, service_name, receive_timeout_in_seconds=None):
+        """
+        Receive all available responses from the service as a generator.
+
+        :param service_name: The name of the service from which to receive responses
+        :type service_name: union[str, unicode]
+        :param receive_timeout_in_seconds: How long to block without receiving a message before raising
+                                           `MessageReceiveTimeout` (defaults to five seconds unless the settings are
+                                           otherwise).
+        :type receive_timeout_in_seconds: int
+
+        :return: A generator that yields (request ID, job response)
+        :rtype: generator
+
+        :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
+        """
+
+        handler = self._get_handler(service_name)
+        return handler.get_all_responses(receive_timeout_in_seconds)
+
+    # Private methods used to support all of the above methods
 
     def _perform_expansion(self, actions, expansions, **kwargs):
         # Perform expansions
@@ -672,8 +756,6 @@ class Client(object):
             if expansion_errors_to_raise:
                 raise self.CallActionError(expansion_errors_to_raise)
 
-    # Asynchronous request and response methods
-
     def _get_handler(self, service_name):
         if not isinstance(service_name, six.text_type):
             raise ValueError('Called service name "{}" must be unicode'.format(service_name))
@@ -687,20 +769,16 @@ class Client(object):
         return self.handlers[service_name]
 
     @staticmethod
-    def _make_control_header(continue_on_error=False, control_extra=None):
+    def _make_control_header(continue_on_error=False, control_extra=None, suppress_response=False):
         control = {
             'continue_on_error': continue_on_error,
+            'suppress_response': suppress_response,
         }
         if control_extra:
             control.update(control_extra)
         return control
 
-    def _make_context_header(
-        self,
-        switches=None,
-        correlation_id=None,
-        context_extra=None,
-    ):
+    def _make_context_header(self, switches=None, correlation_id=None, context_extra=None):
         # Copy the underlying context object, if it was provided
         context = dict(self.context.items()) if self.context else {}
         # Either add on, reuse or generate a correlation ID
@@ -718,77 +796,3 @@ class Client(object):
         if context_extra:
             context.update(context_extra)
         return context
-
-    def send_request(
-        self,
-        service_name,
-        actions,
-        switches=None,
-        correlation_id=None,
-        continue_on_error=False,
-        context=None,
-        control_extra=None,
-        message_expiry_in_seconds=None,
-    ):
-        """
-        Build and send a JobRequest, and return a request ID.
-
-        The context and control_extra arguments may be used to include extra values in the
-        context and control headers, respectively.
-
-        :param service_name: The name of the service from which to receive responses
-        :type service_name: union[str, unicode]
-        :param actions: A list of `ActionRequest` objects
-        :type actions: list
-        :param switches: A list of switch value integers
-        :type switches: union[list, set]
-        :param correlation_id: The request correlation ID
-        :type correlation_id: union[str, unicode]
-        :param continue_on_error: Whether to continue executing further actions once one action has returned errors
-        :type continue_on_error: bool
-        :param context: A dictionary of extra values to include in the context header
-        :type context: dict
-        :param control_extra: A dictionary of extra values to include in the control header
-        :type control_extra: dict
-        :param message_expiry_in_seconds: How soon the message will expire if not received by a server (defaults to
-                                          sixty seconds unless the settings are otherwise)
-        :type message_expiry_in_seconds: int
-
-        :return: The request ID
-        :rtype: int
-
-        :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge
-        """
-
-        handler = self._get_handler(service_name)
-        control = self._make_control_header(
-            continue_on_error=continue_on_error,
-            control_extra=control_extra,
-        )
-        context = self._make_context_header(
-            switches=switches,
-            correlation_id=correlation_id,
-            context_extra=context,
-        )
-        job_request = JobRequest(actions=actions, control=control, context=context or {})
-        return handler.send_request(job_request, message_expiry_in_seconds)
-
-    def get_all_responses(self, service_name, receive_timeout_in_seconds=None):
-        """
-        Receive all available responses from the service as a generator.
-
-        :param service_name: The name of the service from which to receive responses
-        :type service_name: union[str, unicode]
-        :param receive_timeout_in_seconds: How long to block without receiving a message before raising
-                                           `MessageReceiveTimeout` (defaults to five seconds unless the settings are
-                                           otherwise).
-        :type receive_timeout_in_seconds: int
-
-        :return: A generator that yields (request ID, job response)
-        :rtype: generator
-
-        :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout, InvalidMessage, StopIteration
-        """
-
-        handler = self._get_handler(service_name)
-        return handler.get_all_responses(receive_timeout_in_seconds)

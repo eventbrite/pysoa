@@ -282,7 +282,7 @@ def _pretty_introspect(value, depth=1, nullable=''):
                 documentation += ' '
             else:
                 documentation += '\n{}'.format(first)
-            documentation += 'Optional keys: ``{}``\n'.format('``, ``'.join(value.optional_keys))
+            documentation += 'Optional keys: ``{}``\n'.format('``, ``'.join(sorted(value.optional_keys)))
     elif isinstance(value, fields.SchemalessDictionary):
         documentation += 'flexible ``dict``{}: {}\n'.format(nullable, description)
         documentation += '\n{}keys\n{}{}\n'.format(first, second, _pretty_introspect(value.key_type, depth + 1))

@@ -171,7 +171,8 @@ class Server(object):
 
             # Send the response message
             try:
-                self.transport.send_response_message(request_id, meta, response_message)
+                if not job_request['control'].get('suppress_response', False):
+                    self.transport.send_response_message(request_id, meta, response_message)
             except MessageTooLarge as e:
                 self.metrics.counter('server.error.response_too_large').increment()
                 job_response = self.handle_job_error_code(

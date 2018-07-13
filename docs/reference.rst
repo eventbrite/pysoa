@@ -131,7 +131,6 @@ Parameters
   - ``service_name`` (``union[str, unicode]``) - The name of the service to call
   - ``actions`` (``iterable[union[ActionRequest, dict]]``) - A list of ``ActionRequest`` objects and/or dicts that can be converted to ``ActionRequest`` objects
   - ``expansions`` (``dict``) - A dictionary representing the expansions to perform
-  - ``raise_job_errors`` (``bool``) - Whether to raise a JobError if any job responses contain errors (defaults to ``True``)
   - ``raise_action_errors`` (``bool``) - Whether to raise a CallActionError if any action responses contain errors (defaults
     to ``True``)
   - ``timeout`` (``int``) - If provided, this will override the default transport timeout values to; requests will expire
@@ -214,8 +213,8 @@ Raises
 
 .. _pysoa.client.client.Client.send_request:
 
-``method send_request(service_name, actions, switches=None, correlation_id=None, continue_on_error=False, context=None, control_extra=None, message_expiry_in_seconds=None)``
-*****************************************************************************************************************************************************************************
+``method send_request(service_name, actions, switches=None, correlation_id=None, continue_on_error=False, context=None, control_extra=None, message_expiry_in_seconds=None, suppress_response=False)``
+******************************************************************************************************************************************************************************************************
 
 Build and send a JobRequest, and return a request ID.
 
@@ -232,6 +231,9 @@ Parameters
   - ``control_extra`` (``dict``) - A dictionary of extra values to include in the control header
   - ``message_expiry_in_seconds`` (``int``) - How soon the message will expire if not received by a server (defaults to
     sixty seconds unless the settings are otherwise)
+  - ``suppress_response`` (``bool``) - If ``True``, the service will process the request normally but omit the step of
+    sending a response back to the client (use this feature to implement send-and-forget
+    patterns for asynchronous execution)
 
 Returns
   ``int`` - The request ID
@@ -570,9 +572,11 @@ Settings Schema Definition
           values
             ``unicode``: *(no description)*
 
-        Optional keys: ``connection_kwargs``, ``sentinel_services``, ``sentinel_failover_retries``, ``redis_db``, ``hosts``, ``redis_port``
+        Optional keys: ``connection_kwargs``, ``hosts``, ``redis_db``, ``redis_port``, ``sentinel_failover_retries``, ``sentinel_services``
 
       - ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{u'values': [u'redis.standard', u'redis.sentinel']}``)
+      - ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
+      - ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
       - ``message_expiry_in_seconds`` - ``integer``: How long after a message is sent that it is considered expired, dropped from queue
       - ``queue_capacity`` - ``integer``: The capacity of the message queue to which this transport will send messages
       - ``queue_full_retries`` - ``integer``: How many times to retry sending a message to a full queue before giving up
@@ -592,7 +596,7 @@ Settings Schema Definition
         Optional keys: ``kwargs``
 
 
-      Optional keys: ``backend_layer_kwargs``, ``message_expiry_in_seconds``, ``queue_capacity``, ``receive_timeout_in_seconds``, ``serializer_config``, ``queue_full_retries``
+      Optional keys: ``backend_layer_kwargs``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``, ``serializer_config``
 
     - ``path`` - ``unicode``: The path to the Redis client or server transport, in the format ``module.name:ClassName``
 
@@ -1271,6 +1275,7 @@ Attrs Properties
 ****************
 
 - ``errors``
+- ``context``
 - ``actions``
 
 
@@ -1686,15 +1691,22 @@ Parameters
 Returns
   ``JobResponse`` - A ``JobResponse`` object
 
-.. _pysoa.server.server.Server.handle_error:
+.. _pysoa.server.server.Server.handle_job_error_code:
 
-``method handle_error(error, variables=None)``
-**********************************************
+``method handle_job_error_code(code, message, request_for_logging, response_for_logging, extra=None)``
+******************************************************************************************************
+
+*(No documentation)*
+
+.. _pysoa.server.server.Server.handle_job_exception:
+
+``method handle_job_exception(exception, variables=None)``
+**********************************************************
 
 Makes and returns a last-ditch error response.
 
 Parameters
-  - ``error`` (``Exception``) - The error (exception) that happened
+  - ``exception`` (``Exception``) - The exception that happened
   - ``variables`` (``dict``) - A dictionary of context-relevant variables to include in the error response
 
 Returns
@@ -1918,7 +1930,7 @@ Settings Schema Definition
       - ``formatter`` - ``unicode``: *(no description)*
       - ``level`` - ``unicode``: *(no description)*
 
-      Extra keys of any value are allowed. Optional keys: ``formatter``, ``filters``, ``level``
+      Extra keys of any value are allowed. Optional keys: ``filters``, ``formatter``, ``level``
 
 
   - ``incremental`` - ``boolean``: *(no description)*
@@ -1941,7 +1953,7 @@ Settings Schema Definition
       - ``level`` - ``unicode``: *(no description)*
       - ``propagate`` - ``boolean``: *(no description)*
 
-      Optional keys: ``handlers``, ``propagate``, ``filters``, ``level``
+      Optional keys: ``filters``, ``handlers``, ``level``, ``propagate``
 
 
   - ``root`` - strict ``dict``: *(no description)*
@@ -1957,11 +1969,11 @@ Settings Schema Definition
     - ``level`` - ``unicode``: *(no description)*
     - ``propagate`` - ``boolean``: *(no description)*
 
-    Optional keys: ``handlers``, ``propagate``, ``filters``, ``level``
+    Optional keys: ``filters``, ``handlers``, ``level``, ``propagate``
 
   - ``version`` - ``integer``: *(no description)* (additional information: ``{u'gte': 1, u'lte': 1}``)
 
-  Optional keys: ``loggers``, ``handlers``, ``incremental``, ``formatters``, ``version``, ``filters``, ``root``
+  Optional keys: ``filters``, ``formatters``, ``handlers``, ``incremental``, ``loggers``, ``root``, ``version``
 
 - ``metrics`` - strict ``dict``: Configuration for defining a usage and performance metrics recorder
 
@@ -2069,9 +2081,11 @@ Settings Schema Definition
           values
             ``unicode``: *(no description)*
 
-        Optional keys: ``connection_kwargs``, ``sentinel_services``, ``sentinel_failover_retries``, ``redis_db``, ``hosts``, ``redis_port``
+        Optional keys: ``connection_kwargs``, ``hosts``, ``redis_db``, ``redis_port``, ``sentinel_failover_retries``, ``sentinel_services``
 
       - ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{u'values': [u'redis.standard', u'redis.sentinel']}``)
+      - ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
+      - ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
       - ``message_expiry_in_seconds`` - ``integer``: How long after a message is sent that it is considered expired, dropped from queue
       - ``queue_capacity`` - ``integer``: The capacity of the message queue to which this transport will send messages
       - ``queue_full_retries`` - ``integer``: How many times to retry sending a message to a full queue before giving up
@@ -2091,7 +2105,7 @@ Settings Schema Definition
         Optional keys: ``kwargs``
 
 
-      Optional keys: ``backend_layer_kwargs``, ``message_expiry_in_seconds``, ``queue_capacity``, ``receive_timeout_in_seconds``, ``serializer_config``, ``queue_full_retries``
+      Optional keys: ``backend_layer_kwargs``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``, ``serializer_config``
 
     - ``path`` - ``unicode``: The path to the Redis client or server transport, in the format ``module.name:ClassName``
 
