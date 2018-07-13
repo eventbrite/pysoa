@@ -121,6 +121,7 @@ class TestStubClient(TestCase):
                         'field': 'quas.wex',
                         'traceback': None,
                         'variables': None,
+                        'denied_permissions': None,
                     },
                 ],
             },
