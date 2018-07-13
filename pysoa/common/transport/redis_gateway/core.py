@@ -9,6 +9,7 @@ from copy import deepcopy
 import attr
 import redis
 
+from pysoa.common.logging import RecursivelyCensoredDictWrapper
 from pysoa.common.metrics import (
     MetricsRecorder,
     NoOpMetricsRecorder,
@@ -26,13 +27,14 @@ from pysoa.common.transport.redis_gateway.backend.base import CannotGetConnectio
 from pysoa.common.transport.redis_gateway.backend.sentinel import SentinelRedisClient
 from pysoa.common.transport.redis_gateway.backend.standard import StandardRedisClient
 from pysoa.common.transport.redis_gateway.constants import (
+    DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT,
     REDIS_BACKEND_TYPE_SENTINEL,
     REDIS_BACKEND_TYPES,
 )
 from pysoa.utils import dict_to_hashable
 
 
-logger = logging.getLogger('pysoa.common.transport')
+_oversized_message_logger = logging.getLogger('pysoa.transport.oversized_message')
 
 
 def valid_backend_type(_, __, value):
@@ -56,6 +58,16 @@ class RedisTransportCore(object):
         # Keyword args for the backend layer (Standard Redis and Sentinel Redis modes)
         default={},
         validator=attr.validators.instance_of(dict),
+    )
+
+    log_messages_larger_than_bytes = attr.ib(
+        default=DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT,
+        convert=int,
+    )
+
+    maximum_message_size_in_bytes = attr.ib(
+        default=DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT,
+        convert=int,
     )
 
     message_expiry_in_seconds = attr.ib(
@@ -107,7 +119,6 @@ class RedisTransportCore(object):
     )
 
     EXPONENTIAL_BACK_OFF_FACTOR = 4.0
-    MAXIMUM_MESSAGE_BYTES = 1024 * 100
     QUEUE_NAME_PREFIX = 'pysoa:'
     GLOBAL_QUEUE_SPECIFIER = '!'
 
@@ -194,9 +205,19 @@ class RedisTransportCore(object):
         with self._get_timer('send.serialize'):
             serialized_message = self.serializer.dict_to_blob(message)
 
-        if len(serialized_message) > self.MAXIMUM_MESSAGE_BYTES:
+        message_size_in_bytes = len(serialized_message)
+        if message_size_in_bytes > self.maximum_message_size_in_bytes:
             self._get_counter('send.error.message_too_large').increment()
-            raise MessageTooLarge()
+            raise MessageTooLarge(message_size_in_bytes)
+        elif self.log_messages_larger_than_bytes and message_size_in_bytes > self.log_messages_larger_than_bytes:
+            _oversized_message_logger.warning(
+                'Oversized message sent for PySOA service {}'.format(self.service_name),
+                extra={'data': {
+                    'message': RecursivelyCensoredDictWrapper(message),
+                    'serialized_length_in_bytes': message_size_in_bytes,
+                    'threshold': self.log_messages_larger_than_bytes,
+                }},
+            )
 
         queue_key = self.QUEUE_NAME_PREFIX + queue_name
 

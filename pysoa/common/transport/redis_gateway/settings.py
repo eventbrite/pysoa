@@ -59,6 +59,10 @@ class RedisTransportSchema(BasicClassSchema):
                     *REDIS_BACKEND_TYPES,
                     description='Which backend (standard or sentinel) should be used for this Redis transport'
                 ),
+                'maximum_message_size_in_bytes': fields.Integer(
+                    description='The maximum message size, in bytes, that is permitted to be transmitted over this '
+                                'transport (defaults to 100KB on the client and 250KB on the server)',
+                ),
                 'message_expiry_in_seconds': fields.Integer(
                     description='How long after a message is sent that it is considered expired, dropped from queue',
                 ),
@@ -78,6 +82,7 @@ class RedisTransportSchema(BasicClassSchema):
             },
             optional_keys=[
                 'backend_layer_kwargs',
+                'maximum_message_size_in_bytes',
                 'message_expiry_in_seconds',
                 'queue_capacity',
                 'queue_full_retries',

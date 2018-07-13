@@ -4,7 +4,6 @@ import datetime
 import time
 import timeit
 import unittest
-import uuid
 
 import attr
 import freezegun
@@ -140,7 +139,7 @@ class TestRedisTransportCore(unittest.TestCase):
         mock_standard.return_value.get_connection.side_effect = CannotGetConnectionError('This is my error')
 
         with self.assertRaises(MessageSendError) as error_context:
-            core.send_message('my_queue', 'request ID', {}, {})
+            core.send_message('my_queue', 71, {}, {})
 
         self.assertEquals('Cannot get connection: This is my error', error_context.exception.args[0])
 
@@ -170,20 +169,36 @@ class TestRedisTransportCore(unittest.TestCase):
         core = self._get_core()
 
         with self.assertRaises(InvalidMessageError):
+            # noinspection PyTypeChecker
             core.send_message('test_invalid_request_id', None, {}, {'test': 'payload'})
 
     def test_message_too_large(self):
         core = self._get_core()
 
-        message = {'test': ['payload%i' % i for i in range(1000, 9527)]}  # This creates a message > 102,400 bytes
+        message = {'test': ['payload%i' % i for i in range(1000, 9530)]}  # This creates a message > 102,400 bytes
 
         with self.assertRaises(MessageTooLarge):
-            core.send_message('test_message_too_large', uuid.uuid4().hex, {}, message)
+            core.send_message('test_message_too_large', 0, {}, message)
+
+    def test_message_too_large_configurable(self):
+        core = self._get_core(maximum_message_size_in_bytes=150)
+
+        message = {'test': ['payload%i' % i for i in range(100, 110)]}  # This creates a message > 150 bytes
+
+        with self.assertRaises(MessageTooLarge):
+            core.send_message('test_message_too_large', 1, {}, message)
+
+    def test_oversized_message_is_logged(self):
+        core = self._get_core(log_messages_larger_than_bytes=150)
+
+        message = {'test': ['payload%i' % i for i in range(100, 110)]}  # This creates a message > 150 bytes
+
+        core.send_message('test_message_too_large', 1, {}, message)
 
     def test_simple_send_and_receive_default_expiry(self):
         core = self._get_core()
 
-        request_id = uuid.uuid4().hex
+        request_id = 27
         meta = {'app': 52}
         message = {'test': 'payload'}
 
@@ -201,7 +216,7 @@ class TestRedisTransportCore(unittest.TestCase):
     def test_simple_send_and_receive_expiry_override(self):
         core = self._get_core()
 
-        request_id = uuid.uuid4().hex
+        request_id = 31
         meta = {'app': 52}
         message = {'test': 'payload'}
 
@@ -219,11 +234,11 @@ class TestRedisTransportCore(unittest.TestCase):
     def test_send_queue_full(self):
         core = self._get_core(queue_full_retries=1, queue_capacity=3)
 
-        request_id1 = uuid.uuid4().hex
-        request_id2 = uuid.uuid4().hex
-        request_id3 = uuid.uuid4().hex
-        request_id4 = uuid.uuid4().hex
-        request_id5 = uuid.uuid4().hex
+        request_id1 = 32
+        request_id2 = 33
+        request_id3 = 34
+        request_id4 = 35
+        request_id5 = 36
 
         core.send_message('test_send_queue_full', request_id1, {}, {'test': 'payload1'})
         core.send_message('test_send_queue_full', request_id2, {}, {'test': 'payload2'})
@@ -289,7 +304,7 @@ class TestRedisTransportCore(unittest.TestCase):
         core = self._get_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)
 
         with freezegun.freeze_time(ignore=['mockredis.client', 'mockredis.clock', 'timeit']) as frozen_time:
-            core.send_message('test_expired_message', uuid.uuid4().hex, {}, {'test': 'payload'})
+            core.send_message('test_expired_message', 42, {}, {'test': 'payload'})
 
             frozen_time.tick(datetime.timedelta(seconds=11))
 
@@ -303,7 +318,7 @@ class TestRedisTransportCore(unittest.TestCase):
 
             frozen_time.tick(datetime.timedelta(seconds=1))
 
-            request_id = uuid.uuid4().hex
+            request_id = 19
             core.send_message('test_expired_message', request_id, {}, {'test': 'payload'})
 
             frozen_time.tick(datetime.timedelta(seconds=10))

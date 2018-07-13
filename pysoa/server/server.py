@@ -19,6 +19,10 @@ from pysoa.common.constants import (
     ERROR_CODE_SERVER_ERROR,
     ERROR_CODE_UNKNOWN,
 )
+from pysoa.common.logging import (
+    PySOALogContextFilter,
+    RecursivelyCensoredDictWrapper,
+)
 from pysoa.common.serializer.exceptions import InvalidField
 from pysoa.common.transport.exceptions import (
     MessageReceiveError,
@@ -35,10 +39,6 @@ from pysoa.server.internal.types import RequestSwitchSet
 from pysoa.server.errors import (
     ActionError,
     JobError,
-)
-from pysoa.server.logging import (
-    PySOALogContextFilter,
-    RecursivelyCensoredDictWrapper,
 )
 from pysoa.server.types import EnrichedActionRequest
 from pysoa.server.schemas import JobRequestSchema
@@ -172,13 +172,14 @@ class Server(object):
             # Send the response message
             try:
                 self.transport.send_response_message(request_id, meta, response_message)
-            except MessageTooLarge:
+            except MessageTooLarge as e:
                 self.metrics.counter('server.error.response_too_large').increment()
                 job_response = self.handle_job_error_code(
                     ERROR_CODE_RESPONSE_TOO_LARGE,
                     'Could not send the response because it was too large',
                     request_for_logging,
                     response_for_logging,
+                    extra={'serialized_length_in_bytes': e.message_size_in_bytes},
                 )
                 self.transport.send_response_message(
                     request_id,
@@ -337,11 +338,15 @@ class Server(object):
 
         return JobResponse(errors=[error_dict])
 
-    def handle_job_error_code(self, code, message, request_for_logging, response_for_logging):
+    def handle_job_error_code(self, code, message, request_for_logging, response_for_logging, extra=None):
+        log_extra = {'data': {'request': request_for_logging, 'response': response_for_logging}}
+        if extra:
+            log_extra['data'].update(extra)
+
         self.logger.error(
             message,
             exc_info=True,
-            extra={'data': {'request': request_for_logging, 'response': response_for_logging}},
+            extra=log_extra,
         )
         return JobResponse(errors=[Error(code=code, message=message)])
 

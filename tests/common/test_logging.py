@@ -4,7 +4,7 @@ import six
 import threading
 import unittest
 
-from pysoa.server.logging import (
+from pysoa.common.logging import (
     PySOALogContextFilter,
     RecursivelyCensoredDictWrapper,
 )

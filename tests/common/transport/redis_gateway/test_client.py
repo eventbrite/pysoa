@@ -6,6 +6,7 @@ import uuid
 from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.base import get_hex_thread_id
 from pysoa.common.transport.redis_gateway.client import RedisClientTransport
+from pysoa.common.transport.redis_gateway.constants import DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT
 from pysoa.test.compatibility import mock
 
 
@@ -24,6 +25,22 @@ class TestClientTransport(unittest.TestCase):
             goodbye='earth',
             metrics=transport.metrics,
             metrics_prefix='client',
+            maximum_message_size_in_bytes=DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT,
+        )
+
+        self.assertRegexpMatches(transport.client_id, r'^[0-9a-fA-F]{32}$')
+
+        mock_core.reset_mock()
+
+        transport = self._get_transport(hello='world', goodbye='earth', maximum_message_size_in_bytes=42)
+
+        mock_core.assert_called_once_with(
+            service_name='my_service',
+            hello='world',
+            goodbye='earth',
+            metrics=transport.metrics,
+            metrics_prefix='client',
+            maximum_message_size_in_bytes=42,
         )
 
         self.assertRegexpMatches(transport.client_id, r'^[0-9a-fA-F]{32}$')

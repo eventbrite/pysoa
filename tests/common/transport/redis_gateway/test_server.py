@@ -5,6 +5,7 @@ import uuid
 
 from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.exceptions import InvalidMessageError
+from pysoa.common.transport.redis_gateway.constants import DEFAULT_MAXIMUM_MESSAGE_BYTES_SERVER
 from pysoa.common.transport.redis_gateway.server import RedisServerTransport
 from pysoa.test.compatibility import mock
 
@@ -24,6 +25,20 @@ class TestServerTransport(unittest.TestCase):
             goodbye='earth',
             metrics=transport.metrics,
             metrics_prefix='server',
+            maximum_message_size_in_bytes=DEFAULT_MAXIMUM_MESSAGE_BYTES_SERVER,
+        )
+
+        mock_core.reset_mock()
+
+        transport = self._get_transport(hello='world', goodbye='earth', maximum_message_size_in_bytes=79)
+
+        mock_core.assert_called_once_with(
+            service_name='my_service',
+            hello='world',
+            goodbye='earth',
+            metrics=transport.metrics,
+            metrics_prefix='server',
+            maximum_message_size_in_bytes=79,
         )
 
     def test_receive_request_message(self, mock_core):
