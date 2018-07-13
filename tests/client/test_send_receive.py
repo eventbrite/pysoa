@@ -202,6 +202,36 @@ class TestClientSendReceive(TestCase):
         self.assertEqual(response.actions[1].action, 'action_2')
         self.assertEqual(response.actions[1].body['baz'], 3)
 
+    def test_send_request_with_suppress_response_then_get_response_error(self):
+        """
+        Client.send_request with suppress_response sends a valid request and Client.get_all_responses returns no
+        response because the response was suppressed
+        """
+        action_request = [
+            {
+                'action': 'action_1',
+                'body': {},
+            },
+            {
+                'action': 'action_2',
+                'body': {},
+            },
+        ]
+        client = Client(self.client_settings)
+
+        responses = list(client.get_all_responses(SERVICE_NAME))
+        self.assertEqual(len(responses), 0)
+
+        request_id = client.send_request(
+            SERVICE_NAME,
+            action_request,
+            switches={1},
+            suppress_response=True,
+        )
+        self.assertTrue(request_id >= 0)
+        responses = list(client.get_all_responses(SERVICE_NAME))
+        self.assertEqual(len(responses), 0)
+
     def test_call_actions(self):
         """Client.call_actions sends a valid request and returns a valid response without errors."""
         action_request = [
@@ -218,6 +248,31 @@ class TestClientSendReceive(TestCase):
 
         for actions in (action_request, [ActionRequest(**a) for a in action_request]):
             response = client.call_actions(SERVICE_NAME, actions, timeout=2)
+            self.assertTrue(isinstance(response, JobResponse))
+            self.assertTrue(all([isinstance(a, ActionResponse) for a in response.actions]))
+            self.assertEqual(len(response.actions), 2)
+            # ensure that the response is structured as expected
+            self.assertEqual(response.actions[0].action, 'action_1')
+            self.assertEqual(response.actions[0].body['foo'], 'bar')
+            self.assertEqual(response.actions[1].action, 'action_2')
+            self.assertEqual(response.actions[1].body['baz'], 3)
+
+    def test_call_actions_suppress_response_is_ignored(self):
+        """Client.call_actions sends a valid request and returns a valid response without errors."""
+        action_request = [
+            {
+                'action': 'action_1',
+                'body': {},
+            },
+            {
+                'action': 'action_2',
+                'body': {},
+            },
+        ]
+        client = Client(self.client_settings)
+
+        for actions in (action_request, [ActionRequest(**a) for a in action_request]):
+            response = client.call_actions(SERVICE_NAME, actions, timeout=2, suppress_response=True)
             self.assertTrue(isinstance(response, JobResponse))
             self.assertTrue(all([isinstance(a, ActionResponse) for a in response.actions]))
             self.assertEqual(len(response.actions), 2)
@@ -367,6 +422,24 @@ class TestClientParallelSendReceive(TestCase):
         action_responses = self.client.call_actions_parallel(
             'service_1',
             [ActionRequest(action='action_1'), ActionRequest(action='action_2'), ActionRequest(action='action_1')],
+        )
+
+        self.assertIsNotNone(action_responses)
+
+        action_responses = list(action_responses)
+        self.assertEqual(3, len(action_responses))
+        self.assertEqual({'foo': 'bar'}, action_responses[0].body)
+        self.assertEqual({'baz': 3}, action_responses[1].body)
+        self.assertEqual({'foo': 'bar'}, action_responses[2].body)
+
+    def test_call_actions_parallel_suppress_response_is_ignored(self):
+        """
+        Test that call_actions_parallel works to call multiple actions run parallel on a single service.
+        """
+        action_responses = self.client.call_actions_parallel(
+            'service_1',
+            [ActionRequest(action='action_1'), ActionRequest(action='action_2'), ActionRequest(action='action_1')],
+            suppress_response=True,
         )
 
         self.assertIsNotNone(action_responses)

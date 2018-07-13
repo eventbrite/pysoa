@@ -59,6 +59,13 @@ class RedisTransportSchema(BasicClassSchema):
                     *REDIS_BACKEND_TYPES,
                     description='Which backend (standard or sentinel) should be used for this Redis transport'
                 ),
+                'log_messages_larger_than_bytes': fields.Integer(
+                    description='By default, messages larger than 100KB that do not trigger errors (see '
+                                '`maximum_message_size_in_bytes`) will be logged with level WARNING to a logger named '
+                                '`pysoa.transport.oversized_message`. To disable this behavior, set this setting to '
+                                '0. Or, you can set it to some other number to change the threshold that triggers '
+                                'logging.',
+                ),
                 'maximum_message_size_in_bytes': fields.Integer(
                     description='The maximum message size, in bytes, that is permitted to be transmitted over this '
                                 'transport (defaults to 100KB on the client and 250KB on the server)',
@@ -82,6 +89,7 @@ class RedisTransportSchema(BasicClassSchema):
             },
             optional_keys=[
                 'backend_layer_kwargs',
+                'log_messages_larger_than_bytes',
                 'maximum_message_size_in_bytes',
                 'message_expiry_in_seconds',
                 'queue_capacity',
