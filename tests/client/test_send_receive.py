@@ -3,6 +3,9 @@ from __future__ import (
     unicode_literals,
 )
 
+import sys
+import traceback
+import types
 from unittest import TestCase
 
 from pysoa.client.client import Client
@@ -25,6 +28,7 @@ from pysoa.common.types import (
 from pysoa.server.errors import JobError
 from pysoa.server.server import Server
 from pysoa.test.compatibility import mock
+from pysoa.test.stub_service import stub_action
 
 
 SERVICE_NAME = 'test_service'
@@ -426,6 +430,7 @@ class TestClientParallelSendReceive(TestCase):
         )
 
         self.assertIsNotNone(action_responses)
+        self.assertIsInstance(action_responses, types.GeneratorType)
 
         action_responses = list(action_responses)
         self.assertEqual(3, len(action_responses))
@@ -686,6 +691,342 @@ class TestClientParallelSendReceive(TestCase):
         self.assertEqual('Could not receive a message', job_responses[6].args[0])
         self.assertIsInstance(job_responses[7], MessageReceiveError)
         self.assertEqual('Could not receive a message', job_responses[7].args[0])
+
+
+class TestFutureSendReceive(TestCase):
+    @stub_action('future_service', 'present_sounds', errors=[{'code': 'BROKEN', 'message': 'Broken, dude'}])
+    def test_call_action_future_error(self, mock_present_sounds):
+        client = Client({})
+
+        future = client.call_action_future('future_service', 'present_sounds', body={'hello': 'world'})
+
+        mock_present_sounds.assert_called_once_with({'hello': 'world'})
+
+        with self.assertRaises(client.CallActionError) as error_context:
+            assert future.result()
+
+        first_exception = error_context.exception
+
+        assert len(error_context.exception.actions[0].errors) == 1
+
+        error = error_context.exception.actions[0].errors[0]
+        assert error.code == 'BROKEN'
+        assert error.message == 'Broken, dude'
+
+        with self.assertRaises(client.CallActionError) as error_context:
+            assert future.result()
+
+        assert error_context.exception is first_exception
+
+        assert len(error_context.exception.actions[0].errors) == 1
+
+        error = error_context.exception.actions[0].errors[0]
+        assert error.code == 'BROKEN'
+        assert error.message == 'Broken, dude'
+
+        with self.assertRaises(client.CallActionError) as error_context:
+            assert future.result()
+
+        assert error_context.exception is first_exception
+
+        assert len(error_context.exception.actions[0].errors) == 1
+
+        error = error_context.exception.actions[0].errors[0]
+        assert error.code == 'BROKEN'
+        assert error.message == 'Broken, dude'
+
+        mock_present_sounds.assert_called_once_with({'hello': 'world'})
+
+    @stub_action('future_service', 'present_sounds', body={'goodbye': 'universe'})
+    def test_call_action_future_success(self, mock_present_sounds):
+        client = Client({})
+
+        future = client.call_action_future('future_service', 'present_sounds', body={'hello': 'world'})
+
+        mock_present_sounds.assert_called_once_with({'hello': 'world'})
+
+        assert future.running() is True
+        assert future.done() is False
+
+        response = future.result()
+
+        assert future.running() is False
+        assert future.done() is True
+
+        assert response.errors == []
+        assert response.body == {'goodbye': 'universe'}
+        assert response.action == 'present_sounds'
+
+        assert future.result() is response
+        assert future.result() is response
+
+        mock_present_sounds.assert_called_once_with({'hello': 'world'})
+
+    @stub_action('future_service', 'present_sounds', errors=[{'code': 'BROKEN', 'message': 'Broken, dude'}])
+    def test_call_action_future_verify_traceback(self, mock_present_sounds):
+        client = Client({})
+
+        future = client.call_action_future('future_service', 'present_sounds', body={'hello': 'world'})
+
+        try:
+            assert future.result()
+            assert False, 'We should not have hit this line of code'
+        except client.CallActionError:
+            _, __, tb1 = sys.exc_info()
+
+        try:
+            assert future.result()
+            assert False, 'We should not have hit this line of code'
+        except client.CallActionError:
+            _, __, tb2 = sys.exc_info()
+
+        try:
+            assert future.result()
+            assert False, 'We should not have hit this line of code'
+        except client.CallActionError:
+            _, __, tb3 = sys.exc_info()
+
+        assert traceback.format_tb(tb1)[1:] == traceback.format_tb(tb2)[2:]
+        assert traceback.format_tb(tb2)[2:] == traceback.format_tb(tb3)[2:]
+
+    @stub_action('future_service', 'present_sounds', errors=[{'code': 'BROKEN', 'message': 'Broken, dude'}])
+    def test_call_actions_future_error(self, mock_present_sounds):
+        client = Client({})
+
+        future = client.call_actions_future(
+            'future_service',
+            [{'action': 'present_sounds', 'body': {'foo': 'bar'}}],
+        )
+
+        mock_present_sounds.assert_called_once_with({'foo': 'bar'})
+
+        with self.assertRaises(client.CallActionError) as error_context:
+            raise future.exception()
+
+        first_exception = error_context.exception
+
+        assert len(error_context.exception.actions[0].errors) == 1
+
+        error = error_context.exception.actions[0].errors[0]
+        assert error.code == 'BROKEN'
+        assert error.message == 'Broken, dude'
+
+        with self.assertRaises(client.CallActionError) as error_context:
+            assert future.result()
+
+        assert error_context.exception is first_exception
+
+        assert len(error_context.exception.actions[0].errors) == 1
+
+        error = error_context.exception.actions[0].errors[0]
+        assert error.code == 'BROKEN'
+        assert error.message == 'Broken, dude'
+
+        with self.assertRaises(client.CallActionError) as error_context:
+            raise future.exception()
+
+        assert error_context.exception is first_exception
+
+        assert len(error_context.exception.actions[0].errors) == 1
+
+        error = error_context.exception.actions[0].errors[0]
+        assert error.code == 'BROKEN'
+        assert error.message == 'Broken, dude'
+
+        mock_present_sounds.assert_called_once_with({'foo': 'bar'})
+
+    @stub_action('future_service', 'present_sounds', body={'baz': 'qux'})
+    def test_call_actions_future_success(self, mock_present_sounds):
+        client = Client({})
+
+        future = client.call_actions_future(
+            'future_service',
+            [{'action': 'present_sounds', 'body': {'foo': 'bar'}}],
+        )
+
+        mock_present_sounds.assert_called_once_with({'foo': 'bar'})
+
+        assert future.exception() is None
+
+        response = future.result()
+
+        assert response.errors == []
+        assert response.actions[0].errors == []
+        assert response.actions[0].body == {'baz': 'qux'}
+        assert response.context == {}
+
+        assert future.result() is response
+        assert future.result() is response
+
+        assert future.exception() is None
+
+        mock_present_sounds.assert_called_once_with({'foo': 'bar'})
+
+    @stub_action('future_service', 'past_sounds', errors=[{'code': 'BROKEN', 'message': 'Broken, too'}])
+    @stub_action('future_service', 'present_sounds', body={'when': 'present'})
+    def test_call_actions_parallel_future_error(self, mock_present_sounds, mock_past_sounds):
+        client = Client({})
+
+        future = client.call_actions_parallel_future(
+            'future_service',
+            [
+                {'action': 'present_sounds', 'body': {'where': 'here'}},
+                {'action': 'past_sounds', 'body': {'where': 'there'}},
+            ],
+        )
+
+        mock_present_sounds.assert_called_once_with({'where': 'here'})
+        mock_past_sounds.assert_called_once_with({'where': 'there'})
+
+        with self.assertRaises(client.CallActionError) as error_context:
+            future.result()
+
+        first_exception = error_context.exception
+
+        assert len(error_context.exception.actions[0].errors) == 1
+
+        error = error_context.exception.actions[0].errors[0]
+        assert error.code == 'BROKEN'
+        assert error.message == 'Broken, too'
+
+        with self.assertRaises(client.CallActionError) as error_context:
+            future.result()
+
+        assert error_context.exception is first_exception
+
+        assert len(error_context.exception.actions[0].errors) == 1
+
+        error = error_context.exception.actions[0].errors[0]
+        assert error.code == 'BROKEN'
+        assert error.message == 'Broken, too'
+
+        with self.assertRaises(client.CallActionError) as error_context:
+            future.result()
+
+        assert error_context.exception is first_exception
+
+        assert len(error_context.exception.actions[0].errors) == 1
+
+        error = error_context.exception.actions[0].errors[0]
+        assert error.code == 'BROKEN'
+        assert error.message == 'Broken, too'
+
+        mock_present_sounds.assert_called_once_with({'where': 'here'})
+        mock_past_sounds.assert_called_once_with({'where': 'there'})
+
+    @stub_action('future_service', 'past_sounds', body={'when': 'past'})
+    @stub_action('future_service', 'present_sounds', body={'when': 'present'})
+    def test_call_actions_parallel_future_success(self, mock_present_sounds, mock_past_sounds):
+        client = Client({})
+
+        future = client.call_actions_parallel_future(
+            'future_service',
+            [
+                {'action': 'present_sounds', 'body': {'where': 'here'}},
+                {'action': 'past_sounds', 'body': {'where': 'there'}},
+            ],
+        )
+
+        mock_present_sounds.assert_called_once_with({'where': 'here'})
+        mock_past_sounds.assert_called_once_with({'where': 'there'})
+
+        assert isinstance(future.result(), types.GeneratorType)
+
+        responses = list(future.result())
+
+        assert len(responses) == 2
+
+        assert responses[0].errors == []
+        assert responses[0].action == 'present_sounds'
+        assert responses[0].body == {'when': 'present'}
+
+        assert responses[1].errors == []
+        assert responses[1].action == 'past_sounds'
+        assert responses[1].body == {'when': 'past'}
+
+    @stub_action('future_service', 'past_sounds', errors=[{'code': 'BROKEN', 'message': 'Broken, too'}])
+    @stub_action('future_service', 'present_sounds', body={'when': 'present'})
+    def test_call_jobs_parallel_future_error(self, mock_present_sounds, mock_past_sounds):
+        client = Client({})
+
+        future = client.call_jobs_parallel_future(
+            [
+                {'service_name': 'future_service', 'actions': [
+                    {'action': 'present_sounds', 'body': {'where': 'here'}},
+                ]},
+                {'service_name': 'future_service', 'actions': [
+                    {'action': 'past_sounds', 'body': {'where': 'there'}},
+                ]},
+            ],
+        )
+
+        mock_present_sounds.assert_called_once_with({'where': 'here'})
+        mock_past_sounds.assert_called_once_with({'where': 'there'})
+
+        with self.assertRaises(client.CallActionError) as error_context:
+            assert future.result()
+
+        first_exception = error_context.exception
+
+        assert len(error_context.exception.actions[0].errors) == 1
+
+        error = error_context.exception.actions[0].errors[0]
+        assert error.code == 'BROKEN'
+        assert error.message == 'Broken, too'
+
+        with self.assertRaises(client.CallActionError) as error_context:
+            assert future.result()
+
+        assert error_context.exception is first_exception
+
+        assert len(error_context.exception.actions[0].errors) == 1
+
+        error = error_context.exception.actions[0].errors[0]
+        assert error.code == 'BROKEN'
+        assert error.message == 'Broken, too'
+
+        with self.assertRaises(client.CallActionError) as error_context:
+            assert future.result()
+
+        assert error_context.exception is first_exception
+
+        assert len(error_context.exception.actions[0].errors) == 1
+
+        error = error_context.exception.actions[0].errors[0]
+        assert error.code == 'BROKEN'
+        assert error.message == 'Broken, too'
+
+        mock_present_sounds.assert_called_once_with({'where': 'here'})
+        mock_past_sounds.assert_called_once_with({'where': 'there'})
+
+    @stub_action('future_service', 'past_sounds', body={'when': 'past'})
+    @stub_action('future_service', 'present_sounds', body={'when': 'present'})
+    def test_call_jobs_parallel_future_success(self, mock_present_sounds, mock_past_sounds):
+        client = Client({})
+
+        future = client.call_jobs_parallel_future(
+            [
+                {'service_name': 'future_service', 'actions': [
+                    {'action': 'present_sounds', 'body': {'where': 'here'}},
+                ]},
+                {'service_name': 'future_service', 'actions': [
+                    {'action': 'past_sounds', 'body': {'where': 'there'}},
+                ]},
+            ],
+        )
+
+        mock_present_sounds.assert_called_once_with({'where': 'here'})
+        mock_past_sounds.assert_called_once_with({'where': 'there'})
+
+        assert len(future.result()) == 2
+
+        assert future.result()[0].actions[0].errors == []
+        assert future.result()[0].actions[0].action == 'present_sounds'
+        assert future.result()[0].actions[0].body == {'when': 'present'}
+
+        assert future.result()[1].actions[0].errors == []
+        assert future.result()[1].actions[0].action == 'past_sounds'
+        assert future.result()[1].actions[0].body == {'when': 'past'}
 
 
 class TestClientMiddleware(TestCase):

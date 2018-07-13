@@ -5,6 +5,7 @@ from __future__ import (
 
 import collections
 import random
+import sys
 import uuid
 
 import attr
@@ -30,6 +31,12 @@ from pysoa.common.types import (
     JobRequest,
     JobResponse,
     UnicodeKeysDict,
+)
+
+
+__all__ = (
+    'Client',
+    'ServiceHandler',
 )
 
 
@@ -188,6 +195,109 @@ class Client(object):
                 type_expansions=expansion_settings['type_expansions'],
             )
 
+    class FutureResponse(object):
+        """
+        A future representing a retrievable response after sending a request.
+        """
+        DelayedException = collections.namedtuple('DelayedException', ['tp', 'value', 'tb'])
+
+        def __init__(self, get_response):
+            self._get_response = get_response
+            self._response = None
+            self._raise = None
+
+        def result(self, timeout=None):
+            """
+            Obtain the result of this future response.
+
+            The first time you call this method on a given future response, it will block for a response and then
+            either return the response or raise any errors raised by the response. You can specify an optional timeout,
+            which will override any timeout specified in the client settings or when calling the request method. If a
+            timeout occurs, `MessageReceiveTimeout` will be raised. It will not be cached, and you can attempt to call
+            this again, and those subsequent calls to `result` (or `exception`) will be treated like a first-time calls
+            until a response is returned or non-timeout error is raised.
+
+            The subsequent times you call this method on a given future response after obtaining a non-timeout response,
+            any specified timeout will be ignored, and the cached response will be returned (or the cached exception
+            re-raised).
+
+            :param timeout: If specified, the client will block for at most this many seconds waiting for a response.
+                            If not specified, but a timeout was specified when calling the request method, the client
+                            will block for at most that many seconds waiting for a response. If neither this nor the
+                            request method timeout are specified, the configured timeout setting (or default of 5
+                            seconds) will be used.
+            :type timeout: int
+
+            :return: The response
+            :rtype: union[ActionResponse, JobResponse, list[union[ActionResponse, JobResponse]],
+                    generator[union[ActionResponse, JobResponse]]]
+            """
+            if self._raise:
+                if six.PY2:
+                    six.reraise(tp=self._raise.tp, value=self._raise.value, tb=self._raise.tb)
+                else:
+                    # We do it this way because six.reraise adds extra traceback items in Python 3
+                    raise self._raise.value.with_traceback(self._raise.tb)
+            if self._response:
+                return self._response
+
+            try:
+                self._response = self._get_response(timeout)
+                return self._response
+            except MessageReceiveTimeout:
+                raise
+            except Exception:
+                self._raise = self.DelayedException(*sys.exc_info())
+                raise
+
+        def exception(self, timeout=None):
+            """
+            Obtain the exception raised by the call, blocking if necessary, per the rules specified in the
+            documentation for `result`. If the call completed without raising an exception, `None` is returned. If a
+            timeout occurs, `MessageReceiveTimeout` will be raised (not returned).
+
+            :param timeout: If specified, the client will block for at most this many seconds waiting for a response.
+                            If not specified, but a timeout was specified when calling the request method, the client
+                            will block for at most that many seconds waiting for a response. If neither this nor the
+                            request method timeout are specified, the configured timeout setting (or default of 5
+                            seconds) will be used.
+            :type timeout: int
+
+            :return: The exception
+            :rtype: Exception
+            """
+            if self.running():
+                try:
+                    self.result(timeout)
+                    return None
+                except MessageReceiveTimeout:
+                    raise
+                except Exception as e:
+                    return e
+
+            if self._raise:
+                return self._raise.value
+
+            return None
+
+        def running(self):
+            """
+            Returns `True` if the response (or exception) has not yet been obtained, `False` otherwise.
+
+            :return: Whether the request is believed to still be running (this is updated only when `result` or
+                     `exception` is called).
+            """
+            return not self.done()
+
+        def done(self):
+            """
+            Returns `False` if the response (or exception) has not yet been obtained, `True` otherwise.
+
+            :return: Whether the request is known to be done (this is updated only when `result` or `exception` is
+                     called).
+            """
+            return bool(self._response or self._raise)
+
     # Exceptions
 
     class ImproperlyConfigured(Exception):
@@ -235,13 +345,7 @@ class Client(object):
 
     # Blocking methods that send a request and wait until a response is available
 
-    def call_action(
-        self,
-        service_name,
-        action,
-        body=None,
-        **kwargs
-    ):
+    def call_action(self, service_name, action, body=None, **kwargs):
         """
         Build and send a single job request with one action.
 
@@ -283,15 +387,7 @@ class Client(object):
         :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge,
                 MessageReceiveError, MessageReceiveTimeout, InvalidMessage, JobError, CallActionError
         """
-        action_request = ActionRequest(
-            action=action,
-            body=body or {},
-        )
-        return self.call_actions(
-            service_name,
-            [action_request],
-            **kwargs
-        ).actions[0]
+        return self.call_action_future(service_name, action, body, **kwargs).result()
 
     def call_actions(
         self,
@@ -344,45 +440,15 @@ class Client(object):
         :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge,
                 MessageReceiveError, MessageReceiveTimeout, InvalidMessage, JobError, CallActionError
         """
-        kwargs.pop('suppress_response', None)  # If this kwarg is used, this method would always result in a timeout
-        if timeout:
-            kwargs['message_expiry_in_seconds'] = timeout
-
-        expected_request_id = self.send_request(service_name, actions, **kwargs)
-
-        # Get all responses
-        responses = list(self.get_all_responses(service_name, receive_timeout_in_seconds=timeout))
-
-        # Try to find the expected response
-        found = False
-        response = None
-        for request_id, response in responses:
-            if request_id == expected_request_id:
-                found = True
-                break
-        if not found:
-            # This error should be impossible if `get_all_responses` is behaving correctly, but let's raise a
-            # meaningful error just in case.
-            raise Exception(
-                'Got unexpected response(s) with ID(s) {} for request with ID {}'.format(
-                    [r[0] for r in responses],
-                    expected_request_id,
-                )
-            )
-
-        # Process errors at the Job and Action level
-        if response.errors and raise_job_errors:
-            raise self.JobError(response.errors)
-        if raise_action_errors:
-            error_actions = [action for action in response.actions if action.errors]
-            if error_actions:
-                raise self.CallActionError(error_actions)
-
-        if expansions:
-            kwargs.pop('continue_on_error', None)
-            self._perform_expansion(response.actions, expansions, **kwargs)
-
-        return response
+        return self.call_actions_future(
+            service_name,
+            actions,
+            expansions,
+            raise_job_errors,
+            raise_action_errors,
+            timeout,
+            **kwargs
+        ).result()
 
     def call_actions_parallel(self, service_name, actions, **kwargs):
         """
@@ -420,22 +486,12 @@ class Client(object):
         :type control_extra: dict
 
         :return: A generator of action responses
-        :rtype: generator[ActionResponse]
+        :rtype: Generator[ActionResponse]
 
         :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge,
                 MessageReceiveError, MessageReceiveTimeout, InvalidMessage, JobError, CallActionError
         """
-        if 'raise_job_errors' in kwargs:
-            raise TypeError("call_actions_parallel() got a prohibited keyword argument 'raise_job_errors")
-        if 'catch_transport_errors' in kwargs:
-            raise TypeError("call_actions_parallel() got a prohibited keyword argument 'catch_transport_errors")
-
-        job_responses = self.call_jobs_parallel(
-            jobs=({'service_name': service_name, 'actions': [action]} for action in actions),
-            **kwargs
-        )
-
-        return (job.actions[0] for job in job_responses)
+        return self.call_actions_parallel_future(service_name, actions, **kwargs).result()
 
     def call_jobs_parallel(
         self,
@@ -497,6 +553,152 @@ class Client(object):
         :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge,
                 MessageReceiveError, MessageReceiveTimeout, InvalidMessage, JobError, CallActionError
         """
+        return self.call_jobs_parallel_future(
+            jobs,
+            expansions=expansions,
+            raise_job_errors=raise_job_errors,
+            raise_action_errors=raise_action_errors,
+            catch_transport_errors=catch_transport_errors,
+            timeout=timeout,
+            **kwargs
+        ).result()
+
+    # Non-blocking methods that send a request and then return a future from which the response can later be obtained.
+
+    def call_action_future(
+        self,
+        service_name,
+        action,
+        body=None,
+        **kwargs
+    ):
+        """
+        This method is identical in signature and behavior to `call_action`, except that it sends the request and
+        then immediately returns a `FutureResponse` instead of blocking waiting on a response and returning
+        an `ActionResponse`. Just call `result(timeout=None)` on the future response to block for an available
+        response. Some of the possible exceptions may be raised when this method is called; others may be raised when
+        the future is used.
+
+        :return: A future from which the action response can later be retrieved
+        :rtype: Client.FutureResponse
+        """
+        action_request = ActionRequest(
+            action=action,
+            body=body or {},
+        )
+        future = self.call_actions_future(
+            service_name,
+            [action_request],
+            **kwargs
+        )
+        return self.FutureResponse(lambda _timeout: future.result(_timeout).actions[0])
+
+    def call_actions_future(
+        self,
+        service_name,
+        actions,
+        expansions=None,
+        raise_job_errors=True,
+        raise_action_errors=True,
+        timeout=None,
+        **kwargs
+    ):
+        """
+        This method is identical in signature and behavior to `call_actions`, except that it sends the request and
+        then immediately returns a `FutureResponse` instead of blocking waiting on a response and returning a
+        `JobResponse`. Just call `result(timeout=None)` on the future response to block for an available
+        response. Some of the possible exceptions may be raised when this method is called; others may be raised when
+        the future is used.
+
+        :return: A future from which the job response can later be retrieved
+        :rtype: Client.FutureResponse
+        """
+        kwargs.pop('suppress_response', None)  # If this kwarg is used, this method would always result in a timeout
+        if timeout:
+            kwargs['message_expiry_in_seconds'] = timeout
+
+        expected_request_id = self.send_request(service_name, actions, **kwargs)
+
+        def get_response(_timeout=None):
+            # Get all responses
+            responses = list(self.get_all_responses(service_name, receive_timeout_in_seconds=_timeout or timeout))
+
+            # Try to find the expected response
+            found = False
+            response = None
+            for request_id, response in responses:
+                if request_id == expected_request_id:
+                    found = True
+                    break
+            if not found:
+                # This error should be impossible if `get_all_responses` is behaving correctly, but let's raise a
+                # meaningful error just in case.
+                raise Exception(
+                    'Got unexpected response(s) with ID(s) {} for request with ID {}'.format(
+                        [r[0] for r in responses],
+                        expected_request_id,
+                    )
+                )
+
+            # Process errors at the Job and Action level
+            if response.errors and raise_job_errors:
+                raise self.JobError(response.errors)
+            if raise_action_errors:
+                error_actions = [action for action in response.actions if action.errors]
+                if error_actions:
+                    raise self.CallActionError(error_actions)
+
+            if expansions:
+                kwargs.pop('continue_on_error', None)
+                self._perform_expansion(response.actions, expansions, **kwargs)
+
+            return response
+
+        return self.FutureResponse(get_response)
+
+    def call_actions_parallel_future(self, service_name, actions, **kwargs):
+        """
+        This method is identical in signature and behavior to `call_actions_parallel`, except that it sends the requests
+        and then immediately returns a `FutureResponse` instead of blocking waiting on responses and returning a
+        generator. Just call `result(timeout=None)` on the future response to block for an available response (which
+        will be a generator). Some of the possible exceptions may be raised when this method is called; others may be
+        raised when the future is used.
+
+        :return: A generator of action responses that blocks waiting on responses once you begin iteration
+        :rtype: Client.FutureResponse
+        """
+        if 'raise_job_errors' in kwargs:
+            raise TypeError("call_actions_parallel() got a prohibited keyword argument 'raise_job_errors")
+        if 'catch_transport_errors' in kwargs:
+            raise TypeError("call_actions_parallel() got a prohibited keyword argument 'catch_transport_errors")
+
+        job_responses = self.call_jobs_parallel_future(
+            jobs=({'service_name': service_name, 'actions': [action]} for action in actions),
+            **kwargs
+        )
+
+        return self.FutureResponse(lambda _timeout: (job.actions[0] for job in job_responses.result(_timeout)))
+
+    def call_jobs_parallel_future(
+        self,
+        jobs,
+        expansions=None,
+        raise_job_errors=True,
+        raise_action_errors=True,
+        catch_transport_errors=False,
+        timeout=None,
+        **kwargs
+    ):
+        """
+        This method is identical in signature and behavior to `call_jobs_parallel`, except that it sends the requests
+        and then immediately returns a `FutureResponse` instead of blocking waiting on all responses and returning
+        a `list` of `JobResponses`. Just call `result(timeout=None)` on the future response to block for an available
+        response. Some of the possible exceptions may be raised when this method is called; others may be raised when
+        the future is used.
+
+        :return: A future from which the list of job responses can later be retrieved
+        :rtype: Client.FutureResponse
+        """
         kwargs.pop('suppress_response', None)  # If this kwarg is used, this method would always result in a timeout
         if timeout:
             kwargs['message_expiry_in_seconds'] = timeout
@@ -508,69 +710,75 @@ class Client(object):
         service_request_ids = {}
         for job in jobs:
             try:
-                request_id = self.send_request(job['service_name'], job['actions'], **kwargs)
-                service_request_ids.setdefault(job['service_name'], set()).add(request_id)
+                sent_request_id = self.send_request(job['service_name'], job['actions'], **kwargs)
+                service_request_ids.setdefault(job['service_name'], set()).add(sent_request_id)
             except (ConnectionError, InvalidMessageError, MessageSendError, MessageSendTimeout, MessageTooLarge) as e:
                 if not catch_transport_errors:
                     raise
-                request_id = error_key = error_key - 1
-                transport_errors[(job['service_name'], request_id)] = e
+                sent_request_id = error_key = error_key - 1
+                transport_errors[(job['service_name'], sent_request_id)] = e
 
-            response_reassembly_keys.append((job['service_name'], request_id))
+            response_reassembly_keys.append((job['service_name'], sent_request_id))
 
-        service_responses = {}
-        for service_name, request_ids in six.iteritems(service_request_ids):
-            try:
-                for request_id, response in self.get_all_responses(service_name, receive_timeout_in_seconds=timeout):
-                    if request_id not in request_ids:
-                        raise Exception(
-                            'Got response ID {}, not in set of expected IDs {}'.format(request_id, request_ids)
-                        )
-                    service_responses[(service_name, request_id)] = response
-                    if catch_transport_errors:
-                        # We don't need the set to be reduced unless we're catching errors
-                        request_ids.remove(request_id)
-            except (ConnectionError, InvalidMessageError, MessageReceiveError, MessageReceiveTimeout) as e:
-                if not catch_transport_errors:
-                    raise
-                for request_id in request_ids:
-                    transport_errors[(service_name, request_id)] = e
+        def get_response(_timeout):
+            service_responses = {}
+            for service_name, request_ids in six.iteritems(service_request_ids):
+                try:
+                    for request_id, response in self.get_all_responses(
+                        service_name,
+                        receive_timeout_in_seconds=_timeout or timeout,
+                    ):
+                        if request_id not in request_ids:
+                            raise Exception(
+                                'Got response ID {}, not in set of expected IDs {}'.format(request_id, request_ids)
+                            )
+                        service_responses[(service_name, request_id)] = response
+                        if catch_transport_errors:
+                            # We don't need the set to be reduced unless we're catching errors
+                            request_ids.remove(request_id)
+                except (ConnectionError, InvalidMessageError, MessageReceiveError, MessageReceiveTimeout) as e:
+                    if not catch_transport_errors:
+                        raise
+                    for request_id in request_ids:
+                        transport_errors[(service_name, request_id)] = e
 
-        responses = []
-        actions_to_expand = []
-        for service_name, request_id in response_reassembly_keys:
-            if request_id < 0:
-                # A transport error occurred during send, and we are catching errors, so add it to the responses
-                responses.append(transport_errors[(service_name, request_id)])
-                continue
-
-            if (service_name, request_id) not in service_responses:
-                if (service_name, request_id) in transport_errors:
-                    # A transport error occurred during receive, and we are catching errors, so add it to the responses
+            responses = []
+            actions_to_expand = []
+            for service_name, request_id in response_reassembly_keys:
+                if request_id < 0:
+                    # A transport error occurred during send, and we are catching errors, so add it to the list
                     responses.append(transport_errors[(service_name, request_id)])
                     continue
 
-                # It shouldn't be possible for this to happen unless the code has a bug, but let's raise a meaningful
-                # exception just in case a bug exists, because KeyError will not be helpful.
-                raise Exception('There was no response for service {}, request {}'.format(service_name, request_id))
+                if (service_name, request_id) not in service_responses:
+                    if (service_name, request_id) in transport_errors:
+                        # A transport error occurred during receive, and we are catching errors, so add it to the list
+                        responses.append(transport_errors[(service_name, request_id)])
+                        continue
 
-            response = service_responses[(service_name, request_id)]
-            if raise_job_errors and response.errors:
-                raise self.JobError(response.errors)
-            if raise_action_errors:
-                error_actions = [action for action in response.actions if action.errors]
-                if error_actions:
-                    raise self.CallActionError(error_actions)
+                    # It shouldn't be possible for this to happen unless the code has a bug, but let's raise a
+                    # meaningful exception just in case a bug exists, because KeyError will not be helpful.
+                    raise Exception('There was no response for service {}, request {}'.format(service_name, request_id))
+
+                response = service_responses[(service_name, request_id)]
+                if raise_job_errors and response.errors:
+                    raise self.JobError(response.errors)
+                if raise_action_errors:
+                    error_actions = [action for action in response.actions if action.errors]
+                    if error_actions:
+                        raise self.CallActionError(error_actions)
+                if expansions:
+                    actions_to_expand.extend(response.actions)
+
+                responses.append(response)
+
             if expansions:
-                actions_to_expand.extend(response.actions)
+                kwargs.pop('continue_on_error', None)
+                self._perform_expansion(actions_to_expand, expansions, **kwargs)
 
-            responses.append(response)
+            return responses
 
-        if expansions:
-            kwargs.pop('continue_on_error', None)
-            self._perform_expansion(actions_to_expand, expansions, **kwargs)
-
-        return responses
+        return self.FutureResponse(get_response)
 
     # Methods used to send a request in a non-blocking manner and then later block for a response as a separate step
 

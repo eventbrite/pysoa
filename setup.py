@@ -44,6 +44,7 @@ test_requirements = [
     'pytest-cov~=2.5',
 ] + test_plan_requirements
 
+
 setup(
     name='pysoa',
     version=__version__,

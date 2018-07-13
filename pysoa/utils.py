@@ -24,7 +24,7 @@ def dict_to_hashable(d):
     :param d: The dict
     :return: The hashable representation of the dict
     """
-    return frozenset({
+    return frozenset(
         (k, tuple(v) if isinstance(v, list) else (dict_to_hashable(v) if isinstance(v, dict) else v))
         for k, v in six.iteritems(d)
-    })
+    )
