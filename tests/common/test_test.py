@@ -4,7 +4,10 @@ from unittest import TestCase
 
 import attr
 
-from pysoa.common.constants import ERROR_CODE_INVALID
+from pysoa.common.constants import (
+    ERROR_CODE_INVALID,
+    ERROR_CODE_NOT_AUTHORIZED,
+)
 from pysoa.common.types import UnicodeKeysDict
 from pysoa.test.stub_service import StubClient
 
@@ -82,6 +85,27 @@ class TestStubClient(TestCase):
             self.assertEqual(error_response[0].message, errors[0]['message'])
             self.assertEqual(error_response[0].field, errors[0]['field'])
 
+    def test_stub_action_permissions_errors(self):
+        """
+        StubClient.stub_action with an 'errors' argument causes the client to raise the
+        given errors when calling the action.
+        """
+        errors = [
+            {
+                'code': ERROR_CODE_NOT_AUTHORIZED,
+                'message': 'Permission "foo" required to access this resource',
+                'denied_permissions': ['foo'],
+            }
+        ]
+        self.client.stub_action(SERVICE_NAME, 'test_action', errors=errors)
+        with self.assertRaises(StubClient.CallActionError) as e:
+            self.client.call_action(SERVICE_NAME, 'test_action')
+            error_response = e.value.actions[0].errors
+            self.assertEqual(len(error_response), 1)
+            self.assertEqual(error_response[0].code, errors[0]['code'])
+            self.assertEqual(error_response[0].message, errors[0]['message'])
+            self.assertEqual(error_response[0].denied_permissions, errors[0]['denied_permissions'])
+
     def test_stub_action_errors_and_body(self):
         """
         StubClient.stub_action with an 'errors' argument and a 'body' argument causes the
@@ -121,6 +145,7 @@ class TestStubClient(TestCase):
                         'field': 'quas.wex',
                         'traceback': None,
                         'variables': None,
+                        'denied_permissions': None,
                     },
                 ],
             },
