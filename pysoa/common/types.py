@@ -18,6 +18,7 @@ class Error(object):
     field = attr.ib(default=None)
     traceback = attr.ib(default=None)
     variables = attr.ib(default=None)
+    denied_permissions = attr.ib(default=None)
 
 
 @attr.s
