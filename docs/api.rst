@@ -890,7 +890,8 @@ These are all the metrics recorded in PySOA:
 - ``server.transport.redis_gateway.send.serialize``: A timer indicating how long it takes the Redis Gateway transport
   to serialize a message
 - ``server.transport.redis_gateway.send.error.message_too_large``: A counter incremented each time the Redis Gateway
-  transport fails to send because it exceeds 100 kilobytes serialized
+  transport fails to send because it exceeds the maximum configured message size (which defaults to 100KB on the client
+  and 250KB on the server)
 - ``server.transport.redis_gateway.send.queue_full_retry``: A counter incremented each time the Redis Gateway transport
   re-tries sending a message because the message queue was temporarily full
 - ``server.transport.redis_gateway.send.queue_full_retry.retry_{1...n}``: A counter incremented on each queue full retry

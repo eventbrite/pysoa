@@ -9,6 +9,7 @@ from pysoa.common.transport.base import (
 )
 from pysoa.common.transport.exceptions import MessageReceiveTimeout
 from pysoa.common.transport.redis_gateway.backend.base import BaseRedisClient
+from pysoa.common.transport.redis_gateway.constants import DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT
 from pysoa.common.transport.redis_gateway.core import RedisTransportCore
 from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
 
@@ -27,6 +28,9 @@ class RedisClientTransport(ClientTransport):
         :type metrics: MetricsRecorder
         """
         super(RedisClientTransport, self).__init__(service_name, metrics)
+
+        if 'maximum_message_size_in_bytes' not in kwargs:
+            kwargs['maximum_message_size_in_bytes'] = DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT
 
         self.client_id = uuid.uuid4().hex
         self._send_queue_name = make_redis_queue_name(service_name)
