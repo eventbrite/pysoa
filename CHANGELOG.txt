@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.44.0 (2018-07-16)
+-------------------
+- [MINOR] adding support for errors due insufficient permissions (#108)
+- [MINOR] Add option to suppress responses for send-and-forget
+- [MAJOR] Make the maximum Redis transport message size configurable
+- [MAJOR] Add a response context dict to all responses
+
 0.43.0 (2018-06-29)
 -------------------
 - [MINOR] Fix database error sometimes encountered during idle cleanup
