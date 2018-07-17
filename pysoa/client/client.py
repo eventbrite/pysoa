@@ -72,7 +72,6 @@ class ServiceHandler(object):
         with self.metrics.timer('client.send.excluding_middleware', resolution=TimerResolution.MICROSECONDS):
             if isinstance(job_request, JobRequest):
                 job_request = attr.asdict(job_request, dict_factory=UnicodeKeysDict)
-            meta['__request_serialized__'] = False
             self.transport.send_request_message(request_id, meta, job_request, message_expiry_in_seconds)
 
     def send_request(self, job_request, message_expiry_in_seconds=None):
