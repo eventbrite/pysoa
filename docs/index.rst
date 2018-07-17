@@ -17,3 +17,5 @@ Contents
 - `Example Service <https://github.com/eventbrite/example_service>`_ - A complete, functional sample PySOA service,
   including a `Docker <https://www.docker.com/>`_ environment for running and testing it, which serves as living
   documentation for how PySOA works and best practices when creating and structuring PySOA services.
+- `The PySOA Protocol <protocol.rst>`_ - A detailed explanation of the abstract PySOA protocol, for use when writing
+  compatible libraries and products on other platforms
