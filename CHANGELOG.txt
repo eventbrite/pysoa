@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.44.1 (2018-07-17)
+-------------------
+- [PATCH] Fix big introduced by logging rename
+
 0.44.0 (2018-07-16)
 -------------------
 - [MINOR] adding support for errors due insufficient permissions (#108)
