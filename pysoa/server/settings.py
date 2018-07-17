@@ -148,7 +148,7 @@ class ServerSettings(SOASettings):
             },
             'filters': {
                 'pysoa_logging_context_filter': {
-                    '()': 'pysoa.server.logging.PySOALogContextFilter',
+                    '()': 'pysoa.common.logging.PySOALogContextFilter',
                 },
             },
             'handlers': {

@@ -2151,7 +2151,7 @@ apply as the default values.
             "disable_existing_loggers": false,
             "filters": {
                 "pysoa_logging_context_filter": {
-                    "()": "pysoa.server.logging.PySOALogContextFilter"
+                    "()": "pysoa.common.logging.PySOALogContextFilter"
                 }
             },
             "formatters": {
