@@ -1,5 +1,6 @@
 language: python
-sudo: false
+sudo: true
+dist: xenial
 addons:
   apt:
     packages:
@@ -10,6 +11,7 @@ python:
   - '3.4'
   - '3.5'
   - '3.6'
+  - '3.7'
 cache: pip
 install:
   - export PKG_CONFIG_PATH="$(python-config --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
