@@ -1,15 +1,18 @@
 """
 Top level plan oriented directives
 """
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 from pyparsing import (
-    alphanums,
     Literal,
     Optional,
-    restOfLine,
     Suppress,
     Word,
+    alphanums,
+    restOfLine,
 )
 
 from pysoa.test.plan.errors import FixtureSyntaxError

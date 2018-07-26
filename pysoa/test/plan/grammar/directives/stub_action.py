@@ -1,17 +1,20 @@
 """
 Directives for stubbing calls to other services
 """
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import sys
 import traceback
 
 from pyparsing import (
-    alphanums,
     Literal,
     Optional,
-    restOfLine,
     Word,
+    alphanums,
+    restOfLine,
 )
 import six
 
@@ -23,11 +26,11 @@ from pysoa.test.plan.grammar.data_types import (
     get_parsed_data_type_value,
 )
 from pysoa.test.plan.grammar.directive import (
-    Directive,
     ActionDirective,
-    register_directive,
+    Directive,
     VarNameGrammar,
-    VarValueGrammar
+    VarValueGrammar,
+    register_directive,
 )
 from pysoa.test.plan.grammar.tools import path_put
 from pysoa.test.stub_service import stub_action

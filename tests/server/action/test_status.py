@@ -1,4 +1,8 @@
-from __future__ import absolute_import, print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    print_function,
+    unicode_literals,
+)
 
 import platform
 import unittest
@@ -17,8 +21,8 @@ from pysoa.common.types import (
 )
 from pysoa.server.action.status import (
     BaseStatusAction,
-    make_default_status_action_class,
     StatusActionFactory,
+    make_default_status_action_class,
 )
 from pysoa.server.types import EnrichedActionRequest
 from pysoa.test.stub_service import stub_action

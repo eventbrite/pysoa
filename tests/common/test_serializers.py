@@ -1,7 +1,10 @@
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
-import decimal
 import datetime
+import decimal
 
 import currint
 import pytest
@@ -11,8 +14,8 @@ from pysoa.common.serializer import (
     MsgpackSerializer,
 )
 from pysoa.common.serializer.exceptions import (
-    InvalidMessage,
     InvalidField,
+    InvalidMessage,
 )
 
 

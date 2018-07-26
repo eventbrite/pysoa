@@ -44,7 +44,11 @@ The following changes were made to the borrowed code. This is a summary only, an
     - Renamed a bunch of variables and functions/methods to reduce ambiguity and have more-self-documenting code.
     - Added considerable documentation about the operation of the reloader.
 """
-from __future__ import absolute_import, print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    print_function,
+    unicode_literals,
+)
 
 import abc
 import os
@@ -56,6 +60,7 @@ import threading
 import time
 
 import six
+
 
 USE_PY_INOTIFY = False
 try:
@@ -71,7 +76,9 @@ except ImportError:
     pyinotify = None
 
 
-__all__ = ['get_reloader']
+__all__ = (
+    'get_reloader',
+)
 
 
 NEED_RELOAD_EXIT_CODE = 3

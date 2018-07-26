@@ -1,18 +1,22 @@
-from __future__ import absolute_import, division  # do not import unicode literals in this file
+# do not import unicode_literals in this file
+from __future__ import (
+    absolute_import,
+    division,
+)
 
-import decimal
 import datetime
+import decimal
 import struct
 
 import currint
-from pysoa.common.serializer.base import Serializer as BaseSerializer
-from pysoa.common.serializer.exceptions import (
-    InvalidMessage,
-    InvalidField,
-)
+import msgpack
 import six
 
-import msgpack
+from pysoa.common.serializer.base import Serializer as BaseSerializer
+from pysoa.common.serializer.exceptions import (
+    InvalidField,
+    InvalidMessage,
+)
 
 
 class MsgpackSerializer(BaseSerializer):

@@ -1,7 +1,10 @@
 """
 Directives for freezing time during test execution
 """
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import datetime
 
@@ -9,10 +12,10 @@ from pyparsing import Literal
 
 from pysoa.test.plan.errors import FixtureSyntaxError
 from pysoa.test.plan.grammar.directive import (
-    Directive,
     ActionDirective,
+    Directive,
+    VarValueGrammar,
     register_directive,
-    VarValueGrammar
 )
 
 

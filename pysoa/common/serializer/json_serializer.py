@@ -1,11 +1,17 @@
-from pysoa.common.serializer.base import Serializer as BaseSerializer
-from pysoa.common.serializer.exceptions import (
-    InvalidMessage,
-    InvalidField,
+from __future__ import (
+    absolute_import,
+    unicode_literals,
 )
 
 import json
+
 import six
+
+from pysoa.common.serializer.base import Serializer as BaseSerializer
+from pysoa.common.serializer.exceptions import (
+    InvalidField,
+    InvalidMessage,
+)
 
 
 class JSONSerializer(BaseSerializer):

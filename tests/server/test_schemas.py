@@ -1,13 +1,17 @@
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
-import six
 import uuid
+
 import pytest
+import six
 
 from pysoa.server.schemas import (
     ActionRequestSchema,
-    ControlHeaderSchema,
     ContextHeaderSchema,
+    ControlHeaderSchema,
     JobRequestSchema,
 )
 

@@ -1,14 +1,18 @@
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
+
 from collections import deque
 
-import six
 from conformity import fields
+import six
 
 from pysoa.common.settings import (
-    resolve_python_path,
     BasicClassSchema,
+    resolve_python_path,
 )
-from .base import (
+from pysoa.common.transport.base import (
     ClientTransport,
     ServerTransport,
 )

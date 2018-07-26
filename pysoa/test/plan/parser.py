@@ -1,4 +1,7 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import codecs
 import copy
@@ -6,9 +9,6 @@ import functools
 import os
 
 from pyparsing import (
-    col as get_parse_column,
-    line as get_parse_line,
-    lineno as get_parse_line_number,
     LineEnd,
     LineStart,
     MatchFirst,
@@ -16,6 +16,9 @@ from pyparsing import (
     ParseException,
     StringEnd,
     StringStart,
+    col as get_parse_column,
+    line as get_parse_line,
+    lineno as get_parse_line_number,
 )
 
 from pysoa.test.plan.errors import (
@@ -25,9 +28,9 @@ from pysoa.test.plan.errors import (
 from pysoa.test.plan.grammar.data_types import DataTypeConversionError
 from pysoa.test.plan.grammar.directive import get_all_directives
 from pysoa.test.plan.grammar.tools import (
+    get_all_paths,
     path_get,
     path_put,
-    get_all_paths,
 )
 
 

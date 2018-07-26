@@ -1,13 +1,16 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import argparse
 import importlib
 import logging
 import logging.config
 import os
+import signal
 import sys
 import traceback
-import signal
 
 import attr
 import six
@@ -35,14 +38,14 @@ from pysoa.common.types import (
     JobResponse,
     UnicodeKeysDict,
 )
-from pysoa.server.internal.types import RequestSwitchSet
 from pysoa.server.errors import (
     ActionError,
     JobError,
 )
-from pysoa.server.types import EnrichedActionRequest
+from pysoa.server.internal.types import RequestSwitchSet
 from pysoa.server.schemas import JobRequestSchema
 from pysoa.server.settings import PolymorphicServerSettings
+from pysoa.server.types import EnrichedActionRequest
 import pysoa.version
 
 

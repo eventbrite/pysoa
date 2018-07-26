@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import attr
 
 from pysoa.common.types import ActionRequest

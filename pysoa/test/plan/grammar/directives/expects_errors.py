@@ -1,14 +1,17 @@
 """
 Expect error directives
 """
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 from pyparsing import (
-    alphanums,
     Literal,
     Optional,
-    restOfLine,
     Word,
+    alphanums,
+    restOfLine,
 )
 import six
 
@@ -18,12 +21,10 @@ from pysoa.test.plan.grammar.assertions import (
     assert_expected_list_subset_of_actual,
     assert_lists_match_any_order,
 )
+from pysoa.test.plan.grammar.data_types import AnyValue
 from pysoa.test.plan.grammar.directive import (
     ActionDirective,
     register_directive,
-)
-from pysoa.test.plan.grammar.data_types import (
-    AnyValue,
 )
 from pysoa.test.plan.grammar.tools import (
     path_get,
