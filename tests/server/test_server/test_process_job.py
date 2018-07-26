@@ -1,12 +1,15 @@
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 from unittest import TestCase
 
-from pysoa.server.server import Server
+from pysoa.common.constants import ERROR_CODE_INVALID
+from pysoa.common.types import Error
 from pysoa.server.errors import ActionError
 from pysoa.server.middleware import ServerMiddleware
-from pysoa.common.types import Error
-from pysoa.common.constants import ERROR_CODE_INVALID
+from pysoa.server.server import Server
 from pysoa.test import factories
 
 

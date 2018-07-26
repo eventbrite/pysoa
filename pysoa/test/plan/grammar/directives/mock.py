@@ -1,7 +1,10 @@
 """
 Directives for mocking
 """
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import json
 import sys
@@ -10,8 +13,8 @@ import traceback
 from pyparsing import (
     Literal,
     Optional,
-    oneOf,
     Regex,
+    oneOf,
 )
 import six
 
@@ -19,10 +22,10 @@ from pysoa.common.settings import resolve_python_path
 from pysoa.test.compatibility import mock as unittest_mock
 from pysoa.test.plan.errors import FixtureSyntaxError
 from pysoa.test.plan.grammar.directive import (
-    Directive,
     ActionDirective,
+    Directive,
+    VarValueGrammar,
     register_directive,
-    VarValueGrammar
 )
 
 

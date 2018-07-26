@@ -1,4 +1,7 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import datetime
 import time
@@ -18,13 +21,14 @@ from pysoa.common.transport.exceptions import (
 )
 from pysoa.common.transport.redis_gateway.backend.base import CannotGetConnectionError
 from pysoa.common.transport.redis_gateway.constants import (
-    REDIS_BACKEND_TYPE_STANDARD,
     REDIS_BACKEND_TYPE_SENTINEL,
+    REDIS_BACKEND_TYPE_STANDARD,
 )
 from pysoa.common.transport.redis_gateway.core import RedisTransportCore
 from pysoa.test.compatibility import mock
 
-from .backend.test_standard import mockredis  # To ensure all the patching over there happens over here
+# To ensure all the patching over there happens over here
+from tests.common.transport.redis_gateway.backend.test_standard import mockredis
 
 
 @attr.s

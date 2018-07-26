@@ -1,4 +1,7 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import unittest
 
@@ -10,6 +13,7 @@ import six
 
 from pysoa.common.transport.redis_gateway.backend.standard import StandardRedisClient
 from pysoa.test.compatibility import mock
+
 
 #####
 # The following MockRedis fixes were submitted as part of https://github.com/locationlabs/mockredis/pull/133. They can

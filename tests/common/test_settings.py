@@ -1,12 +1,20 @@
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import unittest
 
+from conformity import fields
 import pytest
 
 from pysoa.client.client import Client
 from pysoa.client.middleware import ClientMiddleware
 from pysoa.client.settings import ClientSettings
+from pysoa.common.serializer import (
+    JSONSerializer,
+    MsgpackSerializer,
+)
 from pysoa.common.settings import (
     Settings,
     SOASettings,
@@ -15,17 +23,11 @@ from pysoa.common.transport.redis_gateway.client import RedisClientTransport
 from pysoa.common.transport.redis_gateway.constants import REDIS_BACKEND_TYPE_STANDARD
 from pysoa.common.transport.redis_gateway.core import RedisTransportCore
 from pysoa.common.transport.redis_gateway.server import RedisServerTransport
-from pysoa.common.serializer import (
-    JSONSerializer,
-    MsgpackSerializer,
-)
 from pysoa.server.server import Server
 from pysoa.server.settings import (
     PolymorphicServerSettings,
     ServerSettings,
 )
-
-from conformity import fields
 
 
 class SettingsWithSimpleSchema(Settings):

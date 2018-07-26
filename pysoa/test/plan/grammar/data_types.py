@@ -1,13 +1,14 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import base64
 import datetime
 import decimal
 import re
 
-from pyparsing import (
-    oneOf,
-)
+from pyparsing import oneOf
 import pytz
 import six
 

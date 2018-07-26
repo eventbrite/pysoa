@@ -1,9 +1,15 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import sys
 
 
-__all__ = ['simple_main', 'django_main']
+__all__ = (
+    'django_main',
+    'simple_main',
+)
 
 
 if sys.path[0] and not sys.path[0].endswith('/bin'):

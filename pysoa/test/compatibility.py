@@ -1,7 +1,8 @@
 from __future__ import absolute_import
 
+
 try:
-    import mock  # noqa
+    import mock
     # First we try to import the Python 2 backport library of Mock, because if the project is using it, we should use it
 except ImportError as e:
     try:

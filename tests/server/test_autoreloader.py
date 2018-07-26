@@ -1,11 +1,14 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import importlib
 import os
 import signal
 import sys
-import unittest
 import time
+import unittest
 
 import pysoa
 import pysoa.client
@@ -13,13 +16,13 @@ import pysoa.server
 import pysoa.server.autoreload
 # noinspection PyProtectedMember
 from pysoa.server.autoreload import (
-    _clean_files,  # noqa
+    NEED_RELOAD_EXIT_CODE,
+    AbstractReloader,
     _PollingReloader,
     _PyInotifyReloader,
-    AbstractReloader,
     get_reloader,
-    NEED_RELOAD_EXIT_CODE,
 )
+from pysoa.server.autoreload import _clean_files  # noqa
 from pysoa.test.compatibility import mock
 import pysoa.version
 

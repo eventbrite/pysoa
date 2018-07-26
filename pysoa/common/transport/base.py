@@ -12,7 +12,10 @@ is not business logic. For example, if your implementation has multiple serializ
 types, the metadata may include a mime type to tell the endpoint receiving the message
 which type of serializer to use.
 """
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import abc
 import threading

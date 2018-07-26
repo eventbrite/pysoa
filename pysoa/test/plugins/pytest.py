@@ -1,19 +1,22 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 from functools import wraps
 import re
 import sys
 from unittest import SkipTest
 
-import py
-import six
+from _pytest._code.code import TracebackEntry
+from _pytest._code.source import Source
+from _pytest.mark import MARK_GEN
 from _pytest.unittest import (
     TestCaseFunction,
     UnitTestCase,
 )
-from _pytest._code.code import TracebackEntry
-from _pytest._code.source import Source
-from _pytest.mark import MARK_GEN
+import py
+import six
 
 
 try:

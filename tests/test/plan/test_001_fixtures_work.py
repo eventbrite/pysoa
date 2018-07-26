@@ -1,22 +1,25 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import datetime
 import os
 import random
 import sys
-import uuid
 import unittest
+import uuid
 
 from conformity import fields
 import pytest
 import six
 
 from pysoa.common.types import Error
+from pysoa.server.action.base import Action
 from pysoa.server.errors import (
     ActionError,
     JobError,
 )
-from pysoa.server.action.base import Action
 from pysoa.server.server import Server
 from pysoa.test.plan import ServicePlanTestCase
 

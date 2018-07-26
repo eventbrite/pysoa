@@ -1,13 +1,16 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
-import random
-import six
-import time
-import logging
 from copy import deepcopy
+import logging
+import random
+import time
 
 import attr
 import redis
+import six
 
 from pysoa.common.logging import RecursivelyCensoredDictWrapper
 from pysoa.common.metrics import (
@@ -17,11 +20,11 @@ from pysoa.common.metrics import (
 )
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
 from pysoa.common.transport.exceptions import (
-    MessageTooLarge,
-    MessageReceiveError,
-    MessageSendError,
     InvalidMessageError,
+    MessageReceiveError,
     MessageReceiveTimeout,
+    MessageSendError,
+    MessageTooLarge,
 )
 from pysoa.common.transport.redis_gateway.backend.base import CannotGetConnectionError
 from pysoa.common.transport.redis_gateway.backend.sentinel import SentinelRedisClient

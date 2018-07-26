@@ -1,8 +1,12 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
-import six
 import threading
 import unittest
+
+import six
 
 from pysoa.common.logging import (
     PySOALogContextFilter,

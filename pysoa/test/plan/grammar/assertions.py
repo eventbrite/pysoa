@@ -1,12 +1,15 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import pprint
 
 import six
 
 from pysoa.test.plan.grammar.tools import (
-    path_get,
     get_all_paths,
+    path_get,
 )
 
 

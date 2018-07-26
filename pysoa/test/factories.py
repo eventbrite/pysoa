@@ -1,11 +1,15 @@
-from __future__ import unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
-import factory
 import importlib
 
+import factory
+
 from pysoa.server import Server
-from pysoa.server.settings import ServerSettings
 from pysoa.server.action import Action
+from pysoa.server.settings import ServerSettings
 
 
 class ServerSettingsFactory(factory.Factory):

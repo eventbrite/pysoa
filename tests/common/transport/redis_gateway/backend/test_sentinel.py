@@ -1,4 +1,7 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import unittest
 
@@ -9,7 +12,8 @@ from pysoa.common.transport.redis_gateway.backend.base import CannotGetConnectio
 from pysoa.common.transport.redis_gateway.backend.sentinel import SentinelRedisClient
 from pysoa.test.compatibility import mock
 
-from .test_standard import mockredis  # To ensure all the patching over there happens over here
+# To ensure all the patching over there happens over here
+from tests.common.transport.redis_gateway.backend.test_standard import mockredis
 
 
 class MockSentinelRedis(mockredis.MockRedis):

@@ -38,19 +38,22 @@ OR
 
 Register your directive using the `register_directive` function.
 """
-from __future__ import absolute_import, unicode_literals
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 import abc
-import pkg_resources
 import sys
 
+import pkg_resources
 from pyparsing import (
-    alphanums,
-    nums,
     Literal,
     Optional,
-    restOfLine,
     Word,
+    alphanums,
+    nums,
+    restOfLine,
 )
 import six
 

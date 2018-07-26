@@ -1,5 +1,8 @@
-from .client import Client
+from __future__ import absolute_import
 
-__all__ = [
+from pysoa.client.client import Client
+
+
+__all__ = (
     'Client',
-]
+)
