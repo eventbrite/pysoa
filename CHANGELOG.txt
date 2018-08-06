@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.45.0 (2018-08-06)
+-------------------
+- [MAJOR] Add support for non-blocking client futures
+- [MINOR] Apply isort and clean up imports
+- [MINOR] Remove unused meta header for retired double-serialization
+- [PATCH] Add documentation for the platform-independent PySOA protocol
+
 0.44.1 (2018-07-17)
 -------------------
 - [PATCH] Fix big introduced by logging rename
