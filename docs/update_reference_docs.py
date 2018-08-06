@@ -25,6 +25,7 @@ TO_DOCUMENT = (
     'pysoa.client.client:Client',
     'pysoa.client.client:Client.JobError',
     'pysoa.client.client:Client.CallActionError',
+    'pysoa.client.client:Client.FutureResponse',
     'pysoa.client.client:ServiceHandler',
     'pysoa.client.expander:ExpansionSettings',
     'pysoa.client.middleware:ClientMiddleware',

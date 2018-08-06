@@ -78,6 +78,25 @@ Returns
 Raises
   ``ConnectionError``, ``InvalidField``, ``MessageSendError``, ``MessageSendTimeout``, ``MessageTooLarge``, ``MessageReceiveError``, ``MessageReceiveTimeout``, ``InvalidMessage``, ``JobError``, ``CallActionError``
 
+.. _pysoa.client.client.Client.call_action_future:
+
+``method call_action_future(service_name, action, body=None, **kwargs)``
+************************************************************************
+
+This method is identical in signature and behavior to ``call_action``, except that it sends the request and
+then immediately returns a ``FutureResponse`` instead of blocking waiting on a response and returning
+an ``ActionResponse``. Just call ``result(timeout=None)`` on the future response to block for an available
+response. Some of the possible exceptions may be raised when this method is called; others may be raised when
+the future is used.
+
+Parameters
+  - ``service_name``
+  - ``action``
+  - ``body``
+
+Returns
+  ``Client.FutureResponse`` - A future from which the action response can later be retrieved
+
 .. _pysoa.client.client.Client.call_actions:
 
 ``method call_actions(service_name, actions, expansions=None, raise_job_errors=True, raise_action_errors=True, timeout=None, **kwargs)``
@@ -113,6 +132,28 @@ Returns
 Raises
   ``ConnectionError``, ``InvalidField``, ``MessageSendError``, ``MessageSendTimeout``, ``MessageTooLarge``, ``MessageReceiveError``, ``MessageReceiveTimeout``, ``InvalidMessage``, ``JobError``, ``CallActionError``
 
+.. _pysoa.client.client.Client.call_actions_future:
+
+``method call_actions_future(service_name, actions, expansions=None, raise_job_errors=True, raise_action_errors=True, timeout=None, **kwargs)``
+***********************************************************************************************************************************************
+
+This method is identical in signature and behavior to ``call_actions``, except that it sends the request and
+then immediately returns a ``FutureResponse`` instead of blocking waiting on a response and returning a
+``JobResponse``. Just call ``result(timeout=None)`` on the future response to block for an available
+response. Some of the possible exceptions may be raised when this method is called; others may be raised when
+the future is used.
+
+Parameters
+  - ``service_name``
+  - ``actions``
+  - ``expansions``
+  - ``raise_job_errors``
+  - ``raise_action_errors``
+  - ``timeout``
+
+Returns
+  ``Client.FutureResponse`` - A future from which the job response can later be retrieved
+
 .. _pysoa.client.client.Client.call_actions_parallel:
 
 ``method call_actions_parallel(service_name, actions, **kwargs)``
@@ -143,10 +184,28 @@ Parameters
   - ``control_extra`` (``dict``) - A dictionary of extra values to include in the control header
 
 Returns
-  ``generator[ActionResponse]`` - A generator of action responses
+  ``Generator[ActionResponse]`` - A generator of action responses
 
 Raises
   ``ConnectionError``, ``InvalidField``, ``MessageSendError``, ``MessageSendTimeout``, ``MessageTooLarge``, ``MessageReceiveError``, ``MessageReceiveTimeout``, ``InvalidMessage``, ``JobError``, ``CallActionError``
+
+.. _pysoa.client.client.Client.call_actions_parallel_future:
+
+``method call_actions_parallel_future(service_name, actions, **kwargs)``
+************************************************************************
+
+This method is identical in signature and behavior to ``call_actions_parallel``, except that it sends the requests
+and then immediately returns a ``FutureResponse`` instead of blocking waiting on responses and returning a
+generator. Just call ``result(timeout=None)`` on the future response to block for an available response (which
+will be a generator). Some of the possible exceptions may be raised when this method is called; others may be
+raised when the future is used.
+
+Parameters
+  - ``service_name``
+  - ``actions``
+
+Returns
+  ``Client.FutureResponse`` - A generator of action responses that blocks waiting on responses once you begin iteration
 
 .. _pysoa.client.client.Client.call_jobs_parallel:
 
@@ -191,6 +250,28 @@ Returns
 
 Raises
   ``ConnectionError``, ``InvalidField``, ``MessageSendError``, ``MessageSendTimeout``, ``MessageTooLarge``, ``MessageReceiveError``, ``MessageReceiveTimeout``, ``InvalidMessage``, ``JobError``, ``CallActionError``
+
+.. _pysoa.client.client.Client.call_jobs_parallel_future:
+
+``method call_jobs_parallel_future(jobs, expansions=None, raise_job_errors=True, raise_action_errors=True, catch_transport_errors=False, timeout=None, **kwargs)``
+******************************************************************************************************************************************************************
+
+This method is identical in signature and behavior to ``call_jobs_parallel``, except that it sends the requests
+and then immediately returns a ``FutureResponse`` instead of blocking waiting on all responses and returning
+a ``list`` of ``JobResponses``. Just call ``result(timeout=None)`` on the future response to block for an available
+response. Some of the possible exceptions may be raised when this method is called; others may be raised when
+the future is used.
+
+Parameters
+  - ``jobs``
+  - ``expansions``
+  - ``raise_job_errors``
+  - ``raise_action_errors``
+  - ``catch_transport_errors``
+  - ``timeout``
+
+Returns
+  ``Client.FutureResponse`` - A future from which the list of job responses can later be retrieved
 
 .. _pysoa.client.client.Client.get_all_responses:
 
@@ -292,6 +373,96 @@ Constructor
 Parameters
   - ``actions`` (``list[ActionResponse]``) - The list of all actions that have errors (not actions without errors), available as an
     ``actions`` property on the exception instance.
+
+
+.. _pysoa.client.client.Client.FutureResponse:
+
+``class Client.FutureResponse``
++++++++++++++++++++++++++++++++
+
+**module:** ``pysoa.client.client``
+
+- ``object``
+
+  - ``FutureResponse``
+
+A future representing a retrievable response after sending a request.
+
+.. _pysoa.client.client.Client.FutureResponse-constructor-docs:
+
+Constructor
+***********
+
+*(No documentation)*
+
+.. _pysoa.client.client.Client.FutureResponse.done:
+
+``method done()``
+*****************
+
+Returns ``False`` if the response (or exception) has not yet been obtained, ``True`` otherwise.
+
+Returns
+  Whether the request is known to be done (this is updated only when ``result`` or ``exception`` is
+called).
+
+.. _pysoa.client.client.Client.FutureResponse.exception:
+
+``method exception(timeout=None)``
+**********************************
+
+Obtain the exception raised by the call, blocking if necessary, per the rules specified in the
+documentation for ``result``. If the call completed without raising an exception, ``None`` is returned. If a
+timeout occurs, ``MessageReceiveTimeout`` will be raised (not returned).
+
+Parameters
+  - ``timeout`` (``int``) - If specified, the client will block for at most this many seconds waiting for a response.
+    If not specified, but a timeout was specified when calling the request method, the client
+    will block for at most that many seconds waiting for a response. If neither this nor the
+    request method timeout are specified, the configured timeout setting (or default of 5
+    seconds) will be used.
+
+Returns
+  ``Exception`` - The exception
+
+.. _pysoa.client.client.Client.FutureResponse.result:
+
+``method result(timeout=None)``
+*******************************
+
+Obtain the result of this future response.
+
+The first time you call this method on a given future response, it will block for a response and then
+either return the response or raise any errors raised by the response. You can specify an optional timeout,
+which will override any timeout specified in the client settings or when calling the request method. If a
+timeout occurs, ``MessageReceiveTimeout`` will be raised. It will not be cached, and you can attempt to call
+this again, and those subsequent calls to ``result`` (or ``exception``) will be treated like a first-time calls
+until a response is returned or non-timeout error is raised.
+
+The subsequent times you call this method on a given future response after obtaining a non-timeout response,
+any specified timeout will be ignored, and the cached response will be returned (or the cached exception
+re-raised).
+
+Parameters
+  - ``timeout`` (``int``) - If specified, the client will block for at most this many seconds waiting for a response.
+    If not specified, but a timeout was specified when calling the request method, the client
+    will block for at most that many seconds waiting for a response. If neither this nor the
+    request method timeout are specified, the configured timeout setting (or default of 5
+    seconds) will be used.
+
+Returns
+  ``union[ActionResponse, JobResponse, list[union[ActionResponse, JobResponse]], generator[union[ActionResponse, JobResponse]]]`` - The response
+
+.. _pysoa.client.client.Client.FutureResponse.running:
+
+``method running()``
+********************
+
+Returns ``True`` if the response (or exception) has not yet been obtained, ``False`` otherwise.
+
+Returns
+  Whether the request is believed to still be running (this is updated only when ``result`` or
+``exception`` is called).
 
 
 .. _pysoa.client.client.ServiceHandler:
@@ -1226,6 +1397,7 @@ Attrs Properties
 - ``field``
 - ``traceback``
 - ``variables``
+- ``denied_permissions``
 
 
 .. _pysoa.common.types.JobRequest:
