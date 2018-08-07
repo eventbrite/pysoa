@@ -1,17 +1,19 @@
 language: python
-sudo: true
-dist: xenial
+sudo: false
 addons:
   apt:
     packages:
       - lua5.2
       - liblua5.2-dev
-python:
-  - '2.7'
-  - '3.4'
-  - '3.5'
-  - '3.6'
-  - '3.7'
+matrix:
+    include:
+        - python: '2.7'
+        - python: '3.4'
+        - python: '3.5'
+        - python: '3.6'
+        - python: '3.7'
+          dist: xenial
+          sudo: true
 cache: pip
 install:
   - export PKG_CONFIG_PATH="$(python-config --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
