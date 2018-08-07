@@ -375,6 +375,7 @@ class Server(object):
                 context=job_request['context'],
                 control=job_request['control'],
                 client=job_request['client'],
+                job_index=i,
             )
             action_in_class_map = action_request.action in self.action_class_map
             if action_in_class_map or action_request.action in ('status', 'introspect'):

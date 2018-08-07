@@ -21,3 +21,4 @@ class EnrichedActionRequest(ActionRequest):
     context = attr.ib(default=attr.Factory(dict))
     control = attr.ib(default=attr.Factory(dict))
     client = attr.ib(default=None)
+    job_index = attr.ib(default=0)
