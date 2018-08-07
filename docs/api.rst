@@ -205,10 +205,27 @@ The ``Server`` class is able to get configuration from Django settings automatic
 the ``Server`` subclass is ``True``, the ``main`` method will automatically import the Django settings module and look
 for configuration under the name ``SOA_SERVER_SETTINGS``.
 
-The ``Server`` will also perform strategic resource cleanup before and after requests when Django integration is
-enabled. The database query log will be reset before each received request is handled, and old database connections
-will be closed after each response is sent and when the server has been idle for some time. These behaviors mimic the
-behavior of Django server request handling.
+The ``Server`` will also perform strategic resource cleanup before and after each request when Django integration is
+enabled, mimicking the behavior of the following Django features:
+
+* The database query log will be reset before each received request is handled.
+* Old database connections will be closed after each response is sent and also when the server has been idle for some
+  time without handling any requests.
+* The ``close`` method will be called on all configured Django cache engines. To make your caches work ideally in a
+  PySOA server environment, we recommend you use one or more of the following cache engines in your services, or
+  similarly override the ``close`` method in your own cache engines:
+
+  * ``pysoa.server.django.cache.PySOARequestScopedMemoryCache`` - The ``close`` method clears the request completely,
+    so that the cache gets cleared at the end of every job request.
+  * ``pysoa.server.django.cache.PySOAProcessScopedMemoryCache`` - The ``close`` method does nothing, so that the cache
+    lasts for the entire server process.
+  * ``pysoa.server.django.cache.PySOAMemcachedCache`` - The ``close`` method closes connections to Memcached only when
+    the server is shutting down (not at the end of every request).
+  * ``pysoa.server.django.cache.PySOAPyLibMCCache`` - The ``close`` method closes connections to Memcached only when
+    the server is shutting down (not at the end of every request), and only on Django versions older than 1.11.0.
+    (`As of Django 1.11.0 <https://github.com/django/django/commit/f02dbbe1ae02c3258fced7b7a75d35d7745cc02a>`_, the
+    ``PyLibMCCache`` implementation does not close connections. Instead, it lets the library connection management take
+    care of this.)
 
 
 Settings without Django
