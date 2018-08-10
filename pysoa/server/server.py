@@ -51,6 +51,7 @@ import pysoa.version
 
 try:
     from django.conf import settings as django_settings
+    from django.core.cache import caches as django_caches
     from django.db import (
         close_old_connections as django_close_old_connections,
         reset_queries as django_reset_queries,
@@ -59,6 +60,7 @@ try:
     from django.db.utils import DatabaseError
 except ImportError:
     django_settings = None
+    django_caches = None
     django_close_old_connections = None
     django_reset_queries = None
     django_get_autocommit = None
@@ -486,6 +488,14 @@ class Server(object):
                     # But if we can't import PyTest, then it can't be that error, so raise
                     raise e
 
+    def _close_django_caches(self, shutdown=False):
+        if self.use_django and django_caches:
+            if shutdown:
+                self.logger.info('Closing all Django caches')
+
+            for cache in django_caches.all():
+                cache.close(for_shutdown=shutdown)
+
     def perform_pre_request_actions(self):
         """
         Runs just before the server accepts a new request. Call super().perform_pre_request_actions() if you override.
@@ -507,6 +517,8 @@ class Server(object):
         full details on the chain of `Server` method calls.
         """
         self._close_old_django_connections()
+
+        self._close_django_caches()
 
     def perform_idle_actions(self):
         """
@@ -553,6 +565,7 @@ class Server(object):
         finally:
             self.metrics.commit()
             self.logger.info('Server shutting down')
+            self._close_django_caches(shutdown=True)
 
     # noinspection PyUnusedLocal
     @classmethod
