@@ -26,6 +26,7 @@ from pysoa.common.logging import (
     PySOALogContextFilter,
     RecursivelyCensoredDictWrapper,
 )
+from pysoa.common.metrics import TimerResolution
 from pysoa.common.serializer.exceptions import InvalidField
 from pysoa.common.transport.exceptions import (
     MessageReceiveError,
@@ -138,7 +139,7 @@ class Server(object):
         if not self._idle_timer:
             # This method may be called multiple times before receiving a request, so we only create and start a timer
             # if it's the first call or if the idle timer was stopped on the last call.
-            self._idle_timer = self.metrics.timer('server.idle_time')
+            self._idle_timer = self.metrics.timer('server.idle_time', resolution=TimerResolution.MICROSECONDS)
             self._idle_timer.start()
 
         # Get the next JobRequest
