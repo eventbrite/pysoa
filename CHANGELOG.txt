@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.46.0 (2018-08-10)
+-------------------
+- [MINOR] Fix the resolution of the server idle time metric
+- [MINOR] Add support for managing the lifecycle of Django cache engines and connections
+- Fix python3.7 build (as well as staging) on Travis CI (#116)
+
 0.45.0 (2018-08-06)
 -------------------
 - [MAJOR] Add support for non-blocking client futures
