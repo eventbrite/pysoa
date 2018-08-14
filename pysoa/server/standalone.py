@@ -3,6 +3,8 @@ from __future__ import (
     unicode_literals,
 )
 
+import importlib
+import logging
 import sys
 
 
@@ -164,7 +166,34 @@ def django_main(server_getter):
     if args.settings:
         os.environ['DJANGO_SETTINGS_MODULE'] = args.settings
 
+    warn_about_logging = False
+
+    try:
+        # We have to import it manually, because we need to manipulate the settings before setup() is called, but we
+        # can't import django.conf.settings until after setup() is called.
+        django_settings = importlib.import_module(os.environ['DJANGO_SETTINGS_MODULE'])
+        if (
+            getattr(django_settings, 'LOGGING', None) and
+            django_settings.LOGGING != django_settings.SOA_SERVER_SETTINGS['logging']
+        ):
+            warn_about_logging = True
+        django_settings.LOGGING = django_settings.SOA_SERVER_SETTINGS['logging']
+    except ImportError:
+        raise ValueError('Cannot import Django settings module `{}`.'.format(os.environ['DJANGO_SETTINGS_MODULE']))
+    except AttributeError:
+        raise ValueError('Cannot find `SOA_SERVER_SETTINGS` in the Django settings module.')
+    except KeyError:
+        raise ValueError(
+            "Cannot configure Django `LOGGING` setting because no setting `SOA_SERVER_SETTINGS['logging']` was found.",
+        )
+
     if django.VERSION >= (1, 7):
         django.setup()
+
+    if warn_about_logging:
+        logging.warning(
+            "Django setting `LOGGING` differs from `SOA_SERVER_SETTINGS['logging']` and has been overwritten with "
+            "the value of `SOA_SERVER_SETTINGS['logging']`."
+        )
 
     _run_server_reloader_wrapper(args, server_getter())

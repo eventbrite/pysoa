@@ -634,12 +634,12 @@ class Server(object):
             try:
                 settings = cls.settings_class(django_settings.SOA_SERVER_SETTINGS)
             except AttributeError:
-                raise ValueError('Cannot find SOA_SERVER_SETTINGS in the Django settings')
+                raise ValueError('Cannot find `SOA_SERVER_SETTINGS` in the Django settings.')
         else:
             try:
                 settings_module = importlib.import_module(cmd_options.settings)
             except ImportError as e:
-                raise ValueError('Cannot import settings module %s: %s' % (cmd_options.settings, e))
+                raise ValueError('Cannot import settings module `%s`: %s' % (cmd_options.settings, e))
             try:
                 settings_dict = getattr(settings_module, 'SOA_SERVER_SETTINGS')
             except AttributeError:
@@ -647,7 +647,7 @@ class Server(object):
                     settings_dict = getattr(settings_module, 'settings')
                 except AttributeError:
                     raise ValueError(
-                        "Cannot find 'SOA_SERVER_SETTINGS' or 'settings' variable in settings module {}.".format(
+                        "Cannot find `SOA_SERVER_SETTINGS` or `settings` variable in settings module `{}`.".format(
                             cmd_options.settings,
                         )
                     )
