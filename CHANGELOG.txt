@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.47.0 (2018-08-15)
+-------------------
+- [MINOR] Improve logging configuration to not conflict with Django
+
 0.46.0 (2018-08-10)
 -------------------
 - [MINOR] Fix the resolution of the server idle time metric
