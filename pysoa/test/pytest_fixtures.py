@@ -29,8 +29,17 @@ def server_settings(server_class):
 
 
 @pytest.fixture(scope='session')
-def service_client(server_class, server_settings):
-    return Client(
+def service_client_class(server_class):
+    class _TestClient(Client):
+        def call_action(self, action, body=None, service_name=None, **kwargs):
+            service_name = service_name or server_class.service_name
+            return super(_TestClient, self).call_action(service_name, action, body=body, **kwargs)
+    return _TestClient
+
+
+@pytest.fixture(scope='session')
+def service_client(server_class, server_settings, service_client_class):
+    return service_client_class(
         {
             server_class.service_name: {
                 'transport': {
@@ -43,17 +52,6 @@ def service_client(server_class, server_settings):
             },
         },
     )
-
-
-@pytest.fixture(scope='session')
-def call_action(server_class, service_client):
-    """
-    Fixture to call a service action. Defaults to calling the localized service.
-    """
-    def do_call_action(action, body=None, service_name=None, **kwargs):
-        return service_client.call_action(service_name or server_class.service_name, action, body=body, **kwargs)
-
-    return do_call_action
 
 
 @pytest.fixture
