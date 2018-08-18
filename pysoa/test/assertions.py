@@ -62,7 +62,7 @@ def raises_error_codes(error_codes, only=False, **kwargs):
 
     if error_msg:
         # If we have any cause to error, do so
-        raise AssertionError(error_msg)
+        pytest.fail(error_msg)
 
 
 def raises_only_error_codes(error_codes, **kwargs):
@@ -120,7 +120,7 @@ def raises_field_errors(field_errors, only=False, **kwargs):
 
     if error_msg:
         # If we have any cause to error, do so
-        raise AssertionError(error_msg)
+        pytest.fail(error_msg)
 
 
 def raises_only_field_errors(field_errors, **kwargs):

@@ -14,22 +14,35 @@ from pysoa.test.stub_service import stub_action
 
 @pytest.fixture(scope='session')
 def server_settings(server_class):
+    """
+    Load the server_settings used by this service.
+    """
     if server_class.use_django:
         from django.conf import settings
-        settings = settings.SOA_SERVER_SETTINGS
     else:
         settings_module = os.environ.get('PYSOA_SETTINGS_MODULE', None)
         assert settings_module, 'PYSOA_SETTINGS_MODULE environment variable must be set to run tests.'
         try:
-            thing = importlib.import_module(settings_module)
-            settings = thing.SOA_SERVER_SETTINGS
-        except (ImportError, AttributeError) as e:
-            raise AssertionError('Could not access {}.SOA_SERVER_SETTINGS: {}'.format(settings_module, e))
-    return settings
+            settings = importlib.import_module(settings_module)
+        except ImportError:
+            raise AssertionError('Could not import PYSOA_SETTINGS_MODULE: {}'.format(settings_module))
+
+    try:
+        soa_settings = settings.SOA_SERVER_SETTINGS
+    except AttributeError:
+        try:
+            soa_settings = settings.settings
+        except AttributeError:
+            raise AssertionError('Could not access settings.SOA_SERVER_SETTINGS or settings.settings')
+    return soa_settings
 
 
 @pytest.fixture(scope='session')
 def service_client_class(server_class):
+    """
+    Override the service client being used to test to automatically inject the service name for
+    your testing convenience.
+    """
     class _TestClient(Client):
         def call_action(self, action, body=None, service_name=None, **kwargs):
             service_name = service_name or server_class.service_name
@@ -39,6 +52,10 @@ def service_client_class(server_class):
 
 @pytest.fixture(scope='session')
 def service_client(server_class, server_settings, service_client_class):
+    """
+    Instantiate the service client class with the requisite config. Service doing the testing should define
+    the server_class fixture.
+    """
     return service_client_class(
         {
             server_class.service_name: {
@@ -56,6 +73,11 @@ def service_client(server_class, server_settings, service_client_class):
 
 @pytest.fixture
 def action_stubber():
+    """
+    Equivalent of the pytest `mocker` fixture for stub_action, with similar motivations and behavior.
+    Allows a test to stub actions without having to manually clean up after the test.
+    See https://github.com/pytest-dev/pytest-mock for more info
+    """
     stubbies = []
 
     def _do_stub(*args, **kwargs):
