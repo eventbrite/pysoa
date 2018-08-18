@@ -87,5 +87,5 @@ def action_stubber():
 
     yield _do_stub
 
-    for stub in stubbies:
+    for stub in stubbies[::-1]:
         stub.__exit__()
