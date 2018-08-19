@@ -20,8 +20,33 @@ from pysoa.test.assertions import (
 )
 
 
-def test_raises_call_action_error_on_error():
-    errors = [Error(code='TEST', message='test fail')]
+@pytest.fixture(scope='module')
+def test_error():
+    return Error(code='TEST', message='test fail')
+
+
+@pytest.fixture(scope='module')
+def auth_missing_error():
+    return Error(code='AUTH_MISSING', message='where did ur auth go')
+
+
+@pytest.fixture(scope='module')
+def invalid_event_id_field_error():
+    return Error(code='INVALID', field='event_id', message='bad event_id')
+
+
+@pytest.fixture(scope='module')
+def unknown_event_id_field_error():
+    return Error(code='UNKNOWN', field='event_id', message='bad event_id')
+
+
+@pytest.fixture(scope='module')
+def invalid_organization_id_field_error():
+    return Error(code='INVALID', field='organization_id', message='bad organization_id')
+
+
+def test_raises_call_action_error_on_error(test_error):
+    errors = [test_error]
     with raises_call_action_error() as exc_info:
         raise Client.CallActionError(
             actions=[ActionResponse(action='', errors=errors)]
@@ -43,9 +68,9 @@ def test_raises_call_action_error_different_error(exception_cls):
             raise exception_cls()
 
 
-def test_raises_error_codes_on_match():
-    errors = [Error(code='TEST', message='test fail')]
-    with raises_error_codes(['TEST']) as exc_info:
+def test_raises_error_codes_on_match(test_error):
+    errors = [test_error]
+    with raises_error_codes('TEST') as exc_info:
         raise Client.CallActionError(
             actions=[ActionResponse(action='', errors=errors)]
         )
@@ -86,11 +111,8 @@ def test_raises_error_codes_no_error():
             pass
 
 
-def test_raises_error_codes_unexpected_only():
-    errors = [
-        Error(code='TEST', message='test fail'),
-        Error(code='AUTH_MISSING', message='where did ur auth go'),
-    ]
+def test_raises_error_codes_unexpected_only(test_error, auth_missing_error):
+    errors = [test_error, auth_missing_error]
     with pytest.raises(pytest.raises.Exception):
         with raises_error_codes(['AUTH_MISSING'], only=True):
             raise Client.CallActionError(
@@ -98,11 +120,8 @@ def test_raises_error_codes_unexpected_only():
             )
 
 
-def test_raises_only_error_codes_match():
-    errors = [
-        Error(code='TEST', message='test fail'),
-        Error(code='AUTH_MISSING', message='where did ur auth go'),
-    ]
+def test_raises_only_error_codes_match(test_error, auth_missing_error):
+    errors = [test_error, auth_missing_error]
     with raises_only_error_codes(['AUTH_MISSING', 'TEST']) as exc_info:
         raise Client.CallActionError(
             actions=[ActionResponse(action='', errors=errors)]
@@ -111,11 +130,8 @@ def test_raises_only_error_codes_match():
     assert exc_info.soa_errors == errors
 
 
-def test_raises_only_error_codes_unexpected():
-    errors = [
-        Error(code='TEST', message='test fail'),
-        Error(code='AUTH_MISSING', message='where did ur auth go'),
-    ]
+def test_raises_only_error_codes_unexpected(test_error, auth_missing_error):
+    errors = [test_error, auth_missing_error]
     with pytest.raises(pytest.raises.Exception):
         with raises_only_error_codes(['AUTH_MISSING']):
             raise Client.CallActionError(
@@ -123,15 +139,27 @@ def test_raises_only_error_codes_unexpected():
             )
 
 
-def test_raises_field_errors_on_match():
-    errors = [
-        Error(
-            code='UNKNOWN',
-            message='test fail',
-            field='event_id',
-        ),
-    ]
-    with raises_field_errors({'event_id': 'UNKNOWN'}) as exc_info:
+def test_raises_error_only_codes_unexpected_field_error(invalid_event_id_field_error, auth_missing_error):
+    errors = [invalid_event_id_field_error, auth_missing_error]
+    with pytest.raises(pytest.raises.Exception):
+        with raises_only_error_codes('AUTH_MISSING'):
+            raise Client.CallActionError(
+                actions=[ActionResponse(action='', errors=errors)]
+            )
+
+
+def test_raises_error_only_codes_unexpected_missing(test_error, auth_missing_error):
+    errors = [test_error, auth_missing_error]
+    with pytest.raises(pytest.raises.Exception):
+        with raises_only_error_codes('UNAUTHORIZED'):
+            raise Client.CallActionError(
+                actions=[ActionResponse(action='', errors=errors)]
+            )
+
+
+def test_raises_field_errors_on_match(invalid_event_id_field_error):
+    errors = [invalid_event_id_field_error]
+    with raises_field_errors({'event_id': 'INVALID'}) as exc_info:
         raise Client.CallActionError(
             actions=[ActionResponse(action='', errors=errors)]
         )
@@ -174,18 +202,10 @@ def test_raises_field_errors_no_error():
             pass
 
 
-def test_raises_field_errors_unexpected_only():
+def test_raises_field_errors_unexpected_only(invalid_event_id_field_error, unknown_event_id_field_error):
     errors = [
-        Error(
-            code='UNKNOWN',
-            message='is this a butterfly?',
-            field='event_id',
-        ),
-        Error(
-            code='INVALID',
-            message='bad event id',
-            field='event_id',
-        ),
+        invalid_event_id_field_error,
+        unknown_event_id_field_error,
     ]
     with pytest.raises(pytest.raises.Exception):
         with raises_field_errors({'event_id': ['UNKNOWN']}, only=True):
@@ -194,18 +214,10 @@ def test_raises_field_errors_unexpected_only():
             )
 
 
-def test_raises_only_field_errors_match():
+def test_raises_only_field_errors_match(invalid_event_id_field_error, unknown_event_id_field_error):
     errors = [
-        Error(
-            code='UNKNOWN',
-            message='is this a butterfly?',
-            field='event_id',
-        ),
-        Error(
-            code='INVALID',
-            message='bad event id',
-            field='event_id',
-        ),
+        invalid_event_id_field_error,
+        unknown_event_id_field_error,
     ]
     with raises_only_field_errors({'event_id': ['UNKNOWN', 'INVALID']}) as exc_info:
         raise Client.CallActionError(
@@ -215,21 +227,37 @@ def test_raises_only_field_errors_match():
     assert exc_info.soa_errors == errors
 
 
-def test_raises_only_field_errors_unexpected():
+def test_raises_only_field_errors_unexpected(unknown_event_id_field_error, invalid_organization_id_field_error):
     errors = [
-        Error(
-            code='UNKNOWN',
-            message='is this a butterfly?',
-            field='event_id',
-        ),
-        Error(
-            code='INVALID',
-            message='bad org id',
-            field='organization_id',
-        ),
+        unknown_event_id_field_error,
+        invalid_organization_id_field_error,
     ]
     with pytest.raises(pytest.raises.Exception):
         with raises_only_field_errors({'organization_id': 'INVALID'}):
+            raise Client.CallActionError(
+                actions=[ActionResponse(action='', errors=errors)]
+            )
+
+
+def test_raises_only_field_errors_unexpected_error(auth_missing_error, invalid_organization_id_field_error):
+    errors = [
+        auth_missing_error,
+        invalid_organization_id_field_error,
+    ]
+    with pytest.raises(pytest.raises.Exception):
+        with raises_only_field_errors({'organization_id': 'INVALID'}):
+            raise Client.CallActionError(
+                actions=[ActionResponse(action='', errors=errors)]
+            )
+
+
+def test_raises_only_field_errors_unexpected_missing(unknown_event_id_field_error, invalid_organization_id_field_error):
+    errors = [
+        unknown_event_id_field_error,
+        invalid_organization_id_field_error,
+    ]
+    with pytest.raises(pytest.raises.Exception):
+        with raises_only_field_errors({'event_id': 'MISSING'}):
             raise Client.CallActionError(
                 actions=[ActionResponse(action='', errors=errors)]
             )
