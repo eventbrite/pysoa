@@ -8,8 +8,6 @@ import os
 
 import pytest
 
-from pysoa.client import Client
-from pysoa.test.stub_service import stub_action
 
 
 @pytest.fixture(scope='session')
@@ -43,10 +41,13 @@ def service_client_class(server_class):
     Override the service client being used to test to automatically inject the service name for
     your testing convenience.
     """
+    from pysoa.client import Client  # inline so as not to mess up coverage
+
     class _TestClient(Client):
         def call_action(self, action, body=None, service_name=None, **kwargs):
             service_name = service_name or server_class.service_name
             return super(_TestClient, self).call_action(service_name, action, body=body, **kwargs)
+
     return _TestClient
 
 
@@ -78,6 +79,8 @@ def action_stubber():
     Allows a test to stub actions without having to manually clean up after the test.
     See https://github.com/pytest-dev/pytest-mock for more info
     """
+    from pysoa.test.stub_service import stub_action  # inline so as not to mess up coverage
+
     stubbies = []
 
     def _do_stub(*args, **kwargs):
