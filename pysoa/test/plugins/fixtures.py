@@ -9,7 +9,6 @@ import os
 import pytest
 
 
-
 @pytest.fixture(scope='session')
 def server_settings(server_class):
     """
