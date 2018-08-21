@@ -8,7 +8,11 @@ import os
 import unittest
 
 from pysoa.client import Client
-from pysoa.test.assertions import raises_call_action_error, raises_field_errors, raises_error_codes
+from pysoa.test.assertions import (
+    raises_call_action_error,
+    raises_error_codes,
+    raises_field_errors,
+)
 
 
 class ServerTestCase(unittest.TestCase):

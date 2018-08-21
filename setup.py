@@ -66,8 +66,8 @@ setup(
     },
     entry_points={
         'pytest11': [
-            'pysoa_test_plan=pysoa.test.plugins.plans',
-            'pysoa_test_fixtures=pysoa.test.plugins.fixtures',
+            'pysoa_test_plan=pysoa.test.plugins.pytest.plans',
+            'pysoa_test_fixtures=pysoa.test.plugins.pytest.fixtures',
         ]
     },
     license='Apache 2.0',
