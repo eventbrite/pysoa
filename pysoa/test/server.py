@@ -7,9 +7,12 @@ import importlib
 import os
 import unittest
 
-import six
-
 from pysoa.client import Client
+from pysoa.test.assertions import (
+    raises_call_action_error,
+    raises_error_codes,
+    raises_field_errors,
+)
 
 
 class ServerTestCase(unittest.TestCase):
@@ -67,106 +70,20 @@ class ServerTestCase(unittest.TestCase):
         return self.client.call_action(service_name or self.server_class.service_name, action, body=body, **kwargs)
 
     def assertActionRunsWithAndReturnErrors(self, action, body, **kwargs):
-        try:
+        with raises_call_action_error() as exc_info:
             self.call_action(action, body, **kwargs)
-            # If we got here, it ran with no errors, so fail
-            raise self.failureException('Action ran without any of the expected errors')
-        except self.client.CallActionError as e:
-            return e.actions[0].errors
+        return exc_info.soa_errors
 
     def assertActionRunsWithFieldErrors(self, action, body, field_errors, only=False, **kwargs):
-        raised_errors = self.assertActionRunsWithAndReturnErrors(action, body, **kwargs)
-
-        unexpected_errors = []
-        missing_errors = []
-
-        # Provide the flexibility for them to pass it a set or list of error codes, or a single code, per field
-        for field, errors in six.iteritems(field_errors):
-            if not isinstance(errors, set):
-                if isinstance(errors, list):
-                    field_errors[field] = set(errors)
-                else:
-                    field_errors[field] = {errors}
-
-        # Go through all the errors returned by the action, mark any that are unexpected, remove any that match
-        for error in raised_errors:
-            if not getattr(error, 'field', None):
-                unexpected_errors.append((error.code, error.message))
-                continue
-
-            if error.field not in field_errors:
-                unexpected_errors.append({error.field: (error.code, error.message)})
-                continue
-
-            if error.code not in field_errors[error.field]:
-                unexpected_errors.append({error.field: (error.code, error.message)})
-                continue
-
-            field_errors[error.field].remove(error.code)
-            if not field_errors[error.field]:
-                del field_errors[error.field]
-
-        # Go through all the remaining expected errors that weren't matched
-        for field, errors in six.iteritems(field_errors):
-            for error in errors:
-                missing_errors.append({field: error})
-
-        error_msg = ''
-        if missing_errors:
-            error_msg = 'Expected field errors not found in response: {}'.format(str(missing_errors))
-
-        if only and unexpected_errors:
-            if error_msg:
-                error_msg += '\n'
-            error_msg += 'Unexpected errors found in response: {}'.format(str(unexpected_errors))
-
-        if error_msg:
-            # If we have any cause to error, do so
-            raise self.failureException(error_msg)
+        with raises_field_errors(field_errors, only=only):
+            self.call_action(action, body, **kwargs)
 
     def assertActionRunsWithOnlyFieldErrors(self, action, body, field_errors, **kwargs):
         self.assertActionRunsWithFieldErrors(action, body, field_errors, only=True, **kwargs)
 
     def assertActionRunsWithErrorCodes(self, action, body, error_codes, only=False, **kwargs):
-        raised_errors = self.assertActionRunsWithAndReturnErrors(action, body, **kwargs)
-
-        if not isinstance(error_codes, set):
-            if isinstance(error_codes, list):
-                error_codes = set(error_codes)
-            else:
-                error_codes = {error_codes}
-
-        unexpected_errors = []
-        missing_errors = []
-
-        # Go through all the errors returned by the action, mark any that are unexpected, remove any that match
-        for error in raised_errors:
-            if getattr(error, 'field', None):
-                unexpected_errors.append({error.field: (error.code, error.message)})
-                continue
-
-            if error.code not in error_codes:
-                unexpected_errors.append((error.code, error.message))
-                continue
-
-            error_codes.remove(error.code)
-
-        # Go through all the remaining expected errors that weren't matched
-        for error in error_codes:
-            missing_errors.append(error)
-
-        error_msg = ''
-        if missing_errors:
-            error_msg = 'Expected errors not found in response: {}'.format(str(missing_errors))
-
-        if only and unexpected_errors:
-            if error_msg:
-                error_msg += '\n'
-            error_msg += 'Unexpected errors found in response: {}'.format(str(unexpected_errors))
-
-        if error_msg:
-            # If we have any cause to error, do so
-            raise self.failureException(error_msg)
+        with raises_error_codes(error_codes, only=only):
+            self.call_action(action, body, **kwargs)
 
     def assertActionRunsWithOnlyErrorCodes(self, action, body, error_codes, **kwargs):
         self.assertActionRunsWithErrorCodes(action, body, error_codes, only=True, **kwargs)
