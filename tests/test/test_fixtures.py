@@ -10,12 +10,12 @@ from pysoa.server.server import Server
 from pysoa.test.factories import ActionFactory
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def server_settings():
     return {}
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def test_action():
     class _TestAction(Action):
         def run(self, request):
@@ -26,7 +26,7 @@ def test_action():
     return _TestAction
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def server_class(test_action):
     class _TestServiceServer(Server):
         service_name = 'test_service'

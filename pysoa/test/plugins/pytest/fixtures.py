@@ -9,7 +9,7 @@ import os
 import pytest
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def server_settings(server_class):
     """
     Load the server_settings used by this service.
@@ -34,7 +34,7 @@ def server_settings(server_class):
     return soa_settings
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def service_client_class(server_class):
     """
     Override the service client being used to test to automatically inject the service name for
@@ -50,7 +50,7 @@ def service_client_class(server_class):
     return _TestClient
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def service_client(server_class, server_settings, service_client_class):
     """
     Instantiate the service client class with the requisite config. Service doing the testing should define
