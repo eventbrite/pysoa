@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.48.0 (2018-08-23)
+-------------------
+- [MINOR] Add tools to support pytesty testing in pysoa services (#122)
+
 0.47.0 (2018-08-15)
 -------------------
 - [MINOR] Improve logging configuration to not conflict with Django
