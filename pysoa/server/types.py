@@ -21,3 +21,4 @@ class EnrichedActionRequest(ActionRequest):
     context = attr.ib(default=attr.Factory(dict))
     control = attr.ib(default=attr.Factory(dict))
     client = attr.ib(default=None)
+    async_event_loop = attr.ib(default=None)
