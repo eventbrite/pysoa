@@ -132,6 +132,13 @@ class ServerSettings(SOASettings):
                         'whose responses contain errors (setting this to a more severe level than '
                         '`request_log_success_level` will allow you to easily filter for unsuccessful requests)',
         ),
+        'heartbeat_file': fields.Nullable(fields.UnicodeString(
+            description='If specified, the server will create a heartbeat file at the specified path on startup, '
+                        'update the timestamp in that file after the processing of every request or every time '
+                        'idle operations are processed, and delete the file when the server shuts down. The file name '
+                        'can optionally contain the specifier {{pid}}, which will be replaced with the server process '
+                        'PID.',
+        )),
     }
 
     defaults = {
@@ -183,6 +190,7 @@ class ServerSettings(SOASettings):
         },
         'request_log_success_level': 'INFO',
         'request_log_error_level': 'INFO',
+        'heartbeat_file': None,
     }
 
 

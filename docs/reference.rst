@@ -2055,6 +2055,7 @@ Settings Schema Definition
   - ``shutdown_grace`` - ``integer``: Seconds to forcefully shutdown after harakiri is triggered if shutdown does not occur (additional information: ``{u'gt': 0}``)
   - ``timeout`` - ``integer``: Seconds of inactivity before harakiri is triggered; 0 to disable, defaults to 300 (additional information: ``{u'gte': 0}``)
 
+- ``heartbeat_file`` - ``unicode`` (nullable): If specified, the server will create a heartbeat file at the specified path on startup, update the timestamp in that file after the processing of every request or every time idle operations are processed, and delete the file when the server shuts down. The file name can optionally contain the specifier {{pid}}, which will be replaced with the server process PID.
 - ``logging`` - strict ``dict``: Settings for service logging, which should follow the standard Python logging configuration
 
   - ``disable_existing_loggers`` - ``boolean``: *(no description)*
@@ -2319,6 +2320,7 @@ apply as the default values.
             "shutdown_grace": 30,
             "timeout": 300
         },
+        "heartbeat_file": null,
         "logging": {
             "disable_existing_loggers": false,
             "filters": {
@@ -2437,3 +2439,4 @@ Attrs Properties
 - ``context``
 - ``control``
 - ``client``
+- ``async_event_loop``
