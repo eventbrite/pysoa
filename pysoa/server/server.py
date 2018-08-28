@@ -4,6 +4,10 @@ from __future__ import (
 )
 
 import argparse
+try:
+    import asyncio
+except ImportError:
+    asyncio = None
 import importlib
 import logging
 import logging.config
@@ -98,6 +102,10 @@ class Server(object):
         # Check subclassing setup
         if not self.service_name:
             raise AttributeError('Server subclass must set service_name')
+
+        self.async_event_loop = None
+        if asyncio:
+            self.async_event_loop = asyncio.get_event_loop()
 
         # Store settings and extract transport
         self.settings = settings
@@ -277,8 +285,11 @@ class Server(object):
             if validation_errors:
                 raise JobError(errors=validation_errors)
 
-            # Add a client router in case a middleware wishes to use it
+            # Add the client object in case a middleware wishes to use it
             job_request['client'] = self.make_client(job_request['context'])
+
+            # Add the async event loop in case a middleware wishes to use it
+            job_request['async_event_loop'] = self.async_event_loop
 
             # Build set of middleware + job handler, then run job
             wrapper = self.make_middleware_stack(
@@ -378,6 +389,7 @@ class Server(object):
                 context=job_request['context'],
                 control=job_request['control'],
                 client=job_request['client'],
+                async_event_loop=job_request['async_event_loop'],
             )
             action_in_class_map = action_request.action in self.action_class_map
             if action_in_class_map or action_request.action in ('status', 'introspect'):
@@ -543,6 +555,10 @@ class Server(object):
                 transport=self.transport,
             )
         )
+
+        if self.async_event_loop:
+            self.logger.info('Async event logger available and in use')
+
         self.setup()
         self.metrics.commit()
 
@@ -566,6 +582,10 @@ class Server(object):
         finally:
             self.metrics.commit()
             self.logger.info('Server shutting down')
+            if self.async_event_loop:
+                self.logger.info('Stopping and closing async event loop')
+                self.async_event_loop.stop()
+                self.async_event_loop.close()
             self._close_django_caches(shutdown=True)
 
     # noinspection PyUnusedLocal
