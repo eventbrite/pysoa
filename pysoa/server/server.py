@@ -8,12 +8,14 @@ try:
     import asyncio
 except ImportError:
     asyncio = None
+import codecs
 import importlib
 import logging
 import logging.config
 import os
 import signal
 import sys
+import time
 import traceback
 
 import attr
@@ -138,6 +140,9 @@ class Server(object):
         self._default_status_action_class = None
 
         self._idle_timer = None
+
+        self._heartbeat_file = None
+        self._heartbeat_file_path = None
 
     def handle_next_request(self):
         """
@@ -509,6 +514,39 @@ class Server(object):
             for cache in django_caches.all():
                 cache.close(for_shutdown=shutdown)
 
+    def _create_heartbeat_file(self):
+        if self.settings['heartbeat_file']:
+            self.logger.info('Creating heartbeat file')
+
+            self._heartbeat_file_path = os.path.abspath(
+                self.settings['heartbeat_file'].replace('{{pid}}', six.text_type(os.getpid())),
+            )
+            self._heartbeat_file = codecs.open(self._heartbeat_file_path, 'wb', encoding='utf-8')
+
+            self._update_heartbeat_file()
+
+    def _delete_heartbeat_file(self):
+        if self._heartbeat_file:
+            self.logger.info('Closing and removing heartbeat file')
+
+            # noinspection PyBroadException
+            try:
+                self._heartbeat_file.close()
+            except Exception:
+                self.logger.exception('Error while closing heartbeat file')
+            finally:
+                # noinspection PyBroadException
+                try:
+                    os.remove(self._heartbeat_file_path)
+                except Exception:
+                    self.logger.exception('Error while removing heartbeat file')
+
+    def _update_heartbeat_file(self):
+        if self._heartbeat_file:
+            self._heartbeat_file.seek(0)
+            self._heartbeat_file.write(six.text_type(time.time()))
+            self._heartbeat_file.flush()
+
     def perform_pre_request_actions(self):
         """
         Runs just before the server accepts a new request. Call super().perform_pre_request_actions() if you override.
@@ -533,6 +571,8 @@ class Server(object):
 
         self._close_django_caches()
 
+        self._update_heartbeat_file()
+
     def perform_idle_actions(self):
         """
         Runs periodically when the server is idle, if it has been too long since it last received a request. Call
@@ -540,6 +580,8 @@ class Server(object):
         chain of `Server` method calls.
         """
         self._close_old_django_connections()
+
+        self._update_heartbeat_file()
 
     def run(self):
         """
@@ -561,6 +603,8 @@ class Server(object):
 
         self.setup()
         self.metrics.commit()
+
+        self._create_heartbeat_file()
 
         signal.signal(signal.SIGINT, self.handle_shutdown_signal)
         signal.signal(signal.SIGTERM, self.handle_shutdown_signal)
@@ -587,6 +631,7 @@ class Server(object):
                 self.async_event_loop.stop()
                 self.async_event_loop.close()
             self._close_django_caches(shutdown=True)
+            self._delete_heartbeat_file()
 
     # noinspection PyUnusedLocal
     @classmethod
