@@ -10,12 +10,11 @@ from pysoa.common.types import (
     ActionResponse,
     Error,
 )
-
 from pysoa.test.assertions import (
     raises_call_action_error,
     raises_error_codes,
-    raises_only_error_codes,
     raises_field_errors,
+    raises_only_error_codes,
     raises_only_field_errors,
 )
 

@@ -675,127 +675,7 @@ Settings Schema Definition
 
     Optional keys: ``kwargs``
 
-- ``transport`` - schema switching on value of ``path``: *(no description)*
-
-  - ``path == '__default__'`` - strict ``dict``: *(no description)*
-
-    - ``kwargs`` - flexible ``dict``: Any keyword arguments that should be passed to the class when constructing a new instance
-
-      keys
-        ``unicode``: *(no description)*
-
-      values
-        ``anything``: *(no description)*
-
-    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
-
-    Optional keys: ``kwargs``
-
-  - ``path == 'pysoa.common.transport.local:LocalClientTransport'`` - strict ``dict``: The settings for the local transport
-
-    - ``kwargs`` - strict ``dict``: *(no description)*
-
-      - ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself
-
-        - ``unicode``: The path to the ``Server`` class, in the format ``module.name:ClassName``
-        - ``object_instance``: A reference to the ``Server``-extending class/type (additional information: ``{u'valid_type': "(<type 'type'>, <type 'classobj'>)"}``)
-
-      - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the ``server_class``
-
-        keys
-          ``unicode``: *(no description)*
-
-        values
-          ``anything``: *(no description)*
-
-
-    - ``path`` - ``unicode``: The path to the local client transport, in the format ``module.name:ClassName``
-
-    Optional keys: ``kwargs``
-
-  - ``path == 'pysoa.common.transport.redis_gateway.client:RedisClientTransport'`` - strict ``dict``: The settings for the Redis transport
-
-    - ``kwargs`` - strict ``dict``: *(no description)*
-
-      - ``backend_layer_kwargs`` - strict ``dict``: The arguments passed to the Redis connection manager
-
-        - ``connection_kwargs`` - flexible ``dict``: The arguments used when creating all Redis connections (see Redis-Py docs)
-
-          keys
-            ``hashable``: *(no description)*
-
-          values
-            ``anything``: *(no description)*
-
-        - ``hosts`` - ``list``: The list of Redis hosts, where each is a tuple of ``("address", port)`` or the simple string address.
-
-          values
-            any of the types bulleted below: *(no description)*
-
-            - ``tuple``: *(no description)* (additional information: ``{u'contents': [{u'type': u'unicode'}, {u'type': u'integer'}]}``)
-            - ``unicode``: *(no description)*
-
-        - ``redis_db`` - ``integer``: The Redis database, a shortcut for putting this in ``connection_kwargs``.
-        - ``redis_port`` - ``integer``: The port number, a shortcut for putting this on all hosts
-        - ``sentinel_failover_retries`` - ``integer``: How many times to retry (with a delay) getting a connection from the Sentinel when a master cannot be found (cluster is in the middle of a failover); should only be used for Sentinel backend type
-        - ``sentinel_services`` - ``list``: A list of Sentinel services (will be discovered by default); should only be used for Sentinel backend type
-
-          values
-            ``unicode``: *(no description)*
-
-        Optional keys: ``connection_kwargs``, ``hosts``, ``redis_db``, ``redis_port``, ``sentinel_failover_retries``, ``sentinel_services``
-
-      - ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{u'values': [u'redis.standard', u'redis.sentinel']}``)
-      - ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
-      - ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
-      - ``message_expiry_in_seconds`` - ``integer``: How long after a message is sent that it is considered expired, dropped from queue
-      - ``queue_capacity`` - ``integer``: The capacity of the message queue to which this transport will send messages
-      - ``queue_full_retries`` - ``integer``: How many times to retry sending a message to a full queue before giving up
-      - ``receive_timeout_in_seconds`` - ``integer``: How long to block waiting on a message to be received
-      - ``serializer_config`` - strict ``dict``: The configuration for the serializer this transport should use
-
-        - ``kwargs`` - flexible ``dict``: Any keyword arguments that should be passed to the class when constructing a new instance
-
-          keys
-            ``unicode``: *(no description)*
-
-          values
-            ``anything``: *(no description)*
-
-        - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
-
-        Optional keys: ``kwargs``
-
-
-      Optional keys: ``backend_layer_kwargs``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``, ``serializer_config``
-
-    - ``path`` - ``unicode``: The path to the Redis client or server transport, in the format ``module.name:ClassName``
-
-    Optional keys: ``kwargs``
-
-  - ``path == 'pysoa.common.transport:LocalClientTransport'`` - strict ``dict``: The settings for the local transport
-
-    - ``kwargs`` - strict ``dict``: *(no description)*
-
-      - ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself
-
-        - ``unicode``: The path to the ``Server`` class, in the format ``module.name:ClassName``
-        - ``object_instance``: A reference to the ``Server``-extending class/type (additional information: ``{u'valid_type': "(<type 'type'>, <type 'classobj'>)"}``)
-
-      - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the ``server_class``
-
-        keys
-          ``unicode``: *(no description)*
-
-        values
-          ``anything``: *(no description)*
-
-
-    - ``path`` - ``unicode``: The path to the local client transport, in the format ``module.name:ClassName``
-
-    Optional keys: ``kwargs``
-
-
+- ``transport`` - dictionary whose schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the settings schema documentation for the class named at ``path``){}
 - ``transport_cache_time_in_seconds`` - ``anything``: This field is deprecated. The transport cache is no longer supported. This settings field will remain in place until 2018-06-15 to give a safe period for people to remove it from settings, but its value will always be ignored.
 
 Default Values
@@ -1237,6 +1117,38 @@ Parameters
   - ``body``
 
 
+.. _pysoa.common.transport.local.LocalTransportSchema
+
+``class-path settings schema LocalTransportSchema``
++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+**module:** ``pysoa.common.transport.local``
+
+Settings Schema Definition
+**************************
+strict ``dict``: The settings for the local transport
+
+- ``kwargs`` - strict ``dict``: *(no description)*
+
+  - ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself
+
+    - ``unicode``: The path to the ``Server`` class, in the format ``module.name:ClassName``
+    - ``object_instance``: A reference to the ``Server``-extending class/type (additional information: ``{u'valid_type': "(<type 'type'>, <type 'classobj'>)"}``)
+
+  - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the ``server_class``
+
+    keys
+      ``unicode``: *(no description)*
+
+    values
+      ``anything``: *(no description)*
+
+
+- ``path`` - ``unicode``: The path to the local client transport, in the format ``module.name:ClassName``
+
+Optional keys: ``kwargs``
+
+
 .. _pysoa.common.transport.redis_gateway.client.RedisClientTransport:
 
 ``class RedisClientTransport``
@@ -1327,6 +1239,76 @@ Parameters
 ********************************************************
 
 *(No documentation)*
+
+
+.. _pysoa.common.transport.redis_gateway.settings.RedisTransportSchema
+
+``class-path settings schema RedisTransportSchema``
++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+**module:** ``pysoa.common.transport.redis_gateway.settings``
+
+Settings Schema Definition
+**************************
+strict ``dict``: The settings for the Redis transport
+
+- ``kwargs`` - strict ``dict``: *(no description)*
+
+  - ``backend_layer_kwargs`` - strict ``dict``: The arguments passed to the Redis connection manager
+
+    - ``connection_kwargs`` - flexible ``dict``: The arguments used when creating all Redis connections (see Redis-Py docs)
+
+      keys
+        ``hashable``: *(no description)*
+
+      values
+        ``anything``: *(no description)*
+
+    - ``hosts`` - ``list``: The list of Redis hosts, where each is a tuple of ``("address", port)`` or the simple string address.
+
+      values
+        any of the types bulleted below: *(no description)*
+
+        - ``tuple``: *(no description)* (additional information: ``{u'contents': [{u'type': u'unicode'}, {u'type': u'integer'}]}``)
+        - ``unicode``: *(no description)*
+
+    - ``redis_db`` - ``integer``: The Redis database, a shortcut for putting this in ``connection_kwargs``.
+    - ``redis_port`` - ``integer``: The port number, a shortcut for putting this on all hosts
+    - ``sentinel_failover_retries`` - ``integer``: How many times to retry (with a delay) getting a connection from the Sentinel when a master cannot be found (cluster is in the middle of a failover); should only be used for Sentinel backend type
+    - ``sentinel_services`` - ``list``: A list of Sentinel services (will be discovered by default); should only be used for Sentinel backend type
+
+      values
+        ``unicode``: *(no description)*
+
+    Optional keys: ``connection_kwargs``, ``hosts``, ``redis_db``, ``redis_port``, ``sentinel_failover_retries``, ``sentinel_services``
+
+  - ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{u'values': [u'redis.standard', u'redis.sentinel']}``)
+  - ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
+  - ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
+  - ``message_expiry_in_seconds`` - ``integer``: How long after a message is sent that it is considered expired, dropped from queue
+  - ``queue_capacity`` - ``integer``: The capacity of the message queue to which this transport will send messages
+  - ``queue_full_retries`` - ``integer``: How many times to retry sending a message to a full queue before giving up
+  - ``receive_timeout_in_seconds`` - ``integer``: How long to block waiting on a message to be received
+  - ``serializer_config`` - strict ``dict``: The configuration for the serializer this transport should use
+
+    - ``kwargs`` - flexible ``dict``: Any keyword arguments that should be passed to the class when constructing a new instance
+
+      keys
+        ``unicode``: *(no description)*
+
+      values
+        ``anything``: *(no description)*
+
+    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
+
+    Optional keys: ``kwargs``
+
+
+  Optional keys: ``backend_layer_kwargs``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``, ``serializer_config``
+
+- ``path`` - ``unicode``: The path to the Redis client or server transport, in the format ``module.name:ClassName``
+
+Optional keys: ``kwargs``
 
 
 .. _pysoa.common.types.ActionRequest:
@@ -2186,125 +2168,7 @@ Settings Schema Definition
 
 - ``request_log_error_level`` - ``constant``: The logging level at which full request and response contents will be logged for requests whose responses contain errors (setting this to a more severe level than ``request_log_success_level`` will allow you to easily filter for unsuccessful requests) (additional information: ``{u'values': [u'DEBUG', u'INFO', u'WARNING', u'CRITICAL', u'ERROR']}``)
 - ``request_log_success_level`` - ``constant``: The logging level at which full request and response contents will be logged for successful requests (additional information: ``{u'values': [u'DEBUG', u'INFO', u'WARNING', u'CRITICAL', u'ERROR']}``)
-- ``transport`` - schema switching on value of ``path``: *(no description)*
-
-  - ``path == '__default__'`` - strict ``dict``: *(no description)*
-
-    - ``kwargs`` - flexible ``dict``: Any keyword arguments that should be passed to the class when constructing a new instance
-
-      keys
-        ``unicode``: *(no description)*
-
-      values
-        ``anything``: *(no description)*
-
-    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
-
-    Optional keys: ``kwargs``
-
-  - ``path == 'pysoa.common.transport.local:LocalServerTransport'`` - strict ``dict``: The settings for the local transport
-
-    - ``kwargs`` - strict ``dict``: *(no description)*
-
-      - ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself
-
-        - ``unicode``: The path to the ``Server`` class, in the format ``module.name:ClassName``
-        - ``object_instance``: A reference to the ``Server``-extending class/type (additional information: ``{u'valid_type': "(<type 'type'>, <type 'classobj'>)"}``)
-
-      - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the ``server_class``
-
-        keys
-          ``unicode``: *(no description)*
-
-        values
-          ``anything``: *(no description)*
-
-
-    - ``path`` - ``unicode``: The path to the local client transport, in the format ``module.name:ClassName``
-
-    Optional keys: ``kwargs``
-
-  - ``path == 'pysoa.common.transport.redis_gateway.server:RedisServerTransport'`` - strict ``dict``: The settings for the Redis transport
-
-    - ``kwargs`` - strict ``dict``: *(no description)*
-
-      - ``backend_layer_kwargs`` - strict ``dict``: The arguments passed to the Redis connection manager
-
-        - ``connection_kwargs`` - flexible ``dict``: The arguments used when creating all Redis connections (see Redis-Py docs)
-
-          keys
-            ``hashable``: *(no description)*
-
-          values
-            ``anything``: *(no description)*
-
-        - ``hosts`` - ``list``: The list of Redis hosts, where each is a tuple of ``("address", port)`` or the simple string address.
-
-          values
-            any of the types bulleted below: *(no description)*
-
-            - ``tuple``: *(no description)* (additional information: ``{u'contents': [{u'type': u'unicode'}, {u'type': u'integer'}]}``)
-            - ``unicode``: *(no description)*
-
-        - ``redis_db`` - ``integer``: The Redis database, a shortcut for putting this in ``connection_kwargs``.
-        - ``redis_port`` - ``integer``: The port number, a shortcut for putting this on all hosts
-        - ``sentinel_failover_retries`` - ``integer``: How many times to retry (with a delay) getting a connection from the Sentinel when a master cannot be found (cluster is in the middle of a failover); should only be used for Sentinel backend type
-        - ``sentinel_services`` - ``list``: A list of Sentinel services (will be discovered by default); should only be used for Sentinel backend type
-
-          values
-            ``unicode``: *(no description)*
-
-        Optional keys: ``connection_kwargs``, ``hosts``, ``redis_db``, ``redis_port``, ``sentinel_failover_retries``, ``sentinel_services``
-
-      - ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{u'values': [u'redis.standard', u'redis.sentinel']}``)
-      - ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
-      - ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
-      - ``message_expiry_in_seconds`` - ``integer``: How long after a message is sent that it is considered expired, dropped from queue
-      - ``queue_capacity`` - ``integer``: The capacity of the message queue to which this transport will send messages
-      - ``queue_full_retries`` - ``integer``: How many times to retry sending a message to a full queue before giving up
-      - ``receive_timeout_in_seconds`` - ``integer``: How long to block waiting on a message to be received
-      - ``serializer_config`` - strict ``dict``: The configuration for the serializer this transport should use
-
-        - ``kwargs`` - flexible ``dict``: Any keyword arguments that should be passed to the class when constructing a new instance
-
-          keys
-            ``unicode``: *(no description)*
-
-          values
-            ``anything``: *(no description)*
-
-        - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
-
-        Optional keys: ``kwargs``
-
-
-      Optional keys: ``backend_layer_kwargs``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``, ``serializer_config``
-
-    - ``path`` - ``unicode``: The path to the Redis client or server transport, in the format ``module.name:ClassName``
-
-    Optional keys: ``kwargs``
-
-  - ``path == 'pysoa.common.transport:LocalServerTransport'`` - strict ``dict``: The settings for the local transport
-
-    - ``kwargs`` - strict ``dict``: *(no description)*
-
-      - ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself
-
-        - ``unicode``: The path to the ``Server`` class, in the format ``module.name:ClassName``
-        - ``object_instance``: A reference to the ``Server``-extending class/type (additional information: ``{u'valid_type': "(<type 'type'>, <type 'classobj'>)"}``)
-
-      - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the ``server_class``
-
-        keys
-          ``unicode``: *(no description)*
-
-        values
-          ``anything``: *(no description)*
-
-
-    - ``path`` - ``unicode``: The path to the local client transport, in the format ``module.name:ClassName``
-
-    Optional keys: ``kwargs``
+- ``transport`` - dictionary whose schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the settings schema documentation for the class named at ``path``){}
 
 Default Values
 **************

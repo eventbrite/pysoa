@@ -165,3 +165,7 @@ class LocalTransportSchema(BasicClassSchema):
     }
 
     description = 'The settings for the local transport'
+
+
+LocalClientTransport.settings_schema = LocalTransportSchema(LocalClientTransport)
+LocalServerTransport.settings_schema = LocalTransportSchema(LocalServerTransport)

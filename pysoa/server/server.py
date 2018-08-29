@@ -4,10 +4,6 @@ from __future__ import (
 )
 
 import argparse
-try:
-    import asyncio
-except ImportError:
-    asyncio = None
 import codecs
 import importlib
 import logging
@@ -55,6 +51,11 @@ from pysoa.server.settings import PolymorphicServerSettings
 from pysoa.server.types import EnrichedActionRequest
 import pysoa.version
 
+
+try:
+    import asyncio
+except ImportError:
+    asyncio = None
 
 try:
     from django.conf import settings as django_settings

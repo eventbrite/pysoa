@@ -10,6 +10,7 @@ from collections import (
 from functools import wraps
 import re
 
+from conformity import fields
 import six
 
 from pysoa.client.client import (
@@ -18,6 +19,7 @@ from pysoa.client.client import (
 )
 from pysoa.client.settings import ClientSettings
 from pysoa.common.metrics import NoOpMetricsRecorder
+from pysoa.common.schemas import BasicClassSchema
 from pysoa.common.transport.exceptions import (
     MessageReceiveError,
     MessageReceiveTimeout,
@@ -166,6 +168,54 @@ class StubClientTransport(LocalClientTransport):
         :param errors: The optional errors to raise
         """
         self.server.stub_action(action, body=body, errors=errors)
+
+
+class StubClientTransportSchema(BasicClassSchema):
+    contents = {
+        'path': fields.UnicodeString(
+            description='The path to the stub client transport, in the format `module.name:ClassName`',
+        ),
+        'kwargs': fields.Dictionary(
+            {
+                'action_map': fields.SchemalessDictionary(
+                    key_type=fields.UnicodeString(
+                        description='The name of the action to stub',
+                    ),
+                    value_type=fields.Dictionary(
+                        {
+                            'body': fields.SchemalessDictionary(
+                                description='The body with which the action should respond',
+                            ),
+                            'errors': fields.List(
+                                fields.Any(
+                                    fields.ObjectInstance(Error),
+                                    fields.Dictionary(
+                                        {
+                                            'code': fields.UnicodeString(),
+                                            'message': fields.UnicodeString(),
+                                            'field': fields.UnicodeString(),
+                                            'traceback': fields.UnicodeString(),
+                                            'variables': fields.SchemalessDictionary(),
+                                            'denied_permissions': fields.List(fields.UnicodeString()),
+                                        },
+                                    ),
+                                ),
+                                description='The ',
+                            ),
+                        },
+                        description='A dictionary containing either a body dict or an errors list, providing an '
+                                    'instruction on how the stub action should respond to requests',
+                        optional_keys=('body', 'errors'),
+                    ),
+                ),
+            },
+        ),
+    }
+
+    description = 'The settings for the local transport'
+
+
+StubClientTransport.settings_schema = StubClientTransportSchema(StubClientTransport)
 
 
 class StubServer(Server):

@@ -14,6 +14,10 @@ import attr
 from conformity import fields
 import six
 
+from pysoa.common.schemas import (
+    BasicClassSchema,
+    PolymorphClassSchema,
+)
 from pysoa.common.settings import Settings
 
 
@@ -39,8 +43,10 @@ TO_DOCUMENT = (
     'pysoa.common.transport.base:ServerTransport',
     'pysoa.common.transport.local:LocalClientTransport',
     'pysoa.common.transport.local:LocalServerTransport',
+    'pysoa.common.transport.local:LocalTransportSchema',
     'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
     'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
+    'pysoa.common.transport.redis_gateway.settings:RedisTransportSchema',
     'pysoa.common.types:ActionRequest',
     'pysoa.common.types:ActionResponse',
     'pysoa.common.types:Error',
@@ -298,8 +304,17 @@ def _pretty_introspect(value, depth=1, nullable=''):
         for v in value.options:
             documentation += '\n{}- {}'.format(first, _pretty_introspect(v, depth + 1))
         documentation += '\n'
+    elif isinstance(value, PolymorphClassSchema):
+        documentation += (
+            'dictionary whose schema switches based on the value of ``path``, dynamically based on class imported from '
+            '``path`` (see the settings schema documentation for the class named at ``path``){}'
+        )
     elif isinstance(value, fields.Polymorph):
-        documentation += 'schema switching on value of ``{}``{}: {}\n'.format(value.switch_field, nullable, description)
+        documentation += 'dictionary whose schema switches based on the value of ``{}``{}: {}\n'.format(
+            value.switch_field,
+            nullable,
+            description,
+        )
         for k, v in sorted(value.contents_map.items(), key=lambda i: i[0]):
             documentation += '\n{spaces}- ``{field} == {value}`` - {doc}'.format(
                 spaces=first,
@@ -363,6 +378,33 @@ apply as the default values.
             sort_keys=True,
         ).split('\n'):
             documentation += '\n    {}'.format(line.rstrip())
+
+    return documentation
+
+
+def get_class_schema_documentation(class_name, module_name, settings_class_object):
+    documentation = """.. _{module_name}.{class_name}
+
+``class-path settings schema {class_name}``
++++++++++++++++++++++++++++++{plus}++
+
+**module:** ``{module_name}``""".format(
+        module_name=module_name,
+        class_name=class_name,
+        plus='+' * len(class_name)
+    )
+
+    if settings_class_object.__doc__ and settings_class_object.__doc__.strip():
+        documentation += '\n\n{}'.format(_clean_literals(inspect.cleandoc(settings_class_object.__doc__)))
+
+    documentation += """
+
+Settings Schema Definition
+**************************
+"""
+
+    documentation += _pretty_introspect(settings_class_object(), depth=0)
+    documentation = documentation.strip()
 
     return documentation
 
@@ -537,6 +579,8 @@ def document():
                         documentation.write(get_enum_documentation(item_name, item_module_name, item_object))
                     elif issubclass(item_object, Settings):
                         documentation.write(get_settings_schema_documentation(item_name, item_module_name, item_object))
+                    elif issubclass(item_object, BasicClassSchema):
+                        documentation.write(get_class_schema_documentation(item_name, item_module_name, item_object))
                     else:
                         documentation.write(get_class_documentation(item_name, item_module_name, item_object))
                 elif inspect.isfunction(item_object):
