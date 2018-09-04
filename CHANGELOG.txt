@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.50.0 (2018-09-04)
+-------------------
+- [MINOR] Make the polymorphic client and server settings extensible
+
 0.49.0 (2018-09-04)
 -------------------
 - [PATCH] Extract server settings to a separate fixture
