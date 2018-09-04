@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.49.0 (2018-09-04)
+-------------------
+- [PATCH] Extract server settings to a separate fixture
+- [MINOR] Add support for a heartbeat file
+- [MINOR] Add managed event loop to all action requests for convenience in Python 3 services
+
 0.48.0 (2018-08-23)
 -------------------
 - [MINOR] Add tools to support pytesty testing in pysoa services (#122)
