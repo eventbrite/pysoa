@@ -4,6 +4,7 @@ from __future__ import (
 )
 
 from pysoa.test.plugins.pytest.plans import PLUGIN_STATISTICS
+
 from tests.test.plan import test_001_fixtures_work as fixtures_test_module
 
 

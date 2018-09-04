@@ -14,6 +14,7 @@ from pysoa.common.transport.exceptions import MessageReceiveTimeout
 from pysoa.common.transport.redis_gateway.backend.base import BaseRedisClient
 from pysoa.common.transport.redis_gateway.constants import DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT
 from pysoa.common.transport.redis_gateway.core import RedisTransportCore
+from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
 from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
 
 
@@ -83,3 +84,6 @@ class RedisClientTransport(ClientTransport):
         else:
             # This tells Client.get_all_responses to stop waiting for more.
             return None, None, None
+
+
+RedisClientTransport.settings_schema = RedisTransportSchema(RedisClientTransport)

@@ -4,6 +4,8 @@ from __future__ import (
     unicode_literals,
 )
 
+import importlib
+
 import six
 
 
@@ -28,3 +30,17 @@ def dict_to_hashable(d):
         (k, tuple(v) if isinstance(v, list) else (dict_to_hashable(v) if isinstance(v, dict) else v))
         for k, v in six.iteritems(d)
     )
+
+
+def resolve_python_path(path):
+    """
+    Turns a python path like module.name.here:ClassName.SubClass into an object
+    """
+    # Get the module
+    module_path, local_path = path.split(':', 1)
+    thing = importlib.import_module(module_path)
+    # Traverse the local sections
+    local_bits = local_path.split('.')
+    for bit in local_bits:
+        thing = getattr(thing, bit)
+    return thing

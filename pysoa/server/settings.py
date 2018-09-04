@@ -8,16 +8,13 @@ from logging.handlers import SysLogHandler
 
 from conformity import fields
 
-from pysoa.common.settings import (
+from pysoa.common.schemas import (
     BasicClassSchema,
-    SOASettings,
+    PolymorphClassSchema,
 )
+from pysoa.common.settings import SOASettings
 from pysoa.common.transport.base import ServerTransport as BaseServerTransport
-from pysoa.common.transport.local import (
-    LocalServerTransport,
-    LocalTransportSchema,
-)
-from pysoa.common.transport.redis_gateway.server import RedisServerTransport
+from pysoa.common.transport.local import LocalTransportSchema
 from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
 from pysoa.server.middleware import ServerMiddleware
 
@@ -226,15 +223,10 @@ class PolymorphicServerSettings(ServerSettings):
         }
     }
     schema = {
-        'transport': fields.Polymorph(
-            switch_field='path',
+        'transport': PolymorphClassSchema(
             contents_map={
-                'pysoa.common.transport.local:LocalServerTransport': LocalTransportSchema(LocalServerTransport),
-                'pysoa.common.transport:LocalServerTransport': LocalTransportSchema(LocalServerTransport),
-                'pysoa.common.transport.redis_gateway.server:RedisServerTransport': RedisTransportSchema(
-                    RedisServerTransport,
-                ),
                 '__default__': BasicClassSchema(BaseServerTransport),
-            }
+            },
+            enforce_object_type_subclass_of=BaseServerTransport,
         ),
     }

@@ -4,7 +4,6 @@ from __future__ import (
 )
 
 import copy
-import importlib
 import itertools
 
 from conformity import fields
@@ -13,20 +12,7 @@ import six
 
 from pysoa.common.metrics import MetricsSchema
 from pysoa.common.schemas import BasicClassSchema
-
-
-def resolve_python_path(path):
-    """
-    Turns a python path like module.name.here:ClassName.SubClass into an object
-    """
-    # Get the module
-    module_path, local_path = path.split(':', 1)
-    thing = importlib.import_module(module_path)
-    # Traverse the local sections
-    local_bits = local_path.split('.')
-    for bit in local_bits:
-        thing = getattr(thing, bit)
-    return thing
+from pysoa.utils import resolve_python_path
 
 
 class SettingsMetaclass(type):

@@ -6,16 +6,13 @@ from __future__ import (
 from conformity import fields
 
 from pysoa.client.middleware import ClientMiddleware
-from pysoa.common.settings import (
+from pysoa.common.schemas import (
     BasicClassSchema,
-    SOASettings,
+    PolymorphClassSchema,
 )
+from pysoa.common.settings import SOASettings
 from pysoa.common.transport.base import ClientTransport as BaseClientTransport
-from pysoa.common.transport.local import (
-    LocalClientTransport,
-    LocalTransportSchema,
-)
-from pysoa.common.transport.redis_gateway.client import RedisClientTransport
+from pysoa.common.transport.local import LocalTransportSchema
 from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
 
 
@@ -71,15 +68,10 @@ class PolymorphicClientSettings(ClientSettings):
         }
     }
     schema = {
-        'transport': fields.Polymorph(
-            switch_field='path',
+        'transport': PolymorphClassSchema(
             contents_map={
-                'pysoa.common.transport.local:LocalClientTransport': LocalTransportSchema(LocalClientTransport),
-                'pysoa.common.transport:LocalClientTransport': LocalTransportSchema(LocalClientTransport),
-                'pysoa.common.transport.redis_gateway.client:RedisClientTransport': RedisTransportSchema(
-                    RedisClientTransport,
-                ),
                 '__default__': BasicClassSchema(BaseClientTransport),
             },
+            enforce_object_type_subclass_of=BaseClientTransport,
         ),
     }
