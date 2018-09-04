@@ -400,7 +400,7 @@ class Server(object):
             if action_in_class_map or action_request.action in ('status', 'introspect'):
                 # Get action to run
                 if action_in_class_map:
-                    action = self.action_class_map[action_request.action](self.settings)
+                    action = self.action_class_map[action_request.action](settings=self.settings)
                 elif action_request.action == 'introspect':
                     from pysoa.server.action.introspection import IntrospectionAction
                     action = IntrospectionAction(server=self)
