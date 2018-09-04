@@ -35,6 +35,22 @@ def server_settings(server_class):
 
 
 @pytest.fixture(scope='module')
+def service_client_settings(server_class, server_settings):
+    """Config passed to the service client on instantiation"""
+    return {
+        server_class.service_name: {
+            'transport': {
+                'path': 'pysoa.common.transport.local:LocalClientTransport',
+                'kwargs': {
+                    'server_class': server_class,
+                    'server_settings': server_settings,
+                },
+            },
+        },
+    }
+
+
+@pytest.fixture(scope='module')
 def service_client_class(server_class):
     """
     Override the service client being used to test to automatically inject the service name for
@@ -51,24 +67,12 @@ def service_client_class(server_class):
 
 
 @pytest.fixture(scope='module')
-def service_client(server_class, server_settings, service_client_class):
+def service_client(service_client_class, service_client_settings):
     """
     Instantiate the service client class with the requisite config. Service doing the testing should define
     the server_class fixture.
     """
-    return service_client_class(
-        {
-            server_class.service_name: {
-                'transport': {
-                    'path': 'pysoa.common.transport.local:LocalClientTransport',
-                    'kwargs': {
-                        'server_class': server_class,
-                        'server_settings': server_settings,
-                    },
-                },
-            },
-        },
-    )
+    return service_client_class(service_client_settings)
 
 
 @pytest.fixture
