@@ -1079,6 +1079,36 @@ Parameters
   - ``body``
 
 
+.. _pysoa.common.transport.local.LocalClientTransportSchema
+
+``class-path settings schema LocalClientTransportSchema``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+**module:** ``pysoa.common.transport.local``
+
+Settings Schema Definition
+**************************
+strict ``dict``: The settings for the local client transport
+
+- ``kwargs`` - strict ``dict``: *(no description)*
+
+  - ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself
+
+    - ``unicode``: The path to the ``Server`` class, in the format ``module.name:ClassName``
+    - ``object_instance``: A reference to the ``Server``-extending class/type (additional information: ``{u'valid_type': "(<type 'type'>, <type 'classobj'>)"}``)
+
+  - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the ``server_class``
+
+    keys
+      ``unicode``: *(no description)*
+
+    values
+      ``anything``: *(no description)*
+
+
+- ``path`` - ``unicode``: The path to the local client transport, in the format ``module.name:ClassName``
+
+
 .. _pysoa.common.transport.local.LocalServerTransport:
 
 ``class LocalServerTransport``
@@ -1117,34 +1147,21 @@ Parameters
   - ``body``
 
 
-.. _pysoa.common.transport.local.LocalTransportSchema
+.. _pysoa.common.transport.local.LocalServerTransportSchema
 
-``class-path settings schema LocalTransportSchema``
-+++++++++++++++++++++++++++++++++++++++++++++++++++
+``class-path settings schema LocalServerTransportSchema``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 **module:** ``pysoa.common.transport.local``
 
 Settings Schema Definition
 **************************
-strict ``dict``: The settings for the local transport
+strict ``dict``: The settings for the local client transport
 
 - ``kwargs`` - strict ``dict``: *(no description)*
 
-  - ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself
 
-    - ``unicode``: The path to the ``Server`` class, in the format ``module.name:ClassName``
-    - ``object_instance``: A reference to the ``Server``-extending class/type (additional information: ``{u'valid_type': "(<type 'type'>, <type 'classobj'>)"}``)
-
-  - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the ``server_class``
-
-    keys
-      ``unicode``: *(no description)*
-
-    values
-      ``anything``: *(no description)*
-
-
-- ``path`` - ``unicode``: The path to the local client transport, in the format ``module.name:ClassName``
+- ``path`` - ``unicode``: The path to the local server transport, in the format ``module.name:ClassName``
 
 Optional keys: ``kwargs``
 
@@ -1307,8 +1324,6 @@ strict ``dict``: The settings for the Redis transport
   Optional keys: ``backend_layer_kwargs``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``, ``serializer_config``
 
 - ``path`` - ``unicode``: The path to the Redis client or server transport, in the format ``module.name:ClassName``
-
-Optional keys: ``kwargs``
 
 
 .. _pysoa.common.types.ActionRequest:
