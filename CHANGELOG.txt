@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.51.0 (2018-09-06)
+-------------------
+- [MINOR] Allow extra keys to be redacted/censored from logs via settings (#128)
+- [MAJOR] Fix bug allowing missing `kwargs` in Redis, Local, and Stub transports
+
 0.50.0 (2018-09-04)
 -------------------
 - [MINOR] Make the polymorphic client and server settings extensible
