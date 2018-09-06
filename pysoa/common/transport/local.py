@@ -138,7 +138,7 @@ class LocalServerTransport(ServerTransport):
         raise TypeError('The LocalServerTransport cannot be used directly; it is a stub.')
 
 
-class LocalTransportSchema(BasicClassSchema):
+class LocalClientTransportSchema(BasicClassSchema):
     contents = {
         'path': fields.UnicodeString(
             description='The path to the local client transport, in the format `module.name:ClassName`',
@@ -164,8 +164,21 @@ class LocalTransportSchema(BasicClassSchema):
         }),
     }
 
-    description = 'The settings for the local transport'
+    optional_keys = ()
+
+    description = 'The settings for the local client transport'
 
 
-LocalClientTransport.settings_schema = LocalTransportSchema(LocalClientTransport)
-LocalServerTransport.settings_schema = LocalTransportSchema(LocalServerTransport)
+class LocalServerTransportSchema(BasicClassSchema):
+    contents = {
+        'path': fields.UnicodeString(
+            description='The path to the local server transport, in the format `module.name:ClassName`',
+        ),
+        'kwargs': fields.Dictionary({}),
+    }
+
+    description = 'The settings for the local client transport'
+
+
+LocalClientTransport.settings_schema = LocalClientTransportSchema(LocalClientTransport)
+LocalServerTransport.settings_schema = LocalServerTransportSchema(LocalServerTransport)

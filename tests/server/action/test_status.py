@@ -200,10 +200,10 @@ class TestBaseStatusAction(unittest.TestCase):
 
     def test_check_client_settings_with_settings(self):
         client = Client({
-            'foo': {},
-            'bar': {},
-            'baz': {},
-            'qux': {},
+            'foo': {'transport': {'path': 'pysoa.common.transport.base:ClientTransport'}},
+            'bar': {'transport': {'path': 'pysoa.common.transport.base:ClientTransport'}},
+            'baz': {'transport': {'path': 'pysoa.common.transport.base:ClientTransport'}},
+            'qux': {'transport': {'path': 'pysoa.common.transport.base:ClientTransport'}},
         })
 
         action_request = EnrichedActionRequest(action='status', body={}, switches=None, client=client)

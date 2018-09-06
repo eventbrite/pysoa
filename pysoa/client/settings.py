@@ -12,7 +12,7 @@ from pysoa.common.schemas import (
 )
 from pysoa.common.settings import SOASettings
 from pysoa.common.transport.base import ClientTransport as BaseClientTransport
-from pysoa.common.transport.local import LocalTransportSchema
+from pysoa.common.transport.local import LocalClientTransportSchema
 from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
 
 
@@ -54,7 +54,7 @@ class LocalClientSettings(ClientSettings):
         }
     }
     schema = {
-        'transport': LocalTransportSchema(),
+        'transport': LocalClientTransportSchema(),
     }
 
 

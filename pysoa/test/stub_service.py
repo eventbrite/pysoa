@@ -212,6 +212,8 @@ class StubClientTransportSchema(BasicClassSchema):
         ),
     }
 
+    optional_keys = ()
+
     description = 'The settings for the local transport'
 
 

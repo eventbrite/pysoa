@@ -104,4 +104,6 @@ class RedisTransportSchema(BasicClassSchema):
         ),
     }
 
+    optional_keys = ()
+
     description = 'The settings for the Redis transport'

@@ -109,6 +109,11 @@ class PolymorphClassSchema(fields.Polymorph):
 
             try:
                 item = resolve_python_path(path)
+            except (AttributeError, ImportError, ValueError):
+                self._unresolved_paths.add(path)
+                return
+
+            try:
                 schema = item.settings_schema
                 if not isinstance(schema, BasicClassSchema):
                     raise ValueError('Schema `{}` for path "{}" must be a `BasicClassSchema`'.format(schema, path))
@@ -125,5 +130,5 @@ class PolymorphClassSchema(fields.Polymorph):
                         )
                     )
                 self[path] = schema
-            except (ImportError, AttributeError):
+            except AttributeError:
                 self._unresolved_paths.add(path)
