@@ -208,7 +208,7 @@ class SOASettings(Settings):
         'extra_fields_to_redact': fields.Set(
             fields.UnicodeString(),
             description='Use this field to supplement the set of fields that are automatically redacted/censored in '
-                'request and response fields with additional fields that your service needs redacted.',
+                        'request and response fields with additional fields that your service needs redacted.',
         ),
     }
 
