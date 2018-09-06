@@ -205,9 +205,15 @@ class SOASettings(Settings):
             description='The list of all middleware objects that should be applied to this server or client',
         ),
         'metrics': MetricsSchema(),
+        'extra_fields_to_redact': fields.Set(
+            fields.UnicodeString(),
+            description='Use this field to supplement the set of fields that are automatically redacted/censored in '
+                        'request and response fields with additional fields that your service needs redacted.',
+        ),
     }
 
     defaults = {
         'middleware': [],
         'metrics': {'path': 'pysoa.common.metrics:NoOpMetricsRecorder'},
+        'extra_fields_to_redact': set(),
     }
