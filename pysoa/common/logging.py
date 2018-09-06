@@ -140,7 +140,7 @@ class RecursivelyCensoredDictWrapper(object):
 
     CENSORED_STRING = '**********'
 
-    def __init__(self, wrapped_dict, settings=None):
+    def __init__(self, wrapped_dict):
         """
         Wraps a dict to censor its contents. The first time `repr` is called, it copies the dict, recursively
         censors sensitive fields, caches the result, and returns the censored dict repr-ed. All future calls use
@@ -151,10 +151,6 @@ class RecursivelyCensoredDictWrapper(object):
         """
         if not isinstance(wrapped_dict, dict):
             raise ValueError('wrapped_dict must be a dict')
-
-        if settings:
-            EXTRA_SENSITIVE_FIELDS = set(settings['extra_sensitive_fields'])
-            self.__class__.SENSITIVE_FIELDS |= EXTRA_SENSITIVE_FIELDS
 
         self._wrapped_dict = wrapped_dict
         self._dict_cache = None
