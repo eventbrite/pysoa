@@ -205,9 +205,11 @@ class SOASettings(Settings):
             description='The list of all middleware objects that should be applied to this server or client',
         ),
         'metrics': MetricsSchema(),
+        'extra_sensitive_fields': fields.List(fields.UnicodeString())
     }
 
     defaults = {
         'middleware': [],
         'metrics': {'path': 'pysoa.common.metrics:NoOpMetricsRecorder'},
+        'extra_sensitive_fields': [],
     }

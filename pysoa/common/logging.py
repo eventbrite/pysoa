@@ -81,7 +81,6 @@ class RecursivelyCensoredDictWrapper(object):
         'auth', 'token', 'auth_token', 'auth-token', 'authToken',
         'authorization', 'authorization_token', 'authorization-token', 'authorizationToken',
         'authentication', 'authentication_token', 'authentication-token', 'authenticationToken',
-        'invitation_token',
 
         # Credit cards, banking, and related
         'credit_card', 'credit-card', 'creditCard', 'credit_card_number', 'credit-card-number', 'creditCardNumber',
@@ -141,7 +140,7 @@ class RecursivelyCensoredDictWrapper(object):
 
     CENSORED_STRING = '**********'
 
-    def __init__(self, wrapped_dict):
+    def __init__(self, wrapped_dict, settings=None):
         """
         Wraps a dict to censor its contents. The first time `repr` is called, it copies the dict, recursively
         censors sensitive fields, caches the result, and returns the censored dict repr-ed. All future calls use
@@ -152,6 +151,10 @@ class RecursivelyCensoredDictWrapper(object):
         """
         if not isinstance(wrapped_dict, dict):
             raise ValueError('wrapped_dict must be a dict')
+
+        if settings:
+            EXTRA_SENSITIVE_FIELDS = set(settings['extra_sensitive_fields'])
+            self.__class__.SENSITIVE_FIELDS |= EXTRA_SENSITIVE_FIELDS
 
         self._wrapped_dict = wrapped_dict
         self._dict_cache = None

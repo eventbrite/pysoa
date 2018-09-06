@@ -170,7 +170,7 @@ class Server(object):
 
         PySOALogContextFilter.set_logging_request_context(request_id=request_id, **job_request['context'])
 
-        request_for_logging = RecursivelyCensoredDictWrapper(job_request)
+        request_for_logging = RecursivelyCensoredDictWrapper(job_request, self.settings)
         self.job_logger.log(self.request_log_success_level, 'Job request: %s', request_for_logging)
 
         try:
@@ -187,7 +187,7 @@ class Server(object):
                 job_response = self.handle_job_exception(e, variables={'job_response': job_response})
                 response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
 
-            response_for_logging = RecursivelyCensoredDictWrapper(response_message)
+            response_for_logging = RecursivelyCensoredDictWrapper(response_message, self.settings)
 
             # Send the response message
             try:
