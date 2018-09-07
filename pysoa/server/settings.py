@@ -136,6 +136,11 @@ class ServerSettings(SOASettings):
                         'can optionally contain the specifier {{pid}}, which will be replaced with the server process '
                         'PID.',
         )),
+        'extra_fields_to_redact': fields.Set(
+            fields.UnicodeString(),
+            description='Use this field to supplement the set of fields that are automatically redacted/censored in '
+                        'request and response fields with additional fields that your service needs redacted.',
+        ),
     }
 
     defaults = {
@@ -188,6 +193,7 @@ class ServerSettings(SOASettings):
         'request_log_success_level': 'INFO',
         'request_log_error_level': 'INFO',
         'heartbeat_file': None,
+        'extra_fields_to_redact': set(),
     }
 
 
