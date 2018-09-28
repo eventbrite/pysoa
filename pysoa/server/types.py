@@ -16,7 +16,7 @@ class EnrichedActionRequest(ActionRequest):
     """
     switches = attr.ib(
         default=attr.Factory(RequestSwitchSet),
-        convert=lambda l: l if isinstance(l, RequestSwitchSet) else RequestSwitchSet(l),
+        converter=lambda l: l if isinstance(l, RequestSwitchSet) else RequestSwitchSet(l),
     )
     context = attr.ib(default=attr.Factory(dict))
     control = attr.ib(default=attr.Factory(dict))

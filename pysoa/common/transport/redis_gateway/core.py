@@ -65,19 +65,19 @@ class RedisTransportCore(object):
 
     log_messages_larger_than_bytes = attr.ib(
         default=DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT,
-        convert=int,
+        converter=int,
     )
 
     maximum_message_size_in_bytes = attr.ib(
         default=DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT,
-        convert=int,
+        converter=int,
     )
 
     message_expiry_in_seconds = attr.ib(
         # How long after a message is sent before it's considered "expired" and not received by default, unless
         # overridden in the send_message argument `message_expiry_in_seconds`
         default=60,
-        convert=int,
+        converter=int,
     )
 
     metrics = attr.ib(
@@ -93,26 +93,26 @@ class RedisTransportCore(object):
     queue_capacity = attr.ib(
         # The capacity for queues to which messages are sent
         default=10000,
-        convert=int,
+        converter=int,
     )
 
     queue_full_retries = attr.ib(
         # Number of times to retry when the send queue is full
         default=10,
-        convert=int,
+        converter=int,
     )
 
     receive_timeout_in_seconds = attr.ib(
         # How long to block when waiting to receive a message by default, unless overridden in the receive_message
         # argument `receive_timeout_in_seconds`
         default=5,
-        convert=int,
+        converter=int,
     )
 
     serializer_config = attr.ib(
         # Configuration for which serializer should be used by this transport
         default={'object': MsgpackSerializer, 'kwargs': {}},
-        convert=dict,
+        converter=dict,
     )
 
     service_name = attr.ib(

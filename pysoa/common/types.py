@@ -36,7 +36,7 @@ class ActionResponse(object):
     action = attr.ib()
     errors = attr.ib(
         default=attr.Factory(list),
-        convert=lambda l: [e if isinstance(e, Error) else Error(**e) for e in l],
+        converter=lambda l: [e if isinstance(e, Error) else Error(**e) for e in l],
     )
     body = attr.ib(default=attr.Factory(dict))
 
@@ -53,7 +53,7 @@ class JobRequest(object):
     context = attr.ib(default=attr.Factory(dict))
     actions = attr.ib(
         default=attr.Factory(list),
-        convert=lambda l: [a if isinstance(a, ActionRequest) else ActionRequest(**a) for a in l],
+        converter=lambda l: [a if isinstance(a, ActionRequest) else ActionRequest(**a) for a in l],
     )
 
 
@@ -66,10 +66,10 @@ class JobResponse(object):
     """
     errors = attr.ib(
         default=attr.Factory(list),
-        convert=lambda l: [e if isinstance(e, Error) else Error(**e) for e in l],
+        converter=lambda l: [e if isinstance(e, Error) else Error(**e) for e in l],
     )
     context = attr.ib(default=attr.Factory(dict))
     actions = attr.ib(
         default=attr.Factory(list),
-        convert=lambda l: [a if isinstance(a, ActionResponse) else ActionResponse(**a) for a in l],
+        converter=lambda l: [a if isinstance(a, ActionResponse) else ActionResponse(**a) for a in l],
     )
