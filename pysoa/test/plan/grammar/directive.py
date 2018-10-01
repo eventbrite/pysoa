@@ -75,10 +75,10 @@ def get_all_directives():
     if not ENTRY_POINT_DIRECTIVES:
         for entry_point in pkg_resources.iter_entry_points('pysoa.test.plan.grammar.directives'):
             try:
-                directive_class = entry_point.load(require=False)
+                directive_class = entry_point.resolve()
                 ENTRY_POINT_DIRECTIVES.append(directive_class)
             except ImportError:
-                sys.stderr.write('Warning: could not load {}\n'.format(entry_point))
+                sys.stderr.write('Warning: could not resolve {}\n'.format(entry_point))
 
     return REGISTERED_DIRECTIVES + ENTRY_POINT_DIRECTIVES
 
