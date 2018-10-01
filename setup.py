@@ -21,7 +21,7 @@ base_requirements = [
     'conformity~=1.17',
     'currint~=1.6',
     'enum34;python_version<"3.4"',
-    'msgpack-python~=0.4',
+    'msgpack-python~=0.5,>=0.5.2',
     'redis~=2.10',
     'six~=1.10',
 ]

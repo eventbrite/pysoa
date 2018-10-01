@@ -80,7 +80,7 @@ class MsgpackSerializer(BaseSerializer):
 
     def blob_to_dict(self, blob):
         try:
-            return msgpack.unpackb(blob, encoding='utf-8', ext_hook=self.ext_hook)
+            return msgpack.unpackb(blob, raw=False, ext_hook=self.ext_hook)
         except (TypeError, msgpack.UnpackValueError, msgpack.ExtraData) as e:
             raise InvalidMessage(*e.args)
 
