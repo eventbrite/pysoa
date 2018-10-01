@@ -172,7 +172,7 @@ class TestStandardRedisClient(unittest.TestCase):
 
         client.send_message_to_queue(
             queue_key='test_simple_send_receive',
-            message=msgpack.packb(payload),
+            message=msgpack.packb(payload, use_bin_type=True),
             expiry=10,
             capacity=10,
             connection=client.get_connection('test_simple_send_receive'),
@@ -184,7 +184,7 @@ class TestStandardRedisClient(unittest.TestCase):
             message = message or client.get_connection('test_simple_send_receive').lpop('test_simple_send_receive')
 
         self.assertIsNotNone(message)
-        self.assertEqual(payload, msgpack.unpackb(message, encoding='utf-8'))
+        self.assertEqual(payload, msgpack.unpackb(message, raw=False))
 
     def test_hashed_server_send_and_receive(self):
         client = self._set_up_client()
@@ -193,7 +193,7 @@ class TestStandardRedisClient(unittest.TestCase):
 
         client.send_message_to_queue(
             queue_key='test_hashed_send_receive!',
-            message=msgpack.packb(payload1),
+            message=msgpack.packb(payload1, use_bin_type=True),
             expiry=10,
             capacity=10,
             connection=client.get_connection('test_hashed_send_receive!'),
@@ -202,13 +202,13 @@ class TestStandardRedisClient(unittest.TestCase):
         message = client.get_connection('test_hashed_send_receive!').lpop('test_hashed_send_receive!')
 
         self.assertIsNotNone(message)
-        self.assertEqual(payload1, msgpack.unpackb(message, encoding='utf-8'))
+        self.assertEqual(payload1, msgpack.unpackb(message, raw=False))
 
         payload2 = {'for': 'another value'}
 
         client.send_message_to_queue(
             queue_key='test_hashed_send_receive!',
-            message=msgpack.packb(payload2),
+            message=msgpack.packb(payload2, use_bin_type=True),
             expiry=10,
             capacity=10,
             connection=client.get_connection('test_hashed_send_receive!'),
@@ -217,13 +217,13 @@ class TestStandardRedisClient(unittest.TestCase):
         message = client.get_connection('test_hashed_send_receive!').lpop('test_hashed_send_receive!')
 
         self.assertIsNotNone(message)
-        self.assertEqual(payload2, msgpack.unpackb(message, encoding='utf-8'))
+        self.assertEqual(payload2, msgpack.unpackb(message, raw=False))
 
         payload3 = {'hashing': 'will this work'}
 
         client.send_message_to_queue(
             queue_key='test_hashed_send_receive!',
-            message=msgpack.packb(payload3),
+            message=msgpack.packb(payload3, use_bin_type=True),
             expiry=10,
             capacity=10,
             connection=client.get_connection('test_hashed_send_receive!'),
@@ -232,7 +232,7 @@ class TestStandardRedisClient(unittest.TestCase):
         message = client.get_connection('test_hashed_send_receive!').lpop('test_hashed_send_receive!')
 
         self.assertIsNotNone(message)
-        self.assertEqual(payload3, msgpack.unpackb(message, encoding='utf-8'))
+        self.assertEqual(payload3, msgpack.unpackb(message, raw=False))
 
     def test_no_hosts_yields_single_default_host(self):
         client = StandardRedisClient()
@@ -241,7 +241,7 @@ class TestStandardRedisClient(unittest.TestCase):
 
         client.send_message_to_queue(
             queue_key='test_no_hosts_yields_single_default_host',
-            message=msgpack.packb(payload),
+            message=msgpack.packb(payload, use_bin_type=True),
             expiry=10,
             capacity=10,
             connection=client.get_connection('test_no_hosts_yields_single_default_host'),
@@ -252,7 +252,7 @@ class TestStandardRedisClient(unittest.TestCase):
         ).lpop('test_no_hosts_yields_single_default_host')
 
         self.assertIsNotNone(message)
-        self.assertEqual(payload, msgpack.unpackb(message, encoding='utf-8'))
+        self.assertEqual(payload, msgpack.unpackb(message, raw=False))
 
     def test_string_host_yields_single_host(self):
         client = StandardRedisClient(hosts=['redis://localhost:1234/0'])
@@ -261,7 +261,7 @@ class TestStandardRedisClient(unittest.TestCase):
 
         client.send_message_to_queue(
             queue_key='test_string_host_yields_single_host',
-            message=msgpack.packb(payload),
+            message=msgpack.packb(payload, use_bin_type=True),
             expiry=10,
             capacity=10,
             connection=client.get_connection('test_string_host_yields_single_host'),
@@ -272,4 +272,4 @@ class TestStandardRedisClient(unittest.TestCase):
         ).lpop('test_string_host_yields_single_host')
 
         self.assertIsNotNone(message)
-        self.assertEqual(payload, msgpack.unpackb(message, encoding='utf-8'))
+        self.assertEqual(payload, msgpack.unpackb(message, raw=False))
