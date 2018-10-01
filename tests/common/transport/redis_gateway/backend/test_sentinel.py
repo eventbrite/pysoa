@@ -77,7 +77,7 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
         with self.assertRaises(CannotGetConnectionError):
             client.get_connection('test_master_not_found_no_retry')
 
-        self.assertEquals(1, mock_sentinel.return_value.master_for.call_count)
+        self.assertEqual(1, mock_sentinel.return_value.master_for.call_count)
         self.assertIn(mock_sentinel.return_value.master_for.call_args[0][0], {'service1', 'service2', 'service3'})
 
     @mock.patch('redis.sentinel.Sentinel')
@@ -93,7 +93,7 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
         with self.assertRaises(CannotGetConnectionError):
             client.get_connection('test_master_not_found_max_retries')
 
-        self.assertEquals(3, mock_sentinel.return_value.master_for.call_count)
+        self.assertEqual(3, mock_sentinel.return_value.master_for.call_count)
         self.assertIn(
             mock_sentinel.return_value.master_for.call_args_list[0][0][0],
             {'service1', 'service2', 'service3'},
@@ -124,7 +124,7 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
         connection = client.get_connection('test_master_not_found_worked_after_retries')
         self.assertIsNotNone(connection)
 
-        self.assertEquals(3, mock_sentinel.return_value.master_for.call_count)
+        self.assertEqual(3, mock_sentinel.return_value.master_for.call_count)
         self.assertIn(
             mock_sentinel.return_value.master_for.call_args_list[0][0][0],
             {'service1', 'service2', 'service3'},

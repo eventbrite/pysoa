@@ -145,7 +145,7 @@ class TestRedisTransportCore(unittest.TestCase):
         with self.assertRaises(MessageSendError) as error_context:
             core.send_message('my_queue', 71, {}, {})
 
-        self.assertEquals('Cannot get connection: This is my error', error_context.exception.args[0])
+        self.assertEqual('Cannot get connection: This is my error', error_context.exception.args[0])
 
         self.assertFalse(mock_sentinel.called)
         mock_standard.return_value.get_connection.assert_called_once_with('pysoa:my_queue')
@@ -160,7 +160,7 @@ class TestRedisTransportCore(unittest.TestCase):
         with self.assertRaises(MessageReceiveError) as error_context:
             core.receive_message('your_queue')
 
-        self.assertEquals('Cannot get connection: This is another error', error_context.exception.args[0])
+        self.assertEqual('Cannot get connection: This is another error', error_context.exception.args[0])
 
         self.assertFalse(mock_sentinel.called)
         mock_standard.return_value.get_connection.assert_called_once_with('pysoa:your_queue')
