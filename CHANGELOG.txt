@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.52.0 (2018-10-01)
+-------------------
+- [MINOR] Remove deprecated use of "encoding" argument in msgpack.unpackb
+- [PATCH] Remove use of deprecated assertEquals
+- [PATCH] Remove use of deprecated EntryPoint.load
+- [PATCH] Fix usage of deprecated attr.it `convert` parameter
+
 0.51.1 (2018-09-07)
 -------------------
 - [PATCH] Move extra_fields_to_redact from common to server settings
