@@ -378,10 +378,11 @@ class stub_action(object):  # noqa
 
         mock_action = self._MockAction(name='{}.{}'.format(self.service, self.action))
 
+        if self.body or self.errors:
+            mock_action.return_value = ActionResponse(self.action, errors=self.errors, body=self.body)
+
         if self.side_effect:
             mock_action.side_effect = self.side_effect
-        elif self.body or self.errors:
-            mock_action.side_effect = lambda _: ActionResponse(self.action, errors=self.errors, body=self.body)
 
         @wraps(Client.send_request)
         def wrapped_send_request(client, service_name, actions, *args, **kwargs):
