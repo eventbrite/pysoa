@@ -162,7 +162,7 @@ the real service is not configured).
 Calling ``stub_action``
 ***********************
 
-``stub_action`` has four potential arguments. Only the first two are required:
+``stub_action`` has five potential arguments. Only the first two are required:
 
 - ``service``: The name of the service on which this action will be called
 - ``action``: The name of the action to stub
@@ -170,17 +170,25 @@ Calling ``stub_action``
   would normally be returned from the action class's ``run`` method).
 - ``errors``: A list of SOA errors that should be raised, where each error is a dict with at least ``code`` and
   ``message`` keys and optionally a ``field`` for field errors.
+- ``side_effect``: A function, an exception class or instance, or an iterable. It behaves exactly like
+  ``mock.MagicMock.side_effect``.
 
 Instead of providing ``body`` and/or ``errors`` to ``stub_action``, you can manipulate the action stub object passed
 to the test method (or returned from the context manager) to tell it to return certain values or have certain side
 effects. The action stub object actually extends ``mock.MagicMock``, so you may already be very familiar with how it
 works.
 
-Given an action stub object ``stub_xx_action``, you can set ``stub_xx_action.return_value`` to control what
-the action returns (this is equivalent to the ``body`` argument to ``stub_action``). Alternatively, you can set
+Given an action stub object ``stub_xx_action``, you can set ``stub_xx_action.return_value`` to control what the action
+returns (this is equivalent to the ``body`` argument to ``stub_action``). Alternatively, you can set
 ``stub_xx_action.side_effect`` to raise SOA errors, provide different behavior for each of multiple expected calls, or
 exert more control over how the stub behaves. ``side_effect`` can be a single value of any of the following or a
 list/tuple (for multiple calls) where each value is any of the following:
+
+``side_effect`` is useful for raising exceptions or dynamically changing return values. The function is called with the
+same arguments as the mock, and unless it returns DEFAULT, the return value of this function is used as the return
+value. Alternatively ``side_effect`` can be an exception class or instance. In this case the exception will be raised
+when the mock is called. If ``side_effect`` is an iterable then each call to the mock will return the next value from
+the iterable.
 
 - A response body dict (same as the ``body`` argument to ``stub_action``)
 - An instance of ``ActionError`` with one or more SOA errors configured
