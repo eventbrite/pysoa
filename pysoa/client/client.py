@@ -828,6 +828,10 @@ class Client(object):
         :raise: ConnectionError, InvalidField, MessageSendError, MessageSendTimeout, MessageTooLarge
         """
 
+        control_extra = control_extra.copy() if control_extra else {}
+        if message_expiry_in_seconds and 'timeout' not in control_extra:
+            control_extra['timeout'] = message_expiry_in_seconds
+
         handler = self._get_handler(service_name)
         control = self._make_control_header(
             continue_on_error=continue_on_error,
