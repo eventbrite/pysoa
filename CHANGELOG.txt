@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.53.0 (2018-10-05)
+-------------------
+- [MINOR] If timeout specified, include it in the control header
+
 0.52.0 (2018-10-01)
 -------------------
 - [MINOR] Remove deprecated use of "encoding" argument in msgpack.unpackb
