@@ -570,13 +570,9 @@ class stub_action(object):  # noqa
 
         @wraps(func)
         def wrapped(*args, **kwargs):
-            try:
-                mock_arg = self.__enter__()
+            with self as mock_arg:
                 args = args[:1] + (mock_arg, ) + args[1:]
-                value = func(*args, **kwargs)
-            finally:
-                self.__exit__()
-            return value
+                return func(*args, **kwargs)
 
         return wrapped
 
