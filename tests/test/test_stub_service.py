@@ -67,6 +67,19 @@ _secondary_stub_client_settings = {
 }
 
 
+def stub_test_action(add_extra=True):
+    def _run(body, **kwargs):
+        if add_extra and body.get('type') == 'admin':
+            body['extra'] = 'data'
+        return body
+
+    return stub_action(
+        'test_service',
+        'test_action',
+        side_effect=_run,
+    )
+
+
 class TestStubAction(ServerTestCase):
     server_class = _TestServiceServer
     server_settings = {}
@@ -310,6 +323,74 @@ class TestStubAction(ServerTestCase):
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
         stub_test_action_2.assert_called_once_with({'a': 'body'})
 
+    @stub_test_action()
+    def test_stub_action_with_side_effect_callback(self, _stub_test_action):
+        response = self.client.call_action('test_service', 'test_action', body={'id': 1, 'type': 'user'})
+        self.assertEqual(response.body, {'id': 1, 'type': 'user'})
+
+        response = self.client.call_action('test_service', 'test_action', body={'id': 2, 'type': 'admin'})
+        self.assertEqual(response.body, {'id': 2, 'type': 'admin', 'extra': 'data'})
+
+    @stub_test_action(add_extra=False)
+    def test_stub_action_with_side_effect_callback_and_param(self, _stub_test_action):
+        response = self.client.call_action('test_service', 'test_action', body={'id': 1, 'type': 'user'})
+        self.assertEqual(response.body, {'id': 1, 'type': 'user'})
+
+        response = self.client.call_action('test_service', 'test_action', body={'id': 2, 'type': 'admin'})
+        self.assertEqual(response.body, {'id': 2, 'type': 'admin'})
+
+    def test_stub_action_with_side_effect_callback_in_context_manager(self):
+        with stub_test_action():
+            response = self.client.call_action('test_service', 'test_action', body={'id': 1, 'type': 'user'})
+        self.assertEqual(response.body, {'id': 1, 'type': 'user'})
+
+        with stub_test_action():
+            response = self.client.call_action('test_service', 'test_action', body={'id': 2, 'type': 'admin'})
+        self.assertEqual(response.body, {'id': 2, 'type': 'admin', 'extra': 'data'})
+
+    def test_stub_action_with_side_effect_callback_in_context_manager_and_param(self):
+        with stub_test_action(add_extra=False):
+            response = self.client.call_action('test_service', 'test_action', body={'id': 1, 'type': 'user'})
+        self.assertEqual(response.body, {'id': 1, 'type': 'user'})
+
+        with stub_test_action(add_extra=False):
+            response = self.client.call_action('test_service', 'test_action', body={'id': 2, 'type': 'admin'})
+        self.assertEqual(response.body, {'id': 2, 'type': 'admin'})
+
+    @stub_action(
+        'test_service',
+        'test_action_2',
+        side_effect=ActionError(errors=[Error(code='BAR_BAD', field='bar', message='Uh-uh')]),
+    )
+    def test_stub_action_with_error_side_effect_raises_exception(self, stub_test_action_2):
+        with self.assertRaises(Client.CallActionError) as e:
+            self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
+
+        self.assertEqual('BAR_BAD', e.exception.actions[0].errors[0].code)
+        self.assertEqual('bar', e.exception.actions[0].errors[0].field)
+        self.assertEqual('Uh-uh', e.exception.actions[0].errors[0].message)
+
+        self.assertEqual(1, stub_test_action_2.call_count)
+        self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
+        stub_test_action_2.assert_called_once_with({'a': 'body'})
+
+    @stub_action(
+        'test_service',
+        'test_action_2',
+        side_effect=JobError(errors=[Error(code='BAR_BAD_JOB', message='Uh-uh job')]),
+    )
+    def test_stub_action_with_job_error_side_effect_raises_job_error_exception(self, stub_test_action_2):
+        with self.assertRaises(Client.JobError) as e:
+            self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
+
+        self.assertEqual('BAR_BAD_JOB', e.exception.errors[0].code)
+        self.assertIsNone(e.exception.errors[0].field)
+        self.assertEqual('Uh-uh job', e.exception.errors[0].message)
+
+        self.assertEqual(1, stub_test_action_2.call_count)
+        self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
+        stub_test_action_2.assert_called_once_with({'a': 'body'})
+
     @stub_action('test_service', 'test_action_2')
     def test_mock_action_with_error_side_effect_raises_exception(self, stub_test_action_2):
         stub_test_action_2.side_effect = ActionError(errors=[Error(code='BAR_BAD', field='bar', message='Uh-uh')])
@@ -497,6 +578,62 @@ class TestStubAction(ServerTestCase):
             )
 
         self.assertEqual([Error(code='BAD_JOB', message='You are a bad job')], error_context.exception.errors)
+
+        stub_test_action_1.assert_called_once_with({'a': 'b'})
+        stub_test_action_2.assert_called_once_with({'c': 'd'})
+
+    @stub_action('test_service', 'test_action_2', body={'three': 'four'})
+    @stub_action(
+        'test_service',
+        'test_action_1',
+        side_effect=JobError(errors=[Error(code='BAD_JOB', message='You are a bad job')]),
+    )
+    def test_stub_action_with_two_stubs_with_parallel_calls_and_job_errors_not_raised(
+        self,
+        stub_test_action_1,
+        stub_test_action_2,
+    ):
+        job_responses = self.client.call_jobs_parallel(
+            [
+                {'service_name': 'test_service', 'actions': [{'action': 'test_action_1', 'body': {'a': 'b'}}]},
+                {'service_name': 'test_service', 'actions': [{'action': 'test_action_2', 'body': {'c': 'd'}}]},
+            ],
+            raise_job_errors=False,
+        )
+
+        self.assertIsNotNone(job_responses)
+        self.assertEqual(2, len(job_responses))
+        self.assertEqual(0, len(job_responses[0].actions))
+        self.assertEqual([Error(code='BAD_JOB', message='You are a bad job')], job_responses[0].errors)
+        self.assertEqual(1, len(job_responses[1].actions))
+        self.assertEqual({'three': 'four'}, job_responses[1].actions[0].body)
+
+        stub_test_action_1.assert_called_once_with({'a': 'b'})
+        stub_test_action_2.assert_called_once_with({'c': 'd'})
+
+    @stub_action('test_service', 'test_action_2', body={'three': 'four'})
+    @stub_action(
+        'test_service',
+        'test_action_1',
+        side_effect=ActionError(errors=[Error(code='BAD_ACTION', message='You are a bad actor')]),
+    )
+    def test_stub_action_with_two_stubs_with_parallel_calls_and_action_errors_raised(
+        self,
+        stub_test_action_1,
+        stub_test_action_2,
+    ):
+        with self.assertRaises(self.client.CallActionError) as error_context:
+            self.client.call_jobs_parallel(
+                [
+                    {'service_name': 'test_service', 'actions': [{'action': 'test_action_1', 'body': {'a': 'b'}}]},
+                    {'service_name': 'test_service', 'actions': [{'action': 'test_action_2', 'body': {'c': 'd'}}]},
+                ],
+            )
+
+        self.assertEqual(
+            [Error(code='BAD_ACTION', message='You are a bad actor')],
+            error_context.exception.actions[0].errors,
+        )
 
         stub_test_action_1.assert_called_once_with({'a': 'b'})
         stub_test_action_2.assert_called_once_with({'c': 'd'})

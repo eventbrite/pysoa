@@ -353,7 +353,7 @@ class stub_action(object):  # noqa
         def call_bodies(self):
             return tuple(args[0][0] for args in self.call_args_list)
 
-    def __init__(self, service, action, body=None, errors=None):
+    def __init__(self, service, action, body=None, errors=None, side_effect=None):
         assert isinstance(service, six.text_type), 'Stubbed service name "{}" must be unicode'.format(service)
         assert isinstance(action, six.text_type), 'Stubbed action name "{}" must be unicode'.format(action)
 
@@ -361,6 +361,7 @@ class stub_action(object):  # noqa
         self.action = action
         self.body = body or {}
         self.errors = errors or []
+        self.side_effect = side_effect
         self.enabled = False
 
         # Play nice with @mock.patch
@@ -378,7 +379,10 @@ class stub_action(object):  # noqa
         mock_action = self._MockAction(name='{}.{}'.format(self.service, self.action))
 
         if self.body or self.errors:
-            mock_action.side_effect = lambda _: ActionResponse(self.action, errors=self.errors, body=self.body)
+            mock_action.return_value = ActionResponse(self.action, errors=self.errors, body=self.body)
+
+        if self.side_effect:
+            mock_action.side_effect = self.side_effect
 
         @wraps(Client.send_request)
         def wrapped_send_request(client, service_name, actions, *args, **kwargs):
