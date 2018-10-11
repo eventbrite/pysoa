@@ -3,6 +3,13 @@ from __future__ import (
     unicode_literals,
 )
 
+from logging import (
+    Formatter,
+    LogRecord,
+    WARNING,
+)
+import logging.handlers
+import socket
 import threading
 import unittest
 
@@ -11,6 +18,7 @@ import six
 from pysoa.common.logging import (
     PySOALogContextFilter,
     RecursivelyCensoredDictWrapper,
+    SyslogHandler,
 )
 from pysoa.test.compatibility import mock
 
@@ -279,3 +287,591 @@ class TestRecursivelyCensoredDictWrapper(unittest.TestCase):
             },
             original,
         )
+
+
+class TestSyslogHandler(object):
+    def test_constructor(self):
+        handler = SyslogHandler()
+        assert handler.socktype == socket.SOCK_DGRAM
+        assert handler.unixsocket is False
+        assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_FRAGMENT
+        assert handler.maximum_length >= 1252  # (1280 - 28)
+
+        handler = SyslogHandler(overflow=SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE)
+        assert handler.socktype == socket.SOCK_DGRAM
+        assert handler.unixsocket is False
+        assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
+        assert handler.maximum_length >= 1252  # (1280 - 28)
+
+        with mock.patch.object(socket.socket, 'connect'):
+            handler = SyslogHandler(socket_type=socket.SOCK_STREAM)
+            assert handler.socktype == socket.SOCK_STREAM
+            assert handler.unixsocket is False
+            assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
+            assert handler.maximum_length == 1024 * 1024
+
+            handler = SyslogHandler(address='/path/to/unix.socket')
+            assert handler.socktype == socket.SOCK_DGRAM
+            assert handler.unixsocket is True or handler.unixsocket == 1  # Python 2 compatibility
+            assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
+            assert handler.maximum_length == 1024 * 1024
+
+            handler = SyslogHandler(address='/path/to/unix.socket', socket_type=socket.SOCK_STREAM)
+            assert handler.socktype == socket.SOCK_STREAM
+            assert handler.unixsocket is True or handler.unixsocket == 1  # Python 2 compatibility
+            assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
+            assert handler.maximum_length == 1024 * 1024
+
+    def test_emit_shorter_than_limit(self):
+        handler = SyslogHandler()
+        handler.maximum_length = 500
+        handler.overflow = SyslogHandler.OVERFLOW_BEHAVIOR_FRAGMENT
+        handler.formatter = Formatter('foo_file: %(name)s %(levelname)s %(message)s')
+
+        record = LogRecord(
+            name='bar_service',
+            level=WARNING,
+            pathname='/path/to/file.py',
+            lineno=122,
+            msg='This is a fairly short message',
+            args=(),
+            exc_info=None,
+        )
+
+        with mock.patch.object(handler, '_send') as mock_send:
+            handler.emit(record)
+
+        priority = '<{:d}>'.format(
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+        ).encode('utf-8')
+
+        mock_send.assert_called_once_with([
+            priority + b'foo_file: bar_service WARNING This is a fairly short message\000',
+        ])
+
+    def test_emit_longer_than_limit_truncate(self):
+        handler = SyslogHandler()
+        handler.maximum_length = 100
+        handler.overflow = SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
+        handler.formatter = Formatter('foo_file: %(name)s %(levelname)s %(message)s')
+        handler.ident = '5678'
+
+        record = LogRecord(
+            name='bar_service',
+            level=WARNING,
+            pathname='/path/to/file.py',
+            lineno=122,
+            msg='This is a much longer message that is going to exceed the maximum byte count and will need truncating',
+            args=(),
+            exc_info=None,
+        )
+
+        with mock.patch.object(handler, '_send') as mock_send:
+            handler.emit(record)
+
+        priority = '<{:d}>'.format(
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+        ).encode('utf-8')
+
+        expected1 = (
+            priority +
+            b'5678foo_file: bar_service WARNING This is a much longer message that is going to exceed the max\000'
+        )
+        assert len(expected1) == 100
+
+        mock_send.assert_called_once_with([
+            expected1,
+        ])
+
+    def test_emit_longer_than_limit_truncate_unicode_within(self):
+        # b'\xf0\x9f\x98\xb1' = u'\U0001f631' = shocked face with hands to cheeks
+        handler = SyslogHandler()
+        handler.maximum_length = 100
+        handler.overflow = SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
+        handler.formatter = Formatter('foo_file: %(name)s %(levelname)s %(message)s')
+        handler.ident = '5678'
+
+        record = LogRecord(
+            name='bar_service',
+            level=WARNING,
+            pathname='/path/to/file.py',
+            lineno=122,
+            msg='This is a much longer message \U0001f631 that is going to exceed the maximum byte count and will '
+                'need truncating',
+            args=(),
+            exc_info=None,
+        )
+
+        with mock.patch.object(handler, '_send') as mock_send:
+            handler.emit(record)
+
+        priority = '<{:d}>'.format(
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+        ).encode('utf-8')
+
+        expected1 = (
+            priority +
+            b'5678foo_file: bar_service WARNING This is a much longer message \xf0\x9f\x98\xb1 that is going to '
+            b'exceed th\000'
+        )
+        assert len(expected1) == 100
+
+        mock_send.assert_called_once_with([
+            expected1,
+        ])
+
+    def test_emit_longer_than_limit_truncate_unicode_at_boundary(self):
+        # b'\xf0\x9f\x98\xb1' = u'\U0001f631' = shocked face with hands to cheeks
+        handler = SyslogHandler()
+        handler.maximum_length = 100
+        handler.overflow = SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
+        handler.formatter = Formatter('foo_file: %(name)s %(levelname)s %(message)s')
+        handler.ident = '5678'
+
+        record = LogRecord(
+            name='bar_service',
+            level=WARNING,
+            pathname='/path/to/file.py',
+            lineno=122,
+            msg='This is a much longer message that is going to exceed the \U0001f631 maximum byte count and will '
+                'need truncating',
+            args=(),
+            exc_info=None,
+        )
+
+        with mock.patch.object(handler, '_send') as mock_send:
+            handler.emit(record)
+
+        priority = '<{:d}>'.format(
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+        ).encode('utf-8')
+
+        expected1 = (
+            priority +
+            b'5678foo_file: bar_service WARNING This is a much longer message that is going to exceed the \000'
+        )
+        assert len(expected1) == 97
+
+        mock_send.assert_called_once_with([
+            expected1,
+        ])
+
+    def test_emit_longer_than_limit_fragment(self):
+        handler = SyslogHandler()
+        handler.maximum_length = 100
+        handler.overflow = SyslogHandler.OVERFLOW_BEHAVIOR_FRAGMENT
+        handler.formatter = Formatter('foo_file: %(name)s %(levelname)s %(message)s')
+
+        record = LogRecord(
+            name='bar_service',
+            level=WARNING,
+            pathname='/path/to/file.py',
+            lineno=122,
+            msg='This is a much longer message that is going to exceed the maximum byte count and will need truncating',
+            args=(),
+            exc_info=None,
+        )
+
+        with mock.patch.object(handler, '_send') as mock_send:
+            handler.emit(record)
+
+        priority = '<{:d}>'.format(
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+        ).encode('utf-8')
+
+        expected1 = (
+            priority +
+            b"foo_file: bar_service WARNING This is a much longer message that is going to exceed... (cont'd)\000"
+        )
+        assert len(expected1) == 100
+        expected2 = (
+            priority +
+            b"foo_file: bar_service WARNING (cont'd #2) ... the maximum byte count and will need ... (cont'd)\000"
+        )
+        assert len(expected2) == 100
+        expected3 = (
+            priority +
+            b"foo_file: bar_service WARNING (cont'd #3) ...truncating\000"
+        )
+        assert len(expected3) < 100
+
+        mock_send.assert_called_once_with([
+            expected1,
+            expected2,
+            expected3,
+        ])
+
+    def test_emit_longer_than_limit_fragment_unicode_within(self):
+        # b'\xf0\x9f\x98\xb1' = u'\U0001f631' = shocked face with hands to cheeks
+        handler = SyslogHandler()
+        handler.maximum_length = 100
+        handler.overflow = SyslogHandler.OVERFLOW_BEHAVIOR_FRAGMENT
+        handler.formatter = Formatter('foo_file: %(name)s %(levelname)s %(message)s')
+
+        record = LogRecord(
+            name='bar_service',
+            level=WARNING,
+            pathname='/path/to/file.py',
+            lineno=122,
+            msg='This is a much longer message \U0001f631 that is going to exceed the maximum byte count and will '
+                'need truncating',
+            args=(),
+            exc_info=None,
+        )
+
+        with mock.patch.object(handler, '_send') as mock_send:
+            handler.emit(record)
+
+        priority = '<{:d}>'.format(
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+        ).encode('utf-8')
+
+        expected1 = (
+            priority +
+            b"foo_file: bar_service WARNING This is a much longer message \xf0\x9f\x98\xb1 that is going to "
+            b"e... (cont'd)\000"
+        )
+        assert len(expected1) == 100
+        expected2 = (
+            priority +
+            b"foo_file: bar_service WARNING (cont'd #2) ...xceed the maximum byte count and will ... (cont'd)\000"
+        )
+        assert len(expected2) == 100
+        expected3 = (
+            priority +
+            b"foo_file: bar_service WARNING (cont'd #3) ...need truncating\000"
+        )
+        assert len(expected3) < 100
+
+        mock_send.assert_called_once_with([
+            expected1,
+            expected2,
+            expected3,
+        ])
+
+    def test_emit_longer_than_limit_fragment_unicode_at_boundary(self):
+        # b'\xf0\x9f\x98\xb1' = u'\U0001f631' = shocked face with hands to cheeks
+        handler = SyslogHandler()
+        handler.maximum_length = 100
+        handler.overflow = SyslogHandler.OVERFLOW_BEHAVIOR_FRAGMENT
+        handler.formatter = Formatter('foo_file: %(name)s %(levelname)s %(message)s')
+
+        record = LogRecord(
+            name='bar_service',
+            level=WARNING,
+            pathname='/path/to/file.py',
+            lineno=122,
+            msg='This is a much longer message that yes is going to \U0001f631 exceed the maximum byte count and will '
+                'need truncating',
+            args=(),
+            exc_info=None,
+        )
+
+        with mock.patch.object(handler, '_send') as mock_send:
+            handler.emit(record)
+
+        priority = '<{:d}>'.format(
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+        ).encode('utf-8')
+
+        expected1 = (
+            priority +
+            b"foo_file: bar_service WARNING This is a much longer message that yes is going to ... (cont'd)\000"
+        )
+        assert len(expected1) == 98
+        expected2 = (
+            priority +
+            b"foo_file: bar_service WARNING (cont'd #2) ...\xf0\x9f\x98\xb1 exceed the maximum byte count and"
+            b"... (cont'd)\000"
+        )
+        assert len(expected2) == 100
+        expected3 = (
+            priority +
+            b"foo_file: bar_service WARNING (cont'd #3) ... will need truncating\000"
+        )
+        assert len(expected3) < 100
+
+        mock_send.assert_called_once_with([
+            expected1,
+            expected2,
+            expected3,
+        ])
+
+    # noinspection PyProtectedMember
+    def test_send_udp(self):
+        handler = SyslogHandler(address=('127.0.0.1', logging.handlers.SYSLOG_UDP_PORT))
+
+        with mock.patch.object(socket.socket, 'sendto') as mock_send_to:
+            handler._send(['this is the first part', 'here is another part', 'one more part'])
+
+        mock_send_to.assert_has_calls([
+            mock.call('this is the first part', ('127.0.0.1', logging.handlers.SYSLOG_UDP_PORT)),
+            mock.call('here is another part', ('127.0.0.1', logging.handlers.SYSLOG_UDP_PORT)),
+            mock.call('one more part', ('127.0.0.1', logging.handlers.SYSLOG_UDP_PORT)),
+        ])
+
+    # noinspection PyProtectedMember
+    def test_send_tcp(self):
+        with mock.patch.object(socket.socket, 'connect') as mock_connect:
+            handler = SyslogHandler(
+                address=('127.0.0.1', logging.handlers.SYSLOG_UDP_PORT),
+                socket_type=socket.SOCK_STREAM,
+            )
+
+        mock_connect.assert_called_once_with(('127.0.0.1', logging.handlers.SYSLOG_UDP_PORT))
+
+        with mock.patch.object(socket.socket, 'sendall') as mock_send_all:
+            handler._send(['this is the first part', 'here is another part', 'one more part'])
+
+        mock_send_all.assert_has_calls([
+            mock.call('this is the first part'),
+            mock.call('here is another part'),
+            mock.call('one more part'),
+        ])
+
+    # noinspection PyProtectedMember
+    def test_send_unix(self):
+        with mock.patch.object(socket.socket, 'connect') as mock_connect:
+            handler = SyslogHandler(address='/path/to/unix.socket')
+
+        mock_connect.assert_called_once_with('/path/to/unix.socket')
+
+        with mock.patch.object(socket.socket, 'send') as mock_send:
+            handler._send(['this is the first part', 'here is another part', 'one more part'])
+
+        mock_send.assert_has_calls([
+            mock.call('this is the first part'),
+            mock.call('here is another part'),
+            mock.call('one more part'),
+        ])
+
+    # noinspection PyProtectedMember
+    def test_send_unix_with_failure_part_way_through(self):
+        with mock.patch.object(socket.socket, 'connect') as mock_connect:
+            handler = SyslogHandler(address='/path/to/a/different.socket')
+
+        mock_connect.assert_called_once_with('/path/to/a/different.socket')
+
+        # This is weird. Creating a new socket actually dynamically creates the `send` method, which breaks mocking.
+        # So we have to mock the send, connect, and close methods, and then when the send returns an error on the
+        # second call, the close method has to de-mock send so that a new socket can be created, and then the
+        # connection method has to re-mock send so that we can capture the send retries. Yuck.
+        first_mock_send_patch = mock.patch.object(socket.socket, 'send')
+        second_mock_send_patch = mock.patch.object(socket.socket, 'send')
+        mock_sends = {'first_mock_send': None, 'second_mock_send': None}
+
+        def close_side_effect(*_, **__):
+            first_mock_send_patch.stop()
+
+        def connect_side_effect(*_, **__):
+            mock_sends['second_mock_send'] = second_mock_send_patch.start()
+            mock_sends['second_mock_send'].side_effect = [True, True]
+
+        try:
+            with mock.patch.object(socket.socket, 'close') as mock_close, \
+                    mock.patch.object(socket.socket, 'connect') as mock_connect:
+                mock_sends['first_mock_send'] = first_mock_send_patch.start()
+                mock_sends['first_mock_send'].side_effect = [True, OSError()]
+
+                mock_close.side_effect = close_side_effect
+                mock_connect.side_effect = connect_side_effect
+
+                handler._send(['this is the first part', 'here is another part', 'one more part'])
+        finally:
+            mock.patch.stopall()
+
+        mock_close.assert_called_once_with()
+        mock_connect.assert_called_once_with('/path/to/a/different.socket')
+        mock_sends['first_mock_send'].assert_has_calls([
+            mock.call('this is the first part'),
+            mock.call('here is another part'),
+        ])
+        mock_sends['second_mock_send'].assert_has_calls([
+            mock.call('here is another part'),
+            mock.call('one more part'),
+        ])
+
+    # noinspection PyProtectedMember
+    def test_cleanly_slice_encoded_string(self):
+        # b'\xf0\x9f\xa4\xae' = barf face
+        # b'\xf0\x9f\x98\xbb' = cat with heart eyes
+        # b'\xf0\x9f\x9b\x8c' = bed
+        # b'\xf0\x9f\x92\xb8' = money with wings
+        # b'\xe2\x9c\x8d\xf0\x9f\x8f\xbb' = hand writing with pen, lightest skin
+        # b'\xe2\x9c\x8d\xf0\x9f\x8f\xbf' = hand writing with pen, darkest skin
+
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'Hello world, this has no multi-byte characters',
+            15
+        ) == (
+            b'Hello world, th',
+            b'is has no multi-byte characters',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'Hello world, this has no multi-byte characters',
+            16
+        ) == (
+            b'Hello world, thi',
+            b's has no multi-byte characters',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'Hello world, this has no multi-byte characters',
+            17
+        ) == (
+            b'Hello world, this',
+            b' has no multi-byte characters',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'Hello world, this has no multi-byte characters',
+            18
+        ) == (
+            b'Hello world, this ',
+            b'has no multi-byte characters',
+        )
+
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            12
+        ) == (
+            b'This string ',
+            b'\xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            13
+        ) == (
+            b'This string ',
+            b'\xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            14
+        ) == (
+            b'This string ',
+            b'\xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            15
+        ) == (
+            b'This string ',
+            b'\xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            16
+        ) == (
+            b'This string \xf0\x9f\xa4\xae',
+            b' has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            19
+        ) == (
+            b'This string \xf0\x9f\xa4\xae ha',
+            b's \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            21
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has ',
+            b'\xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            22
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has ',
+            b'\xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            23
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has ',
+            b'\xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            24
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has ',
+            b'\xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            25
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c',
+            b' multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            31
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi',
+            b'-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            37
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte ',
+            b'\xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            38
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte ',
+            b'\xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            39
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte ',
+            b'\xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            40
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d',
+            b'\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            41
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d',
+            b'\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            42
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d',
+            b'\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            43
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d',
+            b'\xf0\x9f\x8f\xbb characters!',
+        )
+        assert SyslogHandler._cleanly_slice_encoded_string(
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb characters!',
+            44
+        ) == (
+            b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d\xf0\x9f\x8f\xbb',
+            b' characters!',
+        )
+
+        # There's not really anything we can do about making this detect modifiers and not split between the base
+        # character and modifying character. So all we really care about is that the resulting strings successfully
+        # decode without errors.
+        b'This string \xf0\x9f\xa4\xae has \xf0\x9f\x9b\x8c multi-byte \xe2\x9c\x8d'.decode('utf-8')
+        b'\xf0\x9f\x8f\xbb characters!'.decode('utf-8')
