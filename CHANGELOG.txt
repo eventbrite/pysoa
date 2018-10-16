@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.54.0 (2018-10-16)
+-------------------
+- [MINOR] A better Syslog logging handler
+- [MINOR] Allow setting `side_effect` while defining the stub
+- [MINOR] Simplify `stub_action` decorator implementation
+
 0.53.0 (2018-10-05)
 -------------------
 - [MINOR] If timeout specified, include it in the control header
