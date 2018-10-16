@@ -2047,6 +2047,10 @@ Settings Schema Definition
       ``anything``: *(no description)*
 
 
+- ``extra_fields_to_redact`` - ``set``: Use this field to supplement the set of fields that are automatically redacted/censored in request and response fields with additional fields that your service needs redacted.
+
+  values
+    ``unicode``: *(no description)*
 - ``harakiri`` - strict ``dict``: Instructions for automatically terminating a server process when request processing takes longer than expected.
 
   - ``shutdown_grace`` - ``integer``: Seconds to forcefully shutdown after harakiri is triggered if shutdown does not occur (additional information: ``{u'gt': 0}``)
@@ -2195,6 +2199,7 @@ apply as the default values.
 
     {
         "client_routing": {},
+        "extra_fields_to_redact": [],
         "harakiri": {
             "shutdown_grace": 30,
             "timeout": 300
@@ -2229,7 +2234,7 @@ apply as the default values.
                         "localhost",
                         514
                     ],
-                    "class": "logging.handlers.SysLogHandler",
+                    "class": "pysoa.common.logging.SyslogHandler",
                     "facility": 23,
                     "filters": [
                         "pysoa_logging_context_filter"

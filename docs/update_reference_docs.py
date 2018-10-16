@@ -85,6 +85,13 @@ return type will be a ``str`` (Unicode) in Python 3 and a ``unicode`` in Python 
 NO_DEFAULT = object()
 
 
+class DumbSetJsonEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, (set, frozenset)):
+            return list(sorted(o))
+        return super(DumbSetJsonEncoder, self).default(o)
+
+
 def _clean_literals(documentation):
     # Make all single backticks double, in reStructuredText form, but only if not part of a link (`hello`_) and not
     # already a double or triple backtick.
@@ -296,7 +303,10 @@ def _pretty_introspect(value, depth=1, nullable=''):
         documentation += '\n{}keys\n{}{}\n'.format(first, second, _pretty_introspect(value.key_type, depth + 1))
         documentation += '\n{}values\n{}{}\n'.format(first, second, _pretty_introspect(value.value_type, depth + 1))
     elif isinstance(value, fields.List):
-        documentation += '``list``{}: {}\n'.format(nullable, description)
+        noun = 'list'
+        if isinstance(value, fields.Set):
+            noun = 'set'
+        documentation += '``{}``{}: {}\n'.format(noun, nullable, description)
         documentation += '\n{}values\n{}{}'.format(first, second, _pretty_introspect(value.contents, depth + 1))
     elif isinstance(value, fields.Nullable):
         documentation += _pretty_introspect(value.field, depth, nullable=' (nullable)')
@@ -377,6 +387,7 @@ apply as the default values.
             ensure_ascii=False,
             indent=4,
             sort_keys=True,
+            cls=DumbSetJsonEncoder,
         ).split('\n'):
             documentation += '\n    {}'.format(line.rstrip())
 

@@ -4,10 +4,10 @@ from __future__ import (
 )
 
 import functools
-from logging.handlers import SysLogHandler
 
 from conformity import fields
 
+from pysoa.common.logging import SyslogHandler
 from pysoa.common.schemas import (
     BasicClassSchema,
     PolymorphClassSchema,
@@ -172,8 +172,8 @@ class ServerSettings(SOASettings):
                 },
                 'syslog': {
                     'level': 'INFO',
-                    'class': 'logging.handlers.SysLogHandler',
-                    'facility': SysLogHandler.LOG_LOCAL7,
+                    'class': 'pysoa.common.logging.SyslogHandler',
+                    'facility': SyslogHandler.LOG_LOCAL7,
                     'address': ('localhost', 514),
                     'formatter': 'syslog',
                     'filters': ['pysoa_logging_context_filter'],
