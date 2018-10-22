@@ -245,6 +245,8 @@ class SyslogHandler(logging.handlers.SysLogHandler):
     OVERFLOW_BEHAVIOR_FRAGMENT = 0
     OVERFLOW_BEHAVIOR_TRUNCATE = 1
 
+    _MINIMUM_MTU_CACHE = {}
+
     def __init__(
         self,
         address=('localhost', logging.handlers.SYSLOG_UDP_PORT),
@@ -255,7 +257,11 @@ class SyslogHandler(logging.handlers.SysLogHandler):
         super(SyslogHandler, self).__init__(address, facility, socket_type)
 
         if not self.unixsocket and self.socktype == socket.SOCK_DGRAM:
-            self.maximum_length = _discover_minimum_mtu_to_target(address[0], 9999) - DATAGRAM_HEADER_LENGTH_IN_BYTES
+            if address[0] not in self._MINIMUM_MTU_CACHE:
+                # The MTU is unlikely to change while the process is running, and checking it is expensive
+                self._MINIMUM_MTU_CACHE[address[0]] = _discover_minimum_mtu_to_target(address[0], 9999)
+
+            self.maximum_length = self._MINIMUM_MTU_CACHE[address[0]] - DATAGRAM_HEADER_LENGTH_IN_BYTES
             self.overflow = overflow
         else:
             self.maximum_length = 1048576  # Let's not send more than a megabyte to Syslog, even over TCP/Unix ... crazy
