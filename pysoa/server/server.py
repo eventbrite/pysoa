@@ -65,8 +65,9 @@ try:
         reset_queries as django_reset_queries,
     )
     from django.db.transaction import get_autocommit as django_get_autocommit
+    from django.core.exceptions import ImproperlyConfigured
     from django.db.utils import DatabaseError
-except ImportError:
+except (ImportError, ImproperlyConfigured):
     django_settings = None
     django_caches = None
     django_close_old_connections = None
