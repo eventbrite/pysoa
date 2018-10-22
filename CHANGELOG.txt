@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.54.1 (2018-10-22)
+-------------------
+- [PATCH] Add MTU cache to SyslogHandler to improve performance
+
 0.54.0 (2018-10-16)
 -------------------
 - [MINOR] A better Syslog logging handler
