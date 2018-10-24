@@ -146,7 +146,7 @@ def get_typed_value(type_name, value):
 
     if isinstance(value, six.text_type) and VARIABLE_SUBSTITUTION_RE.search(value):
         # make sure 0 index is inserted into action-name-based variable substitutions
-        return ENSURE_ACTION_SUBSTITUTION_DEFAULT_INDEX_RE.sub('[[\\1.0.\\2]]', value)
+        return ENSURE_ACTION_SUBSTITUTION_DEFAULT_INDEX_RE.sub(r'[[\1.0.\2]]', value)
 
     if type_name in ('None', 'none', 'null'):
         return None
