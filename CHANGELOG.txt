@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.54.2 (2018-10-24)
+-------------------
+- [PATCH] Fix new flake8 errors
+
 0.54.1 (2018-10-22)
 -------------------
 - [PATCH] Add MTU cache to SyslogHandler to improve performance
