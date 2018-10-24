@@ -95,7 +95,7 @@ class DumbSetJsonEncoder(json.JSONEncoder):
 def _clean_literals(documentation):
     # Make all single backticks double, in reStructuredText form, but only if not part of a link (`hello`_) and not
     # already a double or triple backtick.
-    return SINGLE_BACKTICK_RE.sub('\g<1>``\g<2>``\g<3>', documentation)
+    return SINGLE_BACKTICK_RE.sub(r'\g<1>``\g<2>``\g<3>', documentation)
 
 
 # noinspection PyTypeChecker

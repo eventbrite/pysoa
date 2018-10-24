@@ -242,7 +242,7 @@ for __directive_class in get_all_directives():
     __doc__ += (
         '' + __name + '\n' +
         ('~' * len(__name)) + '\n\n' +
-        __SINGLE_BACKTICK_RE.sub('\g<1>``\g<2>``\g<3>', inspect.cleandoc(__directive_class.__doc__ or '')) + '\n\n' +
+        __SINGLE_BACKTICK_RE.sub(r'\g<1>``\g<2>``\g<3>', inspect.cleandoc(__directive_class.__doc__ or '')) + '\n\n' +
         '(from: ``' + __directive_class.__module__ + '``)' + '\n\n' +
         'Syntax::\n\n' + __wrap_documentation_line(repr(__directive_class())) + '\n\n\n'
     )

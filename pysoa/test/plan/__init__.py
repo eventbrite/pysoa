@@ -80,8 +80,8 @@ tests fixtures and test cases that are run using the ``pytest`` arguments::
     pytest -k get_user
     # This will match only fixture test cases with the name: get_user
     pytest --pysoa-test-case get_user
-    # This will match only fixture test cases with names matching the regular expression ^get\_user.*
-    pytest --pysoa-test-case-regex 'get\_user.*'
+    # This will match only fixture test cases with names matching the regular expression ^get\\_user.*
+    pytest --pysoa-test-case-regex 'get\\_user.*'
     # This will match only test cases within test fixtures with the name: user_actions
     pytest --pysoa-fixture user_actions
     # This will match only test cases named get_user within test fixtures named user_actions
@@ -503,6 +503,7 @@ class ServicePlanTestCase(ServerTestCase):
                     outer_exception = e
                     raise
                 finally:
+                    # noinspection PyBroadException
                     try:  # LABEL: 3
                         # Now we need to call the fixture test case teardown on the class and on all directives
                         self._run_directive_hook('tear_down_test_case', test_case, test_fixture)
@@ -512,7 +513,7 @@ class ServicePlanTestCase(ServerTestCase):
                             # If an error happened in TRY 2, raise it instead of the interrupt so we don't mask it
                             raise outer_exception
                         raise
-                    except BaseException as e:
+                    except BaseException:
                         if not outer_exception:
                             raise  # If an error did not happen in TRY 2, just raise the tear-down error
                         self.addError(self, sys.exc_info())  # Otherwise, record the tear-down error so we don't mask

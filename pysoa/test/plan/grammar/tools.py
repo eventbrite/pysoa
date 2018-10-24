@@ -22,6 +22,7 @@ from pysoa.test.plan.errors import StatusError
 
 ENSURE_ACTION_SUBSTITUTION_DEFAULT_INDEX_RE = re.compile(r'\[\[([A-Z_-]+)\.(?!\d)([a-zA-Z0-9_.{}-]+)*\]\]')
 VARIABLE_SUBSTITUTION_RE = re.compile(r'(\[\[(([a-zA-Z_-]+\.\d+)?([a-zA-Z0-9_.{}-]+)*)\]\])')
+SOURCE_PATH_FIND_PATH_WITHOUT_INDEX_TO_ADD_INDEX_ZERO = re.compile(r'^([\w_]+)\.(?!\d+\.)')
 
 
 def path_put(out, path, value):
@@ -258,7 +259,10 @@ def _find_path_in_sources(source_path, *sources):
                 return path_get(source, source_path.lower())
             except (KeyError, IndexError):
                 try:
-                    return path_get(source, re.sub('^([\w_]+)\.(?!\d+\.)', '{\\1.0}.', source_path.lower()))
+                    return path_get(
+                        source,
+                        SOURCE_PATH_FIND_PATH_WITHOUT_INDEX_TO_ADD_INDEX_ZERO.sub(r'{\1.0}.', source_path.lower())
+                    )
                 except (KeyError, IndexError):
                     pass
 
