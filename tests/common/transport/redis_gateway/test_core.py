@@ -11,6 +11,7 @@ import unittest
 import attr
 import freezegun
 
+from pysoa.common.serializer.json_serializer import JSONSerializer
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
 from pysoa.common.transport.exceptions import (
     InvalidMessageError,
@@ -56,7 +57,7 @@ class TestRedisTransportCore(unittest.TestCase):
         self.assertEqual(10000, core.queue_capacity)
         self.assertEqual(10, core.queue_full_retries)
         self.assertEqual(5, core.receive_timeout_in_seconds)
-        self.assertIsInstance(core.serializer, MsgpackSerializer)
+        self.assertIsInstance(core.default_serializer, MsgpackSerializer)
 
         mock_standard.assert_called_once_with()
         mock_standard.return_value.anything.assert_called_once_with()
@@ -77,7 +78,7 @@ class TestRedisTransportCore(unittest.TestCase):
             queue_capacity=100,
             queue_full_retries=7,
             receive_timeout_in_seconds=10,
-            serializer_config={'object': MockSerializer, 'kwargs': {'kwarg1': 'hello'}},
+            default_serializer_config={'object': MockSerializer, 'kwargs': {'kwarg1': 'hello'}},
         )
         core.backend_layer.anything()
 
@@ -86,8 +87,8 @@ class TestRedisTransportCore(unittest.TestCase):
         self.assertEqual(100, core.queue_capacity)
         self.assertEqual(7, core.queue_full_retries)
         self.assertEqual(10, core.receive_timeout_in_seconds)
-        self.assertIsInstance(core.serializer, MockSerializer)
-        self.assertEqual('hello', core.serializer.kwarg1)
+        self.assertIsInstance(core.default_serializer, MockSerializer)
+        self.assertEqual('hello', core.default_serializer.kwarg1)
 
         mock_standard.assert_called_once_with(
             hosts=[('localhost', 6379), ('far_away_host', 1098)],
@@ -114,7 +115,7 @@ class TestRedisTransportCore(unittest.TestCase):
             queue_capacity=7500,
             queue_full_retries=4,
             receive_timeout_in_seconds=6,
-            serializer_config={'object': MockSerializer, 'kwargs': {'kwarg2': 'goodbye'}},
+            default_serializer_config={'object': MockSerializer, 'kwargs': {'kwarg2': 'goodbye'}},
         )
         core.backend_layer.anything()
 
@@ -122,8 +123,8 @@ class TestRedisTransportCore(unittest.TestCase):
         self.assertEqual(7500, core.queue_capacity)
         self.assertEqual(4, core.queue_full_retries)
         self.assertEqual(6, core.receive_timeout_in_seconds)
-        self.assertIsInstance(core.serializer, MockSerializer)
-        self.assertEqual('goodbye', core.serializer.kwarg2)
+        self.assertIsInstance(core.default_serializer, MockSerializer)
+        self.assertEqual('goodbye', core.default_serializer.kwarg2)
 
         mock_sentinel.assert_called_once_with(
             hosts=[('another_host', 6379)],
@@ -333,3 +334,119 @@ class TestRedisTransportCore(unittest.TestCase):
 
             self.assertTrue(0 < elapsed < 0.1)
             self.assertEqual(request_id, response[0])
+
+    @mock.patch('pysoa.common.transport.redis_gateway.core.StandardRedisClient')
+    def test_content_type_default(self, mock_standard):
+        core = self._get_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)
+
+        mock_standard.return_value.get_connection.return_value.blpop.return_value = [
+            True,
+            MsgpackSerializer().dict_to_blob({'request_id': 15, 'meta': {}, 'body': {'foo': 'bar'}}),
+        ]
+
+        request_id, meta, body = core.receive_message('test_content_type_default')
+
+        self.assertEqual(15, request_id)
+        self.assertEqual({}, meta)
+        self.assertEqual({'foo': 'bar'}, body)
+
+        mock_standard.return_value.get_connection.return_value.blpop.assert_called_once_with(
+            ['pysoa:test_content_type_default'],
+            timeout=core.receive_timeout_in_seconds,
+        )
+
+        core.send_message('test_content_type_default:reply', 15, meta, {'yep': 'nope'})
+
+        call_kwargs = mock_standard.return_value.send_message_to_queue.call_args_list[0][1]
+
+        self.assertEqual('pysoa:test_content_type_default:reply', call_kwargs['queue_key'])
+        self.assertEqual(core.message_expiry_in_seconds, call_kwargs['expiry'])
+        self.assertEqual(core.queue_capacity, call_kwargs['capacity'])
+        self.assertEqual(mock_standard.return_value.get_connection.return_value, call_kwargs['connection'])
+
+        message = MsgpackSerializer().blob_to_dict(call_kwargs['message'])
+        self.assertEqual(15, message['request_id'])
+        self.assertTrue(message['meta']['__expiry__'] <= time.time() + core.message_expiry_in_seconds)
+        self.assertTrue({'yep': 'nope'}, message['body'])
+
+    @mock.patch('pysoa.common.transport.redis_gateway.core.StandardRedisClient')
+    def test_content_type_explicit_msgpack(self, mock_standard):
+        core = self._get_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)
+
+        mock_standard.return_value.get_connection.return_value.blpop.return_value = [
+            True,
+            (
+                b'content-type:application/msgpack;' +
+                MsgpackSerializer().dict_to_blob({'request_id': 15, 'meta': {}, 'body': {'foo': 'bar'}})
+            ),
+        ]
+
+        request_id, meta, body = core.receive_message('test_content_type_default')
+
+        self.assertEqual(15, request_id)
+        self.assertIn('serializer', meta)
+        self.assertEqual(1, len(meta))
+        self.assertIsInstance(meta['serializer'], MsgpackSerializer)
+        self.assertEqual({'foo': 'bar'}, body)
+
+        mock_standard.return_value.get_connection.return_value.blpop.assert_called_once_with(
+            ['pysoa:test_content_type_default'],
+            timeout=core.receive_timeout_in_seconds,
+        )
+
+        core.send_message('test_content_type_default:reply', 15, meta, {'yep': 'nope'})
+
+        call_kwargs = mock_standard.return_value.send_message_to_queue.call_args_list[0][1]
+
+        self.assertEqual('pysoa:test_content_type_default:reply', call_kwargs['queue_key'])
+        self.assertEqual(core.message_expiry_in_seconds, call_kwargs['expiry'])
+        self.assertEqual(core.queue_capacity, call_kwargs['capacity'])
+        self.assertEqual(mock_standard.return_value.get_connection.return_value, call_kwargs['connection'])
+
+        self.assertTrue(call_kwargs['message'].startswith(b'content-type:application/msgpack;'))
+
+        message = MsgpackSerializer().blob_to_dict(call_kwargs['message'][len(b'content-type:application/msgpack;'):])
+        self.assertEqual(15, message['request_id'])
+        self.assertTrue(message['meta']['__expiry__'] <= time.time() + core.message_expiry_in_seconds)
+        self.assertTrue({'yep': 'nope'}, message['body'])
+
+    @mock.patch('pysoa.common.transport.redis_gateway.core.StandardRedisClient')
+    def test_content_type_explicit_json(self, mock_standard):
+        core = self._get_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)
+
+        mock_standard.return_value.get_connection.return_value.blpop.return_value = [
+            True,
+            (
+                b'content-type : application/json ;' +
+                JSONSerializer().dict_to_blob({'request_id': 15, 'meta': {}, 'body': {'foo': 'bar'}})
+            ),
+        ]
+
+        request_id, meta, body = core.receive_message('test_content_type_default')
+
+        self.assertEqual(15, request_id)
+        self.assertIn('serializer', meta)
+        self.assertEqual(1, len(meta))
+        self.assertIsInstance(meta['serializer'], JSONSerializer)
+        self.assertEqual({'foo': 'bar'}, body)
+
+        mock_standard.return_value.get_connection.return_value.blpop.assert_called_once_with(
+            ['pysoa:test_content_type_default'],
+            timeout=core.receive_timeout_in_seconds,
+        )
+
+        core.send_message('test_content_type_default:reply', 15, meta, {'yep': 'nope'})
+
+        call_kwargs = mock_standard.return_value.send_message_to_queue.call_args_list[0][1]
+
+        self.assertEqual('pysoa:test_content_type_default:reply', call_kwargs['queue_key'])
+        self.assertEqual(core.message_expiry_in_seconds, call_kwargs['expiry'])
+        self.assertEqual(core.queue_capacity, call_kwargs['capacity'])
+        self.assertEqual(mock_standard.return_value.get_connection.return_value, call_kwargs['connection'])
+
+        self.assertTrue(call_kwargs['message'].startswith(b'content-type:application/json;'))
+
+        message = JSONSerializer().blob_to_dict(call_kwargs['message'][len(b'content-type:application/json;'):])
+        self.assertEqual(15, message['request_id'])
+        self.assertTrue(message['meta']['__expiry__'] <= time.time() + core.message_expiry_in_seconds)
+        self.assertTrue({'yep': 'nope'}, message['body'])

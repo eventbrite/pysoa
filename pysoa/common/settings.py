@@ -15,7 +15,7 @@ from pysoa.common.schemas import BasicClassSchema
 from pysoa.utils import resolve_python_path
 
 
-class SettingsMetaclass(type):
+class _SettingsMetaclass(type):
     """
     Metaclass that gathers fields defined on settings objects into a single
     variable to access them.
@@ -26,7 +26,7 @@ class SettingsMetaclass(type):
         if len(bases) != 1:
             raise ValueError('You cannot use multiple inheritance with Settings')
         # Make the new class
-        cls = type.__new__(mcs, name, bases, body)
+        cls = super(_SettingsMetaclass, mcs).__new__(mcs, name, bases, body)
         # Merge the schema and defaults objects with their parents
         if bases[0] is not object:
             cls.schema = dict(itertools.chain(bases[0].schema.items(), cls.schema.items()))
@@ -34,7 +34,7 @@ class SettingsMetaclass(type):
         return cls
 
 
-@six.add_metaclass(SettingsMetaclass)
+@six.add_metaclass(_SettingsMetaclass)
 class Settings(object):
     """
     Represents settings that can be passed to either a Client or a Server, and

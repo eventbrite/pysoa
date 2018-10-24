@@ -230,7 +230,7 @@ class TestSOASettings(unittest.TestCase):
                     'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
                     'kwargs': {
                         'backend_type': REDIS_BACKEND_TYPE_STANDARD,
-                        'serializer_config': {
+                        'default_serializer_config': {
                             'path': 'pysoa.common.serializer:JSONSerializer'
                         }
                     }
@@ -245,7 +245,7 @@ class TestSOASettings(unittest.TestCase):
         assert handler.transport._send_queue_name == 'service.test_service'
         assert isinstance(handler.transport.core, RedisTransportCore)
         assert handler.transport.core.backend_type == REDIS_BACKEND_TYPE_STANDARD
-        assert isinstance(handler.transport.core.serializer, JSONSerializer)
+        assert isinstance(handler.transport.core.default_serializer, JSONSerializer)
 
     # noinspection PyProtectedMember
     def test_server_settings(self):
@@ -259,7 +259,7 @@ class TestSOASettings(unittest.TestCase):
                 'path': 'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
                 'kwargs': {
                     'backend_type': REDIS_BACKEND_TYPE_STANDARD,
-                    'serializer_config': {
+                    'default_serializer_config': {
                         'path': 'pysoa.common.serializer:JSONSerializer'
                     }
                 }
@@ -272,7 +272,7 @@ class TestSOASettings(unittest.TestCase):
         assert server.transport._receive_queue_name == 'service.geo_tag'
         assert isinstance(server.transport.core, RedisTransportCore)
         assert server.transport.core.backend_type == REDIS_BACKEND_TYPE_STANDARD
-        assert isinstance(server.transport.core.serializer, JSONSerializer)
+        assert isinstance(server.transport.core.default_serializer, JSONSerializer)
 
     # noinspection PyProtectedMember
     def test_server_settings_generic_with_defaults(self):
@@ -296,7 +296,7 @@ class TestSOASettings(unittest.TestCase):
         assert server.transport._receive_queue_name == 'service.tag_geo'
         assert isinstance(server.transport.core, RedisTransportCore)
         assert server.transport.core.backend_type == REDIS_BACKEND_TYPE_STANDARD
-        assert isinstance(server.transport.core.serializer, MsgpackSerializer)
+        assert isinstance(server.transport.core.default_serializer, MsgpackSerializer)
 
     def test_server_settings_fails_with_client_transport(self):
         """The server settings fail to validate with client transport"""
@@ -357,7 +357,7 @@ class TestSOASettings(unittest.TestCase):
                 'path': 'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
                 'kwargs': {
                     'backend_type': REDIS_BACKEND_TYPE_STANDARD,
-                    'serializer_config': {
+                    'default_serializer_config': {
                         'path': 'pysoa.server.middleware:ServerMiddleware',
                     }
                 },
