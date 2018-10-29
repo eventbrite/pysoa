@@ -177,8 +177,12 @@ class Server(object):
         try:
             PySOALogContextFilter.set_logging_request_context(request_id=request_id, **job_request['context'])
         except TypeError:
-            # non unicode keys in job_request['context'] will break keywording of a function call
-            pass
+            # Non unicode keys in job_request['context'] will break keywording of a function call.
+            # Try to recover by coercing the keys
+            PySOALogContextFilter.set_logging_request_context(
+                request_id=request_id,
+                **{six.text_type(k): v for k, v in six.iteritems(job_request['context'])}
+            )
 
         request_for_logging = self.logging_dict_wrapper_class(job_request)
         self.job_logger.log(self.request_log_success_level, 'Job request: %s', request_for_logging)
