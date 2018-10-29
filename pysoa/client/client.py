@@ -1009,5 +1009,4 @@ class Client(object):
         # Add any extra stuff
         if context_extra:
             context.update(context_extra)
-        # context keys need to be guaranteed unicode
-        return {six.text_type(k): v for k, v in six.iteritems(context)}
+        return context
