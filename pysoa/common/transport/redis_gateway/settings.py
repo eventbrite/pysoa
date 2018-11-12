@@ -85,7 +85,7 @@ class RedisTransportSchema(BasicClassSchema):
                 'receive_timeout_in_seconds': fields.Integer(
                     description='How long to block waiting on a message to be received',
                 ),
-                'serializer_config': BasicClassSchema(
+                'default_serializer_config': BasicClassSchema(
                     object_type=BaseSerializer,
                     description='The configuration for the serializer this transport should use',
                 ),
@@ -98,7 +98,7 @@ class RedisTransportSchema(BasicClassSchema):
                 'queue_capacity',
                 'queue_full_retries',
                 'receive_timeout_in_seconds',
-                'serializer_config',
+                'default_serializer_config',
             ],
             allow_extra_keys=False,
         ),

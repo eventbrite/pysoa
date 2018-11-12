@@ -18,6 +18,7 @@ from pysoa.common.metrics import (
     NoOpMetricsRecorder,
     TimerResolution,
 )
+from pysoa.common.serializer.base import Serializer
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
 from pysoa.common.transport.exceptions import (
     InvalidMessageError,
@@ -109,7 +110,7 @@ class RedisTransportCore(object):
         converter=int,
     )
 
-    serializer_config = attr.ib(
+    default_serializer_config = attr.ib(
         # Configuration for which serializer should be used by this transport
         default={'object': MsgpackSerializer, 'kwargs': {}},
         converter=dict,
@@ -145,7 +146,7 @@ class RedisTransportCore(object):
         self.backend_layer_kwargs.pop('redis_port', None)
 
         self._backend_layer = None
-        self._serializer = None
+        self._default_serializer = None
 
     # noinspection PyAttributeOutsideInit
     @property
@@ -168,11 +169,13 @@ class RedisTransportCore(object):
 
     # noinspection PyAttributeOutsideInit
     @property
-    def serializer(self):
-        if self._serializer is None:
-            self._serializer = self.serializer_config['object'](**self.serializer_config.get('kwargs', {}))
+    def default_serializer(self):
+        if self._default_serializer is None:
+            self._default_serializer = self.default_serializer_config['object'](
+                **self.default_serializer_config.get('kwargs', {})
+            )
 
-        return self._serializer
+        return self._default_serializer
 
     def send_message(self, queue_name, request_id, meta, body, message_expiry_in_seconds=None):
         """
@@ -206,7 +209,21 @@ class RedisTransportCore(object):
         message = {'request_id': request_id, 'meta': meta, 'body': body}
 
         with self._get_timer('send.serialize'):
-            serialized_message = self.serializer.dict_to_blob(message)
+            serializer = self.default_serializer
+            non_default_serializer = False
+            if 'serializer' in meta:
+                # TODO: Breaking change: Assume a MIME type is always specified. This should not be done until all
+                # TODO servers and clients have Step 2 code. This will be a Step 3 breaking change.
+                serializer = meta.pop('serializer')
+                non_default_serializer = True
+            serialized_message = serializer.dict_to_blob(message)
+            if non_default_serializer:
+                # TODO: Breaking change: Make this happen always, not just when a specific MIME type was requested.
+                # TODO This should not be done until all servers and clients have this Step 1 code. This will be a Step
+                # TODO 2 breaking change.
+                serialized_message = (
+                    'content-type:{};'.format(serializer.mime_type).encode('utf-8') + serialized_message
+                )
 
         message_size_in_bytes = len(serialized_message)
         if message_size_in_bytes > self.maximum_message_size_in_bytes:
@@ -311,7 +328,23 @@ class RedisTransportCore(object):
             raise MessageReceiveTimeout('No message received for service {}'.format(self.service_name))
 
         with self._get_timer('receive.deserialize'):
-            message = self.serializer.blob_to_dict(serialized_message)
+            serializer = self.default_serializer
+            non_default_serializer = False
+            if serialized_message.startswith(b'content-type'):
+                # TODO: Breaking change: Assume all messages start with a content type. This should not be done until
+                # TODO all servers and clients have Step 2 code. This will be a Step 3 breaking change.
+                header, serialized_message = serialized_message.split(b';', 1)
+                mime_type = header.split(b':', 1)[1].decode('utf-8').strip()
+                if mime_type in Serializer.all_supported_mime_types:
+                    serializer = Serializer.resolve_serializer(mime_type)
+                    non_default_serializer = True
+
+            message = serializer.blob_to_dict(serialized_message)
+
+            if non_default_serializer:
+                # TODO: Breaking change: Always add the serializer to the meta. This should not be done until all
+                # TODO servers and clients have this Step 1 code. This will be a Step 2 breaking change.
+                message.setdefault('meta', {})['serializer'] = serializer
 
         if self._is_message_expired(message):
             self._get_counter('receive.error.message_expired').increment()

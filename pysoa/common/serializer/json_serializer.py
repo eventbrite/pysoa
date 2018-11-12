@@ -28,7 +28,7 @@ class JSONSerializer(BaseSerializer):
     def dict_to_blob(self, data_dict):
         assert isinstance(data_dict, dict), 'Input must be a dict'
         try:
-            return json.dumps(data_dict)
+            return json.dumps(data_dict).encode('utf-8')
         except TypeError as e:
             raise InvalidField(*e.args)
 
