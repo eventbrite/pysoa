@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.55.0 (2018-11-12)
+-------------------
+- [MINOR] Prevent server shutdown on request with non-unicode context keys (#143)
+- [MAJOR] Add support for switching message serializer with content type header
+
 0.54.2 (2018-10-24)
 -------------------
 - [PATCH] Fix new flake8 errors
