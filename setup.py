@@ -17,8 +17,8 @@ def readme():
 
 
 base_requirements = [
-    'attrs~=17.4',
-    'conformity~=1.17',
+    'attrs>=17.4,<19',
+    'conformity~=1.17,>=1.17.2',
     'currint~=1.6',
     'enum34;python_version<"3.4"',
     'msgpack-python~=0.5,>=0.5.2',
@@ -32,16 +32,16 @@ test_helper_requirements = [
 
 test_plan_requirements = test_helper_requirements + [
     'pyparsing~=2.2',
-    'pytest~=3.1',
+    'pytest>=3.1,<5',
     'pytz>=2018.4',
 ]
 
 test_requirements = [
-    'factory_boy~=2.8.0',
+    'factory_boy~=2.11.1',
     'freezegun~=0.3',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
-    'pytest-cov~=2.5',
+    'pytest-cov~=2.6',
 ] + test_plan_requirements
 
 
