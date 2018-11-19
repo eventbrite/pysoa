@@ -150,6 +150,7 @@ class Server(object):
 
         self._heartbeat_file = None
         self._heartbeat_file_path = None
+        self._heartbeat_file_last_update = 0
 
     def handle_next_request(self):
         """
@@ -557,10 +558,13 @@ class Server(object):
                     self.logger.exception('Error while removing heartbeat file')
 
     def _update_heartbeat_file(self):
-        if self._heartbeat_file:
+        if self._heartbeat_file and time.time() - self._heartbeat_file_last_update > 2.5:
+            # Only update the heartbeat file if one is configured and it has been at least 2.5 seconds since the last
+            # update. This prevents us from dragging down service performance by constantly updating the file system.
             self._heartbeat_file.seek(0)
             self._heartbeat_file.write(six.text_type(time.time()))
             self._heartbeat_file.flush()
+            self._heartbeat_file_last_update = time.time()
 
     def perform_pre_request_actions(self):
         """
