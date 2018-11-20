@@ -128,6 +128,7 @@ class ErrorServer(Server):
         'job_error': lambda *_, **__: (_ for _ in ()).throw(
             JobError(errors=[Error(code='BAD_JOB', message='You are a bad job')])
         ),
+        'okay_action': lambda *_, **__: lambda *_, **__: ActionResponse(action='okay_action', body={'no_error': True}),
     }
 
 
@@ -485,23 +486,60 @@ class TestClientParallelSendReceive(TestCase):
         )
         self.assertEqual({'selected': True, 'count': 7}, action_responses[2].body)
 
-    def test_call_actions_parallel_with_prohibited_arguments(self):
-        """
-        Test that call_actions_parallel doesn't permit raise_job_errors or catch_transport_error arguments
-        """
-        with self.assertRaises(TypeError):
-            self.client.call_actions_parallel(
-                'service_2',
-                [ActionRequest(action='action_3')],
-                raise_job_errors=False,
+    def test_call_actions_parallel_with_job_errors_not_raised(self):
+        action_responses = self.client.call_actions_parallel(
+            'error_service',
+            [
+                ActionRequest(action='okay_action'),
+                ActionRequest(action='job_error'),
+                ActionRequest(action='okay_action'),
+            ],
+            timeout=2,
+            raise_job_errors=False,
+            continue_on_error=True,
+        )
+
+        self.assertIsNotNone(action_responses)
+
+        action_responses = list(action_responses)
+        self.assertEqual(3, len(action_responses))
+        self.assertEqual({'no_error': True}, action_responses[0].body)
+        self.assertEqual([Error(code='BAD_JOB', message='You are a bad job')], action_responses[1])
+        self.assertEqual({'no_error': True}, action_responses[2].body)
+
+    def test_call_actions_parallel_with_transport_errors_caught(self):
+        original_send = self.client.send_request
+        side_effect_context = {'call': 0}
+        error = MessageSendError('Hello!')
+
+        def side_effect(*args, **kwargs):
+            side_effect_context['call'] += 1
+            if side_effect_context['call'] == 2:
+                raise error
+            return original_send(*args, **kwargs)
+
+        with mock.patch.object(self.client, 'send_request') as mock_send_request:
+            mock_send_request.side_effect = side_effect
+
+            action_responses = self.client.call_actions_parallel(
+                'error_service',
+                [
+                    ActionRequest(action='okay_action'),
+                    ActionRequest(action='job_error'),
+                    ActionRequest(action='okay_action'),
+                ],
+                timeout=2,
+                catch_transport_errors=True,
+                continue_on_error=True,
             )
 
-        with self.assertRaises(TypeError):
-            self.client.call_actions_parallel(
-                'service_2',
-                [ActionRequest(action='action_3')],
-                catch_transport_errors=False,
-            )
+        self.assertIsNotNone(action_responses)
+
+        action_responses = list(action_responses)
+        self.assertEqual(3, len(action_responses))
+        self.assertEqual({'no_error': True}, action_responses[0].body)
+        self.assertIs(error, action_responses[1])
+        self.assertEqual({'no_error': True}, action_responses[2].body)
 
     def test_call_actions_parallel_action_errors_raised(self):
         """

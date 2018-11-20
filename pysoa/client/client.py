@@ -664,20 +664,30 @@ class Client(object):
         will be a generator). Some of the possible exceptions may be raised when this method is called; others may be
         raised when the future is used.
 
+        If argument `raise_job_errors` is supplied and is `False`, some items in the result list might be lists of job
+        errors instead of individual `ActionResponse`s. Be sure to check for that if used in this manner.
+
+        If argument `catch_transport_errors` is supplied and is `True`, some items in the result list might be instances
+        of `Exception` instead of individual `ActionResponse`s. Be sure to check for that if used in this manner.
+
         :return: A generator of action responses that blocks waiting on responses once you begin iteration
         :rtype: Client.FutureResponse
         """
-        if 'raise_job_errors' in kwargs:
-            raise TypeError("call_actions_parallel() got a prohibited keyword argument 'raise_job_errors")
-        if 'catch_transport_errors' in kwargs:
-            raise TypeError("call_actions_parallel() got a prohibited keyword argument 'catch_transport_errors")
-
         job_responses = self.call_jobs_parallel_future(
             jobs=({'service_name': service_name, 'actions': [action]} for action in actions),
             **kwargs
         )
 
-        return self.FutureResponse(lambda _timeout: (job.actions[0] for job in job_responses.result(_timeout)))
+        def parse_results(results):
+            for job in results:
+                if isinstance(job, Exception):
+                    yield job
+                elif job.errors:
+                    yield job.errors
+                else:
+                    yield job.actions[0]
+
+        return self.FutureResponse(lambda _timeout: (x for x in parse_results(job_responses.result(_timeout))))
 
     def call_jobs_parallel_future(
         self,
