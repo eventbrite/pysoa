@@ -98,6 +98,7 @@ class TestAbstractReloader(unittest.TestCase):
         with self.assertRaises(TypeError):
             AbstractReloader('example_service.name', None)
 
+    # noinspection PyCompatibility
     def test_constructor(self):
         reloader = MockReloader('example_service.standalone', None)
         self.assertEqual('example_service.standalone', reloader.main_module_name)
@@ -114,17 +115,17 @@ class TestAbstractReloader(unittest.TestCase):
         self.assertIsNotNone(reloader.watch_modules)
         self.assertFalse(reloader.signal_forks)
 
-        self.assertRegexpMatches('example_service', reloader.watch_modules)
-        self.assertRegexpMatches('example_service.actions', reloader.watch_modules)
-        self.assertRegexpMatches('example_service.models', reloader.watch_modules)
-        self.assertRegexpMatches('example_service.server', reloader.watch_modules)
-        self.assertRegexpMatches('example_library', reloader.watch_modules)
-        self.assertRegexpMatches('example_library.utils', reloader.watch_modules)
-        self.assertRegexpMatches('pysoa', reloader.watch_modules)
-        self.assertRegexpMatches('pysoa.server', reloader.watch_modules)
-        self.assertRegexpMatches('pysoa.version', reloader.watch_modules)
-        self.assertRegexpMatches('django', reloader.watch_modules)
-        self.assertRegexpMatches('django.conf', reloader.watch_modules)
+        self.assertRegex('example_service', reloader.watch_modules)
+        self.assertRegex('example_service.actions', reloader.watch_modules)
+        self.assertRegex('example_service.models', reloader.watch_modules)
+        self.assertRegex('example_service.server', reloader.watch_modules)
+        self.assertRegex('example_library', reloader.watch_modules)
+        self.assertRegex('example_library.utils', reloader.watch_modules)
+        self.assertRegex('pysoa', reloader.watch_modules)
+        self.assertRegex('pysoa.server', reloader.watch_modules)
+        self.assertRegex('pysoa.version', reloader.watch_modules)
+        self.assertRegex('django', reloader.watch_modules)
+        self.assertRegex('django.conf', reloader.watch_modules)
 
         self.assertFalse(reloader.watch_modules.match('another_library'))
 
