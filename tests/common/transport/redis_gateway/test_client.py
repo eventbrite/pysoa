@@ -19,6 +19,7 @@ class TestClientTransport(unittest.TestCase):
     def _get_transport(service='my_service', **kwargs):
         return RedisClientTransport(service, NoOpMetricsRecorder(), **kwargs)
 
+    # noinspection PyCompatibility
     def test_core_args(self, mock_core):
         transport = self._get_transport(hello='world', goodbye='earth')
 
@@ -31,7 +32,7 @@ class TestClientTransport(unittest.TestCase):
             maximum_message_size_in_bytes=DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT,
         )
 
-        self.assertRegexpMatches(transport.client_id, r'^[0-9a-fA-F]{32}$')
+        self.assertRegex(transport.client_id, r'^[0-9a-fA-F]{32}$')
 
         mock_core.reset_mock()
 
@@ -46,7 +47,7 @@ class TestClientTransport(unittest.TestCase):
             maximum_message_size_in_bytes=42,
         )
 
-        self.assertRegexpMatches(transport.client_id, r'^[0-9a-fA-F]{32}$')
+        self.assertRegex(transport.client_id, r'^[0-9a-fA-F]{32}$')
 
     def test_send_request_message(self, mock_core):
         transport = self._get_transport()
