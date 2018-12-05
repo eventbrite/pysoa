@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.56.0 (2018-12-05)
+-------------------
+- [PATCH] Update test compatibility tools to eliminate warnings
+- [MINOR] Allow use of `raise_job_errors` and `catch_transport_errors`
+
 0.55.2 (2018-11-19)
 -------------------
 - [PATCH] Throttle updates of the heartbeat file
