@@ -951,7 +951,10 @@ class Client(object):
             for service_name, request_ids_to_objects in expansion_service_requests.items():
                 if request_ids_to_objects:
                     # Receive all available responses from the service
-                    for request_id, response in self.get_all_responses(service_name):
+                    for request_id, response in self.get_all_responses(
+                        service_name,
+                        receive_timeout_in_seconds=kwargs.get('message_expiry_in_seconds'),
+                    ):
                         # Pop the request mapping off the list of pending requests and get the value of the expansion
                         # from the response.
                         for object_node in request_ids_to_objects.pop(request_id):
