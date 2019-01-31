@@ -36,7 +36,7 @@ def test_expected_first_fixtures_ooo():
     """
     Test that the order of operations for the second group of fixtures was correct.
     """
-    assert fixtures_test_module.TestFirstFixtures.order_of_operations == [
+    assert fixtures_test_module.TestFirstFixtures.get_order_of_operations() == [
         'setUpClass',
         'set_up_test_fixture',
         'setUp',
@@ -331,7 +331,7 @@ def test_expected_second_fixtures_ooo():
     """
     Test that the order of operations for the second group of fixtures was correct.
     """
-    assert fixtures_test_module.TestSecondFixtures.order_of_operations == [
+    assert fixtures_test_module.TestSecondFixtures.get_order_of_operations() == [
         'setUpClass',
         'setUp',
         'test_a_regular_case',
@@ -363,7 +363,7 @@ def test_expected_mocking_and_stubbing_fixtures_ooo():
     """
     Test that the order of operations for the mocking and stubbing fixtures was correct.
     """
-    assert fixtures_test_module.TestMockingAndStubbingFixtures.order_of_operations == [
+    assert fixtures_test_module.TestMockingAndStubbingFixtures.get_order_of_operations() == [
         'setUpClass',
         'set_up_test_fixture',
         'setUp',
@@ -463,25 +463,38 @@ def test_expected_unittest_skipped_fixtures_ooo():
     """
     Test that nothing was executed in TestUnittestSkippedFixtures
     """
-    assert fixtures_test_module.TestUnittestSkippedFixtures.order_of_operations == []
+    assert fixtures_test_module.TestUnittestSkippedFixtures.get_order_of_operations() == []
 
 
 def test_expected_pytest_skipped_fixtures_ooo():
     """
     Test that nothing was executed in TestPyTestSkippedFixtures
     """
-    assert fixtures_test_module.TestPyTestSkippedFixtures.order_of_operations == []
+    assert fixtures_test_module.TestPyTestSkippedFixtures.get_order_of_operations() == []
 
 
 def test_expected_pytest_skipped_if_fixtures_ooo():
     """
     Test that nothing was executed in TestPyTestSkippedIfFixtures
     """
-    assert fixtures_test_module.TestPyTestSkippedIfFixtures.order_of_operations == []
+    assert fixtures_test_module.TestPyTestSkippedIfFixtures.get_order_of_operations() == []
 
 
 def test_expected_global_skipped_fixtures_ooo():
     """
     Test that nothing was executed in TestGlobalSkippedFixtureTests
     """
-    assert fixtures_test_module.TestGlobalSkippedFixtureTests.order_of_operations == ['setUpClass', 'tearDownClass']
+    assert fixtures_test_module.TestGlobalSkippedFixtureTests.get_order_of_operations() == [
+        'setUpClass',
+        'tearDownClass'
+    ]
+
+
+def test_expected_plugin_testing_base_class_order_of_operations():
+    """
+    Some version of PyTest will run this base class's setup methods and others won't. I'm not really sure why. It's
+    not a big deal, but we want to make sure that that's ALL that runs.
+    """
+    operations = fixtures_test_module.PluginTestingOrderOfOperationsTestCase.get_order_of_operations()
+
+    assert operations == [] or operations == ['setUpClass', 'tearDownClass']
