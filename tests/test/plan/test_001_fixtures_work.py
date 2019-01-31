@@ -226,45 +226,60 @@ class MockingAndStubbingServer(Server):
     }
 
 
+_plugin_testing_base_class_order_of_operations = []
+
+
 # Let's put in place some instrumentation so that we can test our tests, because we're actually testing the plugin
 # and grammar here, not an actual service.
 
 class PluginTestingOrderOfOperationsTestCase(ServicePlanTestCase):
     @classmethod
+    def get_order_of_operations(cls):
+        if cls is PluginTestingOrderOfOperationsTestCase:
+            return _plugin_testing_base_class_order_of_operations
+
+        if not hasattr(cls, '_order_of_operations'):
+            # We can't just add this as a class attribute of this class, because then all subclasses would share one
+            # value instead of having their own values. So we have to dynamically ensure the subclass has this
+            # attribute.
+            cls._order_of_operations = []
+        return cls._order_of_operations
+
+    @classmethod
     def setUpClass(cls):
         super(PluginTestingOrderOfOperationsTestCase, cls).setUpClass()
-        cls.order_of_operations.append('setUpClass')
+        cls.get_order_of_operations().append('setUpClass')
 
     @classmethod
     def tearDownClass(cls):
         super(PluginTestingOrderOfOperationsTestCase, cls).tearDownClass()
-        cls.order_of_operations.append('tearDownClass')
+        cls.get_order_of_operations().append('tearDownClass')
 
     def set_up_test_fixture(self, test_fixture, **kwargs):
         super(PluginTestingOrderOfOperationsTestCase, self).set_up_test_fixture(test_fixture, **kwargs)
-        self.order_of_operations.append('set_up_test_fixture')
+        self.get_order_of_operations().append('set_up_test_fixture')
 
     def tear_down_test_fixture(self, test_fixture, **kwargs):
         super(PluginTestingOrderOfOperationsTestCase, self).tear_down_test_fixture(test_fixture, **kwargs)
-        self.order_of_operations.append('tear_down_test_fixture')
+        self.get_order_of_operations().append('tear_down_test_fixture')
 
     def setUp(self):
         super(PluginTestingOrderOfOperationsTestCase, self).setUp()
-        self.order_of_operations.append('setUp')
+        self.get_order_of_operations().append('setUp')
 
     def tearDown(self):
         super(PluginTestingOrderOfOperationsTestCase, self).tearDown()
-        self.order_of_operations.append('tearDown')
+        self.get_order_of_operations().append('tearDown')
 
     def set_up_test_case(self, test_case, test_fixture, **kwargs):
         super(PluginTestingOrderOfOperationsTestCase, self).set_up_test_case(test_case, test_fixture, **kwargs)
-        self.order_of_operations.append(
+        self.get_order_of_operations().append(
             'set_up_test_case.{fixture}.{case}'.format(fixture=test_case['fixture_name'], case=test_case['name']),
         )
 
     def tear_down_test_case(self, test_case, test_fixture, **kwargs):
         super(PluginTestingOrderOfOperationsTestCase, self).tear_down_test_case(test_case, test_fixture, **kwargs)
-        self.order_of_operations.append(
+        self.get_order_of_operations().append(
             'tear_down_test_case.{fixture}.{case}'.format(fixture=test_case['fixture_name'], case=test_case['name']),
         )
 
@@ -272,7 +287,7 @@ class PluginTestingOrderOfOperationsTestCase(ServicePlanTestCase):
         super(PluginTestingOrderOfOperationsTestCase, self).set_up_test_case_action(
             action_name, action_case, test_case, test_fixture, **kwargs
         )
-        self.order_of_operations.append('set_up_test_case_action.{fixture}.{case}.{action}'.format(
+        self.get_order_of_operations().append('set_up_test_case_action.{fixture}.{case}.{action}'.format(
             fixture=test_case['fixture_name'],
             case=test_case['name'],
             action=action_name,
@@ -282,7 +297,7 @@ class PluginTestingOrderOfOperationsTestCase(ServicePlanTestCase):
         super(PluginTestingOrderOfOperationsTestCase, self).tear_down_test_case_action(
             action_name, action_case, test_case, test_fixture, **kwargs
         )
-        self.order_of_operations.append('tear_down_test_case_action.{fixture}.{case}.{action}'.format(
+        self.get_order_of_operations().append('tear_down_test_case_action.{fixture}.{case}.{action}'.format(
             fixture=test_case['fixture_name'],
             case=test_case['name'],
             action=action_name,
@@ -348,28 +363,28 @@ class TestSecondFixtures(PluginTestingOrderOfOperationsTestCase):
         """
         Test that a regular test case works properly
         """
-        self.order_of_operations.append('test_a_regular_case')
+        self.get_order_of_operations().append('test_a_regular_case')
 
     @pytest.mark.skip(reason='Making sure skipping still works')
     def test_a_pytest_skipped_case(self):
         """
         Test that a regular skipped test case works properly
         """
-        self.order_of_operations.append('test_a_pytest_skipped_case')
+        self.get_order_of_operations().append('test_a_pytest_skipped_case')
         self.fail('If this is not skipped, it should fail')
 
     def test_another_regular_case(self):
         """
         Test that another regular test case works properly
         """
-        self.order_of_operations.append('test_another_regular_case')
+        self.get_order_of_operations().append('test_another_regular_case')
 
     @unittest.skip(reason='Making sure skipping still works')
     def test_a_unittest_skipped_case(self):
         """
         Test that a regular skipped test case works properly
         """
-        self.order_of_operations.append('test_a_unittest_skipped_case')
+        self.get_order_of_operations().append('test_a_unittest_skipped_case')
         self.fail('If this is not skipped, it should fail')
 
 
@@ -379,8 +394,6 @@ class TestMockingAndStubbingFixtures(PluginTestingOrderOfOperationsTestCase):
     server_settings = {}
     fixture_path = os.path.dirname(__file__) + '/mocking_and_stubbing'
 
-    order_of_operations = []
-
 
 @unittest.skip(reason='Making sure skipping an entire class (and all of its fixtures) works')
 class TestUnittestSkippedFixtures(PluginTestingOrderOfOperationsTestCase):
@@ -388,16 +401,12 @@ class TestUnittestSkippedFixtures(PluginTestingOrderOfOperationsTestCase):
     server_settings = {}
     fixture_path = os.path.dirname(__file__) + '/second_fixtures'
 
-    order_of_operations = []
-
 
 @pytest.mark.skip(reason='Making sure skipping an entire class (and all of its fixtures) works')
 class TestPyTestSkippedFixtures(PluginTestingOrderOfOperationsTestCase):
     server_class = SecondStubServer
     server_settings = {}
     fixture_path = os.path.dirname(__file__) + '/second_fixtures'
-
-    order_of_operations = []
 
 
 @pytest.mark.skipif(sys.version_info > (2, 6), reason='Making sure skipping an entire class with skipif works')
@@ -409,12 +418,8 @@ class TestPyTestSkippedIfFixtures(PluginTestingOrderOfOperationsTestCase):
         os.path.dirname(__file__) + '/second_fixtures/walk_and_run.pysoa',
     )
 
-    order_of_operations = []
-
 
 class TestGlobalSkippedFixtureTests(PluginTestingOrderOfOperationsTestCase):
     server_class = SecondStubServer
     server_settings = {}
     fixture_path = os.path.dirname(__file__) + '/skipped_fixtures'
-
-    order_of_operations = []
