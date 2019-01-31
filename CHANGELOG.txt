@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.57.0 (2019-01-31)
+-------------------
+- [PATCH] Use client timeout for expansions receive responses
+- [PATCH] Fix test failures introduced by PyTest 4.2.0
+- [MINOR] Fix build failures and preempt Travis deploy failure
+
 0.56.0 (2018-12-05)
 -------------------
 - [PATCH] Update test compatibility tools to eliminate warnings
