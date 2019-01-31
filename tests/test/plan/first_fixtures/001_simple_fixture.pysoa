@@ -38,13 +38,13 @@ root: expect: exact error: code = INVALID, field = base
 test name: root_action_does_not_accept_float_input_with_message
 test description: Test that the root action returns errors with a float input
 root: input float: number: 7.9
-root: expect: error: code = INVALID, message = Not a integer
+root: expect: error: code = INVALID, message = Not an integer
 
 test name: root_action_does_not_accept_float_input_with_field_and_message
 test description: Test that the root action returns errors with a float input
 root: input float: number: 7.9
-root: expect: error: code = INVALID, field = number, message = Not a integer
-root: expect: not error: code = INVALID, field = base, message = Not a integer
+root: expect: error: code = INVALID, field = number, message = Not an integer
+root: expect: not error: code = INVALID, field = base, message = Not an integer
 
 test name: can_trigger_multiple_errors
 test description: Test that we can trigger multiple errors

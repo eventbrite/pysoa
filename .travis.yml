@@ -31,7 +31,7 @@ jobs:
        python: "3.6"
        script: skip
        install:
-         - pip install -U pip setuptools
+         - pip install -U pip setuptools pyopenssl
        deploy:
          provider: pypi
          user: eventbrite

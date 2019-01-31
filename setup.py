@@ -18,7 +18,7 @@ def readme():
 
 base_requirements = [
     'attrs>=17.4,<19',
-    'conformity~=1.17,>=1.17.2',
+    'conformity~=1.19,>=1.19.2',
     'currint~=1.6',
     'enum34;python_version<"3.4"',
     'msgpack-python~=0.5,>=0.5.2',
