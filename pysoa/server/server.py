@@ -53,9 +53,10 @@ import pysoa.version
 
 
 try:
-    import asyncio
+    from pysoa.server.internal.event_loop import AsyncEventLoopThread
+    has_asyncio = True
 except ImportError:
-    asyncio = None
+    has_asyncio = False
 
 try:
     from django.conf import settings as django_settings
@@ -107,8 +108,9 @@ class Server(object):
             raise AttributeError('Server subclass must set service_name')
 
         self.async_event_loop = None
-        if asyncio:
-            self.async_event_loop = asyncio.get_event_loop()
+        if has_asyncio:
+            self._async_event_loop_thread = AsyncEventLoopThread()
+            self.async_event_loop = self._async_event_loop_thread.loop
 
         # Store settings and extract transport
         self.settings = settings
@@ -646,9 +648,8 @@ class Server(object):
             self.metrics.commit()
             self.logger.info('Server shutting down')
             if self.async_event_loop:
-                self.logger.info('Stopping and closing async event loop')
-                self.async_event_loop.stop()
-                self.async_event_loop.close()
+                self.logger.info('Stopping async event loop thread')
+                self._async_event_loop_thread.join()
             self._close_django_caches(shutdown=True)
             self._delete_heartbeat_file()
 
