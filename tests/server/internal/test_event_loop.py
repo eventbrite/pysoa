@@ -15,14 +15,14 @@ class AsyncEventLoopThreadTests(unittest.TestCase):
         self.thread.join()
 
     def test_loop_runs_in_another_thread(self):
-        async def test_threads(thread):
+        async def test_threads(thread):  # noqa E999
             assert thread is not threading.current_thread()
 
         future = self.thread.run_coroutine(test_threads(threading.current_thread()))
         future.result()
 
     def test_loop_executes_pending_tasks_before_close(self):
-        async def test_execs_pending():
+        async def test_execs_pending():  # noqa E999
             await asyncio.sleep(1)
             return 1
 
