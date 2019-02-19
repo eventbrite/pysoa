@@ -365,7 +365,7 @@ class TestSecondFixtures(PluginTestingOrderOfOperationsTestCase):
         """
         self.get_order_of_operations().append('test_a_regular_case')
 
-    @pytest.mark.skip(reason='Making sure skipping still works')
+    @pytest.mark.skip(reason='Making sure skipping still works (PyTest)')
     def test_a_pytest_skipped_case(self):
         """
         Test that a regular skipped test case works properly
@@ -379,7 +379,7 @@ class TestSecondFixtures(PluginTestingOrderOfOperationsTestCase):
         """
         self.get_order_of_operations().append('test_another_regular_case')
 
-    @unittest.skip(reason='Making sure skipping still works')
+    @unittest.skip(reason='Making sure skipping still works (unittest)')
     def test_a_unittest_skipped_case(self):
         """
         Test that a regular skipped test case works properly
@@ -395,18 +395,26 @@ class TestMockingAndStubbingFixtures(PluginTestingOrderOfOperationsTestCase):
     fixture_path = os.path.dirname(__file__) + '/mocking_and_stubbing'
 
 
-@unittest.skip(reason='Making sure skipping an entire class (and all of its fixtures) works')
+@unittest.skip(reason='Making sure skipping an entire class (and all of its fixtures) works (unittest)')
 class TestUnittestSkippedFixtures(PluginTestingOrderOfOperationsTestCase):
     server_class = SecondStubServer
     server_settings = {}
     fixture_path = os.path.dirname(__file__) + '/second_fixtures'
 
+    def test_should_be_skipped(self):
+        self.get_order_of_operations().append('test_should_be_skipped')
+        self.fail('If this is not skipped, it should fail')
 
-@pytest.mark.skip(reason='Making sure skipping an entire class (and all of its fixtures) works')
+
+@pytest.mark.skip(reason='Making sure skipping an entire class (and all of its fixtures) works (PyTest)')
 class TestPyTestSkippedFixtures(PluginTestingOrderOfOperationsTestCase):
     server_class = SecondStubServer
     server_settings = {}
     fixture_path = os.path.dirname(__file__) + '/second_fixtures'
+
+    def test_should_be_skipped(self):
+        self.get_order_of_operations().append('test_should_be_skipped')
+        self.fail('If this is not skipped, it should fail')
 
 
 @pytest.mark.skipif(sys.version_info > (2, 6), reason='Making sure skipping an entire class with skipif works')
@@ -417,6 +425,10 @@ class TestPyTestSkippedIfFixtures(PluginTestingOrderOfOperationsTestCase):
     custom_fixtures = (
         os.path.dirname(__file__) + '/second_fixtures/walk_and_run.pysoa',
     )
+
+    def test_should_be_skipped(self):
+        self.get_order_of_operations().append('test_should_be_skipped')
+        self.fail('If this is not skipped, it should fail')
 
 
 class TestGlobalSkippedFixtureTests(PluginTestingOrderOfOperationsTestCase):

@@ -3,9 +3,19 @@ from __future__ import (
     unicode_literals,
 )
 
+from distutils.version import LooseVersion
+
 from pysoa.test.plugins.pytest.plans import PLUGIN_STATISTICS
+import pytest
 
 from tests.test.plan import test_001_fixtures_work as fixtures_test_module
+
+
+_skip_correction = 0
+if LooseVersion(pytest.__version__) > LooseVersion('4.2.0'):
+    # Starting with PyTest 4.2.1, when an entire class is skipped with @unittest.skip, it doesn't even get to our plan
+    # code, so we have to account for that.
+    _skip_correction = 1
 
 
 def test_expected_fixtures_added():
@@ -19,7 +29,7 @@ def test_expected_fixtures_skipped():
     """
     Test that the expected number of fixture tests were skipped.
     """
-    assert PLUGIN_STATISTICS['fixture_tests_skipped'] == 6
+    assert PLUGIN_STATISTICS['fixture_tests_skipped'] + _skip_correction == 6
 
 
 def test_expected_fixtures_executed():
@@ -27,7 +37,7 @@ def test_expected_fixtures_executed():
     Test that all collected fixture tests were either skipped or executed.
     """
     assert (
-        PLUGIN_STATISTICS['fixture_tests_executed'] + PLUGIN_STATISTICS['fixture_tests_skipped'] ==
+        PLUGIN_STATISTICS['fixture_tests_executed'] + PLUGIN_STATISTICS['fixture_tests_skipped'] + _skip_correction ==
         PLUGIN_STATISTICS['fixture_tests_collected']
     )
 
@@ -492,9 +502,6 @@ def test_expected_global_skipped_fixtures_ooo():
 
 def test_expected_plugin_testing_base_class_order_of_operations():
     """
-    Some version of PyTest will run this base class's setup methods and others won't. I'm not really sure why. It's
-    not a big deal, but we want to make sure that that's ALL that runs.
+    Test that nothing was executed in PluginTestingOrderOfOperationsTestCase
     """
-    operations = fixtures_test_module.PluginTestingOrderOfOperationsTestCase.get_order_of_operations()
-
-    assert operations == [] or operations == ['setUpClass', 'tearDownClass']
+    assert fixtures_test_module.PluginTestingOrderOfOperationsTestCase.get_order_of_operations() == []

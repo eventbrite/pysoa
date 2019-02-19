@@ -32,7 +32,7 @@ test_helper_requirements = [
 
 test_plan_requirements = test_helper_requirements + [
     'pyparsing~=2.2',
-    'pytest>=3.1,<5',
+    'pytest>=3.1,<5,!=4.2.0',  # 4.2.0 has a regression breaking our test plans, fixed in 4.2.1
     'pytz>=2018.4',
 ]
 

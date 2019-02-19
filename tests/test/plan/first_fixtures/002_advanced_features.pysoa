@@ -56,6 +56,6 @@ stub_job_error: expect: exact job error: code = DOG_ERROR
 
 test name: skipping_works
 test description: This tests that skipping works ... this test case should never be executed
-test skip: This test is skipped to test that skipping works
+test skip: This test is skipped to test that skipping works (002_advanced_features.skipping_works)
 login.0: input: username: pumpkin
 login.0: expect: no errors
