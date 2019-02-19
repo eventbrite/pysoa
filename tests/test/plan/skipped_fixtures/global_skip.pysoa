@@ -1,5 +1,5 @@
 # Let's make sure that global skipping works
-test skip global: All tests in this fixture should be skipped
+test skip global: All tests in this fixture should be skipped (global_skip.*)
 
 test name: first
 test description: First
