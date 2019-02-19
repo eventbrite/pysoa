@@ -17,3 +17,5 @@ dist/
 coverage.xml
 pytests.xml
 .pytest_cache
+
+.tox

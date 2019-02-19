@@ -1,0 +1,25 @@
+# from the repo
+.dockerignore
+.git
+.gitignore
+.travis.yml
+Dockerfile
+
+# Python + testing artifacts
+*,cover
+*.egg-info
+*.eggs
+*.log
+**/*.pyc
+**/*.pyd
+**/*.pyo
+.cache
+.coverage
+.pytest_cache
+.tox
+**/__pycache__
+coverage.xml
+pytests.xml
+
+# Random
+*.swp

@@ -2,8 +2,7 @@ import asyncio
 import threading
 
 
-def _loop_stop_callback():
-    loop = asyncio.get_running_loop()
+def _loop_stop_callback(loop):
     loop.stop()
 
 
@@ -20,7 +19,7 @@ class AsyncEventLoopThread(threading.Thread):
             self.loop.run_forever()
         finally:
             try:
-                pending_tasks = asyncio.all_tasks(self.loop)
+                pending_tasks = asyncio.Task.all_tasks(self.loop)
                 self.loop.run_until_complete(asyncio.gather(*pending_tasks))
             finally:
                 self.loop.close()
@@ -29,7 +28,7 @@ class AsyncEventLoopThread(threading.Thread):
 
     def join(self):
         if self.loop.is_running():
-            self.loop.call_soon_threadsafe(_loop_stop_callback)
+            self.loop.call_soon_threadsafe(_loop_stop_callback, self.loop)
         self._done.wait()
 
     def run_coroutine(self, coroutine):
