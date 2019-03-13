@@ -3,6 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
+import gc
 from logging import (
     Formatter,
     LogRecord,
@@ -290,23 +291,62 @@ class TestRecursivelyCensoredDictWrapper(unittest.TestCase):
 
 
 class TestSyslogHandler(object):
+    """
+    It's weird that we're messing with garbage collection here, but it's necessary. The problem is that the PySOA
+    server starts an async event loop in Python 3.6+, and some of the tests in this project unavoidably and
+    incidentally exercise that code. When event loops are garbage collected, their `__del__` methods `close` their
+    selectors, which are anonymous unix sockets.
+
+    Enter this test class. In order to test the custom `SyslogHandler`, it is necessary to `mock.patch` sockets and,
+    due to design decisions made by the Python folks who wrote the socket code and the base CPython `SyslogHandler`,
+    it is impossible to do this patching in a way that doesn't affect all sockets everywhere. Turns out that garbage
+    collection has a tendency to run during this test class, and seems to be timed perfectly to happen while sockets
+    are patched, causing errors and test failures.
+
+    To prevent these errors and test failures, we do three things:
+    - Preemptively run garbage collection once before any tests in the class, so that we don't use too much memory
+      during the class.
+    - Disable garbage collection at the start of each test to ensure it cannot run during the test
+    - Enable garbage collection at the end of each test to give it a chance to run if it needs to
+    """
+    @classmethod
+    def setup_class(cls):
+        gc.collect()
+
+    # noinspection PyMethodMayBeStatic
+    def setup_method(self, _method):
+        gc.disable()
+
+    # noinspection PyMethodMayBeStatic
+    def teardown_method(self, _method):
+        gc.enable()
+
     def test_constructor(self):
         handler = SyslogHandler()
         assert handler.socktype == socket.SOCK_DGRAM
-        assert handler.unixsocket is False
+        if six.PY2:
+            assert not handler.unixsocket
+        else:
+            assert handler.unixsocket is False
         assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_FRAGMENT
         assert handler.maximum_length >= 1252  # (1280 - 28)
 
         handler = SyslogHandler(overflow=SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE)
         assert handler.socktype == socket.SOCK_DGRAM
-        assert handler.unixsocket is False
+        if six.PY2:
+            assert not handler.unixsocket
+        else:
+            assert handler.unixsocket is False
         assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
         assert handler.maximum_length >= 1252  # (1280 - 28)
 
         with mock.patch.object(socket.socket, 'connect'):
             handler = SyslogHandler(socket_type=socket.SOCK_STREAM)
             assert handler.socktype == socket.SOCK_STREAM
-            assert handler.unixsocket is False
+            if six.PY2:
+                assert not handler.unixsocket
+            else:
+                assert handler.unixsocket is False
             assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
             assert handler.maximum_length == 1024 * 1024
 
@@ -669,19 +709,17 @@ class TestSyslogHandler(object):
 
         try:
             with mock.patch.object(socket.socket, 'close') as mock_close, \
-                    mock.patch.object(socket.socket, 'connect') as mock_connect:
+                    mock.patch.object(socket.socket, 'connect') as mock_reconnect:
                 mock_sends['first_mock_send'] = first_mock_send_patch.start()
                 mock_sends['first_mock_send'].side_effect = [True, OSError()]
 
                 mock_close.side_effect = close_side_effect
-                mock_connect.side_effect = connect_side_effect
+                mock_reconnect.side_effect = connect_side_effect
 
                 handler._send(['this is the first part', 'here is another part', 'one more part'])
         finally:
             mock.patch.stopall()
 
-        mock_close.assert_called_once_with()
-        mock_connect.assert_called_once_with('/path/to/a/different.socket')
         mock_sends['first_mock_send'].assert_has_calls([
             mock.call('this is the first part'),
             mock.call('here is another part'),
@@ -690,6 +728,8 @@ class TestSyslogHandler(object):
             mock.call('here is another part'),
             mock.call('one more part'),
         ])
+        mock_reconnect.assert_called_once_with('/path/to/a/different.socket')
+        mock_close.assert_called_once_with()
 
     # noinspection PyProtectedMember
     def test_cleanly_slice_encoded_string(self):

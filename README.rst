@@ -182,4 +182,21 @@ have the service code in place, and a ``stub_action`` decorator / context manage
 For more information about using these test utilities in your services or service-calling applications, see the testing
 documentation in the `PySOA Documentation <docs/index.rst>`_.
 
-For testing this PySOA library directly on your system, you must first install `Docker <https://www.docker.com/get-started>`_. Once installed, the PySOA test image can be built with the following command: ``docker build . -t pysoa-test``. Once the pysoa-test image has been built, run ``docker run pysoa-test`` to execute the test suite. The test suite will run for all supported versions of Python.
+For testing this PySOA library directly on your system, you must first install `Docker
+<https://www.docker.com/get-started>`_. One installed, you can run tests across all supported environments using one
+or more of the following commands::
+
+    # Run all tests in Python 2.7, 3.5, 3.6, and 3.7, do Flake8 analysis, and do code coverage analysis
+    ./tox.sh
+
+    # Run all tests in Python 3.5
+    ./tox.sh -e py35
+
+    # Run all tests in Python 2.7 and 3.7
+    ./tox.sh -e py27,py37
+
+    # Run all tests in Python 3.5, 3.6, and 3.7 and do code coverage analysis
+    ./tox.sh -e py35,py36,py37,coverage
+
+    # Run Flake8 analysis standalone
+    ./tox.sh -e py27-flake8,py37-flake8

@@ -159,11 +159,13 @@ class BaseStatusAction(Action):
             check_methods = [getattr(self, x) for x in dir(self) if x.startswith('check_')]
             for check_method in check_methods:
                 # Call the check, and see if it returned anything
-                # TODO: Remove the try/except before 1.0.0, after all uses have been updated to accept an argument
                 try:
                     problems = check_method(request)
-                except TypeError:
-                    problems = check_method()
+                except TypeError as e:
+                    raise RuntimeError(
+                        'Status action check_* methods must accept a single argument of type ActionRequest',
+                        e,
+                    )
                 if problems:
                     for is_error, code, description in problems:
                         # Parcel out the values into the right return list

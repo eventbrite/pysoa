@@ -6,7 +6,7 @@
 Dockerfile
 
 # Python + testing artifacts
-*,cover
+*.cover
 *.egg-info
 *.eggs
 *.log

@@ -210,20 +210,13 @@ class RedisTransportCore(object):
 
         with self._get_timer('send.serialize'):
             serializer = self.default_serializer
-            non_default_serializer = False
             if 'serializer' in meta:
                 # TODO: Breaking change: Assume a MIME type is always specified. This should not be done until all
                 # TODO servers and clients have Step 2 code. This will be a Step 3 breaking change.
                 serializer = meta.pop('serializer')
-                non_default_serializer = True
-            serialized_message = serializer.dict_to_blob(message)
-            if non_default_serializer:
-                # TODO: Breaking change: Make this happen always, not just when a specific MIME type was requested.
-                # TODO This should not be done until all servers and clients have this Step 1 code. This will be a Step
-                # TODO 2 breaking change.
-                serialized_message = (
-                    'content-type:{};'.format(serializer.mime_type).encode('utf-8') + serialized_message
-                )
+            serialized_message = (
+                'content-type:{};'.format(serializer.mime_type).encode('utf-8') + serializer.dict_to_blob(message)
+            )
 
         message_size_in_bytes = len(serialized_message)
         if message_size_in_bytes > self.maximum_message_size_in_bytes:
@@ -329,7 +322,6 @@ class RedisTransportCore(object):
 
         with self._get_timer('receive.deserialize'):
             serializer = self.default_serializer
-            non_default_serializer = False
             if serialized_message.startswith(b'content-type'):
                 # TODO: Breaking change: Assume all messages start with a content type. This should not be done until
                 # TODO all servers and clients have Step 2 code. This will be a Step 3 breaking change.
@@ -337,14 +329,9 @@ class RedisTransportCore(object):
                 mime_type = header.split(b':', 1)[1].decode('utf-8').strip()
                 if mime_type in Serializer.all_supported_mime_types:
                     serializer = Serializer.resolve_serializer(mime_type)
-                    non_default_serializer = True
 
             message = serializer.blob_to_dict(serialized_message)
-
-            if non_default_serializer:
-                # TODO: Breaking change: Always add the serializer to the meta. This should not be done until all
-                # TODO servers and clients have this Step 1 code. This will be a Step 2 breaking change.
-                message.setdefault('meta', {})['serializer'] = serializer
+            message.setdefault('meta', {})['serializer'] = serializer
 
         if self._is_message_expired(message):
             self._get_counter('receive.error.message_expired').increment()

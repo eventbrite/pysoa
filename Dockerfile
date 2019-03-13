@@ -1,4 +1,4 @@
-from ubuntu:16.04
+FROM ubuntu:16.04
 
 RUN apt-get update && \
 	apt-get install -y \
@@ -24,8 +24,8 @@ RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py && \
 	python3.7 /tmp/get-pip.py && \
 	pip install tox
 
-ADD . /test/pysoa
-
 WORKDIR /test/pysoa
 
 CMD ["tox"]
+
+ADD . /test/pysoa
