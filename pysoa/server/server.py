@@ -53,9 +53,9 @@ import pysoa.version
 
 
 try:
-    import asyncio
+    from pysoa.server.internal.event_loop import AsyncEventLoopThread
 except ImportError:
-    asyncio = None
+    AsyncEventLoopThread = None
 
 try:
     from django.conf import settings as django_settings
@@ -106,9 +106,10 @@ class Server(object):
         if not self.service_name:
             raise AttributeError('Server subclass must set service_name')
 
-        self.async_event_loop = None
-        if asyncio:
-            self.async_event_loop = asyncio.get_event_loop()
+        self._async_event_loop = None
+        if AsyncEventLoopThread:
+            self._async_event_loop_thread = AsyncEventLoopThread()
+            self._async_event_loop = self._async_event_loop_thread.loop
 
         # Store settings and extract transport
         self.settings = settings
@@ -310,7 +311,11 @@ class Server(object):
             job_request['client'] = self.make_client(job_request['context'])
 
             # Add the async event loop in case a middleware wishes to use it
-            job_request['async_event_loop'] = self.async_event_loop
+            job_request['async_event_loop'] = self._async_event_loop
+            if hasattr(self, '_async_event_loop_thread'):
+                job_request['run_coroutine'] = self._async_event_loop_thread.run_coroutine
+            else:
+                job_request['run_coroutine'] = None
 
             # Build set of middleware + job handler, then run job
             wrapper = self.make_middleware_stack(
@@ -411,6 +416,7 @@ class Server(object):
                 control=job_request['control'],
                 client=job_request['client'],
                 async_event_loop=job_request['async_event_loop'],
+                run_coroutine=job_request['run_coroutine'],
             )
             action_in_class_map = action_request.action in self.action_class_map
             if action_in_class_map or action_request.action in ('status', 'introspect'):
@@ -617,7 +623,7 @@ class Server(object):
             )
         )
 
-        if self.async_event_loop:
+        if self._async_event_loop:
             self.logger.info('Async event logger available and in use')
 
         self.setup()
@@ -645,10 +651,9 @@ class Server(object):
         finally:
             self.metrics.commit()
             self.logger.info('Server shutting down')
-            if self.async_event_loop:
-                self.logger.info('Stopping and closing async event loop')
-                self.async_event_loop.stop()
-                self.async_event_loop.close()
+            if self._async_event_loop:
+                self.logger.info('Stopping async event loop thread')
+                self._async_event_loop_thread.join()
             self._close_django_caches(shutdown=True)
             self._delete_heartbeat_file()
 

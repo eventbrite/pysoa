@@ -182,6 +182,4 @@ have the service code in place, and a ``stub_action`` decorator / context manage
 For more information about using these test utilities in your services or service-calling applications, see the testing
 documentation in the `PySOA Documentation <docs/index.rst>`_.
 
-For testing this PySOA library directly, you must first install Lua on your system (on Mac OS X this is done with
-``brew install lua``), ensure Lua is on your ``$PKG_CONFIG_PATH`` environment variable (in Mac OS X), and then install
-dependencies (``pip install -e .[testing]``). After this, you can simply run ``pytest`` or ``setup.py test``.
+For testing this PySOA library directly on your system, you must first install `Docker <https://www.docker.com/get-started>`_. Once installed, the PySOA test image can be built with the following command: ``docker build . -t pysoa-test``. Once the pysoa-test image has been built, run ``docker run pysoa-test`` to execute the test suite. The test suite will run for all supported versions of Python.

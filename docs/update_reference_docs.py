@@ -471,7 +471,10 @@ def get_class_documentation(class_name, module_name, class_object):
     members = inspect.getmembers(class_object)
 
     if getattr(class_object, '__attrs_attrs__', None):
-        documentation += '\n\n.. _{module_name}.{class_name}-attrs-docs:\n\nAttrs Properties\n****************\n'.format(
+        documentation += (
+            '\n\n.. _{module_name}.{class_name}-attrs-docs:'
+            '\n\nAttrs Properties\n****************\n'
+        ).format(
             module_name=module_name,
             class_name=class_name,
         )
