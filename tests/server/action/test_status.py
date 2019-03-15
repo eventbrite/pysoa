@@ -33,18 +33,18 @@ class _ComplexStatusAction(BaseStatusAction):
 
     _build = 'complex_service-28381-7.8.9-16_04'
 
-    def check_good(self):
+    def check_good(self, _request):
         self.diagnostics['check_good_called'] = True
 
     @staticmethod
-    def check_warnings():
+    def check_warnings(_request):
         return (
             (False, 'FIRST_CODE', 'First warning'),
             (False, 'SECOND_CODE', 'Second warning'),
         )
 
     @staticmethod
-    def check_errors():
+    def check_errors(_request):
         return [
             [True, 'ANOTHER_CODE', 'This is an error'],
         ]

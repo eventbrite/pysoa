@@ -213,16 +213,21 @@ class TestRedisTransportCore(unittest.TestCase):
         response = core.receive_message('test_simple_send_and_receive')
 
         self.assertEqual(request_id, response[0])
-        self.assertEqual(meta, response[1])
+        self.assertEqual(52, response[1]['app'])
+        self.assertIn('serializer', response[1])
+        self.assertIn('__expiry__', response[1])
+        self.assertEqual(3, len(response[1]))
         self.assertEqual(message, response[2])
 
+        self.assertIn('__expiry__', meta)
+        self.assertEqual(meta['__expiry__'], response[1]['__expiry__'])
         self.assertTrue((t + 59.9) < meta['__expiry__'] < (t + 61.1))
 
     def test_simple_send_and_receive_expiry_override(self):
         core = self._get_core()
 
         request_id = 31
-        meta = {'app': 52}
+        meta = {'application': 79}
         message = {'test': 'payload'}
 
         t = time.time()
@@ -231,9 +236,14 @@ class TestRedisTransportCore(unittest.TestCase):
         response = core.receive_message('test_simple_send_and_receive')
 
         self.assertEqual(request_id, response[0])
-        self.assertEqual(meta, response[1])
+        self.assertEqual(79, response[1]['application'])
+        self.assertIn('serializer', response[1])
+        self.assertIn('__expiry__', response[1])
+        self.assertEqual(3, len(response[1]))
         self.assertEqual(message, response[2])
 
+        self.assertIn('__expiry__', meta)
+        self.assertEqual(meta['__expiry__'], response[1]['__expiry__'])
         self.assertTrue((t + 9.9) < meta['__expiry__'] < (t + 10.1))
 
     def test_send_queue_full(self):
@@ -347,7 +357,8 @@ class TestRedisTransportCore(unittest.TestCase):
         request_id, meta, body = core.receive_message('test_content_type_default')
 
         self.assertEqual(15, request_id)
-        self.assertEqual({}, meta)
+        self.assertIn('serializer', meta)
+        self.assertEqual(1, len(meta))
         self.assertEqual({'foo': 'bar'}, body)
 
         mock_standard.return_value.get_connection.return_value.blpop.assert_called_once_with(
@@ -364,7 +375,9 @@ class TestRedisTransportCore(unittest.TestCase):
         self.assertEqual(core.queue_capacity, call_kwargs['capacity'])
         self.assertEqual(mock_standard.return_value.get_connection.return_value, call_kwargs['connection'])
 
-        message = MsgpackSerializer().blob_to_dict(call_kwargs['message'])
+        self.assertTrue(call_kwargs['message'].startswith(b'content-type:application/msgpack;'))
+
+        message = MsgpackSerializer().blob_to_dict(call_kwargs['message'][len(b'content-type:application/msgpack;'):])
         self.assertEqual(15, message['request_id'])
         self.assertTrue(message['meta']['__expiry__'] <= time.time() + core.message_expiry_in_seconds)
         self.assertTrue({'yep': 'nope'}, message['body'])
