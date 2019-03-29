@@ -177,7 +177,7 @@ class Server(object):
         self._idle_timer = None
 
         try:
-            PySOALogContextFilter.set_logging_request_context(request_id=request_id, **job_request['context'])
+            PySOALogContextFilter.set_logging_request_context(request_id=request_id, **job_request.get('context', {}))
         except TypeError:
             # Non unicode keys in job_request['context'] will break keywording of a function call.
             # Try to recover by coercing the keys
@@ -207,7 +207,7 @@ class Server(object):
 
             # Send the response message
             try:
-                if not job_request['control'].get('suppress_response', False):
+                if not job_request.get('control', {}).get('suppress_response', False):
                     self.transport.send_response_message(request_id, meta, response_message)
             except MessageTooLarge as e:
                 self.metrics.counter('server.error.response_too_large').increment()
