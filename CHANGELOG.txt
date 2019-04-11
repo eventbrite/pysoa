@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.58.0 (2019-04-11)
+-------------------
+- [PATCH] Fix issues #152 and #156 resulting in IndexErrors
+- [MINOR] Bump Conformity, Attrs to support Attrs 17.4 - 19.x
+- [PATCH] Fix exceptions being thrown for missing job request keys (#154)
+- [MAJOR] Step 2 in the message serializer content type header
+- [PATCH] Run the event loop in a separate thread. (#150)
+- [PATCH] Fix tests broken by latest PyTest version
+
 0.57.0 (2019-01-31)
 -------------------
 - [PATCH] Use client timeout for expansions receive responses
