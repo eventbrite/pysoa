@@ -591,7 +591,16 @@ class Client(object):
             [action_request],
             **kwargs
         )
-        return self.FutureResponse(lambda _timeout: future.result(_timeout).actions[0])
+
+        def get_result(_timeout):
+            result = future.result(_timeout)
+            if result.errors:
+                # This can only happen if raise_job_errors is set to False, so return the list of errors, just like
+                # other methods do below.
+                return result.errors
+            return result.actions[0]
+
+        return self.FutureResponse(get_result)
 
     def call_actions_future(
         self,
@@ -902,7 +911,8 @@ class Client(object):
 
     def _expand_objects(self, objects_to_expand, **kwargs):
         # Keep track of expansion action errors that need to be raised
-        expansion_errors_to_raise = []
+        expansion_job_errors_to_raise = []
+        expansion_action_errors_to_raise = []
         # Loop until we have no outstanding objects to expand
         while objects_to_expand:
             # Form a collection of optimized bulk requests that need to be made, a map of service name to a map of
@@ -961,9 +971,14 @@ class Client(object):
                             object_to_expand = object_node['object']
                             expansion_node = object_node['expansion']
 
+                            if response.errors:
+                                if expansion_node.raise_action_errors:
+                                    expansion_job_errors_to_raise.extend(response.errors)
+                                continue
+
                             action_response = response.actions[0]
                             if action_response.errors and expansion_node.raise_action_errors:
-                                expansion_errors_to_raise.append(action_response)
+                                expansion_action_errors_to_raise.append(action_response)
 
                             # If everything is okay, replace the expansion object with the response value
                             if action_response.body:
@@ -980,8 +995,11 @@ class Client(object):
                                         for exp_object in expansion_node.find_objects(values)
                                     )
 
-            if expansion_errors_to_raise:
-                raise self.CallActionError(expansion_errors_to_raise)
+            if expansion_action_errors_to_raise:
+                raise self.CallActionError(expansion_action_errors_to_raise)
+
+            if expansion_job_errors_to_raise:
+                raise self.JobError(expansion_job_errors_to_raise)
 
     def _get_handler(self, service_name):
         if not isinstance(service_name, six.text_type):

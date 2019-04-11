@@ -368,6 +368,23 @@ class TestClientSendReceive(TestCase):
         self.assertEqual(response.action, 'action_1')
         self.assertEqual(response.body['foo'], 'bar')
 
+    def test_call_action_job_error_not_raised(self):
+        client = Client({
+            'error_service': {
+                'transport': {
+                    'path': 'pysoa.common.transport.local:LocalClientTransport',
+                    'kwargs': {
+                        'server_class': ErrorServer,
+                        'server_settings': {},
+                    },
+                },
+            }
+        })
+        response = client.call_action('error_service', 'job_error', raise_job_errors=False)
+
+        self.assertIsNotNone(response)
+        self.assertEqual([Error(code='BAD_JOB', message='You are a bad job')], response)
+
 
 class TestClientParallelSendReceive(TestCase):
     """
