@@ -3,10 +3,12 @@ from __future__ import (
     unicode_literals,
 )
 
+import codecs
 import importlib
 import os
 import signal
 import sys
+import tempfile
 import time
 import unittest
 
@@ -25,6 +27,9 @@ from pysoa.server.autoreload import (
 from pysoa.server.autoreload import _clean_files  # noqa
 from pysoa.test.compatibility import mock
 import pysoa.version
+
+
+HAS_PY_INOTIFY = pysoa.server.autoreload.USE_PY_INOTIFY
 
 
 class MockReloader(AbstractReloader):
@@ -62,7 +67,8 @@ class TestReloaderModule(unittest.TestCase):
             ]),
         )
 
-    def test_get_reloader(self):
+    @unittest.skipIf(HAS_PY_INOTIFY, 'This test should only run when PyInotify is not installed')
+    def test_get_reloader_without_pyinotify(self):
         reloader = get_reloader('example_service.server.standalone', ['example', 'pysoa', 'conformity'])
 
         self.assertIsInstance(reloader, _PollingReloader)
@@ -87,7 +93,35 @@ class TestReloaderModule(unittest.TestCase):
             self.assertIsNone(reloader.watch_modules)
             self.assertTrue(reloader.signal_forks)
         finally:
-            pysoa.server.autoreload.USE_PY_INOTIFY = False
+            pysoa.server.autoreload.USE_PY_INOTIFY = HAS_PY_INOTIFY
+
+    @unittest.skipIf(not HAS_PY_INOTIFY, 'This test should only run when PyInotify is installed')
+    def test_get_reloader_with_pyinotify(self):
+        reloader = get_reloader('example_service.server.standalone', ['example', 'pysoa', 'conformity'])
+
+        self.assertIsInstance(reloader, _PyInotifyReloader)
+        self.assertEqual('example_service.server.standalone', reloader.main_module_name)
+        self.assertIsNotNone(reloader.watch_modules)
+        self.assertFalse(reloader.signal_forks)
+
+        reloader = get_reloader('example_service.standalone', [], signal_forks=True)
+
+        self.assertIsInstance(reloader, _PyInotifyReloader)
+        self.assertEqual('example_service.standalone', reloader.main_module_name)
+        self.assertIsNone(reloader.watch_modules)
+        self.assertTrue(reloader.signal_forks)
+
+        pysoa.server.autoreload.USE_PY_INOTIFY = False
+
+        try:
+            reloader = get_reloader('example_service.standalone', [], signal_forks=True)
+
+            self.assertIsInstance(reloader, _PollingReloader)
+            self.assertEqual('example_service.standalone', reloader.main_module_name)
+            self.assertIsNone(reloader.watch_modules)
+            self.assertTrue(reloader.signal_forks)
+        finally:
+            pysoa.server.autoreload.USE_PY_INOTIFY = HAS_PY_INOTIFY
 
 
 class TestAbstractReloader(unittest.TestCase):
@@ -494,45 +528,119 @@ class TestAbstractReloader(unittest.TestCase):
 
 
 class TestPollingReloader(unittest.TestCase):
-    class Stat(object):
-        # noinspection SpellCheckingInspection
-        def __init__(self, m, c):
-            self.st_mtime = m
-            self.st_ctime = c
+    def test_code_changed(self):
+        codec = codecs.lookup('utf8')
 
-    @mock.patch('pysoa.server.autoreload.os')
-    def test_code_changed(self, mock_os):
-        reloader = _PollingReloader('example_service.standalone', ['pysoa'])
+        with tempfile.NamedTemporaryFile('wb') as tmp_file1, tempfile.NamedTemporaryFile('wb') as tmp_file2, \
+                codecs.StreamReaderWriter(tmp_file1, codec.streamreader, codec.streamwriter, 'strict') as file1, \
+                codecs.StreamReaderWriter(tmp_file2, codec.streamreader, codec.streamwriter, 'strict') as file2:
+            reloader = _PollingReloader('example_service.standalone', ['pysoa'])
 
-        # noinspection PyUnresolvedReferences
-        with mock.patch.object(target=reloader, attribute='get_watch_file_names') as mock_get_watch_file_names:
-            mock_get_watch_file_names.return_value = [
-                '/path/to/first/file.py',
-                '/path/to/another/level.py',
-            ]
+            file1.write('test 1')
+            file1.flush()
 
-            mock_os.stat.side_effect = [self.Stat(123456789, 0), self.Stat(987654321, 0)]
+            file2.write('test 2')
+            file2.flush()
 
-            self.assertFalse(reloader.code_changed())
+            # noinspection PyUnresolvedReferences
+            with mock.patch.object(target=reloader, attribute='get_watch_file_names') as mock_get_watch_file_names:
+                mock_get_watch_file_names.return_value = [file1.name, file2.name]
 
-            self.assertEqual(2, mock_os.stat.call_count)
-            self.assertEqual('/path/to/first/file.py', mock_os.stat.call_args_list[0][0][0])
-            self.assertEqual('/path/to/another/level.py', mock_os.stat.call_args_list[1][0][0])
+                self.assertFalse(reloader.code_changed())
 
-            mock_os.reset_mock()
-            mock_os.stat.side_effect = [self.Stat(123456789, 0), self.Stat(987654321, 0)]
+                time.sleep(1.1)
 
-            self.assertFalse(reloader.code_changed())
+                file1.write('test changed 1')
+                file1.flush()
 
-            self.assertEqual(2, mock_os.stat.call_count)
-            self.assertEqual('/path/to/first/file.py', mock_os.stat.call_args_list[0][0][0])
-            self.assertEqual('/path/to/another/level.py', mock_os.stat.call_args_list[1][0][0])
+                self.assertTrue(reloader.code_changed())
+                self.assertFalse(reloader.code_changed())
 
-            mock_os.reset_mock()
-            mock_os.stat.side_effect = [self.Stat(123456789, 0), self.Stat(987654322, 0)]
+                time.sleep(1.1)
 
-            self.assertTrue(reloader.code_changed())
+                file2.write('test changed 2')
+                file2.flush()
 
-            self.assertEqual(2, mock_os.stat.call_count)
-            self.assertEqual('/path/to/first/file.py', mock_os.stat.call_args_list[0][0][0])
-            self.assertEqual('/path/to/another/level.py', mock_os.stat.call_args_list[1][0][0])
+                self.assertTrue(reloader.code_changed())
+                self.assertFalse(reloader.code_changed())
+
+                time.sleep(1.1)
+
+                file2.write('test changed 2 again')
+                file2.flush()
+
+                self.assertTrue(reloader.code_changed())
+
+
+@unittest.skipIf(not HAS_PY_INOTIFY, 'This can only run if PyInotify is installed')
+class TestPyInotifyReloader(unittest.TestCase):
+    def test_code_changed(self):
+        from multiprocessing.pool import ThreadPool
+
+        codec = codecs.lookup('utf8')
+
+        with tempfile.NamedTemporaryFile('wb') as tmp_file1, tempfile.NamedTemporaryFile('wb') as tmp_file2, \
+                codecs.StreamReaderWriter(tmp_file1, codec.streamreader, codec.streamwriter, 'strict') as file1, \
+                codecs.StreamReaderWriter(tmp_file2, codec.streamreader, codec.streamwriter, 'strict') as file2:
+            reloader = _PyInotifyReloader('example_service.standalone', ['pysoa'])
+            reloader.watching = True
+
+            pool = ThreadPool(processes=1)
+
+            file1.write('test 1')
+            file1.flush()
+
+            file2.write('test 2')
+            file2.flush()
+
+            # noinspection PyUnresolvedReferences
+            with mock.patch.object(target=reloader, attribute='get_watch_file_names') as mock_get_watch_file_names:
+                mock_get_watch_file_names.return_value = [file1.name, file2.name]
+
+                result = pool.apply_async(reloader.code_changed)
+                self.assertFalse(result.ready())
+
+                time.sleep(0.2)
+
+                self.assertFalse(result.ready())
+
+                file1.write('test changed 1')
+                file1.flush()
+
+                time.sleep(0.2)
+
+                self.assertTrue(result.ready())
+                self.assertTrue(result.get())
+                self.assertTrue(result.successful())
+
+                result = pool.apply_async(reloader.code_changed)
+                self.assertFalse(result.ready())
+
+                time.sleep(0.2)
+
+                self.assertFalse(result.ready())
+
+                file2.write('test changed 2')
+                file2.flush()
+
+                time.sleep(0.2)
+
+                self.assertTrue(result.ready())
+                self.assertTrue(result.get())
+                self.assertTrue(result.successful())
+
+                result = pool.apply_async(reloader.code_changed)
+                self.assertFalse(result.ready())
+
+                time.sleep(0.2)
+
+                self.assertFalse(result.ready())
+
+                file2.write('test changed 2 again')
+                file2.flush()
+
+                time.sleep(0.2)
+
+                self.assertTrue(result.ready())
+                self.assertTrue(result.get())
+                self.assertTrue(result.successful())

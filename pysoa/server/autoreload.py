@@ -327,7 +327,7 @@ class AbstractReloader(object):
 class _PyInotifyReloader(AbstractReloader):
     """
     This concrete class completes the reloader by using the PyInotify API. It is only supported on Linux operating
-    systems with kernel version >= 2.6.13.
+    systems with kernel version >= 2.6.13 and projects with PyInotify installed.
     """
 
     def __init__(self, main_module_name, watch_modules, signal_forks=False):
