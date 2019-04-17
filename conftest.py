@@ -1,4 +1,10 @@
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
+
 import sys
+
 
 # Skip event loop tests for Python versions less than 3.5
 collect_ignore = []

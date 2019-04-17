@@ -1,7 +1,10 @@
-from __future__ import absolute_import
-
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 from unittest import TestCase
+
 
 try:
     import mock

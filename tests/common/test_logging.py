@@ -5,9 +5,9 @@ from __future__ import (
 
 import gc
 from logging import (
+    WARNING,
     Formatter,
     LogRecord,
-    WARNING,
 )
 import logging.handlers
 import socket

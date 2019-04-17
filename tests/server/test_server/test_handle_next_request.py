@@ -5,9 +5,9 @@ from __future__ import (
 
 from unittest import TestCase
 
+from pysoa.common.transport.base import ServerTransport
 from pysoa.server.server import Server
 from pysoa.test import factories
-from pysoa.common.transport.base import ServerTransport
 
 
 class HandleNextRequestServer(Server):

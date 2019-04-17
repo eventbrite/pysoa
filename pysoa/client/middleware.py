@@ -1,3 +1,9 @@
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
+
+
 class ClientMiddleware(object):
     """
     Base middleware class for client middleware. Not required, but provides some helpful stubbed methods and
