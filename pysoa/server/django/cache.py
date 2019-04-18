@@ -1,4 +1,7 @@
-from __future__ import absolute_import
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
 
 from django.core.cache.backends.locmem import LocMemCache
 from django.core.cache.backends.memcached import (

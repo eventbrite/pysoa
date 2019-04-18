@@ -1,3 +1,8 @@
+from __future__ import (
+    absolute_import,
+    unicode_literals,
+)
+
 
 class MessageTooLarge(Exception):
     def __init__(self, message_size_in_bytes, *args):

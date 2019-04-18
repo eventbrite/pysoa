@@ -2,6 +2,7 @@
 from __future__ import (
     absolute_import,
     division,
+    unicode_literals,
 )
 
 import datetime
@@ -57,7 +58,7 @@ class MsgpackSerializer(BaseSerializer):
        integer of the minor value.
     """
 
-    mime_type = u'application/msgpack'
+    mime_type = 'application/msgpack'
 
     EXT_CURRINT = 2
     EXT_DATE = 3
@@ -65,14 +66,14 @@ class MsgpackSerializer(BaseSerializer):
     EXT_DECIMAL = 5
     EXT_TIME = 4
 
-    STRUCT_CURRINT = struct.Struct('!3sq')
-    STRUCT_DATE = struct.Struct('!HBB')
-    STRUCT_DATETIME = struct.Struct('!q')
-    STRUCT_DECIMAL_LENGTH = struct.Struct('!H')
-    STRUCT_TIME = struct.Struct('!3BL')
+    STRUCT_CURRINT = struct.Struct(str('!3sq'))
+    STRUCT_DATE = struct.Struct(str('!HBB'))
+    STRUCT_DATETIME = struct.Struct(str('!q'))
+    STRUCT_DECIMAL_LENGTH = struct.Struct(str('!H'))
+    STRUCT_TIME = struct.Struct(str('!3BL'))
 
     def dict_to_blob(self, data_dict):
-        assert isinstance(data_dict, dict), u'Input must be a dict'
+        assert isinstance(data_dict, dict), 'Input must be a dict'
         try:
             return msgpack.packb(data_dict, default=self.default, use_bin_type=True)
         except TypeError as e:
@@ -91,7 +92,7 @@ class MsgpackSerializer(BaseSerializer):
         if isinstance(obj, datetime.datetime):
             # Serialize date-time objects. Make sure they're naive.
             if obj.tzinfo is not None:
-                raise TypeError(u'Cannot encode time zone-aware date-times to MessagePack')
+                raise TypeError('Cannot encode time zone-aware date-times to MessagePack')
             # Then, work out the timestamp in seconds.
             seconds = (obj - datetime.datetime(1970, 1, 1)).total_seconds()
             microseconds = int(seconds * 1000000.0)
@@ -116,7 +117,7 @@ class MsgpackSerializer(BaseSerializer):
         elif isinstance(obj, decimal.Decimal):
             obj_str = six.text_type(obj)[:65535].encode('utf-8')
             obj_len = len(obj_str)
-            obj_encoder = struct.Struct('!H{}s'.format(obj_len))
+            obj_encoder = struct.Struct(str('!H{}s'.format(obj_len)))
             return msgpack.ExtType(
                 self.EXT_DECIMAL,
                 obj_encoder.pack(obj_len, obj_str),
@@ -133,7 +134,7 @@ class MsgpackSerializer(BaseSerializer):
             )
         else:
             # Wuh-woh
-            raise TypeError(u'Cannot encode value of type {} to MessagePack: {}'.format(type(obj).__name__, obj))
+            raise TypeError('Cannot encode value of type {} to MessagePack: {}'.format(type(obj).__name__, obj))
 
     def ext_hook(self, code, data):
         """
@@ -152,11 +153,11 @@ class MsgpackSerializer(BaseSerializer):
             return datetime.time(*self.STRUCT_TIME.unpack(data))
         elif code == self.EXT_DECIMAL:
             obj_len = self.STRUCT_DECIMAL_LENGTH.unpack(data[:2])[0]
-            obj_decoder = struct.Struct('!{}s'.format(obj_len))
+            obj_decoder = struct.Struct(str('!{}s'.format(obj_len)))
             return decimal.Decimal(obj_decoder.unpack(data[2:])[0].decode('utf-8'))
         elif code == self.EXT_CURRINT:
             # Unpack Amount object into (code, minor) from a 3-char ASCII string and a signed 64-bit integer.
             code, minor_value = self.STRUCT_CURRINT.unpack(data)
             return currint.Amount.from_code_and_minor(code.decode('ascii'), minor_value)
         else:
-            raise TypeError(u'Cannot decode unknown extension type {} from MessagePack'.format(code))
+            raise TypeError('Cannot decode unknown extension type {} from MessagePack'.format(code))
