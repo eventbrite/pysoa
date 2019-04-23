@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.59.1 (2019-04-23)
+-------------------
+- [PATCH] #161: Fix server to start async event loop thread, thread to join properly
+
 0.59.0 (2019-04-18)
 -------------------
 - [MINOR] Bump Conformity to 1.21
