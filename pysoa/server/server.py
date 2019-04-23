@@ -555,13 +555,13 @@ class Server(object):
             try:
                 self._heartbeat_file.close()
             except Exception:
-                self.logger.exception('Error while closing heartbeat file')
+                self.logger.warning('Error while closing heartbeat file', exc_info=True)
             finally:
                 # noinspection PyBroadException
                 try:
                     os.remove(self._heartbeat_file_path)
                 except Exception:
-                    self.logger.exception('Error while removing heartbeat file')
+                    self.logger.warning('Error while removing heartbeat file', exc_info=True)
 
     def _update_heartbeat_file(self):
         if self._heartbeat_file and time.time() - self._heartbeat_file_last_update > 2.5:
@@ -623,11 +623,11 @@ class Server(object):
             )
         )
 
-        if self._async_event_loop:
-            self.logger.info('Async event logger available and in use')
-
         self.setup()
         self.metrics.commit()
+
+        if self._async_event_loop_thread:
+            self._async_event_loop_thread.start()
 
         self._create_heartbeat_file()
 
@@ -651,11 +651,11 @@ class Server(object):
         finally:
             self.metrics.commit()
             self.logger.info('Server shutting down')
-            if self._async_event_loop:
-                self.logger.info('Stopping async event loop thread')
+            if self._async_event_loop_thread:
                 self._async_event_loop_thread.join()
             self._close_django_caches(shutdown=True)
             self._delete_heartbeat_file()
+            self.logger.info('Server shutdown complete')
 
     # noinspection PyUnusedLocal
     @classmethod
