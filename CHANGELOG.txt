@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.58.2 (2019-05-10)
+-------------------
+- [PATCH] Guarantee Server always has _async_event_loop_thread attribute
+
 0.58.1 (2019-04-23)
 -------------------
 - [PATCH] #161: Fix server to start async event loop thread, thread to join properly
