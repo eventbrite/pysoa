@@ -107,6 +107,7 @@ class Server(object):
             raise AttributeError('Server subclass must set service_name')
 
         self._async_event_loop = None
+        self._async_event_loop_thread = None
         if AsyncEventLoopThread:
             self._async_event_loop_thread = AsyncEventLoopThread()
             self._async_event_loop = self._async_event_loop_thread.loop
@@ -312,7 +313,7 @@ class Server(object):
 
             # Add the async event loop in case a middleware wishes to use it
             job_request['async_event_loop'] = self._async_event_loop
-            if hasattr(self, '_async_event_loop_thread'):
+            if self._async_event_loop_thread:
                 job_request['run_coroutine'] = self._async_event_loop_thread.run_coroutine
             else:
                 job_request['run_coroutine'] = None
