@@ -26,3 +26,4 @@ class EnrichedActionRequest(ActionRequest):
     client = attr.ib(default=None)
     async_event_loop = attr.ib(default=None)
     run_coroutine = attr.ib(default=None)
+    metrics = attr.ib(default=None)
