@@ -134,7 +134,10 @@ class ServerSettings(SOASettings):
                         'update the timestamp in that file after the processing of every request or every time '
                         'idle operations are processed, and delete the file when the server shuts down. The file name '
                         'can optionally contain the specifier {{pid}}, which will be replaced with the server process '
-                        'PID.',
+                        'PID. Finally, the file name can optionally contain the specifier {{fid}}, which will be '
+                        'replaced with the unique-and-deterministic forked process ID whenever the server is started '
+                        'with the --fork option (the minimum value is always 1 and the maximum value is always equal '
+                        'to the value of the --fork option).',
         )),
         'extra_fields_to_redact': fields.Set(
             fields.UnicodeString(),

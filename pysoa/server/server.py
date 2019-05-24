@@ -102,10 +102,16 @@ class Server(object):
     service_name = None
     action_class_map = {}
 
-    def __init__(self, settings):
+    def __init__(self, settings, forked_process_id=None):
         """
         :param settings: The settings object, which must be an instance of `ServerSettings` or one of its subclasses
         :type settings: ServerSettings
+        :param forked_process_id: If multiple processes are forked by the same parent process, this will be set to a
+                                  unique, deterministic (incremental) ID which can be used in logging, the heartbeat
+                                  file, etc. For example, if the `--fork` argument is used with the value 5 (creating
+                                  five child processes), this argument will have the values 1, 2, 3, 4, and 5 across
+                                  the five respective child processes.
+        :type forked_process_id: int
         """
         # Check subclassing setup
         if not self.service_name:
@@ -158,6 +164,7 @@ class Server(object):
         self._heartbeat_file = None
         self._heartbeat_file_path = None
         self._heartbeat_file_last_update = 0
+        self._forked_process_id = forked_process_id
 
     def handle_next_request(self):
         """
@@ -546,11 +553,13 @@ class Server(object):
 
     def _create_heartbeat_file(self):
         if self.settings['heartbeat_file']:
-            self.logger.info('Creating heartbeat file')
+            heartbeat_file_path = self.settings['heartbeat_file'].replace('{{pid}}', six.text_type(os.getpid()))
+            if '{{fid}}' in heartbeat_file_path and self._forked_process_id is not None:
+                heartbeat_file_path = heartbeat_file_path.replace('{{fid}}', six.text_type(self._forked_process_id))
 
-            self._heartbeat_file_path = os.path.abspath(
-                self.settings['heartbeat_file'].replace('{{pid}}', six.text_type(os.getpid())),
-            )
+            self.logger.info('Creating heartbeat file {}'.format(heartbeat_file_path))
+
+            self._heartbeat_file_path = os.path.abspath(heartbeat_file_path)
             self._heartbeat_file = codecs.open(self._heartbeat_file_path, 'wb', encoding='utf-8')
 
             self._update_heartbeat_file()
@@ -681,7 +690,7 @@ class Server(object):
         return cls
 
     @classmethod
-    def main(cls):
+    def main(cls, forked_process_id=None):
         """
         Command-line entry point for running a PySOA server. The chain of method calls is as follows::
 
@@ -702,6 +711,13 @@ class Server(object):
                                 -> middleware(self.execute_job)
                             -> transport.send_response_message
                             -> self.perform_post_request_actions
+
+        :param forked_process_id: If multiple processes are forked by the same parent process, this will be set to a
+                                  unique, deterministic (incremental) ID which can be used in logging, the heartbeat
+                                  file, etc. For example, if the `--fork` argument is used with the value 5 (creating
+                                  five child processes), this argument will have the values 1, 2, 3, 4, and 5 across
+                                  the five respective child processes.
+        :type forked_process_id: int
         """
         parser = argparse.ArgumentParser(
             description='Server for the {} SOA service'.format(cls.service_name),
@@ -763,7 +779,7 @@ class Server(object):
                 sys.exit()
 
         # Set up server and signal handling
-        server = cls.initialize(settings)(settings)
+        server = cls.initialize(settings)(settings, forked_process_id)
 
         # Start server event loop
         server.run()

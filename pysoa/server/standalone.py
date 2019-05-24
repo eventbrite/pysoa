@@ -90,7 +90,7 @@ def _run_server(args, server_class):
         signal.signal(signal.SIGHUP, _sigterm_forks)  # special signal by reloader says we actually need to propagate
 
         processes = [
-            multiprocessing.Process(target=server_class.main, name='pysoa-worker-{}'.format(i))
+            multiprocessing.Process(target=server_class.main, name='pysoa-worker-{}'.format(i), args=(i + 1, ))
             for i in range(0, num_processes)
         ]
         for p in processes:
