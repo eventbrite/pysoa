@@ -24,6 +24,7 @@ base_requirements = [
     'msgpack-python~=0.5,>=0.5.2',
     'redis~=2.10',
     'six~=1.10',
+    'typing;python_version<"3.5"',
 ]
 
 test_helper_requirements = [
@@ -42,6 +43,7 @@ test_requirements = [
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
     'pytest-cov~=2.6',
+    'pytest~=4.4',
 ] + test_plan_requirements
 
 
