@@ -200,6 +200,12 @@ generator. Just call ``result(timeout=None)`` on the future response to block fo
 will be a generator). Some of the possible exceptions may be raised when this method is called; others may be
 raised when the future is used.
 
+If argument ``raise_job_errors`` is supplied and is ``False``, some items in the result list might be lists of job
+errors instead of individual ``ActionResponse``s. Be sure to check for that if used in this manner.
+
+If argument ``catch_transport_errors`` is supplied and is ``True``, some items in the result list might be instances
+of ``Exception`` instead of individual ``ActionResponse``s. Be sure to check for that if used in this manner.
+
 Parameters
   - ``service_name``
   - ``actions``
@@ -1300,13 +1306,7 @@ strict ``dict``: The settings for the Redis transport
     Optional keys: ``connection_kwargs``, ``hosts``, ``redis_db``, ``redis_port``, ``sentinel_failover_retries``, ``sentinel_services``
 
   - ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{u'values': [u'redis.standard', u'redis.sentinel']}``)
-  - ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
-  - ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
-  - ``message_expiry_in_seconds`` - ``integer``: How long after a message is sent that it is considered expired, dropped from queue
-  - ``queue_capacity`` - ``integer``: The capacity of the message queue to which this transport will send messages
-  - ``queue_full_retries`` - ``integer``: How many times to retry sending a message to a full queue before giving up
-  - ``receive_timeout_in_seconds`` - ``integer``: How long to block waiting on a message to be received
-  - ``serializer_config`` - strict ``dict``: The configuration for the serializer this transport should use
+  - ``default_serializer_config`` - strict ``dict``: The configuration for the serializer this transport should use
 
     - ``kwargs`` - flexible ``dict``: Any keyword arguments that should be passed to the class when constructing a new instance
 
@@ -1320,8 +1320,14 @@ strict ``dict``: The settings for the Redis transport
 
     Optional keys: ``kwargs``
 
+  - ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
+  - ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
+  - ``message_expiry_in_seconds`` - ``integer``: How long after a message is sent that it is considered expired, dropped from queue
+  - ``queue_capacity`` - ``integer``: The capacity of the message queue to which this transport will send messages
+  - ``queue_full_retries`` - ``integer``: How many times to retry sending a message to a full queue before giving up
+  - ``receive_timeout_in_seconds`` - ``integer``: How long to block waiting on a message to be received
 
-  Optional keys: ``backend_layer_kwargs``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``, ``serializer_config``
+  Optional keys: ``backend_layer_kwargs``, ``default_serializer_config``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``
 
 - ``path`` - ``unicode``: The path to the Redis client or server transport, in the format ``module.name:ClassName``
 
@@ -2307,10 +2313,15 @@ Parameters
 
     - ``EnrichedActionRequest``
 
-The action request object that the Server passes to each Action class that it calls.
+The action request object that the Server passes to each Action class that it calls. It contains all the information
+from ActionRequest, plus some extra information from the JobRequest, a client that can be used to call other
+services, and a helper for running asyncio coroutines.
 
-Contains all the information from ActionRequest, plus some extra information from the
-JobRequest.
+Also contains a helper for easily calling other local service actions from within an action.
+
+Services and intermediate libraries can subclass this class and change the ``Server`` attribute ``request_class`` to
+their subclass in order to use more-advanced request classes. In order for any new attributes such a subclass
+provides to be copied by ``call_local_action``, they must be ``attr.ib`` attributes with a default value.
 
 .. _pysoa.server.types.EnrichedActionRequest-attrs-docs:
 
@@ -2324,3 +2335,32 @@ Attrs Properties
 - ``control``
 - ``client``
 - ``async_event_loop``
+- ``run_coroutine``
+
+.. _pysoa.server.types.EnrichedActionRequest.call_local_action:
+
+``method call_local_action(action, body, raise_action_errors=True)``
+********************************************************************
+
+This helper calls another action, locally, that resides on the same service, using the provided action name
+and body. The called action will receive a copy of this request object with different action and body details.
+
+The use of this helper differs significantly from using the PySOA client to call an action. Notably:
+
+* The configured transport is not involved, so no socket activity or serialization/deserialization takes place.
+* PySOA server metrics are not recorded and post-action cleanup activities do not occur.
+* No "job request" is ever created or transacted.
+* No middleware is executed around this action (though, in the future, we might change this decision and add
+  middleware execution to this helper).
+
+Parameters
+  - ``action`` (``union[str, unicode]``) - The action to call (must exist within the ``action_class_map`` from the ``Server`` class)
+  - ``body`` (``dict``) - The body to send to the action
+  - ``raise_action_errors`` (``bool``) - If ``True`` (the default), all action errors will be raised; otherwise, an
+    ``ActionResponse`` containing the errors will be returned.
+
+Returns
+  ``ActionResponse`` - the action response.
+
+Raises
+  ``ActionError``

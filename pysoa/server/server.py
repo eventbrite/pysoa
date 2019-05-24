@@ -13,6 +13,7 @@ import signal
 import sys
 import time
 import traceback
+from typing import Type  # noqa: F401 TODO Python 3
 
 import attr
 import six
@@ -47,7 +48,10 @@ from pysoa.server.errors import (
 )
 from pysoa.server.internal.types import RequestSwitchSet
 from pysoa.server.schemas import JobRequestSchema
-from pysoa.server.settings import PolymorphicServerSettings
+from pysoa.server.settings import (  # noqa: F401 TODO Python 3
+    PolymorphicServerSettings,
+    ServerSettings,
+)
 from pysoa.server.types import EnrichedActionRequest
 import pysoa.version
 
@@ -91,7 +95,8 @@ class Server(object):
       of `Action` which, when "called" [constructed], yield a callable object [instance of the subclass])
     """
 
-    settings_class = PolymorphicServerSettings
+    settings_class = PolymorphicServerSettings  # type: Type[ServerSettings]
+    request_class = EnrichedActionRequest  # type: Type[EnrichedActionRequest]
 
     use_django = False
     service_name = None
@@ -409,7 +414,7 @@ class Server(object):
         job_response = JobResponse()
         job_switches = RequestSwitchSet(job_request['context']['switches'])
         for i, raw_action_request in enumerate(job_request['actions']):
-            action_request = EnrichedActionRequest(
+            action_request = self.request_class(
                 action=raw_action_request['action'],
                 body=raw_action_request.get('body', None),
                 switches=job_switches,
@@ -419,6 +424,8 @@ class Server(object):
                 async_event_loop=job_request['async_event_loop'],
                 run_coroutine=job_request['run_coroutine'],
             )
+            action_request._server = self
+
             action_in_class_map = action_request.action in self.action_class_map
             if action_in_class_map or action_request.action in ('status', 'introspect'):
                 # Get action to run
