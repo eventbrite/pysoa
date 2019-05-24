@@ -1852,6 +1852,11 @@ Constructor
 
 Parameters
   - ``settings`` (``ServerSettings``) - The settings object, which must be an instance of ``ServerSettings`` or one of its subclasses
+  - ``forked_process_id`` (``int``) - If multiple processes are forked by the same parent process, this will be set to a
+    unique, deterministic (incremental) ID which can be used in logging, the heartbeat
+    file, etc. For example, if the ``--fork`` argument is used with the value 5 (creating
+    five child processes), this argument will have the values 1, 2, 3, 4, and 5 across
+    the five respective child processes.
 
 .. _pysoa.server.server.Server.execute_job:
 
@@ -1929,8 +1934,8 @@ Returns
 
 .. _pysoa.server.server.Server.main:
 
-``static method main()``
-************************
+``static method main(forked_process_id=None)``
+**********************************************
 
 Command-line entry point for running a PySOA server. The chain of method calls is as follows::
 
@@ -1951,6 +1956,13 @@ Command-line entry point for running a PySOA server. The chain of method calls i
                         -> middleware(self.execute_job)
                     -> transport.send_response_message
                     -> self.perform_post_request_actions
+
+Parameters
+  - ``forked_process_id`` (``int``) - If multiple processes are forked by the same parent process, this will be set to a
+    unique, deterministic (incremental) ID which can be used in logging, the heartbeat
+    file, etc. For example, if the ``--fork`` argument is used with the value 5 (creating
+    five child processes), this argument will have the values 1, 2, 3, 4, and 5 across
+    the five respective child processes.
 
 .. _pysoa.server.server.Server.make_client:
 
@@ -2062,7 +2074,7 @@ Settings Schema Definition
   - ``shutdown_grace`` - ``integer``: Seconds to forcefully shutdown after harakiri is triggered if shutdown does not occur (additional information: ``{u'gt': 0}``)
   - ``timeout`` - ``integer``: Seconds of inactivity before harakiri is triggered; 0 to disable, defaults to 300 (additional information: ``{u'gte': 0}``)
 
-- ``heartbeat_file`` - ``unicode`` (nullable): If specified, the server will create a heartbeat file at the specified path on startup, update the timestamp in that file after the processing of every request or every time idle operations are processed, and delete the file when the server shuts down. The file name can optionally contain the specifier {{pid}}, which will be replaced with the server process PID.
+- ``heartbeat_file`` - ``unicode`` (nullable): If specified, the server will create a heartbeat file at the specified path on startup, update the timestamp in that file after the processing of every request or every time idle operations are processed, and delete the file when the server shuts down. The file name can optionally contain the specifier {{pid}}, which will be replaced with the server process PID. Finally, the file name can optionally contain the specifier {{fid}}, which will be replaced with the unique-and-deterministic forked process ID whenever the server is started with the --fork option (the minimum value is always 1 and the maximum value is always equal to the value of the --fork option).
 - ``logging`` - strict ``dict``: Settings for service logging, which should follow the standard Python logging configuration
 
   - ``disable_existing_loggers`` - ``boolean``: *(no description)*
