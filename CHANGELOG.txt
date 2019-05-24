@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.60.0 (2019-05-24)
+-------------------
+- [MINOR] Add forked process ID for creating deterministic heartbeat files
+- [MINOR] Add helper for calling local actions within other actions
+
 0.59.2 (2019-05-10)
 -------------------
 - [PATCH] Guarantee Server always has _async_event_loop_thread attribute
