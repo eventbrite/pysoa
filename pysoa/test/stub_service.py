@@ -31,7 +31,7 @@ from pysoa.common.types import (
     Error,
     JobResponse,
 )
-from pysoa.server import Server
+from pysoa.server.server import Server
 from pysoa.server.action import Action
 from pysoa.server.errors import (
     ActionError,
