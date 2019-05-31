@@ -368,24 +368,25 @@ class stub_action(object):  # noqa
         self.attribute_name = None
         self.new = mock.DEFAULT
 
+        self._current_mock_action = None
         self._stub_action_responses_outstanding = defaultdict(dict)
         self._stub_action_responses_to_merge = defaultdict(dict)
 
     def __enter__(self):
-        mock_action = self._MockAction(name='{}.{}'.format(self.service, self.action))
-
         if self.enabled:
-            return mock_action
+            return self._current_mock_action
+
+        self._current_mock_action = self._MockAction(name='{}.{}'.format(self.service, self.action))
 
         self._wrapped_client_send_request = Client.send_request
         self._wrapped_client_get_all_responses = Client.get_all_responses
         self._services_with_calls_sent_to_wrapped_client = set()
 
         if self.body or self.errors:
-            mock_action.return_value = ActionResponse(self.action, errors=self.errors, body=self.body)
+            self._current_mock_action.return_value = ActionResponse(self.action, errors=self.errors, body=self.body)
 
         if self.side_effect:
-            mock_action.side_effect = self.side_effect
+            self._current_mock_action.side_effect = self.side_effect
 
         @wraps(Client.send_request)
         def wrapped_send_request(client, service_name, actions, *args, **kwargs):
@@ -439,7 +440,7 @@ class stub_action(object):  # noqa
             for i, action_request in actions_to_send_to_mock.items():
                 mock_response = None
                 try:
-                    mock_response = mock_action(action_request.body or {})
+                    mock_response = self._current_mock_action(action_request.body or {})
                     if isinstance(mock_response, JobResponse):
                         job_response.errors.extend(mock_response.errors)
                         if mock_response.actions:
@@ -539,7 +540,7 @@ class stub_action(object):  # noqa
         Client.get_all_responses = wrapped_get_all_responses
 
         self.enabled = True
-        return mock_action
+        return self._current_mock_action
 
     def __exit__(self, *args):
         if not self.enabled:

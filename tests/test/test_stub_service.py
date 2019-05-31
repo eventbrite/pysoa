@@ -153,11 +153,10 @@ class TestStubAction(ServerTestCase):
 
         self.assertEqual({'value': 1}, response.body)
 
+        self.assertTrue(stub_test_action_1 is second_stub_test_action_1)
         self.assertEqual(1, stub_test_action_1.call_count)
         self.assertEqual({}, stub_test_action_1.call_body)
         stub_test_action_1.assert_called_once_with({})
-
-        self.assertEqual(0, second_stub_test_action_1.call_count)
 
     @stub_action('test_service', 'test_action_2')
     @stub_action('test_service', 'test_action_1')
