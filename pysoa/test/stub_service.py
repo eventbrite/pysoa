@@ -372,11 +372,14 @@ class stub_action(object):  # noqa
         self._stub_action_responses_to_merge = defaultdict(dict)
 
     def __enter__(self):
+        mock_action = self._MockAction(name='{}.{}'.format(self.service, self.action))
+
+        if self.enabled:
+            return mock_action
+
         self._wrapped_client_send_request = Client.send_request
         self._wrapped_client_get_all_responses = Client.get_all_responses
         self._services_with_calls_sent_to_wrapped_client = set()
-
-        mock_action = self._MockAction(name='{}.{}'.format(self.service, self.action))
 
         if self.body or self.errors:
             mock_action.return_value = ActionResponse(self.action, errors=self.errors, body=self.body)
@@ -539,6 +542,9 @@ class stub_action(object):  # noqa
         return mock_action
 
     def __exit__(self, *args):
+        if not self.enabled:
+            return
+
         # Unwrap Client.send_request and Client.get_all_responses to their previous versions (which might themselves be
         # other wrappers if we have stubbed multiple actions).
         Client.send_request = self._wrapped_client_send_request

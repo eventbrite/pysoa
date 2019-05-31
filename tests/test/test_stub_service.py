@@ -5,6 +5,8 @@ from __future__ import (
 
 import random
 
+import six
+
 from pysoa.client import Client
 from pysoa.common.types import (
     ActionRequest,
@@ -130,6 +132,32 @@ class TestStubAction(ServerTestCase):
         self.assertEqual(1, stub_test_action_1.call_count)
         self.assertEqual({}, stub_test_action_1.call_body)
         stub_test_action_1.assert_called_once_with({})
+
+    def test_one_stub_duplicated_as_context_manager(self):
+        original_client_send_request = Client.send_request
+        original_client_get_all_responses = Client.get_all_responses
+
+        stub = stub_action('test_service', 'test_action_1', body={'value': 1})
+
+        with stub as stub_test_action_1, stub as second_stub_test_action_1:
+            response = self.client.call_action('test_service', 'test_action_1')
+
+        # Check stub is correctly reverted
+        for client_func, original_func in (
+            (Client.send_request, original_client_send_request),
+            (Client.get_all_responses, original_client_get_all_responses),
+        ):
+            self.assertTrue(
+                six.get_unbound_function(client_func) is six.get_unbound_function(original_func)
+            )
+
+        self.assertEqual({'value': 1}, response.body)
+
+        self.assertEqual(1, stub_test_action_1.call_count)
+        self.assertEqual({}, stub_test_action_1.call_body)
+        stub_test_action_1.assert_called_once_with({})
+
+        self.assertEqual(0, second_stub_test_action_1.call_count)
 
     @stub_action('test_service', 'test_action_2')
     @stub_action('test_service', 'test_action_1')
