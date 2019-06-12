@@ -14,10 +14,6 @@ import attr
 from conformity import fields
 import six
 
-from pysoa.common.schemas import (
-    BasicClassSchema,
-    PolymorphClassSchema,
-)
 from pysoa.common.settings import Settings
 
 
@@ -33,7 +29,7 @@ TO_DOCUMENT = (
     'pysoa.client.client:ServiceHandler',
     'pysoa.client.expander:ExpansionSettings',
     'pysoa.client.middleware:ClientMiddleware',
-    'pysoa.client.settings:PolymorphicClientSettings',
+    'pysoa.client.settings:ClientSettings',
     'pysoa.common.metrics:Counter',
     'pysoa.common.metrics:MetricsRecorder',
     'pysoa.common.metrics:NoOpMetricsRecorder',
@@ -42,12 +38,9 @@ TO_DOCUMENT = (
     'pysoa.common.transport.base:ClientTransport',
     'pysoa.common.transport.base:ServerTransport',
     'pysoa.common.transport.local:LocalClientTransport',
-    'pysoa.common.transport.local:LocalClientTransportSchema',
     'pysoa.common.transport.local:LocalServerTransport',
-    'pysoa.common.transport.local:LocalServerTransportSchema',
     'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
     'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
-    'pysoa.common.transport.redis_gateway.settings:RedisTransportSchema',
     'pysoa.common.types:ActionRequest',
     'pysoa.common.types:ActionResponse',
     'pysoa.common.types:Error',
@@ -60,7 +53,7 @@ TO_DOCUMENT = (
     'pysoa.server.action.switched:SwitchedAction',
     'pysoa.server.middleware:ServerMiddleware',
     'pysoa.server.server:Server',
-    'pysoa.server.settings:PolymorphicServerSettings',
+    'pysoa.server.settings:ServerSettings',
     'pysoa.server.standalone:simple_main',
     'pysoa.server.standalone:django_main',
     'pysoa.server.types:EnrichedActionRequest',
@@ -277,6 +270,12 @@ def get_enum_documentation(class_name, module_name, enum_class_object):
     return documentation
 
 
+def _pretty_type_name(t):
+    if getattr(t, '__module__', '__builtin__') != '__builtin__':
+        return '``{}.{}``'.format(t.__module__, t.__name__)
+    return '``{}``'.format(t.__name__)
+
+
 def _pretty_introspect(value, depth=1, nullable=''):
     documentation = ''
 
@@ -287,17 +286,25 @@ def _pretty_introspect(value, depth=1, nullable=''):
 
     if isinstance(value, fields.Dictionary):
         documentation += 'strict ``dict``{}: {}\n'.format(nullable, description)
+        if not (value.contents or value.allow_extra_keys):
+            documentation += '\nNo keys permitted.'
         for k, v in sorted(value.contents.items(), key=lambda i: i[0]):
             documentation += '\n{}- ``{}`` - {}'.format(first, k, _pretty_introspect(v, depth + 1))
-        documentation += '\n'
+        if value.contents or not value.allow_extra_keys:
+            documentation += '\n'
         if value.allow_extra_keys:
-            documentation += '\n{}Extra keys of any value are allowed.'.format(first)
+            if value.contents:
+                documentation += '\n{}Extra keys of any value are allowed.'.format(first)
+            else:
+                documentation += '\n{}Keys of any value are allowed.'.format(first)
         if value.optional_keys:
             if value.allow_extra_keys:
                 documentation += ' '
             else:
                 documentation += '\n{}'.format(first)
-            documentation += 'Optional keys: ``{}``\n'.format('``, ``'.join(sorted(value.optional_keys)))
+            documentation += 'Optional keys: ``{}``\n'.format('``, ``'.join(
+                sorted(map(six.text_type, value.optional_keys)),
+            ))
     elif isinstance(value, fields.SchemalessDictionary):
         documentation += 'flexible ``dict``{}: {}\n'.format(nullable, description)
         documentation += '\n{}keys\n{}{}\n'.format(first, second, _pretty_introspect(value.key_type, depth + 1))
@@ -315,11 +322,52 @@ def _pretty_introspect(value, depth=1, nullable=''):
         for v in value.options:
             documentation += '\n{}- {}'.format(first, _pretty_introspect(v, depth + 1))
         documentation += '\n'
-    elif isinstance(value, PolymorphClassSchema):
+    elif isinstance(value, fields.ClassConfigurationSchema):
         documentation += (
-            'dictionary whose schema switches based on the value of ``path``, dynamically based on class imported from '
-            '``path`` (see the settings schema documentation for the class named at ``path``){}'
+            'dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of '
+            '``path``, dynamically based on class imported from ``path`` (see the configuration settings schema '
+            'documentation for the class named at ``path``).'
         )
+        if value.description:
+            documentation += ' {}'.format(description)
+        if value.base_class:
+            documentation += ' The imported item at the specified ``path`` must be a subclass of {}.'.format(
+                _pretty_type_name(value.base_class),
+            )
+    elif isinstance(value, fields.PythonPath):
+        documentation += (
+            'a unicode string importable Python path in the format "foo.bar.MyClass", "foo.bar:YourClass.CONSTANT", '
+            'etc.'
+        )
+        if value.description:
+            documentation += ' {}'.format(description)
+        if value.value_schema:
+            documentation += (
+                ' The imported item at the specified path must match the following schema:\n\n{}schema\n{}{}\n'
+            ).format(first, second, _pretty_introspect(value.value_schema, depth + 1))
+        elif not value.description:
+            documentation += ' The imported item at the specified path can be anything.'
+    elif isinstance(value, fields.TypeReference):
+        documentation += 'a Python ``type`` that is a subclass of the following class or classes: {}.'.format(
+            ', '.join(
+                _pretty_type_name(t) for t in (
+                    (object, ) if value.base_classes is None else
+                    value.base_classes if isinstance(value.base_classes, tuple) else (value.base_classes, )
+                )
+            ),
+        )
+        if value.description:
+            documentation += ' {}'.format(description)
+    elif isinstance(value, fields.ObjectInstance):
+        documentation += 'a Python object that is an instance of the following class or classes: {}.'.format(
+            ', '.join(
+                _pretty_type_name(t) for t in (
+                    value.valid_type if isinstance(value.valid_type, tuple) else (value.valid_type, )
+                )
+            ),
+        )
+        if value.description:
+            documentation += ' {}'.format(description)
     elif isinstance(value, fields.Polymorph):
         documentation += 'dictionary whose schema switches based on the value of ``{}``{}: {}\n'.format(
             value.switch_field,
@@ -394,11 +442,11 @@ apply as the default values.
     return documentation
 
 
-def get_class_schema_documentation(class_name, module_name, settings_class_object):
-    documentation = """.. _{module_name}.{class_name}
+def get_class_schema_documentation(class_name, module_name, conformity_field):
+    documentation = """.. _{module_name}.{class_name}_config_schema
 
-``class-path settings schema {class_name}``
-+++++++++++++++++++++++++++++{plus}++
+``configuration settings schema for {class_name}``
+++++++++++++++++++++++++++++++++++++{plus}++
 
 **module:** ``{module_name}``""".format(
         module_name=module_name,
@@ -406,16 +454,13 @@ def get_class_schema_documentation(class_name, module_name, settings_class_objec
         plus='+' * len(class_name)
     )
 
-    if settings_class_object.__doc__ and settings_class_object.__doc__.strip():
-        documentation += '\n\n{}'.format(_clean_literals(inspect.cleandoc(settings_class_object.__doc__)))
-
     documentation += """
 
 Settings Schema Definition
 **************************
 """
 
-    documentation += _pretty_introspect(settings_class_object(), depth=0)
+    documentation += _pretty_introspect(conformity_field, depth=0)
     documentation = documentation.strip()
 
     return documentation
@@ -594,10 +639,16 @@ def document():
                         documentation.write(get_enum_documentation(item_name, item_module_name, item_object))
                     elif issubclass(item_object, Settings):
                         documentation.write(get_settings_schema_documentation(item_name, item_module_name, item_object))
-                    elif issubclass(item_object, BasicClassSchema):
-                        documentation.write(get_class_schema_documentation(item_name, item_module_name, item_object))
                     else:
                         documentation.write(get_class_documentation(item_name, item_module_name, item_object))
+
+                        if hasattr(item_object, '_conformity_initialization_schema'):
+                            documentation.write('\n\n\n')
+                            documentation.write(get_class_schema_documentation(
+                                item_name,
+                                item_module_name,
+                                getattr(item_object, '_conformity_initialization_schema'),
+                            ))
                 elif inspect.isfunction(item_object):
                     documentation.write('\n\n\n')
                     documentation.write(get_function_documentation(item_name, item_module_name, item_object))

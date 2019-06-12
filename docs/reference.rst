@@ -35,11 +35,11 @@ Constructor
 
 Parameters
   - ``config`` (``dict``) - The entire client configuration dict, whose keys are service names and values are settings dicts
-    abiding by the ``PolymorphicClientSettings`` schema
+    abiding by the ``ClientSettings`` schema
   - ``expansion_config`` (``dict``) - The optional expansion configuration dict, if this client supports expansions, which
     is a dict abiding by the ``ExpansionSettings`` schema
   - ``settings_class`` (``union[class, callable]``) - An optional settings schema enforcement class or callable to use, which overrides the
-    default of ``PolymorphicClientSettings``
+    default of ``ClientSettings``
   - ``context`` - An optional base request context that will be used for all requests this client instance sends
     (individual calls can add to and override the values supplied in this context dict)
     :type: dict
@@ -633,55 +633,41 @@ Returns
   ``callable(int): tuple<int, JobResponse>`` - A callable that accepts a timeout int and returns tuple of request ID int and ``JobResponse`` object.
 
 
-.. _pysoa.client.settings.PolymorphicClientSettings
+.. _pysoa.client.middleware.ClientMiddleware_config_schema
 
-``settings schema class PolymorphicClientSettings``
-+++++++++++++++++++++++++++++++++++++++++++++++++++
+``configuration settings schema for ClientMiddleware``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+**module:** ``pysoa.client.middleware``
+
+Settings Schema Definition
+**************************
+strict ``dict``: Most client middleware has no constructor arguments, but subclasses can override this schema
+
+No keys permitted.
+
+
+.. _pysoa.client.settings.ClientSettings
+
+``settings schema class ClientSettings``
+++++++++++++++++++++++++++++++++++++++++
 
 **module:** ``pysoa.client.settings``
 
-Settings for Clients that can use any type of transport, while performing validation on certain transport types.
+Base settings class for all clients, whose ``middleware`` values are restricted to subclasses of ``ClientMiddleware``
+and whose ``transport`` values are restricted to subclasses of ``BaseClientTransport``. Middleware and transport
+configuration settings schemas will automatically switch based on the configuration settings schema for the ``path``
+for each.
 
 Settings Schema Definition
 **************************
 
-- ``metrics`` - strict ``dict``: Configuration for defining a usage and performance metrics recorder
-
-  - ``kwargs`` - strict ``dict``: The keyword arguments that will be passed to the constructed metrics recorder
-
-    - ``config`` - flexible ``dict``: Whatever metrics configuration is required
-
-      keys
-        ``hashable``: *(no description)*
-
-      values
-        ``anything``: *(no description)*
-
-
-    Extra keys of any value are allowed. Optional keys: ``config``
-
-  - ``path`` - ``unicode``: The path to the class extending ``MetricsRecorder``, in the format ``module.name:ClassName``
-
-  Optional keys: ``kwargs``
-
+- ``metrics`` - dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). Configuration for defining a usage and performance metrics recorder. The imported item at the specified ``path`` must be a subclass of ``pysoa.common.metrics.MetricsRecorder``.
 - ``middleware`` - ``list``: The list of all ``ClientMiddleware`` objects that should be applied to requests made from this client to the associated service
 
   values
-    strict ``dict``: *(no description)*
-
-    - ``kwargs`` - flexible ``dict``: Any keyword arguments that should be passed to the class when constructing a new instance
-
-      keys
-        ``unicode``: *(no description)*
-
-      values
-        ``anything``: *(no description)*
-
-    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
-
-    Optional keys: ``kwargs``
-
-- ``transport`` - dictionary whose schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the settings schema documentation for the class named at ``path``){}
+    dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). The imported item at the specified ``path`` must be a subclass of ``pysoa.client.middleware.ClientMiddleware``.
+- ``transport`` - dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). The imported item at the specified ``path`` must be a subclass of ``pysoa.common.transport.base.ClientTransport``.
 - ``transport_cache_time_in_seconds`` - ``anything``: This field is deprecated. The transport cache is no longer supported. This settings field will remain in place until 2018-06-15 to give a safe period for people to remove it from settings, but its value will always be ignored.
 
 Default Values
@@ -843,6 +829,20 @@ Parameters
 
 Returns
   ``NoOpMetricsRecorder.NoOpTimer`` - A do-nothing timer
+
+
+.. _pysoa.common.metrics.NoOpMetricsRecorder_config_schema
+
+``configuration settings schema for NoOpMetricsRecorder``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+**module:** ``pysoa.common.metrics``
+
+Settings Schema Definition
+**************************
+strict ``dict``: The no-ops recorder has no constructor arguments
+
+Keys of any value are allowed.
 
 
 .. _pysoa.common.metrics.Timer:
@@ -1085,34 +1085,47 @@ Parameters
   - ``body``
 
 
-.. _pysoa.common.transport.local.LocalClientTransportSchema
+.. _pysoa.common.transport.local.LocalClientTransport_config_schema
 
-``class-path settings schema LocalClientTransportSchema``
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+``configuration settings schema for LocalClientTransport``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 **module:** ``pysoa.common.transport.local``
 
 Settings Schema Definition
 **************************
-strict ``dict``: The settings for the local client transport
+strict ``dict``: The constructor kwargs for the local client transport.
 
-- ``kwargs`` - strict ``dict``: *(no description)*
+- ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself.
 
-  - ``server_class`` - any of the types bulleted below: The path to the ``Server`` class to use locally (as a library), or a reference to the ``Server``-extending class/type itself
+  - a unicode string importable Python path in the format "foo.bar.MyClass", "foo.bar:YourClass.CONSTANT", etc. The importable Python path to the ``Server``-extending class. The imported item at the specified path must match the following schema:
 
-    - ``unicode``: The path to the ``Server`` class, in the format ``module.name:ClassName``
-    - ``object_instance``: A reference to the ``Server``-extending class/type (additional information: ``{u'valid_type': "(<type 'type'>, <type 'classobj'>)"}``)
+    schema
+      a Python ``type`` that is a subclass of the following class or classes: ``object``.
 
-  - ``server_settings`` - flexible ``dict``: The settings to use when instantiating the ``server_class``
+  - a Python ``type`` that is a subclass of the following class or classes: ``object``. A reference to the ``Server``-extending class
+
+- ``server_settings`` - any of the types bulleted below: The settings to use when instantiating the ``server_class``.
+
+  - a unicode string importable Python path in the format "foo.bar.MyClass", "foo.bar:YourClass.CONSTANT", etc. The importable Python path to the settings dict, in the format "module.name:VARIABLE". The imported item at the specified path must match the following schema:
+
+    schema
+      flexible ``dict``: A dictionary of settings for the server (which will further validate them).
+
+      keys
+        ``unicode``: *(no description)*
+
+      values
+        ``anything``: *(no description)*
+
+
+  - flexible ``dict``: A dictionary of settings for the server (which will further validate them).
 
     keys
       ``unicode``: *(no description)*
 
     values
       ``anything``: *(no description)*
-
-
-- ``path`` - ``unicode``: The path to the local client transport, in the format ``module.name:ClassName``
 
 
 .. _pysoa.common.transport.local.LocalServerTransport:
@@ -1153,23 +1166,18 @@ Parameters
   - ``body``
 
 
-.. _pysoa.common.transport.local.LocalServerTransportSchema
+.. _pysoa.common.transport.local.LocalServerTransport_config_schema
 
-``class-path settings schema LocalServerTransportSchema``
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+``configuration settings schema for LocalServerTransport``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 **module:** ``pysoa.common.transport.local``
 
 Settings Schema Definition
 **************************
-strict ``dict``: The settings for the local client transport
+strict ``dict``: The local server transport takes no constructor kwargs.
 
-- ``kwargs`` - strict ``dict``: *(no description)*
-
-
-- ``path`` - ``unicode``: The path to the local server transport, in the format ``module.name:ClassName``
-
-Optional keys: ``kwargs``
+No keys permitted.
 
 
 .. _pysoa.common.transport.redis_gateway.client.RedisClientTransport:
@@ -1224,6 +1232,57 @@ raising a ``MessageReceiveTimeout``.
 *(No documentation)*
 
 
+.. _pysoa.common.transport.redis_gateway.client.RedisClientTransport_config_schema
+
+``configuration settings schema for RedisClientTransport``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+**module:** ``pysoa.common.transport.redis_gateway.client``
+
+Settings Schema Definition
+**************************
+strict ``dict``: The constructor kwargs for the Redis client and server transports.
+
+- ``backend_layer_kwargs`` - strict ``dict``: The arguments passed to the Redis connection manager
+
+  - ``connection_kwargs`` - flexible ``dict``: The arguments used when creating all Redis connections (see Redis-Py docs)
+
+    keys
+      ``hashable``: *(no description)*
+
+    values
+      ``anything``: *(no description)*
+
+  - ``hosts`` - ``list``: The list of Redis hosts, where each is a tuple of ``("address", port)`` or the simple string address.
+
+    values
+      any of the types bulleted below: *(no description)*
+
+      - ``tuple``: *(no description)* (additional information: ``{u'contents': [{u'type': u'unicode'}, {u'type': u'integer'}]}``)
+      - ``unicode``: *(no description)*
+
+  - ``redis_db`` - ``integer``: The Redis database, a shortcut for putting this in ``connection_kwargs``.
+  - ``redis_port`` - ``integer``: The port number, a shortcut for putting this on all hosts
+  - ``sentinel_failover_retries`` - ``integer``: How many times to retry (with a delay) getting a connection from the Sentinel when a master cannot be found (cluster is in the middle of a failover); should only be used for Sentinel backend type
+  - ``sentinel_services`` - ``list``: A list of Sentinel services (will be discovered by default); should only be used for Sentinel backend type
+
+    values
+      ``unicode``: *(no description)*
+
+  Optional keys: ``connection_kwargs``, ``hosts``, ``redis_db``, ``redis_port``, ``sentinel_failover_retries``, ``sentinel_services``
+
+- ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{u'values': [u'redis.sentinel', u'redis.standard']}``)
+- ``default_serializer_config`` - dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). The configuration for the serializer this transport should use. The imported item at the specified ``path`` must be a subclass of ``pysoa.common.serializer.base.Serializer``.
+- ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
+- ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
+- ``message_expiry_in_seconds`` - ``integer``: How long after a message is sent that it is considered expired, dropped from queue
+- ``queue_capacity`` - ``integer``: The capacity of the message queue to which this transport will send messages
+- ``queue_full_retries`` - ``integer``: How many times to retry sending a message to a full queue before giving up
+- ``receive_timeout_in_seconds`` - ``integer``: How long to block waiting on a message to be received
+
+Optional keys: ``backend_layer_kwargs``, ``default_serializer_config``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``
+
+
 .. _pysoa.common.transport.redis_gateway.server.RedisServerTransport:
 
 ``class RedisServerTransport``
@@ -1264,72 +1323,55 @@ Parameters
 *(No documentation)*
 
 
-.. _pysoa.common.transport.redis_gateway.settings.RedisTransportSchema
+.. _pysoa.common.transport.redis_gateway.server.RedisServerTransport_config_schema
 
-``class-path settings schema RedisTransportSchema``
-+++++++++++++++++++++++++++++++++++++++++++++++++++
+``configuration settings schema for RedisServerTransport``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-**module:** ``pysoa.common.transport.redis_gateway.settings``
+**module:** ``pysoa.common.transport.redis_gateway.server``
 
 Settings Schema Definition
 **************************
-strict ``dict``: The settings for the Redis transport
+strict ``dict``: The constructor kwargs for the Redis client and server transports.
 
-- ``kwargs`` - strict ``dict``: *(no description)*
+- ``backend_layer_kwargs`` - strict ``dict``: The arguments passed to the Redis connection manager
 
-  - ``backend_layer_kwargs`` - strict ``dict``: The arguments passed to the Redis connection manager
+  - ``connection_kwargs`` - flexible ``dict``: The arguments used when creating all Redis connections (see Redis-Py docs)
 
-    - ``connection_kwargs`` - flexible ``dict``: The arguments used when creating all Redis connections (see Redis-Py docs)
+    keys
+      ``hashable``: *(no description)*
 
-      keys
-        ``hashable``: *(no description)*
+    values
+      ``anything``: *(no description)*
 
-      values
-        ``anything``: *(no description)*
+  - ``hosts`` - ``list``: The list of Redis hosts, where each is a tuple of ``("address", port)`` or the simple string address.
 
-    - ``hosts`` - ``list``: The list of Redis hosts, where each is a tuple of ``("address", port)`` or the simple string address.
+    values
+      any of the types bulleted below: *(no description)*
 
-      values
-        any of the types bulleted below: *(no description)*
+      - ``tuple``: *(no description)* (additional information: ``{u'contents': [{u'type': u'unicode'}, {u'type': u'integer'}]}``)
+      - ``unicode``: *(no description)*
 
-        - ``tuple``: *(no description)* (additional information: ``{u'contents': [{u'type': u'unicode'}, {u'type': u'integer'}]}``)
-        - ``unicode``: *(no description)*
+  - ``redis_db`` - ``integer``: The Redis database, a shortcut for putting this in ``connection_kwargs``.
+  - ``redis_port`` - ``integer``: The port number, a shortcut for putting this on all hosts
+  - ``sentinel_failover_retries`` - ``integer``: How many times to retry (with a delay) getting a connection from the Sentinel when a master cannot be found (cluster is in the middle of a failover); should only be used for Sentinel backend type
+  - ``sentinel_services`` - ``list``: A list of Sentinel services (will be discovered by default); should only be used for Sentinel backend type
 
-    - ``redis_db`` - ``integer``: The Redis database, a shortcut for putting this in ``connection_kwargs``.
-    - ``redis_port`` - ``integer``: The port number, a shortcut for putting this on all hosts
-    - ``sentinel_failover_retries`` - ``integer``: How many times to retry (with a delay) getting a connection from the Sentinel when a master cannot be found (cluster is in the middle of a failover); should only be used for Sentinel backend type
-    - ``sentinel_services`` - ``list``: A list of Sentinel services (will be discovered by default); should only be used for Sentinel backend type
+    values
+      ``unicode``: *(no description)*
 
-      values
-        ``unicode``: *(no description)*
+  Optional keys: ``connection_kwargs``, ``hosts``, ``redis_db``, ``redis_port``, ``sentinel_failover_retries``, ``sentinel_services``
 
-    Optional keys: ``connection_kwargs``, ``hosts``, ``redis_db``, ``redis_port``, ``sentinel_failover_retries``, ``sentinel_services``
+- ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{u'values': [u'redis.sentinel', u'redis.standard']}``)
+- ``default_serializer_config`` - dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). The configuration for the serializer this transport should use. The imported item at the specified ``path`` must be a subclass of ``pysoa.common.serializer.base.Serializer``.
+- ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
+- ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
+- ``message_expiry_in_seconds`` - ``integer``: How long after a message is sent that it is considered expired, dropped from queue
+- ``queue_capacity`` - ``integer``: The capacity of the message queue to which this transport will send messages
+- ``queue_full_retries`` - ``integer``: How many times to retry sending a message to a full queue before giving up
+- ``receive_timeout_in_seconds`` - ``integer``: How long to block waiting on a message to be received
 
-  - ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{u'values': [u'redis.standard', u'redis.sentinel']}``)
-  - ``default_serializer_config`` - strict ``dict``: The configuration for the serializer this transport should use
-
-    - ``kwargs`` - flexible ``dict``: Any keyword arguments that should be passed to the class when constructing a new instance
-
-      keys
-        ``unicode``: *(no description)*
-
-      values
-        ``anything``: *(no description)*
-
-    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
-
-    Optional keys: ``kwargs``
-
-  - ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
-  - ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
-  - ``message_expiry_in_seconds`` - ``integer``: How long after a message is sent that it is considered expired, dropped from queue
-  - ``queue_capacity`` - ``integer``: The capacity of the message queue to which this transport will send messages
-  - ``queue_full_retries`` - ``integer``: How many times to retry sending a message to a full queue before giving up
-  - ``receive_timeout_in_seconds`` - ``integer``: How long to block waiting on a message to be received
-
-  Optional keys: ``backend_layer_kwargs``, ``default_serializer_config``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``
-
-- ``path`` - ``unicode``: The path to the Redis client or server transport, in the format ``module.name:ClassName``
+Optional keys: ``backend_layer_kwargs``, ``default_serializer_config``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``
 
 
 .. _pysoa.common.types.ActionRequest:
@@ -1823,6 +1865,20 @@ Returns
 the provided ``process_job`` and possibly doing other things.
 
 
+.. _pysoa.server.middleware.ServerMiddleware_config_schema
+
+``configuration settings schema for ServerMiddleware``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+**module:** ``pysoa.server.middleware``
+
+Settings Schema Definition
+**************************
+strict ``dict``: Most server middleware has no constructor arguments, but subclasses can override this schema
+
+No keys permitted.
+
+
 .. _pysoa.server.server.Server:
 
 ``class Server``
@@ -2038,19 +2094,22 @@ Runs just before the server starts, if you need to do one-time loads or cache wa
 you override. See the documentation for ``Server.main`` for full details on the chain of ``Server`` method calls.
 
 
-.. _pysoa.server.settings.PolymorphicServerSettings
+.. _pysoa.server.settings.ServerSettings
 
-``settings schema class PolymorphicServerSettings``
-+++++++++++++++++++++++++++++++++++++++++++++++++++
+``settings schema class ServerSettings``
+++++++++++++++++++++++++++++++++++++++++
 
 **module:** ``pysoa.server.settings``
 
-Settings for Servers that can use any type of transport, while performing validation on certain transport types.
+Base settings class for all servers, whose ``middleware`` values are restricted to subclasses of ``ServerMiddleware``
+and whose ``transport`` values are restricted to subclasses of ``BaseServerTransport``. Middleware and transport
+configuration settings schemas will automatically switch based on the configuration settings schema for the ``path``
+for each.
 
 Settings Schema Definition
 **************************
 
-- ``client_routing`` - flexible ``dict``: Client settings for sending requests to other services; keys should be service names, and values should be the corresponding configuration dicts, which will be validated using the PolymorphicClientSettings schema
+- ``client_routing`` - flexible ``dict``: Client settings for sending requests to other services; keys should be service names, and values should be the corresponding configuration dicts, which will be validated using the ClientSettings schema.
 
   keys
     ``unicode``: *(no description)*
@@ -2167,45 +2226,14 @@ Settings Schema Definition
 
   Optional keys: ``filters``, ``formatters``, ``handlers``, ``incremental``, ``loggers``, ``root``, ``version``
 
-- ``metrics`` - strict ``dict``: Configuration for defining a usage and performance metrics recorder
-
-  - ``kwargs`` - strict ``dict``: The keyword arguments that will be passed to the constructed metrics recorder
-
-    - ``config`` - flexible ``dict``: Whatever metrics configuration is required
-
-      keys
-        ``hashable``: *(no description)*
-
-      values
-        ``anything``: *(no description)*
-
-
-    Extra keys of any value are allowed. Optional keys: ``config``
-
-  - ``path`` - ``unicode``: The path to the class extending ``MetricsRecorder``, in the format ``module.name:ClassName``
-
-  Optional keys: ``kwargs``
-
+- ``metrics`` - dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). Configuration for defining a usage and performance metrics recorder. The imported item at the specified ``path`` must be a subclass of ``pysoa.common.metrics.MetricsRecorder``.
 - ``middleware`` - ``list``: The list of all ``ServerMiddleware`` objects that should be applied to requests processed by this server
 
   values
-    strict ``dict``: *(no description)*
-
-    - ``kwargs`` - flexible ``dict``: Any keyword arguments that should be passed to the class when constructing a new instance
-
-      keys
-        ``unicode``: *(no description)*
-
-      values
-        ``anything``: *(no description)*
-
-    - ``path`` - ``unicode``: The path to the class to be imported and used, in the format ``module.name:ClassName``
-
-    Optional keys: ``kwargs``
-
-- ``request_log_error_level`` - ``constant``: The logging level at which full request and response contents will be logged for requests whose responses contain errors (setting this to a more severe level than ``request_log_success_level`` will allow you to easily filter for unsuccessful requests) (additional information: ``{u'values': [u'DEBUG', u'INFO', u'WARNING', u'CRITICAL', u'ERROR']}``)
-- ``request_log_success_level`` - ``constant``: The logging level at which full request and response contents will be logged for successful requests (additional information: ``{u'values': [u'DEBUG', u'INFO', u'WARNING', u'CRITICAL', u'ERROR']}``)
-- ``transport`` - dictionary whose schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the settings schema documentation for the class named at ``path``){}
+    dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). The imported item at the specified ``path`` must be a subclass of ``pysoa.server.middleware.ServerMiddleware``.
+- ``request_log_error_level`` - ``constant``: The logging level at which full request and response contents will be logged for requests whose responses contain errors (setting this to a more severe level than ``request_log_success_level`` will allow you to easily filter for unsuccessful requests) (additional information: ``{u'values': [u'CRITICAL', u'DEBUG', u'ERROR', u'INFO', u'WARNING']}``)
+- ``request_log_success_level`` - ``constant``: The logging level at which full request and response contents will be logged for successful requests (additional information: ``{u'values': [u'CRITICAL', u'DEBUG', u'ERROR', u'INFO', u'WARNING']}``)
+- ``transport`` - dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). The imported item at the specified ``path`` must be a subclass of ``pysoa.common.transport.base.ServerTransport``.
 
 Default Values
 **************

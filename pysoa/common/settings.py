@@ -7,12 +7,11 @@ import copy
 import itertools
 
 from conformity import fields
+from conformity.error import ValidationError
 from conformity.validator import validate
 import six
 
 from pysoa.common.metrics import MetricsSchema
-from pysoa.common.schemas import BasicClassSchema
-from pysoa.utils import resolve_python_path
 
 
 class _SettingsMetaclass(type):
@@ -24,7 +23,7 @@ class _SettingsMetaclass(type):
     def __new__(mcs, name, bases, body):
         # Don't allow multiple inheritance as it mucks up schema collecting
         if len(bases) != 1:
-            raise ValueError('You cannot use multiple inheritance with Settings')
+            raise TypeError('You cannot use multiple inheritance with Settings')
         # Make the new class
         cls = super(_SettingsMetaclass, mcs).__new__(mcs, name, bases, body)
         # Merge the schema and defaults objects with their parents
@@ -65,16 +64,13 @@ class Settings(object):
     To use Settings, instantiate the class with the raw settings value, and then
     access the items using dict syntax - e.g. settings_instance['transport']. The class
     will merge any passed values into its defaults.
-
-    You can override how certain fields are set by defining a method called
-    `convert_{field_name}`.
     """
 
     schema = {}
     defaults = {}
 
     class ImproperlyConfigured(Exception):
-        """Raised when a configuration value cannot be resolved."""
+        """Raised when a configuration validation fails."""
         pass
 
     def __init__(self, data):
@@ -98,93 +94,19 @@ class Settings(object):
         # Make sure all values were populated
         unpopulated_keys = set(self.schema.keys()) - set(settings.keys())
         if unpopulated_keys:
-            raise ValueError('No value provided for required setting(s): {}'.format(', '.join(unpopulated_keys)))
+            raise self.ImproperlyConfigured(
+                'No value provided for required setting(s): {}'.format(', '.join(unpopulated_keys))
+            )
         unconsumed_keys = set(settings.keys()) - set(self.schema.keys())
         if unconsumed_keys:
-            raise ValueError('Unknown setting(s): {}'.format(', '.join(unconsumed_keys)))
+            raise self.ImproperlyConfigured('Unknown setting(s): {}'.format(', '.join(unconsumed_keys)))
         for key, value in settings.items():
             # Validate the value
-            validate(self.schema[key], value, "setting '{}'".format(key))
-            self._data[key] = value
-
-        self._convert_class_schemas(self, self._data, self.schema)
-
-    @staticmethod
-    def _convert_class_schemas(root, settings, schema=None):
-        """
-        Converts all top-level settings with defined converters and converts all `BasicClassSchema` types recursively,
-        with optional type checking for settings values defined with `BasicClassSchema`s.
-
-        :param root: The `Settings` object (only pass to topmost call, recursive calls pass None)
-        :param settings: The settings dict
-        :param schema: The discovered schema for this settings dict
-        """
-        for key, value in settings.items():
-            class_schema_value = schema_value = None
-            if schema:
-                schema_value = schema.get(key)
-                if isinstance(schema_value, BasicClassSchema):
-                    class_schema_value = schema_value
-                    Settings.standard_convert_path(value, class_schema_value)
-                elif (
-                    isinstance(schema_value, fields.List) and
-                    isinstance(schema_value.contents, BasicClassSchema)
-                ):
-                    class_schema_value = schema_value.contents
-                    for item in value:
-                        Settings.standard_convert_path(item, class_schema_value)
-                elif isinstance(schema_value, fields.Polymorph):
-                    _schema_value = (
-                        schema_value.contents_map.get(value[schema_value.switch_field]) or
-                        schema_value.contents_map.get('__default__')
-                    )
-                    if isinstance(_schema_value, BasicClassSchema):
-                        class_schema_value = _schema_value
-                        Settings.standard_convert_path(value, class_schema_value)
-
-            _converter = getattr(root, 'convert_%s' % key, None)
-            if _converter:
-                value = _converter(value)
-                settings[key] = value
-
-            if isinstance(value, dict):
-                if class_schema_value:
-                    Settings._convert_class_schemas(None, value, class_schema_value.contents)
-                elif isinstance(schema_value, fields.Dictionary):
-                    Settings._convert_class_schemas(None, value, schema_value.contents)
-                else:
-                    Settings._convert_class_schemas(None, value)
-
-    @staticmethod
-    def standard_convert_path(value, class_schema_value):
-        """
-        Imports the object for the 'path' value in a class specifier, or raises ImproperlyConfigured if not found. If a
-        `BasicClassSchema` value is supplied and it has an `object_type`, checks that the imported object equals or
-        is a subclass of that `object_type`.
-
-        :param value: The value dict to convert
-        :param class_schema_value: The `BasicClassSchema` instance that matches this value, if any
-        """
-        if 'object' not in value:
             try:
-                value['object'] = resolve_python_path(value['path'])
-            except (ImportError, AttributeError):
-                raise Settings.ImproperlyConfigured(
-                    "Could not resolve path '{path}' for configuration:\n{config}".format(
-                        path=value['path'],
-                        config=value,
-                    )
-                )
-
-        if class_schema_value.object_type and not issubclass(value['object'], class_schema_value.object_type):
-            # If the schema includes type information, the resolved path should equal or be a subclass of that type
-            raise Settings.ImproperlyConfigured(
-                "Path '{path}' should be of type '{object_type}' for configuration:\n{config}".format(
-                    path=value['path'],
-                    object_type=class_schema_value.object_type,
-                    config=value,
-                )
-            )
+                validate(self.schema[key], value, "setting '{}'".format(key))
+            except ValidationError as e:
+                raise self.ImproperlyConfigured(*e.args)
+            self._data[key] = value
 
     def __getitem__(self, key):
         return self._data[key]
@@ -199,9 +121,9 @@ class SOASettings(Settings):
     """
     schema = {
         # Paths to the classes to use and then kwargs to pass
-        'transport': BasicClassSchema(),
+        'transport': fields.ClassConfigurationSchema(),
         'middleware': fields.List(
-            BasicClassSchema(),
+            fields.ClassConfigurationSchema(),
             description='The list of all middleware objects that should be applied to this server or client',
         ),
         'metrics': MetricsSchema(),

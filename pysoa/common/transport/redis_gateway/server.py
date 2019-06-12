@@ -3,6 +3,8 @@ from __future__ import (
     unicode_literals,
 )
 
+from conformity import fields
+
 from pysoa.common.metrics import TimerResolution
 from pysoa.common.transport.base import ServerTransport
 from pysoa.common.transport.exceptions import (
@@ -15,6 +17,7 @@ from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
 from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
 
 
+@fields.ClassConfigurationSchema.provider(RedisTransportSchema())
 class RedisServerTransport(ServerTransport):
 
     def __init__(self, service_name, metrics, **kwargs):
@@ -57,6 +60,3 @@ class RedisServerTransport(ServerTransport):
 
         with self.metrics.timer('server.transport.redis_gateway.send', resolution=TimerResolution.MICROSECONDS):
             self.core.send_message(queue_name, request_id, meta, body)
-
-
-RedisServerTransport.settings_schema = RedisTransportSchema(RedisServerTransport)

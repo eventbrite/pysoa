@@ -5,6 +5,7 @@ from __future__ import (
 
 import json
 
+from conformity import fields
 import six
 
 from pysoa.common.serializer.base import Serializer as BaseSerializer
@@ -14,6 +15,9 @@ from pysoa.common.serializer.exceptions import (
 )
 
 
+@fields.ClassConfigurationSchema.provider(
+    fields.Dictionary({}, description='The JSON serializer has no constructor args'),
+)
 class JSONSerializer(BaseSerializer):
     """
     Serializes messages to/from JSON.

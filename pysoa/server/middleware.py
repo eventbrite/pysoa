@@ -3,7 +3,13 @@ from __future__ import (
     unicode_literals,
 )
 
+from conformity import fields
 
+
+@fields.ClassConfigurationSchema.provider(fields.Dictionary(
+    {},
+    description='Most server middleware has no constructor arguments, but subclasses can override this schema',
+))
 class ServerMiddleware(object):
     """
     Base middleware class for server middleware. Not required, but provides some helpful stubbed methods and

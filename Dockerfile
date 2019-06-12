@@ -2,18 +2,17 @@ FROM ubuntu:16.04
 
 RUN apt-get update && \
 	apt-get install -y \
-		software-properties-common \
-		wget \
-		pkg-config \
+	    git \
+		liblua5.1-0-dev \
 		lua5.1 \
-		liblua5.1-0-dev
+		pkg-config \
+		software-properties-common \
+		wget
 RUN add-apt-repository ppa:deadsnakes/ppa && \
 	apt-get update && \
 	apt-get install -y \
 		python2.7 \
 		python2.7-dev \
-		python3.4 \
-		python3.4-dev \
 		python3.5 \
 		python3.5-dev \
 		python3.6 \
