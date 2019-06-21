@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.61.2 (2019-06-21)
+-------------------
+- [PATCH] Fix several tests broken by Conformity 1.25.0
+
 0.61.1 (2019-06-21)
 -------------------
 - [PATCH] Return same stub in multiple uses of the same stub_action instance
