@@ -3,6 +3,8 @@ from __future__ import (
     unicode_literals,
 )
 
+import warnings
+
 from conformity import fields
 
 from pysoa.client.middleware import ClientMiddleware
@@ -85,3 +87,8 @@ class PolymorphicClientSettings(ClientSettings):
     """
     DEPRECATED. Use `ClientSettings`, whose settings are polymorphic already.
     """
+
+    def __init__(self, *args, **kwargs):
+        super(PolymorphicClientSettings, self).__init__(*args, **kwargs)
+
+        warnings.warn('PolymorphicClientSettings is deprecated; use ClientSettings instead', DeprecationWarning)
