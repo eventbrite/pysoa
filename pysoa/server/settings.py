@@ -4,6 +4,7 @@ from __future__ import (
 )
 
 import functools
+import warnings
 
 from conformity import fields
 
@@ -246,3 +247,8 @@ class PolymorphicServerSettings(ServerSettings):
     """
     DEPRECATED. Use `ServerSettings`, whose settings are polymorphic already.
     """
+
+    def __init__(self, *args, **kwargs):
+        super(PolymorphicServerSettings, self).__init__(*args, **kwargs)
+
+        warnings.warn('PolymorphicClientSettings is deprecated; use ClientSettings instead', DeprecationWarning)
