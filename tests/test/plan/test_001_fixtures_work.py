@@ -92,7 +92,7 @@ class TypesEchoAction(Action):
 
     response_schema = fields.Dictionary(
         {'r_{}'.format(k): v for k, v in six.iteritems(request_schema.contents)},
-        optional_keys=('r_{}'.format(k) for k in request_schema.optional_keys),
+        optional_keys=tuple('r_{}'.format(k) for k in request_schema.optional_keys),
     )
 
     def run(self, request):
