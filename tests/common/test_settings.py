@@ -24,10 +24,7 @@ from pysoa.common.transport.redis_gateway.constants import REDIS_BACKEND_TYPE_ST
 from pysoa.common.transport.redis_gateway.core import RedisTransportCore
 from pysoa.common.transport.redis_gateway.server import RedisServerTransport
 from pysoa.server.server import Server
-from pysoa.server.settings import (
-    PolymorphicServerSettings,
-    ServerSettings,
-)
+from pysoa.server.settings import ServerSettings
 
 
 class SettingsWithSimpleSchema(Settings):
@@ -70,7 +67,7 @@ class TestSettings(object):
 
     def test_top_level_schema_keys_required(self):
         """All keys in the top level of the schema are required."""
-        with pytest.raises(ValueError):
+        with pytest.raises(Settings.ImproperlyConfigured):
             SettingsWithSimpleSchema({})
 
         settings = SettingsWithSimpleSchema({
@@ -80,17 +77,17 @@ class TestSettings(object):
 
     def test_extra_top_level_key_fail(self):
         """Any keys not in the top level of the schema cause validation to fail."""
-        with pytest.raises(ValueError):
+        with pytest.raises(Settings.ImproperlyConfigured):
             SettingsWithSimpleSchema({
                 'other_property': 'foo',
             })
 
     def test_incorrect_nested_value_fails(self):
         """Values with incorrect types cause validation to fail."""
-        with pytest.raises(ValueError):
+        with pytest.raises(Settings.ImproperlyConfigured):
             SettingsWithDefaults({})
 
-        with pytest.raises(ValueError):
+        with pytest.raises(Settings.ImproperlyConfigured):
             SettingsWithDefaults({
                 'complex_property': {'kwargs': {'foo': 'asdf'}},
             })
@@ -129,7 +126,7 @@ class TestSettings(object):
             }
 
         assert MySettings.schema['another_property']
-        with pytest.raises(ValueError):
+        with pytest.raises(Settings.ImproperlyConfigured):
             MySettings({'required_property': 1})
         assert MySettings({
             'required_property': 1,
@@ -144,7 +141,7 @@ class TestSettings(object):
                     'int_property': 0,
                 }
             }
-        with pytest.raises(ValueError):
+        with pytest.raises(Settings.ImproperlyConfigured):
             # If nested defaults were inherited, only kwargs would be required
             MySettings({
                 'complex_property': {
@@ -164,7 +161,7 @@ class TestSettings(object):
                 }),
             }
 
-        with pytest.raises(ValueError):
+        with pytest.raises(Settings.ImproperlyConfigured):
             # If nested schema items were inherited, keys from the parent class would
             # not cause validation to fail.
             MySettings({
@@ -178,7 +175,7 @@ class TestSettings(object):
                 },
             })
 
-        with pytest.raises(ValueError):
+        with pytest.raises(Settings.ImproperlyConfigured):
             # This happens because the inherited defaults no longer match the new schema.
             MySettings({
                 'simple_property': 1,
@@ -209,6 +206,9 @@ class TestSOASettings(unittest.TestCase):
         settings_dict = {
             'transport': {
                 'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
+                'kwargs': {
+                    'backend_type': REDIS_BACKEND_TYPE_STANDARD,
+                },
             },
             'middleware': [
                 {
@@ -266,7 +266,7 @@ class TestSOASettings(unittest.TestCase):
             },
         }
 
-        server = _TestServer(PolymorphicServerSettings(settings_dict))
+        server = _TestServer(ServerSettings(settings_dict))
 
         assert isinstance(server.transport, RedisServerTransport)
         assert server.transport._receive_queue_name == 'service.geo_tag'
@@ -313,7 +313,7 @@ class TestSOASettings(unittest.TestCase):
         with self.assertRaises(Settings.ImproperlyConfigured) as error_context:
             ServerSettings(settings_dict)
 
-        self.assertTrue('should be of type' in error_context.exception.args[0])
+        assert 'is not one of or a subclass of one of' in error_context.exception.args[0]
 
     def test_client_settings_fails_with_server_transport(self):
         """The client settings fail to validate with server transport"""
@@ -330,7 +330,8 @@ class TestSOASettings(unittest.TestCase):
         with self.assertRaises(Settings.ImproperlyConfigured) as error_context:
             ClientSettings(settings_dict)
 
-        self.assertTrue('should be of type' in error_context.exception.args[0])
+        assert 'is not one of or a subclass of one of' in error_context.exception.args[0]
+        assert 'RedisServerTransport' in error_context.exception.args[0]
 
     def test_client_settings_fails_with_invalid_path(self):
         """The client settings fail to validate with non-existent transport"""
@@ -347,7 +348,8 @@ class TestSOASettings(unittest.TestCase):
         with self.assertRaises(Settings.ImproperlyConfigured) as error_context:
             ClientSettings(settings_dict)
 
-        self.assertTrue('Could not resolve path' in error_context.exception.args[0])
+        assert 'has no attribute' in error_context.exception.args[0]
+        assert 'NonExistentTransport' in error_context.exception.args[0]
 
     def test_server_settings_fails_with_invalid_serializer(self):
         """The server settings fail to validate with server middleware as serializer"""
@@ -365,9 +367,10 @@ class TestSOASettings(unittest.TestCase):
         }
 
         with self.assertRaises(Settings.ImproperlyConfigured) as error_context:
-            PolymorphicServerSettings(settings_dict)
+            ServerSettings(settings_dict)
 
-        self.assertTrue('should be of type' in error_context.exception.args[0])
+        assert 'is not one of or a subclass of one of' in error_context.exception.args[0]
+        assert 'ServerMiddleware' in error_context.exception.args[0]
 
     def test_server_settings_fails_with_client_middleware(self):
         """The server settings fail to validate with client middleware"""
@@ -385,13 +388,14 @@ class TestSOASettings(unittest.TestCase):
         }
 
         with self.assertRaises(Settings.ImproperlyConfigured) as error_context:
-            PolymorphicServerSettings(settings_dict)
+            ServerSettings(settings_dict)
 
-        self.assertTrue('should be of type' in error_context.exception.args[0])
+        assert 'is not one of or a subclass of one of' in error_context.exception.args[0]
+        assert 'ClientMiddleware' in error_context.exception.args[0]
 
         settings_dict['middleware'][0]['path'] = 'pysoa.server.middleware:ServerMiddleware'
 
-        PolymorphicServerSettings(settings_dict)
+        ServerSettings(settings_dict)
 
     def test_client_settings_fails_with_server_middleware(self):
         """The client settings fail to validate with server middleware"""
@@ -411,7 +415,8 @@ class TestSOASettings(unittest.TestCase):
         with self.assertRaises(Settings.ImproperlyConfigured) as error_context:
             ClientSettings(settings_dict)
 
-        self.assertTrue('should be of type' in error_context.exception.args[0])
+        assert 'is not one of or a subclass of one of' in error_context.exception.args[0]
+        assert 'ServerMiddleware' in error_context.exception.args[0]
 
         settings_dict['middleware'][0]['path'] = 'pysoa.client.middleware:ClientMiddleware'
 

@@ -10,6 +10,7 @@ import json
 import sys
 import traceback
 
+from conformity import fields
 from pyparsing import (
     Literal,
     Optional,
@@ -18,7 +19,6 @@ from pyparsing import (
 )
 import six
 
-from pysoa.common.settings import resolve_python_path
 from pysoa.test.compatibility import mock as unittest_mock
 from pysoa.test.plan.errors import FixtureSyntaxError
 from pysoa.test.plan.grammar.directive import (
@@ -96,10 +96,10 @@ def _assemble_mock_path_result(mock, parse_results, file_name, line_number):
             try:
                 if ':' not in value:
                     value = '__builtin__:{}'.format(value) if six.PY2 else 'builtins:{}'.format(value)
-                value = resolve_python_path(value)
-            except (ImportError, AttributeError) as e:
+                value = fields.PythonPath.resolve_python_path(value)
+            except (ValueError, ImportError, AttributeError) as e:
                 raise FixtureSyntaxError(
-                    'Could not resolve python path for value "{}" due to error: {}'.format(value, six.text_type(e)),
+                    'Could not resolve python path for value "{}" due to error: {!r}'.format(value, six.text_type(e)),
                     file_name,
                     line_number,
                 )

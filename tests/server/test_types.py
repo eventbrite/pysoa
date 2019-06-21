@@ -73,7 +73,7 @@ class TestEnrichedActionRequest(object):
         assert error_context.value.errors[0].code == 'FOO'
 
         action.assert_called_once_with(server.settings)
-        action.return_value.assert_called_once()
+        assert action.return_value.call_count == 1
 
         other_r = action.return_value.call_args[0][0]
         assert other_r is not r
@@ -92,7 +92,7 @@ class TestEnrichedActionRequest(object):
         assert response.errors[0].code == 'FOO'
 
         action.assert_called_once_with(server.settings)
-        action.return_value.assert_called_once()
+        assert action.return_value.call_count == 1
 
         other_r = action.return_value.call_args[0][0]
         assert other_r is not r
@@ -120,7 +120,7 @@ class TestEnrichedActionRequest(object):
         assert error_context.value.errors[0].code == 'BAR'
 
         action.assert_called_once_with(server.settings)
-        action.return_value.assert_called_once()
+        assert action.return_value.call_count == 1
 
         other_r = action.return_value.call_args[0][0]
         assert other_r is not r
@@ -139,7 +139,7 @@ class TestEnrichedActionRequest(object):
         assert response.errors[0].code == 'BAR'
 
         action.assert_called_once_with(server.settings)
-        action.return_value.assert_called_once()
+        assert action.return_value.call_count == 1
 
         other_r = action.return_value.call_args[0][0]
         assert other_r is not r
@@ -175,7 +175,7 @@ class TestEnrichedActionRequest(object):
         assert response.body == {'sweet': 'success'}
 
         action.assert_called_once_with(server.settings)
-        action.return_value.assert_called_once()
+        assert action.return_value.call_count == 1
 
         other_r = action.return_value.call_args[0][0]
         assert isinstance(other_r, SuperEnrichedActionRequest)

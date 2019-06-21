@@ -15,7 +15,7 @@ from pysoa.client.expander import (
     ExpansionConverter,
     ExpansionSettings,
 )
-from pysoa.client.settings import PolymorphicClientSettings
+from pysoa.client.settings import ClientSettings
 from pysoa.common.metrics import TimerResolution
 from pysoa.common.transport.exceptions import (
     ConnectionError,
@@ -160,19 +160,19 @@ class Client(object):
     parallel action invocation.
     """
 
-    settings_class = PolymorphicClientSettings
+    settings_class = ClientSettings
     handler_class = ServiceHandler
 
     def __init__(self, config, expansion_config=None, settings_class=None, context=None):
         """
         :param config: The entire client configuration dict, whose keys are service names and values are settings dicts
-                       abiding by the `PolymorphicClientSettings` schema
+                       abiding by the `ClientSettings` schema
         :type config: dict
         :param expansion_config: The optional expansion configuration dict, if this client supports expansions, which
                                  is a dict abiding by the `ExpansionSettings` schema
         :type expansion_config: dict
         :param settings_class: An optional settings schema enforcement class or callable to use, which overrides the
-                               default of `PolymorphicClientSettings`
+                               default of `ClientSettings`
         :type settings_class: union[class, callable]
         :param context: An optional base request context that will be used for all requests this client instance sends
                         (individual calls can add to and override the values supplied in this context dict)

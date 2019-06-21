@@ -48,10 +48,7 @@ from pysoa.server.errors import (
 )
 from pysoa.server.internal.types import RequestSwitchSet
 from pysoa.server.schemas import JobRequestSchema
-from pysoa.server.settings import (  # noqa: F401 TODO Python 3
-    PolymorphicServerSettings,
-    ServerSettings,
-)
+from pysoa.server.settings import ServerSettings
 from pysoa.server.types import EnrichedActionRequest
 import pysoa.version
 
@@ -95,8 +92,9 @@ class Server(object):
       of `Action` which, when "called" [constructed], yield a callable object [instance of the subclass])
     """
 
-    settings_class = PolymorphicServerSettings  # type: Type[ServerSettings]
+    settings_class = ServerSettings  # type: Type[ServerSettings]
     request_class = EnrichedActionRequest  # type: Type[EnrichedActionRequest]
+    client_class = Client  # type: Type[Client]
 
     use_django = False
     service_name = None
@@ -273,7 +271,7 @@ class Server(object):
         :return: A client configured with this server's `client_routing` settings
         :rtype: Client
         """
-        return Client(self.settings['client_routing'], context=context)
+        return self.client_class(self.settings['client_routing'], context=context)
 
     @staticmethod
     def make_middleware_stack(middleware, base):

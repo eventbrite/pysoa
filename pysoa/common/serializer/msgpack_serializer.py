@@ -9,6 +9,7 @@ import datetime
 import decimal
 import struct
 
+from conformity import fields
 import currint
 import msgpack
 import six
@@ -20,6 +21,9 @@ from pysoa.common.serializer.exceptions import (
 )
 
 
+@fields.ClassConfigurationSchema.provider(
+    fields.Dictionary({}, description='The Msgpack serializer has no constructor args'),
+)
 class MsgpackSerializer(BaseSerializer):
     """
     Serializes messages to/from MessagePack.

@@ -3,13 +3,22 @@ from __future__ import (
     unicode_literals,
 )
 
+# noinspection PyCompatibility
 import asyncio
 import logging
+import sys
 import threading
+
+
+if sys.version_info >= (3, 7):
+    all_tasks = asyncio.all_tasks
+else:
+    all_tasks = asyncio.Task.all_tasks
 
 
 class AsyncEventLoopThread(threading.Thread):
     def __init__(self):
+        # noinspection PyCompatibility
         super().__init__()
         self.loop = asyncio.new_event_loop()
         self._done = threading.Event()
@@ -28,14 +37,15 @@ class AsyncEventLoopThread(threading.Thread):
             self.loop.run_forever()
         finally:
             try:
-                pending_tasks = asyncio.Task.all_tasks(self.loop)
+                pending_tasks = all_tasks(self.loop)
                 if pending_tasks:
                     self._logger.info('Completing uncompleted async tasks')
                 self.loop.run_until_complete(asyncio.gather(*pending_tasks))
             finally:
                 self._logger.info('Closing async event loop')
                 self.loop.close()
-                asyncio.set_event_loop(None)
+                # noinspection PyTypeChecker
+                asyncio.set_event_loop(None)  # type: ignore
                 self._done.set()
 
     def join(self, timeout=None):
@@ -46,6 +56,7 @@ class AsyncEventLoopThread(threading.Thread):
         else:
             self._logger.warning('Async event loop is already not running!')
 
+        # noinspection PyCompatibility
         super().join(timeout)
 
     def run_coroutine(self, coroutine):

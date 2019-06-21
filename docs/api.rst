@@ -91,6 +91,10 @@ ActionResponse
   of the field in the ``ActionRequest`` that caused the error, if applicable.
 - ``traceback`` is an optional string containing the formatted exception stacktrace, if any, that applies to the error.
 - ``variables`` is an optional ``dict`` of variable names and their values, if any, that apply to the error.
+- ``denied_permissions`` is an optional ``list`` of unicode string permission codes, names, or other symbols. If a lack
+  of permissions is the proximal cause of the error, you might find it useful to return with the error a list of the
+  missing permissions so that the client can adjust, if possible, or inform the user of more useful information. This
+  is fully optional and organization-specific. PySOA itself has no permissions features in it.
 
 
 Servers
@@ -129,13 +133,13 @@ Class Attributes
   - ``use_django``: If this is ``True``, ``Server.main`` will import settings from Django. If it is ``False`` (the
     default), it will not import or use Django in any way
   - ``settings_class``: In many cases, you can simply rely on the default settings class
-    (``PolymorphicServerSettings``), but you may provide some other class that extends ``PolymorphicServerSettings``
-    if you want to use the settings framework to bootstrap special settings for your service instead of using some
-    other settings framework (such as Django)
+    (``ServerSettings``), but you may provide some other class that extends ``ServerSettings`` if you want to use the
+    settings framework to bootstrap special settings for your service instead of using some other settings framework
+    (such as Django)
 
 Methods
   - ``setup``: Performs service-specific setup and takes no arguments
-  - ``main``: Class method that allows the Server to be run from the command line
+  - ``main``: Class method that allows the ``Server`` to be run from the command line
 
 
 ``Action``
@@ -148,8 +152,8 @@ so it is advisable that your Actions extend ``Action``. For full documentation o
 see the `Action reference documentation <reference.rst#abstract-class-action>`_.
 
 Class Attributes
-  - ``request_schema``: A conformity schema defining the structure of the request body.
-  - ``response_schema``: A conformity schema defining the structure of the response body.
+  - ``request_schema``: A Conformity schema defining the structure of the request body.
+  - ``response_schema``: A Conformity schema defining the structure of the response body.
 
 Instance Attributes
   - ``self.settings``: The Server's full settings object (which can be accessed like a ``dict``)
@@ -194,8 +198,8 @@ Key
   - ``<harakiri shutdown grace>``: When shutting down after ``<harakiri timeout>``, the server will wait this many
     seconds for any existing Job to finish before aborting the Job and forcing shutdown
 
-For full details, view the sections linked above and the `PolymorphicServerSettings reference documentation
-<reference.rst#settings-schema-class-polymorphicserversettings>`_.
+For full details, view the sections linked above and the `ServerSettings reference documentation
+<reference.rst#settings-schema-class-serversettings>`_.
 
 
 Django integration
@@ -332,6 +336,10 @@ Methods
   - ``call_jobs_parallel``: Build and send multiple Job requests (to one or more services), each with one or more
     Actions, to be handled in any order by multiple service processes, and return the corresponding ``JobResponse``
     objects in the same order the Job requests were submitted, blocking until all responses are received
+  - ``call_action_future``, ``call_actions_future``, ``call_actions_parallel_future``, ``call_jobs_parallel_future``:
+    Variants of the above methods that return a ``Client.FutureResponse`` object instead of a completed response or
+    responses, allowing you to send requests asynchronously, perform other work, and then use the future object to
+    retrieve the expected responses.
 
 
 Client configuration
@@ -344,6 +352,7 @@ The ``Client`` class takes configuration in the form of a dict with the followin
     {
         <service name>: {
             "transport": <transport config>,
+            "transport_cache_time_in_seconds": <transport cache time>,
             "middleware": [<middleware config>, ...],
         },
         ...
@@ -353,10 +362,12 @@ Key
   - ``<service name>``: The ``Client`` needs settings for each service that it will call, keyed by service name
   - ``<transport config>``: See `Transport configuration`_ for more details; the base ``Client`` defaults to using the
     `Redis Gateway Transport`_.
+  - ``<transport cache time>``: How long the transport objects should be cached in seconds, defaults to 0 (no cache,
+    slightly lower performance, but required to be 0 in a multi-threaded application)
   - ``<middleware config>``: See `Middleware configuration`_ for more details
 
-For full details, view the sections linked above and the `PolymorphicClientSettings reference documentation
-<reference.rst#settings-schema-class-polymorphicclientsettings>`_.
+For full details, view the sections linked above and the `ClientSettings reference documentation
+<reference.rst#settings-schema-class-clientsettings>`_.
 
 
 Expansions
@@ -650,7 +661,7 @@ MessagePack Serializer
 
 - Backend: `msgpack-python <https://pypi.python.org/pypi/msgpack-python>`_
 - Types supported: ``bool``, ``int``, ``str`` (``unicode``/2 or ``str``/3), ``dict``, ``list``, ``tuple``, ``bytes``
-  (``str``/2 or ``bytes``/3), ``date``, ``time``, ``datetime``, and ``currint.Amount``
+  (``str``/2 or ``bytes``/3), ``date``, ``time``, ``datetime``, ``decimal.Decimal``, and ``currint.Amount``
 - Other notes:
   - Makes no distinction between ``list`` and ``tuple`` types—both types will be deserialized as lists
 
@@ -663,7 +674,7 @@ JSON Serializer
 - Other notes:
   - Makes no distinction between ``list`` and ``tuple`` types—both types will be deserialized as lists
   - Fairly incomplete at the moment, relative to the MessagePack serializer, and may or may not be improved to support
-    additional types in the future
+    additional types in the future (would require departing from the JSON specification)
 
 
 Serializer configuration
@@ -803,8 +814,13 @@ The Redis Gateway transport takes the following extra keyword arguments for conf
   (on the Server, this controls how often the server request-process loops; on the Client, this controls how long
   before it raises an error for waiting too long for a response, and Client code can pass a custom timeout to
   ``Client`` methods) (defaults to 5 seconds)
-- ``serializer_config``: A standard serializer configuration as described in `Serializer configuration`_ (defaults to
-  MessagePack)
+- ``default_serializer_config``: A standard serializer configuration as described in `Serializer configuration`_
+  (defaults to MessagePack), used to determine how requests are serialized (responses are always serialized according
+  to the MIME content type of the request)
+- ``log_messages_larger_than_bytes``: Defaults to 102,400 bytes, a warning will be logged whenever the transport sends
+  messages larger than this (set this to 0 to disable the warning)
+- ``maximum_message_size_in_bytes``: Defaults to 102,400 bytes on the client and 256,000 bytes on the server, defines
+  the threshold at which ``MessageTooLarge`` will be raised.
 
 
 Middleware
@@ -1009,11 +1025,11 @@ primary functions: schema validation, defaults, and import resolution.
 
 - Schema validation: Settings performs validation on input values using
   `Conformity <https://github.com/eventbrite/conformity>`_. Subclasses merge their schema with that of their parents,
-  to a depth of 1, such that a settings class's schema will be the sum total of its definited schema and that of all of
-  its parents' and parents' parents' schemas. You cannot use multiple inheritance with settings classes.
+  to a depth of 1, such that a settings class's schema will be the sum total of its defined schema and that of all of
+  its parents' and parents' parents' schemas, and so forth. You cannot use multiple inheritance with settings classes.
 
 - Defaults: Subclasses may define defaults as a dictionary. Defaults defined on a subclass will be merged with the
-  defaults of its parent, to a depth of 1, just like the schema. For example:
+  defaults of its parent, to a depth of 1, just like the schema, *before validation occurs*. For example:
 
   .. code-block:: python
 
@@ -1024,7 +1040,7 @@ primary functions: schema validation, defaults, and import resolution.
           }
           defaults = {
               "foo": 1,
-              "bar": {"baz": 2},
+              "bar": {"qux": 2},
           }
 
       class MySettings(BaseSettings):
@@ -1041,67 +1057,47 @@ primary functions: schema validation, defaults, and import resolution.
   .. code-block:: python
 
       my_settings = MySettings({"bar": {"some_setting": 42}})
-      my_settings["foo"]
-      > 1
-      my_settings["bar"]["qux"]
-      > 3
-      my_settings["bar"]["some_setting"]
-      > 42
 
-- Import resolution: Settings classes may define methods to resolve import paths to objects. For each key in its input
-  value, a ``Settings`` object will check to see if it has a method called ``convert_<key>``, and will call it with the
-  corresponding value. For example:
+      In [1]: my_settings["foo"]
+      Out[1]: 1
 
-  .. code-block:: python
+      In [2]: my_settings["bar"]["qux"]
+      Out[2]: 3
 
-      class FooSettings(Settings):
-          schema = {
-              "turbo": conformity.fields.Dictionary({
-                  "encabulator_name": conformity.fields.UnicodeString(),
-              }),
-          }
+      In [3]: my_settings["bar"]["some_setting"]
+      Out[3]: 42
 
-          def convert_turbo(self, value):
-              if "encabulator" not in value:
-                  try:
-                      value["encabulator"] = get_turboencabulator_by_name(value["encabulator_name"])
-                  except Exception:
-                      raise self.ImproperlyConfigured(
-                          "Could not find turboencabulator {}".format(value["encabulator_name"]),
-                      )
-              return value
-
-      my_settings = FooSettings({
-          "turbo": {
-              "encabulator_name": "widget",
-          }
-      })
-
-    my_settings["turbo"]["encabulator"]
-    > <turbo.encabulator.Widget at 0x1098efc90>
-
-  The base ``Settings`` class additionally finds each part of your settings schema that extends ``BasicClassSchema``
-  (which, itself, extends Conformity's ``Dictionary``) and, using its ``path`` key, imports the path and adds an
-  ``object`` key containing an instance of that class created with the ``kwargs`` arguments. Optionally, you can
-  specify a required base class, and the class schema will validate that the imported class is a subclass of that
-  class. For example:
+- Some settings specified by ``Settings`` subclasses might be instances of Conformity's ``ClassConfigurationSchema``. In
+  these cases, the value is expected to be a dict with keys ``path`` (though this may have a default) and optionally
+  ``kwargs``. ``path`` is the valid Python import path to the item, such as ``foo.bar.ExampleClass`` or
+  ``baz.qux:ExampleClass``. ``kwargs`` is the keyword arguments necessary to instantiate that class, if applicable. The
+  schema may also specify a required base class, and the schema will validate that the imported class is a subclass of
+  that class. During validation, the schema will augment the dictionary containing ``path`` to also contain an
+  ``object`` key whose value is the resolved Python type. For example:
 
   .. code-block:: python
 
       class FooSettings(Settings):
             schema = {
-                "turboencabulator": BasicClassSchema(AbstractTurboEncabulator),
+                'turboencabulator': fields.ClassConfigurationSchema(base_class=AbstractTurboEncabulator),
             }
 
       my_settings = FooSettings({
-          "turboencabulator": {
-              "path": "turbo.encabulator.Widget",
-              "kwargs": {"address": "2604:a880:a82:fe8::ce:d003"}
+          'turboencabulator': {
+              'path': 'turbo.encabulator.Widget',
+              'kwargs': {'address': '2604:a880:a82:fe8::ce:d003'},
           }
       })
 
-      my_settings["turboencabulator"]["object"]
-      > <turbo.encabulator.Widget at 0x109745150>
+      In [1]: repr(my_settings['turboencabulator']['object'])
+      Out[1]: "<class 'turbo.encabulator.Widget'>"
+
+  You can then instantiate the class with the provided settings as follows:
+
+  .. code-block:: python
+
+      widget = my_settings['turboencabulator']['object'](**my_settings['turboencabulator'].get('kwargs', {}))
+
 
   This feature is what powers the "PySOA plugin schema" referred to throughout this document.
 
@@ -1133,9 +1129,8 @@ Client Settings
     settings schema on the ``transport`` setting
   - ``pysoa.client.settings.LocalClientSettings`` extends ``ClientSettings`` to enforce the ``LocalClientTransport``
     settings schema on the ``transport`` setting
-  - ``pysoa.client.settings.PolymorphicClientSettings`` extends ``ClientSettings`` to enforce the correct transport
-    settings schema on the ``transport`` setting based on the value of the ``transport['path']`` setting (this is the
-    default settings class used for all ``Client`` objects unless overridden on construction)
+  - ``pysoa.client.settings.PolymorphicClientSettings`` extends ``ClientSettings`` and is deprecated. ``ClientSettings``
+    is polymorphic already and should be used, instead.
 
 Server Settings
   Several classes provide schemas specifically for PySOA Servers:
@@ -1146,7 +1141,7 @@ Server Settings
       to call other services; if provided, the server adds a ``Client`` instance as key ``client`` to the
       ``action_request`` dict before passing it to the middleware and as attribute ``client`` to the ``action_request``
       objcet before passing it to the action; each key must be a unicode string service name and each value the
-      corresponding ``PolymorphicClientSettings``-enforced client settings dict
+      corresponding ``ClientSettings``-enforced client settings dict
     - ``logging``: Settings for configuring Python logging in the standard Python logging configuration format:
 
       - ``version``: Must be the value 1 until Python supports something different
@@ -1173,5 +1168,5 @@ Server Settings
     settings schema on the ``transport`` setting
   - ``pysoa.server.settings.LocalServerSettings`` extends ``ServerSettings`` to enforce the ``LocalServerTransport``
     settings schema on the ``transport`` setting
-  - ``pysoa.server.settings.PolymorphicServerSettings`` extends ``ServerSettings`` to enforce the correct transport
-    settings schema on the ``transport`` setting based on the value of the ``transport['path']`` setting
+  - ``pysoa.server.settings.PolymorphicServerSettings`` extends ``ServerSettings`` and is deprecated. ``ServerSettings``
+    is polymorphic already and should be used, instead.

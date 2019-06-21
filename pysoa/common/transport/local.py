@@ -8,16 +8,46 @@ from collections import deque
 from conformity import fields
 import six
 
-from pysoa.common.settings import (
-    BasicClassSchema,
-    resolve_python_path,
-)
 from pysoa.common.transport.base import (
     ClientTransport,
     ServerTransport,
 )
 
 
+_server_settings = fields.SchemalessDictionary(
+    key_type=fields.UnicodeString(),
+    description='A dictionary of settings for the server (which will further validate them).',
+)
+
+
+class LocalClientTransportSchema(fields.Dictionary):
+    contents = {
+        # Server class can be an import path or a class object
+        'server_class': fields.Any(
+            fields.TypePath(
+                description='The importable Python path to the `Server`-extending class.',
+            ),
+            fields.TypeReference(
+                description='A reference to the `Server`-extending class',
+            ),
+            description='The path to the `Server` class to use locally (as a library), or a reference to the '
+                        '`Server`-extending class/type itself.',
+        ),
+        # No deeper validation than "schemaless dictionary" because the Server will perform its own validation
+        'server_settings': fields.Any(
+            fields.PythonPath(
+                value_schema=_server_settings,
+                description='The importable Python path to the settings dict, in the format "module.name:VARIABLE".',
+            ),
+            _server_settings,
+            description='The settings to use when instantiating the `server_class`.',
+        ),
+    }
+
+    description = 'The constructor kwargs for the local client transport.'
+
+
+@fields.ClassConfigurationSchema.provider(LocalClientTransportSchema())
 class LocalClientTransport(ClientTransport):
     """A transport that incorporates a server for running a service and client in a single thread."""
 
@@ -37,9 +67,9 @@ class LocalClientTransport(ClientTransport):
         # If the server is specified as a path, resolve it to a class
         if isinstance(server_class, six.string_types):
             try:
-                server_class = resolve_python_path(server_class)
-            except (ImportError, AttributeError) as e:
-                raise type(e)('Could not resolve server class path {}: {}'.format(server_class, e))
+                server_class = fields.PythonPath.resolve_python_path(server_class)
+            except (ValueError, ImportError, AttributeError) as e:
+                raise type(e)('Could not resolve server class path {}: {!r}'.format(server_class, e))
 
         # Make sure the client and the server match names
         if server_class.service_name != service_name:
@@ -52,9 +82,11 @@ class LocalClientTransport(ClientTransport):
         # See if the server settings is actually a string to the path for settings
         if isinstance(server_settings, six.string_types):
             try:
-                settings_dict = resolve_python_path(server_settings)
-            except (ImportError, AttributeError) as e:
-                raise type(e)('Could not resolve settings path {}: {}'.format(server_settings, e))
+                settings_dict = fields.PythonPath.resolve_python_path(server_settings)
+            except (ValueError, ImportError, AttributeError) as e:
+                raise type(e)('Could not resolve settings path {}: {!r}'.format(server_settings, e))
+            if not isinstance(settings_dict, dict):
+                raise TypeError('Imported settings path {} is not a dictionary.'.format(server_settings))
         else:
             settings_dict = server_settings
 
@@ -117,6 +149,12 @@ class LocalClientTransport(ClientTransport):
         return None, None, None
 
 
+class LocalServerTransportSchema(fields.Dictionary):
+    contents = {}
+    description = 'The local server transport takes no constructor kwargs.'
+
+
+@fields.ClassConfigurationSchema.provider(LocalServerTransportSchema())
 class LocalServerTransport(ServerTransport):
     """
     Empty class that we use as an import stub for local transport before we swap in the Client transport instance to do
@@ -136,49 +174,3 @@ class LocalServerTransport(ServerTransport):
         instead).
         """
         raise TypeError('The LocalServerTransport cannot be used directly; it is a stub.')
-
-
-class LocalClientTransportSchema(BasicClassSchema):
-    contents = {
-        'path': fields.UnicodeString(
-            description='The path to the local client transport, in the format `module.name:ClassName`',
-        ),
-        'kwargs': fields.Dictionary({
-            # server class can be an import path or a class object
-            'server_class': fields.Any(
-                fields.UnicodeString(
-                    description='The path to the `Server` class, in the format `module.name:ClassName`',
-                ),
-                fields.ObjectInstance(
-                    six.class_types,
-                    description='A reference to the `Server`-extending class/type',
-                ),
-                description='The path to the `Server` class to use locally (as a library), or a reference to the '
-                            '`Server`-extending class/type itself',
-            ),
-            # No deeper validation because the Server will perform its own validation
-            'server_settings': fields.SchemalessDictionary(
-                key_type=fields.UnicodeString(),
-                description='The settings to use when instantiating the `server_class`'
-            ),
-        }),
-    }
-
-    optional_keys = ()
-
-    description = 'The settings for the local client transport'
-
-
-class LocalServerTransportSchema(BasicClassSchema):
-    contents = {
-        'path': fields.UnicodeString(
-            description='The path to the local server transport, in the format `module.name:ClassName`',
-        ),
-        'kwargs': fields.Dictionary({}),
-    }
-
-    description = 'The settings for the local client transport'
-
-
-LocalClientTransport.settings_schema = LocalClientTransportSchema(LocalClientTransport)
-LocalServerTransport.settings_schema = LocalServerTransportSchema(LocalServerTransport)

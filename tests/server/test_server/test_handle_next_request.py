@@ -5,6 +5,8 @@ from __future__ import (
 
 from unittest import TestCase
 
+from conformity import fields
+
 from pysoa.common.transport.base import ServerTransport
 from pysoa.server.server import Server
 from pysoa.test import factories
@@ -18,6 +20,7 @@ class HandleNextRequestServer(Server):
     action_class_map = {}
 
 
+@fields.ClassConfigurationSchema.provider(fields.Dictionary({}))
 class SimplePassthroughServerTransport(ServerTransport):
     def set_request(self, request):
         self._request = request

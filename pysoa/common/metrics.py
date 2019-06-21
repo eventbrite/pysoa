@@ -9,8 +9,6 @@ import enum
 from conformity import fields
 import six
 
-from pysoa.common.schemas import BasicClassSchema
-
 
 @six.add_metaclass(abc.ABCMeta)
 class Counter(object):
@@ -121,6 +119,11 @@ class MetricsRecorder(object):
         """
 
 
+@fields.ClassConfigurationSchema.provider(fields.Dictionary(
+    {},
+    allow_extra_keys=True,
+    description='The no-ops recorder has no constructor arguments',
+))
 class NoOpMetricsRecorder(MetricsRecorder):
     """
     A dummy metrics recorder that doesn't actually record any metrics and has no overhead, used when no
@@ -180,23 +183,6 @@ class NoOpMetricsRecorder(MetricsRecorder):
         """
 
 
-class MetricsSchema(BasicClassSchema):
-    contents = {
-        'path': fields.UnicodeString(
-            description='The path to the class extending `MetricsRecorder`, in the format `module.name:ClassName`',
-        ),
-        'kwargs': fields.Dictionary(
-            {
-                'config': fields.SchemalessDictionary(description='Whatever metrics configuration is required'),
-            },
-            optional_keys=[
-                'config',
-            ],
-            allow_extra_keys=True,
-            description='The keyword arguments that will be passed to the constructed metrics recorder',
-        ),
-    }
-
-    description = 'Configuration for defining a usage and performance metrics recorder'
-
-    object_type = MetricsRecorder
+class MetricsSchema(fields.ClassConfigurationSchema):
+    base_class = MetricsRecorder
+    description = 'Configuration for defining a usage and performance metrics recorder.'

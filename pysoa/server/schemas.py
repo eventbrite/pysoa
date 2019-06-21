@@ -18,7 +18,7 @@ ActionRequestSchema = Dictionary(
         'action': UnicodeString(),
         'body': SchemalessDictionary(key_type=UnicodeString()),
     },
-    optional_keys=['body'],
+    optional_keys=('body', ),
 )
 
 ControlHeaderSchema = Dictionary(

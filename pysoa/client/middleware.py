@@ -3,7 +3,13 @@ from __future__ import (
     unicode_literals,
 )
 
+from conformity import fields
 
+
+@fields.ClassConfigurationSchema.provider(fields.Dictionary(
+    {},
+    description='Most client middleware has no constructor arguments, but subclasses can override this schema',
+))
 class ClientMiddleware(object):
     """
     Base middleware class for client middleware. Not required, but provides some helpful stubbed methods and

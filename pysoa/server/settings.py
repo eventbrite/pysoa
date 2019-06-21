@@ -8,14 +8,10 @@ import functools
 from conformity import fields
 
 from pysoa.common.logging import SyslogHandler
-from pysoa.common.schemas import (
-    BasicClassSchema,
-    PolymorphClassSchema,
-)
 from pysoa.common.settings import SOASettings
 from pysoa.common.transport.base import ServerTransport as BaseServerTransport
-from pysoa.common.transport.local import LocalServerTransportSchema
-from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
+from pysoa.common.transport.local import LocalServerTransport
+from pysoa.common.transport.redis_gateway.server import RedisServerTransport
 from pysoa.server.middleware import ServerMiddleware
 
 
@@ -34,13 +30,16 @@ log_level_schema = functools.partial(fields.Constant, 'DEBUG', 'INFO', 'WARNING'
 
 class ServerSettings(SOASettings):
     """
-    Settings specific to servers
+    Base settings class for all servers, whose `middleware` values are restricted to subclasses of `ServerMiddleware`
+    and whose `transport` values are restricted to subclasses of `BaseServerTransport`. Middleware and transport
+    configuration settings schemas will automatically switch based on the configuration settings schema for the `path`
+    for each.
     """
 
     schema = {
-        'transport': BasicClassSchema(BaseServerTransport),
+        'transport': fields.ClassConfigurationSchema(base_class=BaseServerTransport),
         'middleware': fields.List(
-            BasicClassSchema(ServerMiddleware),
+            fields.ClassConfigurationSchema(base_class=ServerMiddleware),
             description='The list of all `ServerMiddleware` objects that should be applied to requests processed by '
                         'this server',
         ),
@@ -49,7 +48,7 @@ class ServerSettings(SOASettings):
             value_type=fields.SchemalessDictionary(),
             description='Client settings for sending requests to other services; keys should be service names, and '
                         'values should be the corresponding configuration dicts, which will be validated using the '
-                        'PolymorphicClientSettings schema',
+                        'ClientSettings schema.',
         ),
         'logging': fields.Dictionary(
             {
@@ -197,7 +196,18 @@ class ServerSettings(SOASettings):
         'request_log_error_level': 'INFO',
         'heartbeat_file': None,
         'extra_fields_to_redact': set(),
+        'transport': {
+            'path': 'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
+        }
     }
+
+
+ServerSettings.schema['transport'].initiate_cache_for(
+    'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
+)
+ServerSettings.schema['transport'].initiate_cache_for(
+    'pysoa.common.transport.local:LocalServerTransport',
+)
 
 
 class RedisServerSettings(ServerSettings):
@@ -207,8 +217,13 @@ class RedisServerSettings(ServerSettings):
         }
     }
     schema = {
-        'transport': RedisTransportSchema(),
+        'transport': fields.ClassConfigurationSchema(base_class=RedisServerTransport),
     }
+
+
+RedisServerSettings.schema['transport'].initiate_cache_for(
+    'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
+)
 
 
 class LocalServerSettings(ServerSettings):
@@ -218,24 +233,16 @@ class LocalServerSettings(ServerSettings):
         }
     }
     schema = {
-        'transport': LocalServerTransportSchema(),
+        'transport': fields.ClassConfigurationSchema(base_class=LocalServerTransport),
     }
+
+
+LocalServerSettings.schema['transport'].initiate_cache_for(
+    'pysoa.common.transport.local:LocalServerTransport',
+)
 
 
 class PolymorphicServerSettings(ServerSettings):
     """
-    Settings for Servers that can use any type of transport, while performing validation on certain transport types.
+    DEPRECATED. Use `ServerSettings`, whose settings are polymorphic already.
     """
-    defaults = {
-        'transport': {
-            'path': 'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
-        }
-    }
-    schema = {
-        'transport': PolymorphClassSchema(
-            contents_map={
-                '__default__': BasicClassSchema(BaseServerTransport),
-            },
-            enforce_object_type_subclass_of=BaseServerTransport,
-        ),
-    }

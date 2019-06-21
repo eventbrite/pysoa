@@ -34,8 +34,7 @@ class ProcessJobMiddleware(ServerMiddleware):
     """
 
     class SuccessException(Exception):
-        "Raised when a middleware succesfully intercepts something."
-        pass
+        """Raised when a middleware successfully intercepts something."""
 
     def job(self, process):
         def handler(request):

@@ -8,6 +8,8 @@ import traceback
 import types
 from unittest import TestCase
 
+from conformity import fields
+
 from pysoa.client.client import Client
 from pysoa.client.middleware import ClientMiddleware
 from pysoa.common.constants import (
@@ -132,6 +134,7 @@ class ErrorServer(Server):
     }
 
 
+@fields.ClassConfigurationSchema.provider(fields.Dictionary({}))
 class SendErrorTransport(ClientTransport):
     def send_request_message(self, request_id, meta, body, message_expiry_in_seconds=None):
         raise MessageSendError('The message failed to send')
@@ -140,6 +143,7 @@ class SendErrorTransport(ClientTransport):
         raise AssertionError('Something weird happened; receive should not have been called')
 
 
+@fields.ClassConfigurationSchema.provider(fields.Dictionary({}))
 class ReceiveErrorTransport(ClientTransport):
     def send_request_message(self, request_id, meta, body, message_expiry_in_seconds=None):
         pass  # We want this to silently do nothing

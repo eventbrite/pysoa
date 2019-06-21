@@ -5,6 +5,8 @@ from __future__ import (
 
 import uuid
 
+from conformity import fields
+
 from pysoa.common.metrics import TimerResolution
 from pysoa.common.transport.base import (
     ClientTransport,
@@ -18,6 +20,7 @@ from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
 from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
 
 
+@fields.ClassConfigurationSchema.provider(RedisTransportSchema())
 class RedisClientTransport(ClientTransport):
 
     def __init__(self, service_name, metrics, **kwargs):
@@ -84,6 +87,3 @@ class RedisClientTransport(ClientTransport):
         else:
             # This tells Client.get_all_responses to stop waiting for more.
             return None, None, None
-
-
-RedisClientTransport.settings_schema = RedisTransportSchema(RedisClientTransport)

@@ -57,11 +57,11 @@ Some of these items require explanation:
 * Correlation IDs can be used at your own discretion, but are generally shared across multiple service requests, even
   across multiple services, to correlate requests that are logically linked together (example: such as all PySOA
   requests that occur within the scope of a single HTTP request in a client application).
-* Request ID: An ID unique to the client instance.
+* Request ID: An ID unique to the ``Client`` instance (but permitted to duplicate across multiple clients).
 * Switches: See `Versioning using switches <api.rst#versioning-using-switches>`_.
-* ``continue_on_error``: A control header indicating whether subsequent Action Requests should continue being processed
-  even if previous Action Requests in the same Job Request encountered errors.
-* ``suppress_response``: A control header indicating whether the client has invoked send-and-forget and does not
+* ``continue_on_error``: A Boolean control header indicating whether subsequent Action Requests should continue being
+  processed even if previous Action Requests in the same Job Request encountered errors.
+* ``suppress_response``: A Boolean control header indicating whether the client has invoked send-and-forget and does not
   require the server to send a response.
 
 The PySOA Response Format
@@ -72,7 +72,7 @@ A PySOA response message is called a Job Response. Job Responses take the follow
     {
         "actions": <list<Action Response>>,
         "context": {
-            <optional service-defined keys,>
+            <optional service-defined keys and values,>
         },
         "errors": <list<Error>>,
     }
@@ -106,7 +106,9 @@ messages must be deserialized. There is actually no hard requirement on what ser
 as your clients speak the same serialization protocol as the services they call, they will be compatible. The reference
 Python implementation of PySOA provides MessagePack and JSON serialization protocols. For more information about these,
 see `Serialization <api.rst#serialization>`_. If you wish to communicate with clients or servers using these, you
-must implement a compatible protocol.
+must implement a compatible protocol. Some transports are capable of negotiating an acceptable serialization protocol,
+while others will require pre-agreement. The Local Transport (where requests are handled in-memory within the same
+Python process) is the only transport that performs no serialization.
 
 Transport Protocol
 ++++++++++++++++++
@@ -122,11 +124,17 @@ Redis Gateway Transport
 
 The Redis Gateway Transport is a production-tested, performance-proven protocol that is compatible with any platform
 for which there is a Redis client library. A beefy Redis server is capable of handling tens of thousands of PySOA
-requests and responses each second. The process begins when a client sends a serialized PySOA message in an envelope
-with the following format::
+requests and responses each second. The process begins when a client sends a message to a server in the following
+format::
+
+    content-type:mime/type;<serialized envelope>
+
+The content should be a valid MIME type that both the client and server understand. The serializers shipped with PySOA
+understand ``application/json`` and ``application/msgpack``. The "envelope," serialized in the specified MIME type,
+is a dictionary that contains and carries the ``JobRequest`` dictionary in the following format::
 
     {
-        "body": <Job Request>,
+        "body": <JobRequest dict>,
         "meta": {
             "reply_to": <unicode>,
             "__expiry__": <float>,
@@ -139,27 +147,27 @@ with the following format::
   unless either the client or server is using this reference implementation, in which case the key name must be in the
   following format::
 
-      pysoa:[service name].[client instance UUID]!
+      pysoa:<service name>.<client instance UUID>!
 
 * ``__expiry__``: The Unix-epoch timestamp in seconds (and fractional seconds after the decimal point) after which the
   request should be considered expired and discarded without the server handling it.
 
-The client serializes this envelope and sends it to Redis::
+The client serializes the envelope as described above and sends it to Redis using this pseudocode::
 
     if(redis(`LLEN $server_key`) >= QUEUE_SIZE_LIMIT) {
         raise QueueFull
     }
 
-    redis(`RPUSH $server_key $serialized_envelope`)
+    redis(`RPUSH $server_key $message`)
     redis(`EXPIRE $server_key $expiry`)
 
 * ``$server_key``: A server-unique Redis ``LIST`` key name on which the server is blocked waiting for incoming
   requests. There are no hard rules about the naming convention this must follow unless either the client or server is
   using this reference implementation, in which case the key name must be in the following format::
 
-      pysoa:[service name]
+      pysoa:<service name>
 
-* ``$serialized_envelope``: The serialized envelope.
+* ``$message``: The message containing the content type and serialized envelope as described above.
 * ``$expiry``: An integer greater than or equal to the number of seconds between "now" and the meta field
   ``__expiry__``.
 
@@ -168,12 +176,17 @@ While this is going on, multiple server processes are blocked waiting for incomi
 
     redis(`BLPOP $server_key`)
 
-Once a server receives an envelope from Redis, it verifies the envelope is not expired and returns the Job Request
-to the server process for processing. If and when the server is ready to send a response, the response is sent back
-to the client in a very similar way::
+Once a server receives a message from Redis, it extracts the content-type, deserializes the envelope, verifies the
+envelope is not expired, and returns the ``JobRequest`` dictionary to the server code for handling. If and when the
+server is ready to send a response, the response is sent back to the client in the same way the client sent the
+request::
+
+    content-type:mime/type;<serialized envelope>
+
+With a very similar envelope::
 
     {
-        "body": <Job Response>,
+        "body": <JobResponse dict>,
         "meta": {
             "__expiry__": <float>,
         },
@@ -186,12 +199,16 @@ Using the same Redis commands::
         raise QueueFull
     }
 
-    redis(`RPUSH $client_key $serialized_envelope`)
+    redis(`RPUSH $client_key $message`)
     redis(`EXPIRE $client_key $expiry`)
 
 * ``$client_key``: The key obtained from the ``reply_to`` meta field in the request envelope.
 
 Meanwhile, the client has been blocked waiting for a response on the agreed-upon client ``LIST`` key name in the same
-manner that the server waiting for a request::
+manner that the server waited for a request::
 
     redis(`BLPOP $client_key`)
+
+Once the server sends the response, it can immediately start waiting for the next request on ``$server_key``. It does
+not have to wait on the client to retrieve the response from Redis. When the client retrieves the response, it
+deserializes the envelope and returns the ``JobResponse`` dictionary back to the client code for handling.
