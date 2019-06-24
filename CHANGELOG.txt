@@ -1,6 +1,16 @@
 Changelog
 =========
 
+0.62.0 (2019-06-24)
+-------------------
+- [MINOR] Switch to using Conformity's class schemas (all existing configurations are backwards compatible and will continue to work).
+- [MINOR] Deprecated `pysoa.server.settings.PolymorphicServerSettings` and `pysoa.client.settings.PolymorphicClientSettings`. The base `ServerSettings` and `ClientSettings` are now automatically polymorphic and you should use / inherit from those, instead.
+- [MINOR] Changed the default settings class in `Client.settings_class` from `PolymorphicClientSettings` to `ClientSettings`.
+- [MINOR] Changed the default settings class in `Server.settings_class` from `PolymorphicServerSettings` to `ServerSettings`.
+- [MAJOR] Refactored the schemas in `LocalClientTransportSchema`, `LocalServerTransportSchema`, `RedisTransportSchema`, `StubClientTransportSchema, and `MetricsSchema` to support the new Conformity class schemas. This breaking change is only a disruption if you are using these classes directly. However, this is unusual and you are probably not. This does not break configurations that were processed by these schemas.
+- [MAJOR] Deleted module `pysoa.common.schemas` and its classes `BasicClassSchema` and `PolymorphClassSchema`. This breaking change is only a disruption if you are using these classes directly. However, this is unusual and you are probably not.
+- [MINOR] Previously, when a `Settings` object failed to validate against the settings schema, it might have raised `ValueError`, Conformity's `ValidationError`, _or_ `Settings.ImproperlyConfigured`. Now it will _always_ raise _only_ `Settings.ImproperlyConfigured` when it fails to validate against the settings schema.
+
 0.61.2 (2019-06-21)
 -------------------
 - [PATCH] Fix several tests broken by Conformity 1.25.0
