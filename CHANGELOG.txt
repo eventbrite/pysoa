@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.62.1 (2019-06-28)
+-------------------
+- [PATCH] Fix misleading DeprecationWarning
+
 0.62.0 (2019-06-24)
 -------------------
 - [MINOR] Switch to using Conformity's class schemas (all existing configurations are backwards compatible and will continue to work).
