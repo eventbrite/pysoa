@@ -251,4 +251,4 @@ class PolymorphicServerSettings(ServerSettings):
     def __init__(self, *args, **kwargs):
         super(PolymorphicServerSettings, self).__init__(*args, **kwargs)
 
-        warnings.warn('PolymorphicClientSettings is deprecated; use ClientSettings instead', DeprecationWarning)
+        warnings.warn('PolymorphicServerSettings is deprecated; use ServerSettings instead', DeprecationWarning)
