@@ -10,22 +10,25 @@ install:
   - export PKG_CONFIG_PATH="$(python-config --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
   - echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
   # The above two statements can be removed when/if https://github.com/travis-ci/travis-ci/issues/8217 is fixed
-  - pip install -U pip setuptools flake8
-script:
-  - flake8 .
-  - python setup.py test --addopts "--cov-report term-missing"
+  - pip install -U pip tox
 jobs:
    include:
      - stage: build
        python: "2.7"
-     - stage: build
-       python: "3.4"
+       script:
+         - tox -e py27,py27-pytest31,py27-pytest46,py27-flake8,coverage
      - stage: build
        python: "3.5"
+       script:
+         - tox -e py35,py35-pyinotify,coverage
      - stage: build
        python: "3.6"
+       script:
+         - tox -e py36,py36-currint16,py36-currint20,coverage
      - stage: build
        python: "3.7"
+       script:
+         - tox -e py37,py37-attrs17,py37-attrs18,py37-attrs19,py37-pytest31,py37-pytest46,py37-pytest50,py37-flake8,coverage
        dist: xenial
      - stage: deploy
        python: "3.6"

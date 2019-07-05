@@ -19,7 +19,7 @@ def readme():
 base_requirements = [
     'attrs>=17.4,<20',
     'conformity~=1.25',
-    'currint~=1.6',
+    'currint>=1.6,<3',
     'enum34;python_version<"3.4"',
     'msgpack-python~=0.5,>=0.5.2',
     'redis~=2.10',
@@ -33,8 +33,8 @@ test_helper_requirements = [
 
 test_plan_requirements = test_helper_requirements + [
     'pyparsing~=2.2',
-    'pytest>=3.1,<5,!=4.2.0',  # 4.2.0 has a regression breaking our test plans, fixed in 4.2.1
-    'pytz>=2018.4',
+    'pytest>=3.1,<6,!=4.2.0',  # 4.2.0 has a regression breaking our test plans, fixed in 4.2.1
+    'pytz>=2019.1',
 ]
 
 test_requirements = [
@@ -42,8 +42,7 @@ test_requirements = [
     'freezegun~=0.3',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
-    'pytest-cov~=2.6',
-    'pytest~=4.4',
+    'pytest-cov~=2.7',
 ] + test_plan_requirements
 
 
