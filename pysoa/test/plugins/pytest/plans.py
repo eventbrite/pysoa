@@ -130,6 +130,9 @@ def pytest_pycollect_makeitem(collector, name, obj):
     if not TEST_PLANS_ENABLED:
         return
 
+    if not isinstance(obj, type):
+        return
+
     # Lazy importing ensures that pytest-cov loads up coverage before this plugin loads other classes in PySOA
     from pysoa.test.plan import ServicePlanTestCase
 
