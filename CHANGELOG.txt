@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.63.0 (2019-07-05)
+-------------------
+- [MINOR] Support PyTest 5.0 with tests ensuring compliance
+
 0.62.1 (2019-06-28)
 -------------------
 - [PATCH] Fix misleading DeprecationWarning
