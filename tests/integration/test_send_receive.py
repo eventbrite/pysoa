@@ -432,12 +432,12 @@ class TestClientParallelSendReceive(TestCase):
             },
             'send_error_service': {
                 'transport': {
-                    'path': 'tests.unit.client.test_send_receive:SendErrorTransport',
+                    'path': 'tests.integration.test_send_receive:SendErrorTransport',
                 }
             },
             'receive_error_service': {
                 'transport': {
-                    'path': 'tests.unit.client.test_send_receive:ReceiveErrorTransport',
+                    'path': 'tests.integration.test_send_receive:ReceiveErrorTransport',
                 }
             },
         })

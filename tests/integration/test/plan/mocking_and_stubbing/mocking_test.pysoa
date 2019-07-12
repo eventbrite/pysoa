@@ -1,0 +1,95 @@
+test name: simple_mock_works
+test description: Test that a simple mock works
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.random: randint.return_value: 42
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.random: expect called randint: [[61, 93], {}]
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: return_value: {"foo": "bar", "baz": [4, 8, 3]}
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect called: [[93, 61], {"cat": "dog", "number": 71}]
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: extra.value.return_value.for_me: "Lorem ipsum"
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect called extra.value: [[], {}]
+mocking_test: input int: min: 61
+mocking_test: input int: max: 93
+mocking_test: input str: kwargs.cat: dog
+mocking_test: input int: kwargs.number: 71
+mocking_test: expect: no errors
+mocking_test: expect int: attribute value: random: 42
+mocking_test: expect str: attribute value: extra: Lorem ipsum
+mocking_test: expect str: attribute value: response.foo: bar
+mocking_test: expect int: attribute value: response.baz.0: 4
+mocking_test: expect int: attribute value: response.baz.1: 8
+mocking_test: expect int: attribute value: response.baz.2: 3
+
+test name: mock_randint_exception
+test description: Test that an exception on the first functional call works
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.random: randint.side_effect: exception BytesWarning
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.random: expect called randint: [[0, 100], {}]
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect not called:
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect not called extra.value:
+mocking_test: input int: min: 0
+mocking_test: input int: max: 100
+mocking_test: input str: kwargs.foo: bar
+mocking_test: expect: error: code = BYTES_WARNING
+
+test name: mock_function_exception
+test description: Test that an exception on the second function call works
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.random: randint.return_value: 19
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.random: expect called randint: [[100, 999], {}]
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: side_effect: exception tests.integration.test.plan.test_001_fixtures_work:ExpectedException
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect called: [[999, 100], {"foo": "bar"}]
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect not called extra.value:
+mocking_test: input int: min: 100
+mocking_test: input int: max: 999
+mocking_test: input str: kwargs.foo: bar
+mocking_test: expect: error: code = EXPECTED_EXCEPTION
+
+test name: mock_delete
+test description: Test that deleting an attribute works
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.random: randint.return_value: 19
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.random: expect called randint: [[100, 999], {}]
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: return_value: {"foo": "bar", "baz": [4, 8, 3]}
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect called: [[999, 100], {"foo": {"mock.ANY": true}}]
+mocking_test: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: extra.value: delete
+mocking_test: input int: min: 100
+mocking_test: input int: max: 999
+mocking_test: input str: kwargs.foo: bar
+mocking_test: expect: error: code = ATTRIBUTE_ERROR
+
+test name: mock_at_test_level_with_multiple_actions
+test description: Test that mocking at the test and action level with multiple action calls works
+mock: tests.integration.test.plan.test_001_fixtures_work.random: randint.side_effect: 31
+mock: tests.integration.test.plan.test_001_fixtures_work.random: randint.side_effect: exception BytesWarning
+mock: tests.integration.test.plan.test_001_fixtures_work.random: randint.side_effect: 59
+mock: tests.integration.test.plan.test_001_fixtures_work.random: expect called randint: [[100, 999], {}]
+mock: tests.integration.test.plan.test_001_fixtures_work.random: expect called randint: [[200, 300], {}]
+mock: tests.integration.test.plan.test_001_fixtures_work.random: expect called randint: [[50, 75], {}]
+mocking_test.0: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: return_value: {"array": [9, 8, 7]}
+mocking_test.0: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect called: [[999, 100], {"foo": {"mock.ANY": true}}]
+mocking_test.0: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: extra.value.return_value.for_me: "Lorem ipsum"
+mocking_test.0: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect called extra.value: [[], {}]
+mocking_test.0: input int: min: 100
+mocking_test.0: input int: max: 999
+mocking_test.0: input int: kwargs.foo: 9183
+mocking_test.0: expect: no errors
+mocking_test.0: expect int: attribute value: random: 31
+mocking_test.0: expect str: attribute value: extra: Lorem ipsum
+mocking_test.0: expect int: attribute value: response.array.0: 9
+mocking_test.0: expect int: attribute value: response.array.1: 8
+mocking_test.0: expect int: attribute value: response.array.2: 7
+mocking_test.1: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect not called:
+mocking_test.1: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect not called extra.value:
+mocking_test.1: input int: min: 200
+mocking_test.1: input int: max: 300
+mocking_test.1: input str: kwargs.foo: bar
+mocking_test.1: expect: error: code = BYTES_WARNING
+mocking_test.2: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: return_value: {"array": [10, 11, 12]}
+mocking_test.2: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect called: [[75, 50], {"bar": "baz"}]
+mocking_test.2: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: extra.value.return_value.for_me: "dolor sit amet"
+mocking_test.2: mock: tests.integration.test.plan.test_001_fixtures_work.function_which_shall_be_mocked: expect called extra.value: [[], {}]
+mocking_test.2: input int: min: 50
+mocking_test.2: input int: max: 75
+mocking_test.2: input str: kwargs.bar: baz
+mocking_test.2: expect: no errors
+mocking_test.2: expect int: attribute value: random: 59
+mocking_test.2: expect str: attribute value: extra: dolor sit amet
+mocking_test.2: expect int: attribute value: response.array.0: 10
+mocking_test.2: expect int: attribute value: response.array.1: 11
+mocking_test.2: expect int: attribute value: response.array.2: 12
