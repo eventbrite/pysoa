@@ -42,7 +42,7 @@ test_requirements = [
     'freezegun~=0.3',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
-    'pytest-cov~=2.7',
+    'coverage~=4.5',
 ] + test_plan_requirements
 
 

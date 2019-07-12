@@ -70,7 +70,11 @@ class TestSimpleMain(unittest.TestCase):
         server_getter.assert_called_once_with()
         self.assertFalse(server_getter.return_value.main.called)
 
-        mock_get_reloader.assert_called_once_with('', None, signal_forks=False)
+        assert mock_get_reloader.call_count == 1
+        assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'coverage')
+        assert mock_get_reloader.call_args_list[0][0][1] is None
+        assert mock_get_reloader.call_args_list[0][1]['signal_forks'] is False
+
         self.assertEqual(1, mock_get_reloader.return_value.main.call_count)
         self.assertEqual(
             server_getter.return_value,
@@ -88,7 +92,11 @@ class TestSimpleMain(unittest.TestCase):
         server_getter.assert_called_once_with()
         self.assertFalse(server_getter.return_value.main.called)
 
-        mock_get_reloader.assert_called_once_with('', ['example', 'pysoa', 'conformity'], signal_forks=False)
+        assert mock_get_reloader.call_count == 1
+        assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'coverage')
+        assert mock_get_reloader.call_args_list[0][0][1] == ['example', 'pysoa', 'conformity']
+        assert mock_get_reloader.call_args_list[0][1]['signal_forks'] is False
+
         self.assertEqual(1, mock_get_reloader.return_value.main.call_count)
         self.assertEqual(0, mock_get_reloader.return_value.main.call_args_list[0][0][1][0].fork_processes)
         self.assertEqual(
@@ -107,7 +115,11 @@ class TestSimpleMain(unittest.TestCase):
         server_getter.assert_called_once_with()
         self.assertFalse(server_getter.return_value.main.called)
 
-        mock_get_reloader.assert_called_once_with('', None, signal_forks=True)
+        assert mock_get_reloader.call_count == 1
+        assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'coverage')
+        assert mock_get_reloader.call_args_list[0][0][1] is None
+        assert mock_get_reloader.call_args_list[0][1]['signal_forks'] is True
+
         self.assertEqual(1, mock_get_reloader.return_value.main.call_count)
         self.assertEqual(5, mock_get_reloader.return_value.main.call_args_list[0][0][1][0].fork_processes)
         self.assertEqual(
@@ -126,7 +138,11 @@ class TestSimpleMain(unittest.TestCase):
         server_getter.assert_called_once_with()
         self.assertFalse(server_getter.return_value.main.called)
 
-        mock_get_reloader.assert_called_once_with('', ['pysoa'], signal_forks=True)
+        assert mock_get_reloader.call_count == 1
+        assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'coverage')
+        assert mock_get_reloader.call_args_list[0][0][1] == ['pysoa']
+        assert mock_get_reloader.call_args_list[0][1]['signal_forks'] is True
+
         self.assertEqual(1, mock_get_reloader.return_value.main.call_count)
         self.assertEqual(5, mock_get_reloader.return_value.main.call_args_list[0][0][1][0].fork_processes)
         self.assertEqual(
