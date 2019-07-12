@@ -29,7 +29,7 @@ from pysoa.common.transport.redis_gateway.core import RedisTransportCore
 from pysoa.test.compatibility import mock
 
 # To ensure all the patching over there happens over here
-from tests.common.transport.redis_gateway.backend.test_standard import mockredis
+from tests.unit.common.transport.redis_gateway.backend.test_standard import mockredis
 
 
 @attr.s

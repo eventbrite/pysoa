@@ -9,7 +9,7 @@ import pytest
 
 from pysoa.test.plugins.pytest.plans import PLUGIN_STATISTICS
 
-from tests.test.plan import test_001_fixtures_work as fixtures_test_module
+from tests.unit.test.plan import test_001_fixtures_work as fixtures_test_module
 
 
 _skip_correction = 0
