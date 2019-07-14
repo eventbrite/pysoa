@@ -6,6 +6,7 @@ from __future__ import (
 import importlib
 import logging
 import sys
+import threading
 
 
 __all__ = (
@@ -25,7 +26,7 @@ if sys.path[0] and not sys.path[0].endswith('/bin'):
         '`python /path/to/standalone.py`, because that puts all the modules in this service on the path as top-level '
         'modules, potentially masking builtins and breaking all sorts of things with hard-to-diagnose errors. Instead, '
         'you must start this service with `python -m module.to.standalone` or by simply calling the `service_name` '
-        'entry point executable.'
+        'entry point executable. Debug information: {} / {}'.format(sys.path[0], sys.argv)
     )
     exit(99)
 
@@ -79,15 +80,30 @@ def _run_server(args, server_class):
             num_processes = max_processes
 
         processes = []
+        signal_lock = threading.Lock()
+        signal_context = {'signaled': False}
 
-        def _sigterm_forks(*_, **__):
-            for process in processes:
-                process.terminate()
+        # `kill -SIGNAL_NAME PID` sends the named signal to the given process, but no further (it does not propagate to
+        # the entire process group unless you send it to the GID instead of the PID). But Ctrl+C sends SIGINT to ALL
+        # foreground processes, which includes this process AND its children. So the child processes will need to be
+        # smart enough to ignore the duplicate signals (and use non-re-entrant locks on the signal handlers to prevent
+        # simultaneous signal handling). Also, this parent process can be an intermediate child (if it is wrapped by
+        # the code reloader process), so we need to take similar precautions here.
 
-        # We don't want these signals to actually kill this process; just sub-processes
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
-        signal.signal(signal.SIGHUP, _sigterm_forks)  # special signal by reloader says we actually need to propagate
+        def signaled(_signal_number, _stack_frame):
+            if not signal_lock.acquire(False) or signal_context['signaled']:
+                # Non-blocking acquire; duplicate simultaneous signals can be ignored
+                return
+
+            try:
+                for process in processes:
+                    process.terminate()
+                signal_context['signaled'] = True
+            finally:
+                signal_lock.release()
+
+        signal.signal(signal.SIGINT, signal.SIG_IGN)  # temporarily disable sigint before creating processes
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)  # temporarily disable sigterm before creating processes
 
         processes = [
             multiprocessing.Process(target=server_class.main, name='pysoa-worker-{}'.format(i), args=(i + 1, ))
@@ -95,6 +111,10 @@ def _run_server(args, server_class):
         ]
         for p in processes:
             p.start()
+
+        signal.signal(signal.SIGINT, signaled)  # re-enable sigint after starting processes
+        signal.signal(signal.SIGTERM, signaled)  # re-enable sigterm after starting processes
+        signal.signal(signal.SIGHUP, signaled)  # special signal by file-watching auto-reloader
 
         time.sleep(1)
 
@@ -172,23 +192,22 @@ def django_main(server_getter):
         # We have to import it manually, because we need to manipulate the settings before setup() is called, but we
         # can't import django.conf.settings until after setup() is called.
         django_settings = importlib.import_module(os.environ['DJANGO_SETTINGS_MODULE'])
-        if (
-            getattr(django_settings, 'LOGGING', None) and
-            django_settings.LOGGING != django_settings.SOA_SERVER_SETTINGS['logging']
-        ):
-            warn_about_logging = True
-        django_settings.LOGGING = django_settings.SOA_SERVER_SETTINGS['logging']
+        if 'logging' in django_settings.SOA_SERVER_SETTINGS:
+            if (
+                getattr(django_settings, 'LOGGING', None) and
+                django_settings.LOGGING != django_settings.SOA_SERVER_SETTINGS['logging']
+            ):
+                warn_about_logging = True
+            django_settings.LOGGING = django_settings.SOA_SERVER_SETTINGS['logging']
+        elif not getattr(django_settings, 'LOGGING', None):
+            from pysoa.server.settings import ServerSettings
+            django_settings.LOGGING = ServerSettings.defaults['logging']
     except ImportError:
         raise ValueError('Cannot import Django settings module `{}`.'.format(os.environ['DJANGO_SETTINGS_MODULE']))
     except AttributeError:
         raise ValueError('Cannot find `SOA_SERVER_SETTINGS` in the Django settings module.')
-    except KeyError:
-        raise ValueError(
-            "Cannot configure Django `LOGGING` setting because no setting `SOA_SERVER_SETTINGS['logging']` was found.",
-        )
 
-    if django.VERSION >= (1, 7):
-        django.setup()
+    django.setup()
 
     if warn_about_logging:
         logging.warning(

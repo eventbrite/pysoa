@@ -1,0 +1,43 @@
+FROM python:3.7-stretch
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        mysql-client \
+        default-libmysqlclient-dev \
+    && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY LICENSE NOTICE README.rst setup.cfg setup.py /srv/pysoa/
+COPY pysoa /srv/pysoa/pysoa/
+RUN pip install -e /srv/pysoa
+RUN pip install coverage
+
+RUN mkdir -p /srv/run
+WORKDIR /srv/run
+
+RUN echo '#!/bin/sh\n\
+set -e\n\
+\n\
+if [ -f "/usr/local/bin/pysoa-startup-processes.sh" ]\n\
+then\n\
+    . /usr/local/bin/pysoa-startup-processes.sh\n\
+fi\n\
+\n\
+set -x\n\
+# Uncomment the first exec, comment the second exec to run without coverage\n\
+#exec "$@"\n\
+exec coverage run --concurrency=multiprocessing "$@"\n\
+' > /usr/local/bin/pysoa-entrypoint.sh
+RUN chmod +x /usr/local/bin/pysoa-entrypoint.sh
+
+# For relaunches, we use --append so that it doesn't erase previous PIDs' coverage data files
+ENV PYSOA_RELOADER_WRAPPER_BIN="coverage run --append --concurrency=multiprocessing"
+
+RUN echo '#!/bin/sh\n\
+set -ex\n\
+echo $2 > $1\n\
+' > /usr/local/bin/simple_write.sh
+RUN chmod +x /usr/local/bin/simple_write.sh
+
+ENTRYPOINT ["pysoa-entrypoint.sh"]

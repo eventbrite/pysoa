@@ -11,6 +11,7 @@ from pysoa.test.plugins.pytest.plans import PLUGIN_STATISTICS
 
 from tests.integration.test.plan import test_001_fixtures_work as fixtures_test_module
 
+
 _skip_correction = 0
 if LooseVersion(pytest.__version__) > LooseVersion('4.2.0'):
     # Starting with PyTest 4.2.1, when an entire class is skipped with @unittest.skip, it doesn't even get to our plan

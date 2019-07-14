@@ -11,8 +11,10 @@ import logging.config
 import os
 import signal
 import sys
+import threading
 import time
 import traceback
+from types import FrameType  # noqa: F401 TODO Python 3
 from typing import Type  # noqa: F401 TODO Python 3
 
 import attr
@@ -132,6 +134,9 @@ class Server(object):
 
         # Set initial state
         self.shutting_down = False
+        self._shutdown_lock = threading.Lock()
+        self._last_signal = 0
+        self._last_signal_received = 0
 
         # Instantiate middleware
         self.middleware = [
@@ -419,6 +424,7 @@ class Server(object):
         job_response = JobResponse()
         job_switches = RequestSwitchSet(job_request['context']['switches'])
         for i, raw_action_request in enumerate(job_request['actions']):
+            # noinspection PyArgumentList
             action_request = self.request_class(
                 action=raw_action_request['action'],
                 body=raw_action_request.get('body', None),
@@ -479,34 +485,63 @@ class Server(object):
 
         return job_response
 
-    def handle_shutdown_signal(self, *_):
+    def handle_shutdown_signal(self, signal_number, _stack_frame):  # type: (int, FrameType) -> None
         """
         Handles the reception of a shutdown signal.
         """
-        if self.shutting_down:
-            self.logger.warning('Received double interrupt, forcing shutdown')
-            sys.exit(1)
-        else:
-            self.logger.warning('Received interrupt, initiating shutdown')
-            self.shutting_down = True
+        if not self._shutdown_lock.acquire(False):
+            # Ctrl+C can result in 2 or even more signals coming in within nanoseconds of each other. We lock to
+            # prevent handling them all. The duplicates can always be ignored, so this is a non-blocking acquire.
+            return
 
-    def harakiri(self, *_):
+        try:
+            if self.shutting_down:
+                if (
+                    self._last_signal in (signal.SIGINT, signal.SIGTERM) and
+                    self._last_signal != signal_number and
+                    time.time() - self._last_signal_received < 1
+                ):
+                    self.logger.info('Ignoring duplicate shutdown signal received within one second of original signal')
+                else:
+                    self.logger.warning('Received double interrupt, forcing shutdown')
+                    sys.exit(1)
+            else:
+                self.logger.warning('Received interrupt, initiating shutdown')
+                self.shutting_down = True
+
+            self._last_signal = signal_number
+            self._last_signal_received = time.time()
+        finally:
+            self._shutdown_lock.release()
+
+    def harakiri(self, signal_number, _stack_frame):  # type: (int, FrameType) -> None
         """
         Handles the reception of a timeout signal indicating that a request has been processing for too long, as
         defined by the Harakiri settings.
         """
-        if self.shutting_down:
-            self.logger.warning('Graceful shutdown failed after {}s. Exiting now!'.format(
-                self.settings['harakiri']['shutdown_grace']
-            ))
-            sys.exit(1)
-        else:
-            self.logger.warning('No activity during {}s, triggering harakiri with grace {}s'.format(
-                self.settings['harakiri']['timeout'],
-                self.settings['harakiri']['shutdown_grace'],
-            ))
-            self.shutting_down = True
-            signal.alarm(self.settings['harakiri']['shutdown_grace'])
+        if not self._shutdown_lock.acquire(False):
+            # Ctrl+C can result in 2 or even more signals coming in within nanoseconds of each other. We lock to
+            # prevent handling them all. The duplicates can always be ignored, so this is a non-blocking acquire.
+            return
+
+        try:
+            self._last_signal = signal_number
+            self._last_signal_received = time.time()
+
+            if self.shutting_down:
+                self.logger.warning('Graceful shutdown failed after {}s. Exiting now!'.format(
+                    self.settings['harakiri']['shutdown_grace']
+                ))
+                sys.exit(1)
+            else:
+                self.logger.warning('No activity during {}s, triggering harakiri with grace {}s'.format(
+                    self.settings['harakiri']['timeout'],
+                    self.settings['harakiri']['shutdown_grace'],
+                ))
+                self.shutting_down = True
+                signal.alarm(self.settings['harakiri']['shutdown_grace'])
+        finally:
+            self._shutdown_lock.release()
 
     def setup(self):
         """
@@ -534,6 +569,7 @@ class Server(object):
             except BaseException as e:
                 # `get_autocommit` fails under PyTest without `pytest.mark.django_db`, so ignore that specific error.
                 try:
+                    # noinspection PyPackageRequirements
                     from _pytest.outcomes import Failed
                     if not isinstance(e, Failed):
                         raise e

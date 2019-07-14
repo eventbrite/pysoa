@@ -199,7 +199,7 @@ class TestAbstractReloader(unittest.TestCase):
     def test_watch_files_no_forks(self):
         called_signals = {}
 
-        def _sig_called(sig_num, *_):
+        def _sig_called(sig_num, _stack_frame):
             called_signals.setdefault(sig_num, 0)
             called_signals[sig_num] += 1
 
@@ -256,7 +256,7 @@ class TestAbstractReloader(unittest.TestCase):
     def test_watch_files_with_forks(self):
         called_signals = {}
 
-        def _sig_called(sig_num, *_):
+        def _sig_called(sig_num, _stack_frame):
             called_signals.setdefault(sig_num, 0)
             called_signals[sig_num] += 1
 
@@ -278,7 +278,7 @@ class TestAbstractReloader(unittest.TestCase):
             self.assertFalse(reloader.shutting_down_for_reload)
             self.assertTrue(reloader.code_changed_called)
             self.assertEqual(0, len(called_signals))
-            self.assertTrue(1.5 > time.time() - start > 0.95)
+            assert 1.5 > time.time() - start > 0.95
 
             reloader.code_changed_return_value = True
 
@@ -290,7 +290,7 @@ class TestAbstractReloader(unittest.TestCase):
             self.assertEqual(2, len(called_signals))
             self.assertEqual(1, called_signals[signal.SIGTERM])
             self.assertEqual(1, called_signals[signal.SIGHUP])
-            self.assertTrue(time.time() - start < 0.1)
+            assert time.time() - start < 0.3
         finally:
             if prev_sigterm is not False:
                 signal.signal(signal.SIGTERM, prev_sigterm or signal.SIG_IGN)
@@ -299,14 +299,15 @@ class TestAbstractReloader(unittest.TestCase):
 
     @mock.patch('pysoa.server.autoreload.subprocess')
     def test_restart_with_reloader_use_module(self, mock_subprocess):
-        mock_subprocess.call.side_effect = [
-            NEED_RELOAD_EXIT_CODE,
-            NEED_RELOAD_EXIT_CODE,
-            NEED_RELOAD_EXIT_CODE,
-            NEED_RELOAD_EXIT_CODE,
-            NEED_RELOAD_EXIT_CODE,
-            52,
-        ]
+        se_context = {'i': 0}
+
+        def se(*_, **__):
+            if se_context['i'] == 5:
+                os.kill(os.getpid(), signal.SIGTERM)
+            se_context['i'] += 1
+            return 52 if se_context['i'] == 6 else NEED_RELOAD_EXIT_CODE
+
+        mock_subprocess.Popen.return_value.wait.side_effect = se
 
         prev_arg_0 = sys.argv[0]
         sys.argv[0] = '/path/to/example_service/standalone.py'
@@ -314,56 +315,66 @@ class TestAbstractReloader(unittest.TestCase):
         try:
             reloader = MockReloader('example_service.standalone', ['pysoa'])
 
-            reloader.restart_with_reloader()
+            assert reloader.restart_with_reloader() == 52
 
-            self.assertEqual(6, mock_subprocess.call.call_count)
+            self.assertEqual(6, mock_subprocess.Popen.call_count)
 
             i = 0
-            for call in mock_subprocess.call.call_args_list:
+            for call in mock_subprocess.Popen.call_args_list:
                 i += 1
                 self.assertEqual(
                     [sys.executable, '-m', 'example_service.standalone'] + sys.argv[1:],
                     call[0][0],
                 )
                 env = call[1]['env'].copy()
-                self.assertTrue('RUN_RELOADER_MAIN', env)
-                del env['RUN_RELOADER_MAIN']
+                self.assertTrue('PYSOA_RELOADER_RUN_MAIN', env)
+                del env['PYSOA_RELOADER_RUN_MAIN']
                 self.assertEqual(os.environ, env)
 
             self.assertEqual(6, i)
+
+            assert mock_subprocess.Popen.return_value.wait.call_count == 6
+            assert mock_subprocess.Popen.return_value.terminate.call_count == 1
         finally:
             sys.argv[0] = prev_arg_0
 
     @mock.patch('pysoa.server.autoreload.subprocess')
     def test_restart_with_reloader_use_script(self, mock_subprocess):
-        mock_subprocess.call.side_effect = [
+        mock_subprocess.Popen.return_value.wait.side_effect = [
             NEED_RELOAD_EXIT_CODE,
             NEED_RELOAD_EXIT_CODE,
             NEED_RELOAD_EXIT_CODE,
             NEED_RELOAD_EXIT_CODE,
-            NEED_RELOAD_EXIT_CODE,
-            52,
+            67,
         ]
 
-        reloader = MockReloader('example_service.standalone', ['pysoa'])
+        os.environ['PYSOA_RELOADER_WRAPPER_BIN'] = 'coverage run --append'
 
-        reloader.restart_with_reloader()
+        try:
+            reloader = MockReloader('example_service.standalone', ['pysoa'])
 
-        self.assertEqual(6, mock_subprocess.call.call_count)
+            assert reloader.restart_with_reloader() == 67
 
-        i = 0
-        for call in mock_subprocess.call.call_args_list:
-            i += 1
-            self.assertEqual(
-                [sys.executable] + sys.argv,
-                call[0][0],
-            )
-            env = call[1]['env'].copy()
-            self.assertTrue('RUN_RELOADER_MAIN', env)
-            del env['RUN_RELOADER_MAIN']
-            self.assertEqual(os.environ, env)
+            self.assertEqual(5, mock_subprocess.Popen.call_count)
 
-        self.assertEqual(6, i)
+            i = 0
+            for call in mock_subprocess.Popen.call_args_list:
+                i += 1
+                self.assertEqual(
+                    ['coverage', 'run', '--append'] + sys.argv,
+                    call[0][0],
+                )
+                env = call[1]['env'].copy()
+                self.assertTrue('PYSOA_RELOADER_RUN_MAIN', env)
+                del env['PYSOA_RELOADER_RUN_MAIN']
+                self.assertEqual(os.environ, env)
+
+            self.assertEqual(5, i)
+
+            assert mock_subprocess.Popen.return_value.wait.call_count == 5
+            assert mock_subprocess.Popen.return_value.terminate.call_count == 0
+        finally:
+            del os.environ['PYSOA_RELOADER_WRAPPER_BIN']
 
     @mock.patch('pysoa.server.autoreload.os')
     @mock.patch('pysoa.server.autoreload.sys')
@@ -384,7 +395,7 @@ class TestAbstractReloader(unittest.TestCase):
 
             mock_restart_with_reloader.assert_called_once_with()
             mock_sys.exit.assert_called_once_with(15)
-            mock_os.environ.get.assert_called_once_with('RUN_RELOADER_MAIN')
+            mock_os.environ.get.assert_called_once_with('PYSOA_RELOADER_RUN_MAIN')
             self.assertFalse(mock_watch_files.called)
             self.assertFalse(mock_stop_watching.called)
             self.assertFalse(mock_os.getpid.called)
@@ -402,7 +413,7 @@ class TestAbstractReloader(unittest.TestCase):
             mock_restart_with_reloader.assert_called_once_with()
             mock_os.getpid.assert_called_once_with()
             mock_os.kill.assert_called_once_with(92738, 21)
-            mock_os.environ.get.assert_called_once_with('RUN_RELOADER_MAIN')
+            mock_os.environ.get.assert_called_once_with('PYSOA_RELOADER_RUN_MAIN')
             self.assertFalse(mock_watch_files.called)
             self.assertFalse(mock_stop_watching.called)
             self.assertFalse(mock_sys.exit.called)
@@ -432,7 +443,7 @@ class TestAbstractReloader(unittest.TestCase):
             mock_func.assert_called_once_with('a', 'b', c='d')
             mock_stop_watching.assert_called_once_with()
             mock_sys.exit.assert_called_once_with(0)
-            mock_os.environ.get.assert_called_once_with('RUN_RELOADER_MAIN')
+            mock_os.environ.get.assert_called_once_with('PYSOA_RELOADER_RUN_MAIN')
             self.assertFalse(mock_os.kill.called)
             self.assertFalse(mock_restart_with_reloader.called)
 
@@ -462,7 +473,7 @@ class TestAbstractReloader(unittest.TestCase):
             mock_func.assert_called_once_with('foo', 'bar', baz='qux')
             mock_stop_watching.assert_called_once_with()
             mock_sys.exit.assert_called_once_with(NEED_RELOAD_EXIT_CODE)
-            mock_os.environ.get.assert_called_once_with('RUN_RELOADER_MAIN')
+            mock_os.environ.get.assert_called_once_with('PYSOA_RELOADER_RUN_MAIN')
             self.assertFalse(mock_os.kill.called)
             self.assertFalse(mock_restart_with_reloader.called)
 
@@ -495,7 +506,7 @@ class TestAbstractReloader(unittest.TestCase):
 
             mock_func.assert_called_once_with('a', 'b', c='d')
             mock_stop_watching.assert_called_once_with()
-            mock_os.environ.get.assert_called_once_with('RUN_RELOADER_MAIN')
+            mock_os.environ.get.assert_called_once_with('PYSOA_RELOADER_RUN_MAIN')
             self.assertFalse(mock_sys.exit.called)
             self.assertFalse(mock_os.kill.called)
             self.assertFalse(mock_restart_with_reloader.called)
