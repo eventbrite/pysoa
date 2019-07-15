@@ -1,0 +1,4 @@
+FROM bitnami/redis-sentinel:4.0-debian-9
+
+HEALTHCHECK --start-period=2s --interval=5s --timeout=5s --retries=3 \
+    CMD ["redis-cli", "-p", "26379", "SENTINEL MASTERS"]

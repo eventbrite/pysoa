@@ -1,0 +1,16 @@
+[run]
+branch = true
+source = pysoa
+omit =
+    pysoa/test/*
+    /srv/pysoa/pysoa/test/*
+
+[report]
+fail_under = 55
+precision = 1
+show_missing = true
+
+[paths]
+pysoa =
+    /srv/pysoa/pysoa/
+    pysoa/

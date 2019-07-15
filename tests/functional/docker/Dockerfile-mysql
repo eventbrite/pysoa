@@ -1,0 +1,17 @@
+FROM mysql:5.7
+
+RUN apt-get update && apt-get install -y locales locales-all tzdata && apt-get clean
+
+ENV MYSQL_ROOT_PASSWORD='functionalTestPassword'
+ENV MYSQL_ROOT_HOST='%'
+
+RUN locale-gen en_US.UTF-8
+ENV LC_ALL en_US.UTF-8
+ENV LANG en_us.UTF-8
+ENV LANGUAGE en_us.UTF-8
+
+RUN echo 'CREATE DATABASE `user_service` DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_general_ci;\n\
+' > /docker-entrypoint-initdb.d/pysoa-initialize.sql
+
+HEALTHCHECK --start-period=5s --interval=10s --timeout=10s --retries=3 \
+    CMD ["mysql", "-uroot", "-pfunctionalTestPassword", "-e", "SHOW TABLES IN user_service;"]

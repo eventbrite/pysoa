@@ -1,0 +1,89 @@
+version: "2.4"
+networks:
+  pysoa:
+    driver: bridge
+
+services:
+  mysql:
+    image: "pysoa-test-mysql"
+    networks:
+      pysoa:
+        aliases:
+          - mysql.pysoa
+  redis:
+    image: "pysoa-test-redis"
+    networks:
+      pysoa:
+        aliases:
+          - redis.pysoa
+  redis-sentinel:
+    image: "pysoa-test-redis-sentinel"
+    networks:
+      pysoa:
+        aliases:
+          - redis-sentinel.pysoa
+    environment:
+      - REDIS_MASTER_HOST=redis.pysoa
+    depends_on:
+      redis:
+        condition: service_healthy
+  echo_service:
+    image: "pysoa-test-service-echo"
+    init: true
+    stop_grace_period: 15s
+    networks:
+      - pysoa
+    volumes:
+      - type: bind
+        source: ../run
+        target: /srv/run
+    depends_on:
+      redis:
+        condition: service_healthy
+  meta_service:
+    image: "pysoa-test-service-meta"
+    init: true
+    stop_grace_period: 15s
+    networks:
+      - pysoa
+    volumes:
+      - type: bind
+        source: ../run
+        target: /srv/run
+    depends_on:
+      redis:
+        condition: service_healthy
+  user_service:
+    image: "pysoa-test-service-user"
+    init: true
+    stop_grace_period: 15s
+    networks:
+      - pysoa
+    volumes:
+      - type: bind
+        source: ../run
+        target: /srv/run
+    depends_on:
+      redis:
+        condition: service_healthy
+      redis-sentinel:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      meta_service:
+        condition: service_started
+  test:
+    image: "pysoa-test-test"
+    init: true
+    networks:
+      - pysoa
+    volumes:
+      - type: bind
+        source: ../run
+        target: /srv/run
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: ${DOCKER_BINARY_BIND_SOURCE}
+        target: /usr/local/bin/docker

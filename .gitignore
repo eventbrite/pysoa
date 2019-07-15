@@ -13,7 +13,8 @@ dist/
 
 .idea
 *.iml
-.coverage*
+.coverage
+.coverage.*
 coverage.xml
 pytests.xml
 .pytest_cache

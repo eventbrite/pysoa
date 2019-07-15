@@ -203,14 +203,17 @@ class AbstractReloader(object):
         Depending on the implementation, this loops or blocks indefinitely until the file watcher indicates code has
         changed, at which point it causes a process exit with the exit code `NEED_RELOAD_EXIT_CODE`.
         """
+        # This entire method runs in the child process
         self.watching = True
         while self.watching:
             if self.code_changed():
                 # Signal the server process that we want it to stop (including its forks), and tell the reloader why
+                print('File change detected; reloading server process')
                 self.shutting_down_for_reload = True
-                os.kill(os.getpid(), signal.SIGTERM)
                 if self.signal_forks:
                     os.kill(os.getpid(), signal.SIGHUP)
+                    time.sleep(0.2)
+                os.kill(os.getpid(), signal.SIGTERM)
                 # The server should only take 5 seconds to shut down; if it takes longer, send it another signal
                 i = 0
                 while self.watching:
@@ -233,14 +236,19 @@ class AbstractReloader(object):
     def restart_with_reloader(self):
         """
         This starts a subprocess that is a clone of the current process, with all the same arguments, but with the
-        `RUN_RELOADER_MAIN` environment variable added to the subprocess's environment. It blocks until that subprocess
-        exits, and then examines its exit code. If the exit code is `NEED_RELOAD_EXIT_CODE`, this means the file
-        watcher indicated files have changed and need to be reloaded and exited, so this loops and starts the process
-        again.
+        `PYSOA_RELOADER_RUN_MAIN` environment variable added to the subprocess's environment. It blocks until that
+        subprocess exits, and then examines its exit code. If the exit code is `NEED_RELOAD_EXIT_CODE`, this means the
+        file watcher indicated files have changed and need to be reloaded and exited, so this loops and starts the
+        process again.
 
         :return: The code with which the clone subprocess exited if not `NEED_RELOAD_EXIT_CODE`.
         """
-        command = [sys.executable] + ['-W{}'.format(o) for o in sys.warnoptions]
+        # This entire method runs in the parent process
+        if os.environ.get('PYSOA_RELOADER_WRAPPER_BIN'):
+            # Primitive, but effective, way to override the default executable, such as when using Coverage.py.
+            command = os.environ.get('PYSOA_RELOADER_WRAPPER_BIN').split(' ')
+        else:
+            command = [sys.executable] + ['-W{}'.format(o) for o in sys.warnoptions]
         if self.main_module_name and '{}.py'.format(self.main_module_name.replace('.', '/')) in sys.argv[0]:
             # The server was started with `python -m some_module`, so sys.argv is "wrong." Fix it.
             command += ['-m', self.main_module_name]
@@ -249,14 +257,31 @@ class AbstractReloader(object):
             # The server was started with /path/to/file.py, so sys.argv is "right."
             command += sys.argv
         new_environment = os.environ.copy()
-        new_environment['RUN_RELOADER_MAIN'] = 'true'
+        new_environment['PYSOA_RELOADER_RUN_MAIN'] = 'true'
 
         while True:
-            # We don't want these signals to actually kill this process; just sub-processes
-            signal.signal(signal.SIGINT, signal.SIG_IGN)
-            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            signal.signal(signal.SIGINT, signal.SIG_IGN)  # temporarily disable sigint before creating process
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)  # temporarily disable sigterm before creating process
 
-            exit_code = subprocess.call(command, env=new_environment)
+            signal_lock = threading.Lock()
+            signal_context = {'signaled': False}
+
+            process = subprocess.Popen(command, env=new_environment)
+
+            def signaled(_signal_number, _stack_frame):
+                if not signal_lock.acquire(False) or signal_context['signaled']:
+                    # Non-blocking acquire; duplicate simultaneous signals can be ignored
+                    return
+
+                try:
+                    process.terminate()
+                finally:
+                    signal_lock.release()
+
+            signal.signal(signal.SIGINT, signaled)  # re-enable sigint after starting process
+            signal.signal(signal.SIGTERM, signaled)  # re-enable sigterm after starting process
+
+            exit_code = process.wait()
             if exit_code != NEED_RELOAD_EXIT_CODE:
                 return exit_code
 
@@ -264,9 +289,10 @@ class AbstractReloader(object):
         """
         This is what gets the watching process started. In order to monitor for changes and control process restarts,
         we actually need to start the entire server process from the watcher. But the server process has already
-        started. So, if this is the original server process (environment variable `RUN_RELOADER_MAIN` is not set), we
-        call `restart_with_reloader` to actually start the server process again with files watched. If this is the
-        restarted server process (environment variable `RUN_RELOADER_MAIN` _is_ set), then we start the reloading loop.
+        started. So, if this is the original server process (environment variable `PYSOA_RELOADER_RUN_MAIN` is not set),
+        we call `restart_with_reloader` to actually start the server process again with files watched. If this is the
+        restarted server process (environment variable `PYSOA_RELOADER_RUN_MAIN` _is_ set), then we start the reloading
+        loop.
 
         The original started process does not die. It continues running until `restart_with_reloader` returns, which
         doesn't happen until the restarted (child) server process exits with a code other than `NEED_RELOAD_EXIT_CODE`.
@@ -275,7 +301,8 @@ class AbstractReloader(object):
         :param args: The positional arguments that should be passed to the main program execution function
         :param kwargs: The keyword arguments that should be passed to the main program execution function
         """
-        if os.environ.get('RUN_RELOADER_MAIN') == 'true':
+        if os.environ.get('PYSOA_RELOADER_RUN_MAIN') == 'true':
+            # This runs in the child process
             thread = threading.Thread(target=self.watch_files)
             thread.daemon = True  # we don't want this thread to stop the program from exiting
             thread.start()
@@ -294,6 +321,7 @@ class AbstractReloader(object):
             else:
                 sys.exit(0)  # server process terminated naturally
         else:
+            # This runs in the parent process
             try:
                 exit_code = self.restart_with_reloader()
                 if exit_code < 0:
