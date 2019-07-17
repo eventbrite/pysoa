@@ -3,10 +3,23 @@ from __future__ import (
     unicode_literals,
 )
 
+import argparse
+import collections
 import importlib
 import logging
+import multiprocessing
+import os
+import signal
 import sys
 import threading
+import time
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    List,
+    Optional,
+)
+
+import attr
 
 
 __all__ = (
@@ -32,7 +45,6 @@ if sys.path[0] and not sys.path[0].endswith('/bin'):
 
 
 def _get_arg_parser():
-    import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-f', '--fork-processes', '--fork',
@@ -40,6 +52,15 @@ def _get_arg_parser():
         required=False,
         type=int,
         default=0,
+    )
+    parser.add_argument(
+        '--no-respawn',
+        help='When -f/--fork is used, PySOA will respawn crashed workers by default (unless a worker crashes 3 times '
+             'in 15 seconds or 8 times in 60 seconds, in which case PySOA will give up respawning that worker). Use '
+             '--no-respawn to disable this behavior and never respawn failed workers.',
+        required=False,
+        action='store_true',
+        default=False,
     )
     parser.add_argument(
         '--use-file-watcher',
@@ -59,12 +80,78 @@ def _get_args(parser):
     return parser.parse_known_args()[0]
 
 
+@attr.s
+class _SignalContext(object):
+    signaled = attr.ib(default=False)  # type: bool
+
+
+class _ProcessMonitor(threading.Thread):
+    """
+    A helper thread that manages starting, monitoring, terminating and, upon premature termination, restarting of
+    forked child server processes.
+    """
+    def __init__(self, index, signal_context, respawn, **kwargs):  # type: (int, _SignalContext, bool, Any) -> None
+        self.index = index
+        self.signal_context = signal_context
+        self.respawn = respawn
+        self.process_kwargs = kwargs
+        self.process = None  # type: Optional[multiprocessing.Process]
+        self.one_minute_restart_times = collections.deque(maxlen=8)  # type: collections.deque[float]
+        self.fifteen_second_restart_times = collections.deque(maxlen=3)  # type: collections.deque[float]
+        super(_ProcessMonitor, self).__init__()
+
+    def start_process(self):  # type: () -> _ProcessMonitor
+        super(_ProcessMonitor, self).start()
+        return self
+
+    def terminate(self):  # type: () -> None
+        if self.process:
+            self.process.terminate()
+
+    def _start_process(self):  # type: () -> None
+        self.process = multiprocessing.Process(**self.process_kwargs)
+        self.process.start()
+
+    def run(self):  # type: () -> None
+        self._start_process()
+
+        while not self.signal_context.signaled:
+            self.process.join()
+            time.sleep(0.01)
+            if self.signal_context.signaled or not self.respawn:
+                break
+
+            t = time.time()
+
+            if (
+                len(self.one_minute_restart_times) == self.one_minute_restart_times.maxlen and
+                t - self.one_minute_restart_times[0] < 60
+            ):
+                print(
+                    'Server process #{} has crashed too many times ({}) in the last minute; '
+                    'not respawning.'.format(self.index, self.one_minute_restart_times.maxlen),
+                )
+                break
+            elif (
+                len(self.fifteen_second_restart_times) == self.fifteen_second_restart_times.maxlen and
+                t - self.fifteen_second_restart_times[0] < 15
+            ):
+                print(
+                    'Server process #{} has crashed too many times ({}) in the last 15 seconds; '
+                    'not respawning.'.format(self.index, self.fifteen_second_restart_times.maxlen),
+                )
+                break
+            else:
+                print('Re-spawning failed server process #{}'.format(self.index))
+                self.one_minute_restart_times.append(t)
+                self.fifteen_second_restart_times.append(t)
+                self._start_process()
+
+        self.process = None
+
+
 def _run_server(args, server_class):
     if args.fork_processes > 1:
-        import multiprocessing
-        import signal
-        import time
-
         cpu_count = multiprocessing.cpu_count()
         num_processes = args.fork_processes
         max_processes = cpu_count * 5
@@ -79,9 +166,9 @@ def _run_server(args, server_class):
             )
             num_processes = max_processes
 
-        processes = []
+        processes_monitors = []  # type: List[_ProcessMonitor]
         signal_lock = threading.Lock()
-        signal_context = {'signaled': False}
+        signal_context = _SignalContext()
 
         # `kill -SIGNAL_NAME PID` sends the named signal to the given process, but no further (it does not propagate to
         # the entire process group unless you send it to the GID instead of the PID). But Ctrl+C sends SIGINT to ALL
@@ -91,26 +178,31 @@ def _run_server(args, server_class):
         # the code reloader process), so we need to take similar precautions here.
 
         def signaled(_signal_number, _stack_frame):
-            if not signal_lock.acquire(False) or signal_context['signaled']:
+            if not signal_lock.acquire(False) or signal_context.signaled:
                 # Non-blocking acquire; duplicate simultaneous signals can be ignored
                 return
 
             try:
-                for process in processes:
-                    process.terminate()
-                signal_context['signaled'] = True
+                signal_context.signaled = True
+                for process_monitor in processes_monitors:
+                    process_monitor.terminate()
             finally:
                 signal_lock.release()
 
         signal.signal(signal.SIGINT, signal.SIG_IGN)  # temporarily disable sigint before creating processes
         signal.signal(signal.SIGTERM, signal.SIG_IGN)  # temporarily disable sigterm before creating processes
 
-        processes = [
-            multiprocessing.Process(target=server_class.main, name='pysoa-worker-{}'.format(i), args=(i + 1, ))
-            for i in range(0, num_processes)
+        processes_monitors = [
+            _ProcessMonitor(
+                index=i,
+                signal_context=signal_context,
+                respawn=not args.no_respawn,
+                target=server_class.main,
+                name='pysoa-worker-{}'.format(i),
+                args=(i, ),
+            ).start_process()
+            for i in range(1, num_processes + 1)
         ]
-        for p in processes:
-            p.start()
 
         signal.signal(signal.SIGINT, signaled)  # re-enable sigint after starting processes
         signal.signal(signal.SIGTERM, signaled)  # re-enable sigterm after starting processes
@@ -118,8 +210,14 @@ def _run_server(args, server_class):
 
         time.sleep(1)
 
-        for p in processes:
-            p.join()
+        for m in processes_monitors:
+            if sys.version_info < (3, 3):
+                # In Python < 3.3, Thread.join with no timeout cannot be interrupted by signals, but with timeout it can
+                while m.is_alive():
+                    m.join(2000000000)
+            else:
+                # In Python >= 3.3, we can join with no timeout safely
+                m.join()
     else:
         server_class.main()
 
@@ -172,7 +270,6 @@ def django_main(server_getter):
                           code should not be imported until the `server_getter` callable is called, otherwise Django
                           errors will occur.
     """
-    import os
     # noinspection PyUnresolvedReferences,PyPackageRequirements
     import django
 

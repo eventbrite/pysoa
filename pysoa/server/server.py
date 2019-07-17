@@ -549,6 +549,13 @@ class Server(object):
         you override. See the documentation for `Server.main` for full details on the chain of `Server` method calls.
         """
 
+    def teardown(self):
+        """
+        Runs just before the server shuts down, if you need to do any kind of clean up (like updating a metrics gauge,
+        etc.). Call super().teardown() if you override. See the documentation for `Server.main` for full details on the
+        chain of `Server` method calls.
+        """
+
     def _close_old_django_connections(self):
         if self.use_django:
             if not getattr(django_settings, 'DATABASES'):
@@ -700,6 +707,7 @@ class Server(object):
             self.metrics.counter('server.error.unknown').increment()
             self.logger.exception('Unhandled server error; shutting down')
         finally:
+            self.teardown()
             self.metrics.commit()
             self.logger.info('Server shutting down')
             if self._async_event_loop_thread:
@@ -735,6 +743,8 @@ class Server(object):
               -> self.run
                   |
                   -> self.setup
+                  -> [async event loop started if Python 3.5+]
+                  -> [heartbeat file created if configured]
                   -> loop: self.handle_next_request while not self.shutting_down
                             |
                             -> transport.receive_request_message
@@ -745,6 +755,10 @@ class Server(object):
                                 -> middleware(self.execute_job)
                             -> transport.send_response_message
                             -> self.perform_post_request_actions
+                  -> self.teardown
+                  -> [async event loop joined in Python 3.5+; this make take a few seconds to finish running tasks]
+                  -> [Django resources cleaned up]
+                  -> [heartbeat file deleted if configured]
 
         :param forked_process_id: If multiple processes are forked by the same parent process, this will be set to a
                                   unique, deterministic (incremental) ID which can be used in logging, the heartbeat

@@ -3,10 +3,14 @@ from __future__ import (
     unicode_literals,
 )
 
+import datetime
 import os
 import signal
 import sys
+import time
 import unittest
+
+import freezegun
 
 from pysoa.test.compatibility import mock
 
@@ -157,7 +161,7 @@ class TestSimpleMain(unittest.TestCase):
 
         mock_cpu_count.return_value = 2
 
-        sys.argv = ['/path/to/example_service/standalone.py', '-f', '10']
+        sys.argv = ['/path/to/example_service/standalone.py', '-f', '10', '--no-respawn']
 
         prev_sigint = prev_sigterm = prev_sighup = False
         try:
@@ -174,22 +178,20 @@ class TestSimpleMain(unittest.TestCase):
             self.assertFalse(server_getter.return_value.main.called)
 
             self.assertEqual(10, mock_process.call_count)
-            i = 0
-            for i, call in enumerate(mock_process.call_args_list):
+            i = 1
+            for call in mock_process.call_args_list:
                 self.assertEqual(server_getter.return_value.main, call[1]['target'])
                 self.assertEqual('pysoa-worker-{}'.format(i), call[1]['name'])
+                self.assertEqual((i, ), call[1]['args'])
                 i += 1
-            self.assertEqual(10, i)
 
             for i, process in enumerate(processes):
                 self.assertTrue(process.start.called, 'Process {} was not started'.format(i))
                 self.assertTrue(process.join.called, 'Process {} was not joined'.format(i))
                 self.assertFalse(process.terminate.called, 'Process {} should not have been terminated'.format(i))
 
-            os.kill(os.getpid(), signal.SIGHUP)
-
             for i, process in enumerate(processes):
-                self.assertTrue(process.terminate.called, 'Process {} was terminated'.format(i))
+                assert process.terminate.called is False
         finally:
             if prev_sigint is not False:
                 signal.signal(signal.SIGINT, prev_sigint or signal.SIG_IGN)
@@ -205,7 +207,7 @@ class TestSimpleMain(unittest.TestCase):
 
         mock_cpu_count.return_value = 1
 
-        sys.argv = ['/path/to/example_service/standalone.py', '-f', '10']
+        sys.argv = ['/path/to/example_service/standalone.py', '-f', '10', '--no-respawn']
 
         prev_sigint = prev_sigterm = prev_sighup = False
         try:
@@ -222,22 +224,143 @@ class TestSimpleMain(unittest.TestCase):
             self.assertFalse(server_getter.return_value.main.called)
 
             self.assertEqual(5, mock_process.call_count)
-            i = 0
-            for i, call in enumerate(mock_process.call_args_list):
+            i = 1
+            for call in mock_process.call_args_list:
                 self.assertEqual(server_getter.return_value.main, call[1]['target'])
                 self.assertEqual('pysoa-worker-{}'.format(i), call[1]['name'])
+                self.assertEqual((i, ), call[1]['args'])
                 i += 1
-            self.assertEqual(5, i)
 
             for i, process in enumerate(processes):
                 self.assertTrue(process.start.called, 'Process {} was not started'.format(i))
                 self.assertTrue(process.join.called, 'Process {} was not joined'.format(i))
                 self.assertFalse(process.terminate.called, 'Process {} should not have been terminated'.format(i))
 
-            os.kill(os.getpid(), signal.SIGHUP)
-
             for i, process in enumerate(processes):
-                self.assertTrue(process.terminate.called, 'Process {} was terminated'.format(i))
+                assert process.terminate.called is False
+        finally:
+            if prev_sigint is not False:
+                signal.signal(signal.SIGINT, prev_sigint or signal.SIG_IGN)
+            if prev_sigterm is not False:
+                signal.signal(signal.SIGTERM, prev_sigterm or signal.SIG_IGN)
+            if prev_sighup is not False:
+                signal.signal(signal.SIGHUP, prev_sighup or signal.SIG_IGN)
+
+    class _MockProcess(object):
+        def __init__(self, dying):
+            self.start = mock.MagicMock()
+            self.terminate = mock.MagicMock()
+            self.join = mock.MagicMock()
+
+            if not dying:
+                def _join_se():
+                    time.sleep(1)
+                self.join.side_effect = _join_se
+
+    @mock.patch('multiprocessing.Process')
+    @mock.patch('multiprocessing.cpu_count')
+    def test_forking_with_default_respawn(self, mock_cpu_count, mock_process):
+        server_getter = mock.MagicMock()
+
+        mock_cpu_count.return_value = 2
+
+        sys.argv = ['/path/to/example_service/standalone.py', '-f', '3']
+
+        prev_sigint = prev_sigterm = prev_sighup = False
+        try:
+            prev_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
+            prev_sigterm = signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            prev_sighup = signal.signal(signal.SIGHUP, signal.SIG_IGN)
+
+            living_processes = []
+            quick_dying_processes = []
+            slow_dying_processes = []
+            bad_processes = []
+
+            def patched_freeze_time():
+                # TODO Until https://github.com/spulec/freezegun/issues/307 is fixed
+                f = freezegun.freeze_time()
+                f.ignore = tuple(set(f.ignore) - {'threading'})
+                return f
+
+            with patched_freeze_time() as frozen_time:
+                def tick_six_se():
+                    frozen_time.tick(datetime.timedelta(seconds=6))
+
+                def tick_twenty_se():
+                    frozen_time.tick(datetime.timedelta(seconds=20))
+
+                def signal_se():
+                    os.kill(os.getpid(), signal.SIGTERM)
+                    time.sleep(0.3)
+
+                def se(target, name, args):
+                    process = mock.MagicMock()
+                    process.culprit = (target, name, args)
+                    if args[0] == 1:
+                        # If it's the first process, we want to actually live. This tests normal operation.
+                        living_processes.append(process)
+                        if len(living_processes) == 6:
+                            raise ValueError('Too many, too many!')
+                        elif len(living_processes) == 5:
+                            process.join.side_effect = signal_se
+                        else:
+                            process.join.side_effect = tick_twenty_se
+                        if len(living_processes) == 1:
+                            time.sleep(3)  # sleep 3 seconds so that all of these happen after quick- and slow-dying
+                    elif args[0] == 2:
+                        # If it's the second process, we want to die quickly. This tests the 15-second respawn limit.
+                        quick_dying_processes.append(process)
+                        # no sleep so that all of these happen before any ticks, before slow-dying and living
+                    elif args[0] == 3:
+                        # If it's the third process, we want to die slowly. This tests the 60-second respawn limit.
+                        slow_dying_processes.append(process)
+                        process.join.side_effect = tick_six_se
+                        if len(slow_dying_processes) == 1:
+                            time.sleep(1)  # sleep 1 second so that all of these happen after quick-dying
+                    else:
+                        bad_processes.append((target, name, args))
+                        raise ValueError('Nope nope nope')
+                    return process
+
+                mock_process.side_effect = se
+
+                standalone.simple_main(server_getter)
+
+            server_getter.assert_called_once_with()
+            assert server_getter.return_value.main.called is False
+
+            assert len(bad_processes) == 0
+            assert len(quick_dying_processes) == 4
+            assert len(slow_dying_processes) == 9
+            assert len(living_processes) == 5
+
+            for i, p in enumerate(living_processes):
+                assert p.culprit[0] is server_getter.return_value.main
+                assert p.culprit[1] == 'pysoa-worker-1'
+                assert p.culprit[2] == (1, )
+                if i < 5:
+                    p.start.assert_called_once_with()
+                    p.join.assert_called_once_with()
+            for p in living_processes[:-1]:
+                assert p.terminate.called is False
+            living_processes[-1].terminate.assert_called_once_with()
+
+            for p in quick_dying_processes:
+                assert p.culprit[0] is server_getter.return_value.main
+                assert p.culprit[1] == 'pysoa-worker-2'
+                assert p.culprit[2] == (2, )
+                p.start.assert_called_once_with()
+                p.join.assert_called_once_with()
+                assert p.terminate.called is False
+
+            for p in slow_dying_processes:
+                assert p.culprit[0] is server_getter.return_value.main
+                assert p.culprit[1] == 'pysoa-worker-3'
+                assert p.culprit[2] == (3, )
+                p.start.assert_called_once_with()
+                p.join.assert_called_once_with()
+                assert p.terminate.called is False
         finally:
             if prev_sigint is not False:
                 signal.signal(signal.SIGINT, prev_sigint or signal.SIG_IGN)
