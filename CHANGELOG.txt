@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.64.1 (2019-07-18)
+-------------------
+- [PATCH] Commit metrics during perform_pre_request_actions
+
 0.64.0 (2019-07-18)
 -------------------
 - [MINOR] Respawn crashed workers when running in forking mode
