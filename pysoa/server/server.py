@@ -636,6 +636,8 @@ class Server(object):
         Be sure your purpose for overriding isn't better met with middleware. See the documentation for `Server.main`
         for full details on the chain of `Server` method calls.
         """
+        self.metrics.commit()
+
         if self.use_django:
             if getattr(django_settings, 'DATABASES'):
                 self.logger.debug('Resetting Django query log')
