@@ -221,8 +221,10 @@ class IntrospectionAction(Action):
 
     @staticmethod
     def _introspect_action(action_class):
+        documentation = getattr(action_class, 'description', action_class.__doc__)
+
         action = {
-            'documentation': getattr(action_class, 'description', action_class.__doc__) or None,
+            'documentation': six.text_type(documentation) if documentation else None,
             'request_schema': None,
             'response_schema': None,
         }
