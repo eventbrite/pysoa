@@ -1,3 +1,4 @@
+# The __future__ imports are only here to satisfy isort; they are not needed.
 from __future__ import (
     absolute_import,
     unicode_literals,
@@ -5,9 +6,26 @@ from __future__ import (
 
 # noinspection PyCompatibility
 import asyncio
+# noinspection PyCompatibility
+import concurrent.futures
 import logging
 import sys
 import threading
+from typing import List
+
+from conformity import fields
+
+from pysoa.common.compatibility import set_running_loop
+from pysoa.server.coroutine import (  # noqa: F401 TODO Python 3
+    Coroutine,
+    CoroutineMiddleware,
+)
+
+
+__all__ = (
+    'AsyncEventLoopThread',
+    'coroutine_middleware_config',
+)
 
 
 if sys.version_info >= (3, 7):
@@ -17,10 +35,11 @@ else:
 
 
 class AsyncEventLoopThread(threading.Thread):
-    def __init__(self):
+    def __init__(self, coroutine_middleware: List[CoroutineMiddleware]):  # noqa: E999
         # noinspection PyCompatibility
         super().__init__()
-        self.loop = asyncio.new_event_loop()
+        self.loop = asyncio.new_event_loop()  # type: asyncio.AbstractEventLoop
+        self._coroutine_middleware = coroutine_middleware  # type: List[CoroutineMiddleware]
         self._done = threading.Event()
         self._logger = logging.getLogger('pysoa.async')
 
@@ -32,6 +51,7 @@ class AsyncEventLoopThread(threading.Thread):
         self._logger.info('Starting async event loop thread')
         self._done.clear()
         asyncio.set_event_loop(self.loop)
+        set_running_loop(self.loop)
         try:
             self._logger.info('Async event loop thread available and running')
             self.loop.run_forever()
@@ -46,6 +66,7 @@ class AsyncEventLoopThread(threading.Thread):
                 self.loop.close()
                 # noinspection PyTypeChecker
                 asyncio.set_event_loop(None)  # type: ignore
+                set_running_loop(None)
                 self._done.set()
 
     def join(self, timeout=None):
@@ -59,5 +80,22 @@ class AsyncEventLoopThread(threading.Thread):
         # noinspection PyCompatibility
         super().join(timeout)
 
-    def run_coroutine(self, coroutine):
+    def run_coroutine(self, coroutine):  # type: (Coroutine) -> concurrent.futures.Future
+        for middleware_obj in self._coroutine_middleware:
+            middleware_obj.before_run_coroutine()
+
+        for middleware_obj in reversed(self._coroutine_middleware):
+            coroutine = middleware_obj.coroutine(coroutine)
+
         return asyncio.run_coroutine_threadsafe(coroutine, self.loop)
+
+
+coroutine_middleware_config = fields.List(
+    fields.ClassConfigurationSchema(base_class=CoroutineMiddleware),
+    description='The list of all `CoroutineMiddleware` classes that should be constructed and applied to '
+                '`request.run_coroutine` calls processed by this server. By default, '
+                '`pysoa.server.coroutine:DefaultCoroutineMiddleware` will be configured first. You can change and/or '
+                'add to this, but we recommend that you always configure `DefaultCoroutineMiddleware` as the first '
+                'middleware.',
+)
+coroutine_middleware_config.contents.initiate_cache_for('pysoa.server.coroutine:DefaultCoroutineMiddleware')

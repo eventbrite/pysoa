@@ -25,6 +25,12 @@ base_requirements = [
     'redis~=2.10',
     'six~=1.10',
     'typing;python_version<"3.5"',
+
+    # For context, see the comment in pysoa.common.compatibility. Due to the peculiarities of the patching detailed
+    # there, we pin these dependencies to hard versions, or else things might break when they update. When new versions
+    # come out, we'll bump and adjust our patching or, hopefully, relax and remove our patching.
+    'contextvars==2.4;python_version>"3.4" and python_version<"3.7"',
+    'aiocontextvars==0.2.2;python_version>"3.4" and python_version<"3.7"',
 ]
 
 test_helper_requirements = [
@@ -34,6 +40,7 @@ test_helper_requirements = [
 test_plan_requirements = test_helper_requirements + [
     'pyparsing~=2.2',
     'pytest>=3.1,<6,!=4.2.0',  # 4.2.0 has a regression breaking our test plans, fixed in 4.2.1
+    'pytest-asyncio;python_version>"3.4"',
     'pytz>=2019.1',
 ]
 

@@ -4,9 +4,15 @@ from __future__ import (
 )
 
 import functools
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+    cast,
+)
 import warnings
 
 from conformity import fields
+import six  # noqa: F401 TODO Python 3
 
 from pysoa.common.logging import SyslogHandler
 from pysoa.common.settings import SOASettings
@@ -14,6 +20,12 @@ from pysoa.common.transport.base import ServerTransport as BaseServerTransport
 from pysoa.common.transport.local import LocalServerTransport
 from pysoa.common.transport.redis_gateway.server import RedisServerTransport
 from pysoa.server.middleware import ServerMiddleware
+
+
+try:
+    from pysoa.server.internal.event_loop import coroutine_middleware_config
+except (ImportError, SyntaxError):
+    coroutine_middleware_config = None
 
 
 _logger_schema = fields.Dictionary(
@@ -144,7 +156,7 @@ class ServerSettings(SOASettings):
             description='Use this field to supplement the set of fields that are automatically redacted/censored in '
                         'request and response fields with additional fields that your service needs redacted.',
         ),
-    }
+    }  # type: Dict[six.text_type, fields.Base]
 
     defaults = {
         'client_routing': {},
@@ -200,13 +212,18 @@ class ServerSettings(SOASettings):
         'transport': {
             'path': 'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
         }
-    }
+    }  # type: Dict[six.text_type, Any]
 
 
-ServerSettings.schema['transport'].initiate_cache_for(
+if coroutine_middleware_config:
+    ServerSettings.schema['coroutine_middleware'] = coroutine_middleware_config
+    ServerSettings.defaults['coroutine_middleware'] = [{'path': 'pysoa.server.coroutine:DefaultCoroutineMiddleware'}]
+
+
+cast(fields.ClassConfigurationSchema, ServerSettings.schema['transport']).initiate_cache_for(
     'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
 )
-ServerSettings.schema['transport'].initiate_cache_for(
+cast(fields.ClassConfigurationSchema, ServerSettings.schema['transport']).initiate_cache_for(
     'pysoa.common.transport.local:LocalServerTransport',
 )
 

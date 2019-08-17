@@ -10,3 +10,4 @@ import sys
 collect_ignore = []
 if sys.version_info < (3, 5):
     collect_ignore.append('tests/unit/server/internal/test_event_loop.py')
+    collect_ignore.append('tests/unit/common/test_compatibility_async.py')

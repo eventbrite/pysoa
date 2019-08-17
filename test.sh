@@ -19,4 +19,12 @@ then
     RET=$ret_sub
 fi
 
+echo "Inspecting code..."
+./lint.sh
+ret_sub=$?
+if [[ $ret_sub -gt 0 ]] && [[ $RET -eq 0 ]]
+then
+    RET=$ret_sub
+fi
+
 exit $RET
