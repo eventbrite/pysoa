@@ -6,9 +6,10 @@ from __future__ import (
 import logging
 import logging.handlers
 import socket
-import threading
 
 import six
+
+from pysoa.common.compatibility import ContextVar
 
 
 class PySOALogContextFilter(logging.Filter):
@@ -26,25 +27,25 @@ class PySOALogContextFilter(logging.Filter):
         record.service_name = self._service_name or 'unknown'
         return True
 
-    _logging_context = threading.local()
+    _context_stack = ContextVar('logging_context_stack', default=None)
 
     _service_name = None
 
     @classmethod
     def set_logging_request_context(cls, **context):
-        if not getattr(cls._logging_context, 'context_stack', None):
-            cls._logging_context.context_stack = []
-        cls._logging_context.context_stack.append(context)
+        if not cls._context_stack.get():
+            cls._context_stack.set([])
+        cls._context_stack.get().append(context)
 
     @classmethod
     def clear_logging_request_context(cls):
-        if getattr(cls._logging_context, 'context_stack', None):
-            cls._logging_context.context_stack.pop()
+        if cls._context_stack.get():
+            cls._context_stack.get().pop()
 
     @classmethod
     def get_logging_request_context(cls):
-        if getattr(cls._logging_context, 'context_stack', None):
-            return cls._logging_context.context_stack[-1]
+        if cls._context_stack.get():
+            return cls._context_stack.get()[-1]
         return None
 
     @classmethod

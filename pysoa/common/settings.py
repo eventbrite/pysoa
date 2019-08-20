@@ -5,6 +5,10 @@ from __future__ import (
 
 import copy
 import itertools
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+)
 
 from conformity import fields
 from conformity.error import ValidationError
@@ -66,8 +70,8 @@ class Settings(object):
     will merge any passed values into its defaults.
     """
 
-    schema = {}
-    defaults = {}
+    schema = {}  # type: Dict[six.text_type, fields.Base]
+    defaults = {}  # type: Dict[six.text_type, Any]
 
     class ImproperlyConfigured(Exception):
         """Raised when a configuration validation fails."""
@@ -127,9 +131,9 @@ class SOASettings(Settings):
             description='The list of all middleware objects that should be applied to this server or client',
         ),
         'metrics': MetricsSchema(),
-    }
+    }  # type: Dict[six.text_type, fields.Base]
 
     defaults = {
         'middleware': [],
         'metrics': {'path': 'pysoa.common.metrics:NoOpMetricsRecorder'},
-    }
+    }  # type: Dict[six.text_type, Any]

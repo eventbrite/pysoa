@@ -17,7 +17,7 @@ matrix:
       name: "Unit Tests: Python 2.7 with PyTest 3.1 and 4.6"
       python: "2.7"
       script:
-        - tox -e py27-pytest31,py27-pytest46,py27-flake8,coverage
+        - tox -e py27-pytest31,py27-pytest46,py27-flake8,py27-coverage
     - stage: build
       name: "Unit Tests: Python 3.5 with and without PyInotify"
       python: "3.5"
@@ -35,10 +35,10 @@ matrix:
         - tox -e py37-attrs17,py37-attrs18,py37-attrs19,py37-flake8,coverage
       dist: xenial
     - stage: build
-      name: "Unit Tests: Python 3.7 with PyTest 3.1, 4.6, and 5.0"
+      name: "Unit Tests: Python 3.7 with PyTest 4.6 and 5.1"
       python: "3.7"
       script:
-        - tox -e py37-pytest31,py37-pytest46,py37-pytest50,py37-flake8,coverage
+        - tox -e py37-pytest46,py37-pytest51,py37-flake8,coverage
       dist: xenial
     - stage: build
       name: "Functional Tests"

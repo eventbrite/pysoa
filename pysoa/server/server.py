@@ -57,7 +57,7 @@ import pysoa.version
 
 try:
     from pysoa.server.internal.event_loop import AsyncEventLoopThread
-except ImportError:
+except (ImportError, SyntaxError):
     AsyncEventLoopThread = None
 
 try:
@@ -117,12 +117,6 @@ class Server(object):
         if not self.service_name:
             raise AttributeError('Server subclass must set service_name')
 
-        self._async_event_loop = None
-        self._async_event_loop_thread = None
-        if AsyncEventLoopThread:
-            self._async_event_loop_thread = AsyncEventLoopThread()
-            self._async_event_loop = self._async_event_loop_thread.loop
-
         # Store settings and extract transport
         self.settings = settings
         self.metrics = self.settings['metrics']['object'](**self.settings['metrics'].get('kwargs', {}))
@@ -131,6 +125,15 @@ class Server(object):
             self.metrics,
             **self.settings['transport'].get('kwargs', {})
         )
+
+        self._async_event_loop = None
+        self._async_event_loop_thread = None
+        if AsyncEventLoopThread:
+            self._async_event_loop_thread = AsyncEventLoopThread([
+                m['object'](**m.get('kwargs', {}))
+                for m in self.settings['coroutine_middleware']
+            ])
+            self._async_event_loop = self._async_event_loop_thread.loop
 
         # Set initial state
         self.shutting_down = False
