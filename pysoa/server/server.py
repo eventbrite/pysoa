@@ -527,20 +527,43 @@ class Server(object):
             # prevent handling them all. The duplicates can always be ignored, so this is a non-blocking acquire.
             return
 
+        threads = {t.ident: {'name': t.name, 'traceback': ['Unknown']} for t in threading.enumerate()}
+        # noinspection PyProtectedMember
+        for thread_id, frame in sys._current_frames().items():
+            stack = []
+            for f in traceback.format_stack(frame):
+                stack.extend(f.rstrip().split('\n'))
+            threads.setdefault(thread_id, {'name': thread_id})['traceback'] = stack
+
+        extra = {'data': {'thread_status': {
+            t['name']: [l.rstrip() for l in t['traceback']] for t in threads.values()
+        }}}
+        details = 'Current thread status at harakiri trigger:\n{}'.format('\n'.join((
+            'Thread {}:\n{}'.format(t['name'], '\n'.join(t['traceback'])) for t in threads.values()
+        )))
+
         try:
             self._last_signal = signal_number
             self._last_signal_received = time.time()
 
             if self.shutting_down:
-                self.logger.warning('Graceful shutdown failed after {}s. Exiting now!'.format(
-                    self.settings['harakiri']['shutdown_grace']
-                ))
+                self.logger.warning(
+                    'Graceful shutdown failed {} seconds after harakiri. Exiting now!'.format(
+                        self.settings['harakiri']['shutdown_grace']
+                    ),
+                    extra=extra,
+                )
+                self.logger.info(details)
                 sys.exit(1)
             else:
-                self.logger.warning('No activity during {}s, triggering harakiri with grace {}s'.format(
-                    self.settings['harakiri']['timeout'],
-                    self.settings['harakiri']['shutdown_grace'],
-                ))
+                self.logger.warning(
+                    'No activity for {} seconds, triggering harakiri with grace period of {} seconds'.format(
+                        self.settings['harakiri']['timeout'],
+                        self.settings['harakiri']['shutdown_grace'],
+                    ),
+                    extra=extra,
+                )
+                self.logger.info(details)
                 self.shutting_down = True
                 signal.alarm(self.settings['harakiri']['shutdown_grace'])
         finally:
