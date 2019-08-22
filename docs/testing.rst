@@ -94,17 +94,17 @@ Here is a full example using all the asserts:
             errors = self.assertActionRunsWithAndReturnErrors('get_object', {})
 
             self.assertEqual(1, len(errors))
-            self.assertEqual('FIELD_MISSING', errors[0].code)
+            self.assertEqual(FIELD_MISSING, errors[0].code)
             self.assertEqual('object_id', errors[0].field)
 
         def test_two(self):
-            self.assertActionRunsWithFieldErrors('get_object', {}, {'object_id': 'FIELD_MISSING'})
+            self.assertActionRunsWithFieldErrors('get_object', {}, {'object_id': FIELD_MISSING})
 
         def test_three(self):
             self.assertActionRunsWithOnlyFieldErrors(
                 'get_objects',
                 {'object_id': '1234'},
-                {'object_id': 'UNEXPECTED_FIELD', 'object_ids': {'FIELD_MISSING'}},
+                {'object_id': 'UNEXPECTED_FIELD', 'object_ids': {FIELD_MISSING}},
             )
 
         def test_four(self):
