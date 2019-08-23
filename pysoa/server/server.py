@@ -812,6 +812,15 @@ class Server(object):
             self._delete_heartbeat_file()
             self.logger.info('Server shutdown complete')
 
+    @classmethod
+    def pre_fork(cls):
+        """
+        Called only if the --fork argument is used to pre-fork multiple worker processes. In this case, it is called
+        by the parent process immediately after signal handlers are set and immediately before the worker sub-processes
+        are spawned. It is never called again in the life span of the parent process, even if a worker process crashes
+        and gets re-spawned.
+        """
+
     # noinspection PyUnusedLocal
     @classmethod
     def initialize(cls, settings):

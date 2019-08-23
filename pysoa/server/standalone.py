@@ -127,22 +127,25 @@ class _ProcessMonitor(threading.Thread):
                 len(self.one_minute_restart_times) == self.one_minute_restart_times.maxlen and
                 t - self.one_minute_restart_times[0] < 60
             ):
-                print(
+                sys.stdout.write(
                     'Server process #{} has crashed too many times ({}) in the last minute; '
-                    'not respawning.'.format(self.index, self.one_minute_restart_times.maxlen),
+                    'not respawning.\n'.format(self.index, self.one_minute_restart_times.maxlen),
                 )
+                sys.stdout.flush()
                 break
             elif (
                 len(self.fifteen_second_restart_times) == self.fifteen_second_restart_times.maxlen and
                 t - self.fifteen_second_restart_times[0] < 15
             ):
-                print(
+                sys.stdout.write(
                     'Server process #{} has crashed too many times ({}) in the last 15 seconds; '
-                    'not respawning.'.format(self.index, self.fifteen_second_restart_times.maxlen),
+                    'not respawning.\n'.format(self.index, self.fifteen_second_restart_times.maxlen),
                 )
+                sys.stdout.flush()
                 break
             else:
-                print('Re-spawning failed server process #{}'.format(self.index))
+                sys.stdout.write('Re-spawning failed server process #{}\n'.format(self.index))
+                sys.stdout.flush()
                 self.one_minute_restart_times.append(t)
                 self.fifteen_second_restart_times.append(t)
                 self._start_process()
@@ -156,14 +159,15 @@ def _run_server(args, server_class):
         num_processes = args.fork_processes
         max_processes = cpu_count * 5
         if num_processes > max_processes:
-            print(
+            sys.stdout.write(
                 'WARNING: Number of requested process forks ({forks}) is greater than five times the number of CPU '
-                'cores available ({cores} cores). Capping number of forks at {cap}.'.format(
+                'cores available ({cores} cores). Capping number of forks at {cap}.\n'.format(
                     forks=args.fork_processes,
                     cores=cpu_count,
                     cap=max_processes,
                 )
             )
+            sys.stdout.flush()
             num_processes = max_processes
 
         processes_monitors = []  # type: List[_ProcessMonitor]
@@ -191,6 +195,8 @@ def _run_server(args, server_class):
 
         signal.signal(signal.SIGINT, signal.SIG_IGN)  # temporarily disable sigint before creating processes
         signal.signal(signal.SIGTERM, signal.SIG_IGN)  # temporarily disable sigterm before creating processes
+
+        server_class.pre_fork()
 
         processes_monitors = [
             _ProcessMonitor(
