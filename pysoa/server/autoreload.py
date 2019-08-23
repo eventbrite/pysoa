@@ -208,7 +208,8 @@ class AbstractReloader(object):
         while self.watching:
             if self.code_changed():
                 # Signal the server process that we want it to stop (including its forks), and tell the reloader why
-                print('File change detected; reloading server process')
+                sys.stdout.write('File change detected; reloading server process\n')
+                sys.stdout.flush()
                 self.shutting_down_for_reload = True
                 if self.signal_forks:
                     os.kill(os.getpid(), signal.SIGHUP)
@@ -220,7 +221,10 @@ class AbstractReloader(object):
                     time.sleep(0.5)
                     i += 1
                     if i > 12:
-                        print("Process took too long to stop after file change; signaling again (won't restart)")
+                        sys.stdout.write(
+                            "Process took too long to stop after file change; signaling again (won't restart)\n",
+                        )
+                        sys.stdout.flush()
                         os.kill(os.getpid(), signal.SIGTERM)
                         break
                 break
