@@ -5,6 +5,11 @@ from __future__ import (
 
 import time
 
+import pytest
+
+from pysoa.common.constants import ERROR_CODE_ACTION_TIMEOUT
+from pysoa.common.transport.exceptions import MessageReceiveTimeout
+
 from tests.functional import (
     get_container_process_list,
     pysoa_client,
@@ -140,3 +145,53 @@ def test_no_reload_no_watcher():
     )
     for response in responses:
         assert response.body['version'] == '1.0.17'
+
+
+def test_harakiri_graceful_restart():
+    original_ts_1 = float(read_file_from_container('echo_service', '/srv/echo_service-1.heartbeat'))
+    original_ts_2 = float(read_file_from_container('echo_service', '/srv/echo_service-2.heartbeat'))
+    original_ts_3 = float(read_file_from_container('echo_service', '/srv/echo_service-3.heartbeat'))
+    assert original_ts_1 > 0
+    assert original_ts_2 > 0
+    assert original_ts_3 > 0
+
+    print(get_container_process_list('echo_service'))
+
+    with pytest.raises(pysoa_client.CallActionError) as error_context:
+        pysoa_client.call_action('echo', 'harakiri_loop_graceful', timeout=12)
+
+    assert len(error_context.value.actions) == 1
+    assert len(error_context.value.actions[0].errors) == 1
+    assert error_context.value.actions[0].errors[0].code == ERROR_CODE_ACTION_TIMEOUT
+
+    print(get_container_process_list('echo_service'))
+
+    new_ts_1 = float(read_file_from_container('echo_service', '/srv/echo_service-1.heartbeat'))
+    new_ts_2 = float(read_file_from_container('echo_service', '/srv/echo_service-2.heartbeat'))
+    new_ts_3 = float(read_file_from_container('echo_service', '/srv/echo_service-3.heartbeat'))
+    assert new_ts_1 > original_ts_1
+    assert new_ts_2 > original_ts_2
+    assert new_ts_3 > original_ts_3
+
+
+def test_harakiri_forceful_restart():
+    original_ts_1 = float(read_file_from_container('echo_service', '/srv/echo_service-1.heartbeat'))
+    original_ts_2 = float(read_file_from_container('echo_service', '/srv/echo_service-2.heartbeat'))
+    original_ts_3 = float(read_file_from_container('echo_service', '/srv/echo_service-3.heartbeat'))
+    assert original_ts_1 > 0
+    assert original_ts_2 > 0
+    assert original_ts_3 > 0
+
+    print(get_container_process_list('echo_service'))
+
+    with pytest.raises(MessageReceiveTimeout):
+        pysoa_client.call_action('echo', 'harakiri_loop_forceful', timeout=12)
+
+    print(get_container_process_list('echo_service'))
+
+    new_ts_1 = float(read_file_from_container('echo_service', '/srv/echo_service-1.heartbeat'))
+    new_ts_2 = float(read_file_from_container('echo_service', '/srv/echo_service-2.heartbeat'))
+    new_ts_3 = float(read_file_from_container('echo_service', '/srv/echo_service-3.heartbeat'))
+    assert new_ts_1 > original_ts_1
+    assert new_ts_2 > original_ts_2
+    assert new_ts_3 > original_ts_3

@@ -10,4 +10,8 @@ SOA_SERVER_SETTINGS = {
             'backend_type': REDIS_BACKEND_TYPE_STANDARD,
         },
     },
+    'harakiri': {
+        'timeout': 7,
+        'shutdown_grace': 3,
+    },
 }

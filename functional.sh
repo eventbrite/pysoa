@@ -45,7 +45,8 @@ docker ps|grep pysoa-test
 echo  "Running functional tests..."
 #docker-compose -f $DCF exec -T test pytest tests/functional
 docker-compose -f $DCF exec -T test \
-    coverage run --concurrency=multiprocessing --rcfile=/srv/run/.coveragerc -m pytest -vv tests/functional
+    coverage run --concurrency=multiprocessing --rcfile=/srv/run/.coveragerc -m \
+    pytest -vv -p no:pysoa_test_plan tests/functional
 RET=$?
 
 # Stop these now, so that coverage files get written
