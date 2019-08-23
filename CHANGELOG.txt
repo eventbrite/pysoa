@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.66.0 (2019-08-23)
+-------------------
+- [MINOR] Add pre-fork hook method to Server class, clean up prints
+- [MINOR] Further improve harakiri and verify with functional tests
+- [PATCH] Update test documentation to use FIELD_MISSING constant instead of string (#184)
+
 0.65.0 (2019-08-20)
 -------------------
 - [MINOR] Refactor harakiri to log details about running threads' stacks
