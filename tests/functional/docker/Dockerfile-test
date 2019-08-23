@@ -14,7 +14,7 @@ RUN apt-get update && \
     apt-get clean all && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip install pytest docker-compose
+RUN pip install pytest pytz docker-compose
 COPY conftest.py /srv/pysoa/
 COPY tests/functional /srv/pysoa/tests/functional/
 

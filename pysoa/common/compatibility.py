@@ -11,7 +11,7 @@ from typing import (  # noqa: F401 TODO Python 3
     cast,
 )
 
-import six
+import six  # noqa: F401 TODO Python 3
 
 
 try:

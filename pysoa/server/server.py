@@ -4,6 +4,7 @@ from __future__ import (
 )
 
 import argparse
+import atexit
 import codecs
 import importlib
 import logging
@@ -22,6 +23,8 @@ import six
 
 from pysoa.client import Client
 from pysoa.common.constants import (
+    ERROR_CODE_ACTION_TIMEOUT,
+    ERROR_CODE_JOB_TIMEOUT,
     ERROR_CODE_RESPONSE_NOT_SERIALIZABLE,
     ERROR_CODE_RESPONSE_TOO_LARGE,
     ERROR_CODE_SERVER_ERROR,
@@ -78,6 +81,15 @@ except ImportError:
 
     class DatabaseError(Exception):
         pass
+
+
+class HarakiriInterrupt(BaseException):
+    """
+    Raised internally to notify the server code about interrupts due to harakiri. You should never, ever, ever, ever
+    catch this exception in your service code. As such, it inherits from `BaseException` so that even
+    `except Exception:` won't catch it. However, `except:` will catch it, so, per standard Python coding standards,
+    you should never use `except:` (or `except BaseException:`, for that matter).
+    """
 
 
 class Server(object):
@@ -344,6 +356,14 @@ class Server(object):
             job_response = wrapper(job_request)
             if 'correlation_id' in job_request['context']:
                 job_response.context['correlation_id'] = job_request['context']['correlation_id']
+        except HarakiriInterrupt:
+            self.metrics.counter('server.error.harakiri', harakiri_level='job')
+            job_response = JobResponse(
+                errors=[Error(
+                    code=ERROR_CODE_JOB_TIMEOUT,
+                    message='The service job ran for too long and had to be interrupted (probably a middleware issue).',
+                )],
+            )
         except JobError as e:
             self.metrics.counter('server.error.job_error').increment()
             job_response = JobResponse(
@@ -424,6 +444,7 @@ class Server(object):
         :rtype: JobResponse
         """
         # Run the Job's Actions
+        harakiri = False
         job_response = JobResponse()
         job_switches = RequestSwitchSet(job_request['context']['switches'])
         for i, raw_action_request in enumerate(job_request['actions']):
@@ -461,6 +482,18 @@ class Server(object):
                 # Execute the middleware stack
                 try:
                     action_response = wrapper(action_request)
+                except HarakiriInterrupt:
+                    self.metrics.counter('server.error.harakiri', harakiri_level='action')
+                    action_response = ActionResponse(
+                        action=action_request.action,
+                        errors=[Error(
+                            code=ERROR_CODE_ACTION_TIMEOUT,
+                            message='The action "{}" ran for too long and had to be interrupted.'.format(
+                                action_request.action,
+                            ),
+                        )],
+                    )
+                    harakiri = True
                 except ActionError as e:
                     # Error: an error was thrown while running the Action (or Action middleware)
                     action_response = ActionResponse(
@@ -479,11 +512,11 @@ class Server(object):
                 )
 
             job_response.actions.append(action_response)
-            if (
+            if harakiri or (
                 action_response.errors and
                 not job_request['control'].get('continue_on_error', False)
             ):
-                # Quit running Actions if an error occurred and continue_on_error is False
+                # Quit running Actions if harakiri occurred or an error occurred and continue_on_error is False
                 break
 
         return job_response
@@ -517,21 +550,26 @@ class Server(object):
         finally:
             self._shutdown_lock.release()
 
-    def harakiri(self, signal_number, _stack_frame):  # type: (int, FrameType) -> None
+    def harakiri(self, signal_number, stack_frame):  # type: (int, FrameType) -> None
         """
         Handles the reception of a timeout signal indicating that a request has been processing for too long, as
-        defined by the Harakiri settings.
+        defined by the harakiri settings. This method makes use of two "private" Python functions,
+        `sys._current_frames` and `os._exit`, but both of these functions are publicly documented and supported.
         """
         if not self._shutdown_lock.acquire(False):
             # Ctrl+C can result in 2 or even more signals coming in within nanoseconds of each other. We lock to
             # prevent handling them all. The duplicates can always be ignored, so this is a non-blocking acquire.
             return
 
+        current_thread_id = threading.current_thread().ident
+
         threads = {t.ident: {'name': t.name, 'traceback': ['Unknown']} for t in threading.enumerate()}
         # noinspection PyProtectedMember
         for thread_id, frame in sys._current_frames().items():
             stack = []
-            for f in traceback.format_stack(frame):
+            # If this is the current thread, we use the passed in `stack_frame` instead of the `frame` from
+            # `current_frames`, so that this harakiri code is not in the logged stack trace.
+            for f in traceback.format_stack(stack_frame if current_thread_id == thread_id else frame):
                 stack.extend(f.rstrip().split('\n'))
             threads.setdefault(thread_id, {'name': thread_id})['traceback'] = stack
 
@@ -547,14 +585,33 @@ class Server(object):
             self._last_signal_received = time.time()
 
             if self.shutting_down:
-                self.logger.warning(
+                self.logger.error(
                     'Graceful shutdown failed {} seconds after harakiri. Exiting now!'.format(
                         self.settings['harakiri']['shutdown_grace']
                     ),
                     extra=extra,
                 )
                 self.logger.info(details)
-                sys.exit(1)
+
+                try:
+                    self.metrics.counter('server.error.harakiri', harakiri_level='emergency')
+                    self.metrics.commit()
+                finally:
+                    # We tried shutting down gracefully, but it didn't work. This probably means that we are CPU bound
+                    # in lower-level C code that can't be easily interrupted. Because of this, we forcefully terminate
+                    # the server with prejudice. But first, we do our best to let things finish cleanly, if possible.
+                    # noinspection PyProtectedMember
+                    try:
+                        exit_func = getattr(atexit, '_run_exitfuncs', None)
+                        if exit_func:
+                            thread = threading.Thread(target=exit_func)
+                            thread.start()
+                            thread.join(5.0)  # don't let cleanup tasks take more than five seconds
+                        else:
+                            # we have no way to run exit functions, so at least give I/O two seconds to flush
+                            time.sleep(2.0)
+                    finally:
+                        os._exit(1)
             else:
                 self.logger.warning(
                     'No activity for {} seconds, triggering harakiri with grace period of {} seconds'.format(
@@ -564,8 +621,16 @@ class Server(object):
                     extra=extra,
                 )
                 self.logger.info(details)
-                self.shutting_down = True
+
+                # We re-set the alarm so that if the graceful shutdown we're attempting here doesn't work, harakiri
+                # will be triggered again to force a non-graceful shutdown.
                 signal.alarm(self.settings['harakiri']['shutdown_grace'])
+
+                # Just setting the shutting_down flag isn't enough, because, if harakiri was triggered, we're probably
+                # CPU or I/O bound in some way that won't return any time soon. So we also raise HarakiriInterrupt to
+                # interrupt the main thread and cause the service to shut down in an orderly fashion.
+                self.shutting_down = True
+                raise HarakiriInterrupt()
         finally:
             self._shutdown_lock.release()
 
@@ -729,6 +794,9 @@ class Server(object):
                 # Get, process, and execute the next JobRequest
                 self.handle_next_request()
                 self.metrics.commit()
+        except HarakiriInterrupt:
+            self.metrics.counter('server.error.harakiri', harakiri_level='server')
+            self.logger.error('Harakiri interrupt occurred outside of action or job handling')
         except MessageReceiveError:
             self.logger.exception('Error receiving message from transport; shutting down')
         except Exception:
