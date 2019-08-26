@@ -17,7 +17,12 @@ from pysoa.common.transport.redis_gateway.backend.base import BaseRedisClient
 from pysoa.common.transport.redis_gateway.constants import DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT
 from pysoa.common.transport.redis_gateway.core import RedisTransportCore
 from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
-from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
+from pysoa.common.transport.redis_gateway.utils import (
+    set_mangled_service_data_route_map,
+    get_route_map_server_queue,
+    get_route_map_for_token,
+    make_redis_queue_name,
+)
 
 
 @fields.ClassConfigurationSchema.provider(RedisTransportSchema())
@@ -39,8 +44,9 @@ class RedisClientTransport(ClientTransport):
         if 'maximum_message_size_in_bytes' not in kwargs:
             kwargs['maximum_message_size_in_bytes'] = DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT
 
+        self.service_name = service_name
         self.client_id = uuid.uuid4().hex
-        self._send_queue_name = make_redis_queue_name(service_name)
+        self._send_queue_name = make_redis_queue_name(self.service_name)
         self._receive_queue_name = '{send_queue_name}.{client_id}{response_queue_specifier}'.format(
             send_queue_name=self._send_queue_name,
             client_id=self.client_id,
@@ -59,14 +65,25 @@ class RedisClientTransport(ClientTransport):
         return self._requests_outstanding
 
     def send_request_message(self, request_id, meta, body, message_expiry_in_seconds=None):
+
         self._requests_outstanding += 1
         meta['reply_to'] = '{receive_queue_name}{thread_id}'.format(
             receive_queue_name=self._receive_queue_name,
             thread_id=get_hex_thread_id(),
         )
 
+        mangled_service_name = None
+        route_map_user = get_route_map_for_token(meta.get('route_key'))
+        if route_map_user:
+            mangled_service_name = get_route_map_server_queue(self.service_name, route_map_user)
+
+        send_queue_name = self._send_queue_name
+        if mangled_service_name:
+            send_queue_name = make_redis_queue_name(mangled_service_name)
+            set_mangled_service_data_route_map(self.service_name, mangled_service_name)
+
         with self.metrics.timer('client.transport.redis_gateway.send', resolution=TimerResolution.MICROSECONDS):
-            self.core.send_message(self._send_queue_name, request_id, meta, body, message_expiry_in_seconds)
+            self.core.send_message(send_queue_name, request_id, meta, body, message_expiry_in_seconds)
 
     def receive_response_message(self, receive_timeout_in_seconds=None):
         if self._requests_outstanding > 0:

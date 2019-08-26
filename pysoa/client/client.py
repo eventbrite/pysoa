@@ -43,12 +43,13 @@ __all__ = (
 class ServiceHandler(object):
     """Does the low-level work of communicating with an individual service through its configured transport."""
 
-    def __init__(self, service_name, settings):
+    def __init__(self, service_name, settings, route_key=None):
         """
         :param service_name: The name of the service which this handler calls
         :param settings: The client settings object for this service (and only this service)
         """
         self.metrics = settings['metrics']['object'](**settings['metrics'].get('kwargs', {}))
+        self.route_key = route_key
 
         with self.metrics.timer('client.transport.initialize', resolution=TimerResolution.MICROSECONDS):
             self.transport = settings['transport']['object'](
@@ -84,7 +85,7 @@ class ServiceHandler(object):
                 job_request = attr.asdict(job_request, dict_factory=UnicodeKeysDict)
             self.transport.send_request_message(request_id, meta, job_request, message_expiry_in_seconds)
 
-    def send_request(self, job_request, message_expiry_in_seconds=None):
+    def send_request(self, job_request, message_expiry_in_seconds=None, route_key=None):
         """
         Send a JobRequest, and return a request ID.
 
@@ -105,6 +106,8 @@ class ServiceHandler(object):
         request_id = self.request_counter
         self.request_counter += 1
         meta = {}
+        if self.route_key:
+            meta['route_key'] = self.route_key
         wrapper = self._make_middleware_stack(
             [m.request for m in self.middleware],
             self._base_send_request,
