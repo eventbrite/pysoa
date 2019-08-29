@@ -3,8 +3,6 @@ from __future__ import (
     unicode_literals,
 )
 
-import os
-
 from conformity import fields
 
 from pysoa.common.metrics import TimerResolution
@@ -16,10 +14,7 @@ from pysoa.common.transport.exceptions import (
 from pysoa.common.transport.redis_gateway.constants import DEFAULT_MAXIMUM_MESSAGE_BYTES_SERVER
 from pysoa.common.transport.redis_gateway.core import RedisTransportCore
 from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
-from pysoa.common.transport.redis_gateway.utils import (
-    set_mangled_service_data_route_map,
-    make_redis_queue_name,
-)
+from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
 
 
 @fields.ClassConfigurationSchema.provider(RedisTransportSchema())
@@ -40,13 +35,6 @@ class RedisServerTransport(ServerTransport):
         if 'maximum_message_size_in_bytes' not in kwargs:
             kwargs['maximum_message_size_in_bytes'] = DEFAULT_MAXIMUM_MESSAGE_BYTES_SERVER
 
-        self._service_name = service_name
-        if os.getenv('MANGLED_SERVICE_NAME'):
-            set_mangled_service_data_route_map(
-                service_name,
-                os.environ['MANGLED_SERVICE_NAME']
-            )
-            self._service_name = os.environ['MANGLED_SERVICE_NAME']
         self._receive_queue_name = make_redis_queue_name(self._service_name)
         self.core = RedisTransportCore(service_name=service_name, metrics=metrics, metrics_prefix='server', **kwargs)
 
