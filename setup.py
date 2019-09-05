@@ -45,11 +45,12 @@ test_plan_requirements = test_helper_requirements + [
 ]
 
 test_requirements = [
+    'coverage~=4.5',
     'factory_boy~=2.11.1',
     'freezegun~=0.3',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
-    'coverage~=4.5',
+    'mypy;python_version>"3.4"',
 ] + test_plan_requirements
 
 

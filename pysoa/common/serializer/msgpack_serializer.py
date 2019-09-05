@@ -8,6 +8,10 @@ from __future__ import (
 import datetime
 import decimal
 import struct
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+)
 
 from conformity import fields
 import currint
@@ -81,20 +85,21 @@ class MsgpackSerializer(BaseSerializer):
     EPOCH = datetime.datetime(1970, 1, 1)
     EPOCH_UTC = datetime.datetime(1970, 1, 1, tzinfo=pytz.UTC)
 
-    def dict_to_blob(self, data_dict):
-        assert isinstance(data_dict, dict), 'Input must be a dict'
+    def dict_to_blob(self, data_dict):  # type: (Dict) -> six.binary_type
+        if not isinstance(data_dict, dict):
+            raise ValueError('Input must be a dict')
         try:
-            return msgpack.packb(data_dict, default=self.default, use_bin_type=True)
+            return msgpack.packb(data_dict, default=self._default, use_bin_type=True)
         except TypeError as e:
             raise InvalidField(*e.args)
 
-    def blob_to_dict(self, blob):
+    def blob_to_dict(self, blob):  # type: (six.binary_type) -> Dict
         try:
-            return msgpack.unpackb(blob, raw=False, ext_hook=self.ext_hook)
+            return msgpack.unpackb(blob, raw=False, ext_hook=self._ext_hook)
         except (TypeError, msgpack.UnpackValueError, msgpack.ExtraData) as e:
             raise InvalidMessage(*e.args)
 
-    def default(self, obj):
+    def _default(self, obj):  # type: (Any) -> msgpack.ExtType
         """
         Encodes unknown object types (we use it to make extended types)
         """
@@ -147,11 +152,11 @@ class MsgpackSerializer(BaseSerializer):
                 self.EXT_CURRINT,
                 self.STRUCT_CURRINT.pack(code, obj.value),
             )
-        else:
-            # Wuh-woh
-            raise TypeError('Cannot encode value of type {} to MessagePack: {}'.format(type(obj).__name__, obj))
 
-    def ext_hook(self, code, data):
+        # Wuh-woh
+        raise TypeError('Cannot encode value of type {} to MessagePack: {}'.format(type(obj).__name__, obj))
+
+    def _ext_hook(self, code, data):  # type: (int, six.binary_type) -> Any
         """
         Decodes our custom extension types
         """
@@ -177,5 +182,5 @@ class MsgpackSerializer(BaseSerializer):
             # Unpack Amount object into (code, minor) from a 3-char ASCII string and a signed 64-bit integer.
             code, minor_value = self.STRUCT_CURRINT.unpack(data)
             return currint.Amount.from_code_and_minor(code.decode('ascii'), minor_value)
-        else:
-            raise TypeError('Cannot decode unknown extension type {} from MessagePack'.format(code))
+
+        raise TypeError('Cannot decode unknown extension type {} from MessagePack'.format(code))

@@ -124,14 +124,41 @@ Redis Gateway Transport
 
 The Redis Gateway Transport is a production-tested, performance-proven protocol that is compatible with any platform
 for which there is a Redis client library. A beefy Redis server is capable of handling tens of thousands of PySOA
-requests and responses each second. The process begins when a client sends a message to a server in the following
-format::
+requests and responses each second. In our production environment, 225 PySOA workers performing CPU-intensive tasks
+(about half cryptography and set calculations and half blocking I/O against a MySQL database) handle approximately
+10,000 requests per second. This load is spread across four Redis masters also used by dozens of other services with a
+total of thousands of workers. These four Redis servers handle approximately 30,000 requests per second with about 30%
+Redis CPU utilization.
+
+The Redis Gateway Transport protocol is a versioned protocol that has different available features for each version.
+Version 1, the first version, had no extra features other than the capability of sending a serialized envelope of
+pre-agreed-upon content type. Version 2 added support for a content type header. Version 3 added a proper version
+preamble and support for multiple headers.
+
+The process begins when a client sends a message to a server in the following format, dependent on version:
+
+Protocol Version 1 (no preambles or headers supported; content type is determined by agreeing client and server
+configurations)::
+
+    <serialized envelope>
+
+Protocol Version 2 (content type header is not optional)::
 
     content-type:mime/type;<serialized envelope>
 
+Protocol Version 3 (multiple headers supported, all headers optional/conditional)::
+
+    pysoa-redis/3//[header-name:header-value;[...]]<serialized envelope>
+
+    supported request headers (all optional/conditional):
+        content-type : [application/msgpack], [application/json], [...]
+
 The content should be a valid MIME type that both the client and server understand. The serializers shipped with PySOA
-understand ``application/json`` and ``application/msgpack``. The "envelope," serialized in the specified MIME type,
-is a dictionary that contains and carries the ``JobRequest`` dictionary in the following format::
+understand ``application/json`` and ``application/msgpack``, but defining a new ``Serializer`` class registers its
+MIME type, so you can support whatever serialization technique you desire.
+
+The "envelope," serialized in the specified MIME type, is a dictionary that contains and carries the ``JobRequest``
+dictionary in the following format::
 
     {
         "body": <JobRequest dict>,
@@ -178,12 +205,48 @@ While this is going on, multiple server processes are blocked waiting for incomi
 
 Once a server receives a message from Redis, it extracts the content-type, deserializes the envelope, verifies the
 envelope is not expired, and returns the ``JobRequest`` dictionary to the server code for handling. If and when the
-server is ready to send a response, the response is sent back to the client in the same way the client sent the
-request::
+server is ready to send a response, the response is sent back to the client in a similar way that the client sent the
+request:
+
+Protocol Version 1::
+
+    <serialized envelope>
+
+Protocol Version 2::
 
     content-type:mime/type;<serialized envelope>
 
-With a very similar envelope::
+Protocol Version 3::
+
+    pysoa-redis/3//[header-name:header-value;[...]]<serialized envelope or partial envelope>
+
+    supported response headers (all optional/conditional):
+        content-type : [application/msgpack], [application/json], [...]
+        chunk-count : [1-9]+[0-9]*
+        chunk-id : [1-9]+[0-9]*
+
+The key difference between request and response messages begins in Protocol Version 3, where responses can now be
+chunked. Response chunking, which is disabled by default, has to be enabled in the server transport configuration. Even
+if enabled, the server will only chunk a response if it exceeds the configured threshold and the request includes a
+version preamble indicating support for Version 3 or higher (meaning the client can understand the chunked response).
+
+In a chunked response, chunks may but are not required to have a ``content-type`` header, and if multiple chunks have
+the header, only the first chunk's ``content-type`` header is considered. Every chunk must have both the
+``chunk-count`` header and the ``chunk-id`` header. The ``chunk-count`` header must be the same for all chunks, and the
+``chunk-id`` header must start with ``1`` on the first chunk and increment until all chunks have been submitted. For
+example, a chunked response may look like this::
+
+    pysoa-redis/3//content-type:application/msgpack;chunk-count:5;chunk-id:1;<start of serialized envelope>
+    pysoa-redis/3//chunk-count:5;chunk-id:2;<middle of serialized envelope>
+    pysoa-redis/3//chunk-count:5;chunk-id:3;<middle of serialized envelope>
+    pysoa-redis/3//chunk-count:5;chunk-id:4;<middle of serialized envelope>
+    pysoa-redis/3//chunk-count:5;chunk-id:5;<end of serialized envelope>
+
+The serialized envelope pieces from each chunk will be reassembled in order and then deserialized. (Note: Due to the
+nature of the Redis transport and distributed workers, only responses can be chunked. Requests cannot be chunked, and
+it is not even possible to configure chunking in the client transport.)
+
+The response envelope is very similar to the request envelope::
 
     {
         "body": <JobResponse dict>,
@@ -193,7 +256,7 @@ With a very similar envelope::
         "request_id": <integer>,
     }
 
-Using the same Redis commands::
+And it is sent using the same Redis commands::
 
     if(redis(`LLEN $client_key`) >= QUEUE_SIZE_LIMIT) {
         raise QueueFull

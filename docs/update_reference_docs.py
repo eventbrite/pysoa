@@ -17,6 +17,11 @@ import six
 from pysoa.common.settings import Settings
 
 
+if sys.version_info < (3, 5):
+    print('ERROR: This can only be run in Python 3.5+.')
+    exit(1)
+
+
 PARAM_DOC_RE = re.compile(r'^:param\s+(?P<arg_name>[a-zA-Z0-9_]+):')
 PARAM_TYPE_RE = re.compile(r'^:type\s+(?P<arg_name>[a-zA-Z0-9_]+):')
 SINGLE_BACKTICK_RE = re.compile(r'([^`]+|^)`([^`\n]+)`([^_`]+?|$)')
@@ -31,10 +36,12 @@ TO_DOCUMENT = (
     'pysoa.client.middleware:ClientMiddleware',
     'pysoa.client.settings:ClientSettings',
     'pysoa.common.metrics:Counter',
+    'pysoa.common.metrics:Histogram',
     'pysoa.common.metrics:MetricsRecorder',
     'pysoa.common.metrics:NoOpMetricsRecorder',
     'pysoa.common.metrics:Timer',
     'pysoa.common.metrics:TimerResolution',
+    'pysoa.common.transport.base:Transport',
     'pysoa.common.transport.base:ClientTransport',
     'pysoa.common.transport.base:ServerTransport',
     'pysoa.common.transport.local:LocalClientTransport',
@@ -91,10 +98,108 @@ def _clean_literals(documentation):
     return SINGLE_BACKTICK_RE.sub(r'\g<1>``\g<2>``\g<3>', documentation)
 
 
+def clean_annotation(annotation):
+    return annotation.strip().replace('six.text_type', 'str').replace('six.binary_type', 'bytes')
+
+
+def get_annotations(arg_spec, function_object):
+    if arg_spec.annotations:
+        return arg_spec.annotations
+
+    function_started = args_started = args_finished = False
+    full_type_comment = None
+    annotations = {}
+    for line in inspect.getsourcelines(function_object)[0]:
+        line = line.strip()
+        if not line:
+            continue
+
+        if not function_started and line.startswith('@'):
+            continue
+        if not function_started and line.startswith('def'):
+            function_started = True
+
+        if function_started and not args_started:
+            try:
+                open_parens = line.index('(')
+                line = line[open_parens + 1:]
+                args_started = True
+            except ValueError:
+                continue
+
+        if function_started and args_started and not args_finished:
+            try:
+                close_parens = line.index(')')
+                line = line[close_parens + 1:].strip(')').strip()
+                args_finished = True
+
+                if line.startswith(':'):
+                    line = line[1:].strip()
+                if line.startswith('# type: ('):
+                    full_type_comment = line
+                    break
+            except ValueError:
+                if '# type:' in line:
+                    before_comment, type_str = line.split('# type:', 1)
+                    argument_name = next(n.strip() for n in reversed(before_comment.split(',')) if n.strip())
+                    annotations[argument_name] = clean_annotation(type_str)
+
+                continue
+
+        if function_started and args_started and args_finished and full_type_comment is None and line:
+            if line.startswith('# type: ('):
+                full_type_comment = line
+            break
+
+    if full_type_comment:
+        full_type_comment = full_type_comment[8:].strip()
+        if '->' in full_type_comment:
+            before_return, return_type = full_type_comment.split('->')
+            annotations['return'] = return_type.strip()
+            before_return = before_return.strip()
+        else:
+            before_return = full_type_comment
+
+        if before_return != '(...)':
+            args = arg_spec.args
+            if args[0] in ('self', 'cls', 'mcs', 'mcls'):
+                args = args[1:]
+            if arg_spec.varargs:
+                args.append('*{}'.format(arg_spec.varargs))
+            if arg_spec.varkw:
+                args.append('**{}'.format(arg_spec.varkw))
+
+            i = 0
+            num_args = len(args)
+            token = ''
+            stack = collections.deque()
+            for char in before_return.strip('(').strip(')').strip():
+                if i >= num_args:
+                    break
+                if char == ' ' and not token:
+                    continue
+                if char == '[':
+                    stack.append(char)
+                if char == ']':
+                    stack.pop()
+                if char == ',' and not stack:
+                    annotations[args[i]] = clean_annotation(token)
+                    token = ''
+                    i += 1
+                else:
+                    token += char
+            if token and i < num_args:
+                annotations[args[i]] = clean_annotation(token)
+
+    return annotations
+
+
 # noinspection PyTypeChecker
 def get_function_parsed_docstring(docstring, function_object):
     docstring = inspect.cleandoc(docstring)
-    arg_spec = inspect.getargspec(function_object)
+    arg_spec = inspect.getfullargspec(function_object)
+
+    annotations = get_annotations(arg_spec, function_object)
 
     context = None
     returns = []
@@ -141,7 +246,7 @@ def get_function_parsed_docstring(docstring, function_object):
     if parameters or arg_spec.args:
         parameter_names = []
         for i, arg in enumerate(arg_spec.args):
-            if i > 0 or arg not in ('self', 'cls'):
+            if i > 0 or arg not in ('self', 'cls', 'mcs', 'mcls'):
                 parameter_names.append(six.text_type(arg))
 
         for parameter_name in parameters.keys():
@@ -152,14 +257,17 @@ def get_function_parsed_docstring(docstring, function_object):
             documentation += '\n\nParameters'
             for parameter_name in parameter_names:
                 documentation += '\n  - ``{}``'.format(parameter_name)
-                if parameter_name in parameters:
-                    if parameters[parameter_name].get('type'):
-                        documentation += ' (``{}``)'.format(' '.join(parameters[parameter_name]['type']))
-                    if parameters[parameter_name].get('docs'):
-                        documentation += ' - {}'.format(
-                            _clean_literals('\n    '.join(parameters[parameter_name]['docs'])),
-                        )
+                if parameter_name in annotations:
+                    documentation += ' (``{}``)'.format(annotations[parameter_name].replace('typing.', ''))
+                elif parameter_name in parameters and parameters[parameter_name].get('type'):
+                    documentation += ' (``{}``)'.format(' '.join(parameters[parameter_name]['type']))
+                if parameter_name in parameters and parameters[parameter_name].get('docs'):
+                    documentation += ' - {}'.format(
+                        _clean_literals('\n    '.join(parameters[parameter_name]['docs'])),
+                    )
 
+    if 'return' in annotations and annotations['return'] != 'None':
+        return_type = [annotations['return']]
     if returns or return_type:
         documentation += '\n\nReturns'
         if return_type:
@@ -187,7 +295,7 @@ def get_function_display_name(name, function_object):
 
     has_put_arg = False
     has_put_vararg = False
-    arg_spec = inspect.getargspec(function_object)
+    arg_spec = inspect.getfullargspec(function_object)
 
     if arg_spec.args:
         defaults = ((NO_DEFAULT, ) * (len(arg_spec.args) - len(arg_spec.defaults or []))) + (arg_spec.defaults or ())
@@ -219,10 +327,10 @@ def get_function_display_name(name, function_object):
         has_put_arg = True
         name += '*{}'.format(arg_spec.varargs)
 
-    if arg_spec.keywords:
+    if arg_spec.varkw:
         if has_put_arg:
             name += ', '
-        name += '**{}'.format(arg_spec.keywords)
+        name += '**{}'.format(arg_spec.varkw)
 
     name += ')'
     return name
@@ -545,7 +653,7 @@ def get_class_documentation(class_name, module_name, class_object):
             not member_name.startswith('_') or
             member_name in ('__call__', '__enter__', '__exit__')
         ):
-            if inspect.ismethod(member):
+            if inspect.ismethod(member) or inspect.isfunction(member):
                 display_name = '``{static}method {method_name}``'.format(
                     static='static ' if getattr(member, '__self__', None) == class_object else '',
                     method_name=get_function_display_name(member_name, member)

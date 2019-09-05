@@ -12,13 +12,12 @@ from pysoa.common.transport.exceptions import MessageReceiveTimeout
 
 from tests.functional import (
     get_container_process_list,
-    pysoa_client,
     read_file_from_container,
     write_file_to_container,
 )
 
 
-def test_heartbeat_file_watching_no_forking():
+def test_heartbeat_file_watching_no_forking(pysoa_client):
     original_ts = float(read_file_from_container('meta_service', '/srv/meta_service-{{fid}}.heartbeat'))
     assert original_ts > 0
     time.sleep(2.5)
@@ -30,7 +29,7 @@ def test_heartbeat_file_watching_no_forking():
     assert new_ts > original_ts
 
 
-def test_heartbeat_file_forking_no_watching():
+def test_heartbeat_file_forking_no_watching(pysoa_client):
     original_ts_1 = float(read_file_from_container('user_service', '/srv/user_service-1.heartbeat'))
     original_ts_2 = float(read_file_from_container('user_service', '/srv/user_service-2.heartbeat'))
     original_ts_3 = float(read_file_from_container('user_service', '/srv/user_service-3.heartbeat'))
@@ -61,7 +60,7 @@ def test_heartbeat_file_forking_no_watching():
     assert new_ts_4 > original_ts_4
 
 
-def test_heartbeat_file_forking_and_watching():
+def test_heartbeat_file_forking_and_watching(pysoa_client):
     original_ts_1 = float(read_file_from_container('echo_service', '/srv/echo_service-1.heartbeat'))
     original_ts_2 = float(read_file_from_container('echo_service', '/srv/echo_service-2.heartbeat'))
     original_ts_3 = float(read_file_from_container('echo_service', '/srv/echo_service-3.heartbeat'))
@@ -88,7 +87,7 @@ def test_heartbeat_file_forking_and_watching():
     assert new_ts_3 > original_ts_3
 
 
-def test_reload_no_forking():
+def test_reload_no_forking(pysoa_client):
     print(get_container_process_list('meta_service'))
 
     assert read_file_from_container('meta_service', '/srv/meta/meta_service/version.py') == "__version__ = '2.1.7'"
@@ -103,7 +102,7 @@ def test_reload_no_forking():
     assert response.body['version'] == '7.1.2'
 
 
-def test_reload_with_forking():
+def test_reload_with_forking(pysoa_client):
     print(get_container_process_list('echo_service'))
 
     assert read_file_from_container('echo_service', '/srv/echo/echo_service/version.py') == "__version__ = '9.5.3'"
@@ -125,7 +124,7 @@ def test_reload_with_forking():
         assert response.body['version'] == '9.8.0'
 
 
-def test_no_reload_no_watcher():
+def test_no_reload_no_watcher(pysoa_client):
     print(get_container_process_list('user_service'))
 
     assert read_file_from_container('user_service', '/srv/user/user_service/version.py') == "__version__ = '1.0.17'"
@@ -147,7 +146,7 @@ def test_no_reload_no_watcher():
         assert response.body['version'] == '1.0.17'
 
 
-def test_harakiri_graceful_restart():
+def test_harakiri_graceful_restart(pysoa_client):
     original_ts_1 = float(read_file_from_container('echo_service', '/srv/echo_service-1.heartbeat'))
     original_ts_2 = float(read_file_from_container('echo_service', '/srv/echo_service-2.heartbeat'))
     original_ts_3 = float(read_file_from_container('echo_service', '/srv/echo_service-3.heartbeat'))
@@ -174,7 +173,7 @@ def test_harakiri_graceful_restart():
     assert new_ts_3 > original_ts_3
 
 
-def test_harakiri_forceful_restart():
+def test_harakiri_forceful_restart(pysoa_client):
     original_ts_1 = float(read_file_from_container('echo_service', '/srv/echo_service-1.heartbeat'))
     original_ts_2 = float(read_file_from_container('echo_service', '/srv/echo_service-2.heartbeat'))
     original_ts_3 = float(read_file_from_container('echo_service', '/srv/echo_service-3.heartbeat'))

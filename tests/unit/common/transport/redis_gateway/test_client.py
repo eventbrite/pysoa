@@ -3,17 +3,16 @@ from __future__ import (
     unicode_literals,
 )
 
+import random
 import unittest
-import uuid
 
 from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.base import get_hex_thread_id
 from pysoa.common.transport.redis_gateway.client import RedisClientTransport
-from pysoa.common.transport.redis_gateway.constants import DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT
 from pysoa.test.compatibility import mock
 
 
-@mock.patch('pysoa.common.transport.redis_gateway.client.RedisTransportCore')
+@mock.patch('pysoa.common.transport.redis_gateway.client.RedisTransportClientCore')
 class TestClientTransport(unittest.TestCase):
     @staticmethod
     def _get_transport(service='my_service', **kwargs):
@@ -28,8 +27,6 @@ class TestClientTransport(unittest.TestCase):
             hello='world',
             goodbye='earth',
             metrics=transport.metrics,
-            metrics_prefix='client',
-            maximum_message_size_in_bytes=DEFAULT_MAXIMUM_MESSAGE_BYTES_CLIENT,
         )
 
         self.assertRegex(transport.client_id, r'^[0-9a-fA-F]{32}$')
@@ -43,7 +40,6 @@ class TestClientTransport(unittest.TestCase):
             hello='world',
             goodbye='earth',
             metrics=transport.metrics,
-            metrics_prefix='client',
             maximum_message_size_in_bytes=42,
         )
 
@@ -52,7 +48,7 @@ class TestClientTransport(unittest.TestCase):
     def test_send_request_message(self, mock_core):
         transport = self._get_transport()
 
-        request_id = uuid.uuid4().hex
+        request_id = random.randint(1, 1000)
         meta = {'app': 'ppa'}
         message = {'test': 'payload'}
 
@@ -75,7 +71,7 @@ class TestClientTransport(unittest.TestCase):
     def test_send_request_message_another_service(self, mock_core):
         transport = self._get_transport('geo')
 
-        request_id = uuid.uuid4().hex
+        request_id = random.randint(1, 1000)
         message = {'another': 'message'}
 
         transport.send_request_message(request_id, {}, message, 25)
@@ -97,7 +93,7 @@ class TestClientTransport(unittest.TestCase):
         transport = self._get_transport()
         transport._requests_outstanding = 1
 
-        request_id = uuid.uuid4().hex
+        request_id = random.randint(1, 1000)
         meta = {'app': 'ppa'}
         message = {'test': 'payload'}
 
@@ -121,7 +117,7 @@ class TestClientTransport(unittest.TestCase):
         transport = self._get_transport('geo')
         transport._requests_outstanding = 1
 
-        request_id = uuid.uuid4().hex
+        request_id = random.randint(1, 1000)
         meta = {}
         message = {'another': 'message'}
 
@@ -145,13 +141,13 @@ class TestClientTransport(unittest.TestCase):
         transport = self._get_transport('geo')
         self.assertEqual(0, transport.requests_outstanding)
 
-        transport.send_request_message(uuid.uuid4().hex, {}, {})
+        transport.send_request_message(random.randint(1, 1000), {}, {})
         self.assertEqual(1, transport.requests_outstanding)
 
-        transport.send_request_message(uuid.uuid4().hex, {}, {})
+        transport.send_request_message(random.randint(1, 1000), {}, {})
         self.assertEqual(2, transport.requests_outstanding)
 
-        request_id = uuid.uuid4().hex
+        request_id = random.randint(1, 1000)
         mock_core.return_value.receive_message.return_value = request_id, {}, {}
 
         self.assertEqual((request_id, {}, {}), transport.receive_response_message())
