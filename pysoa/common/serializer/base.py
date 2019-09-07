@@ -4,6 +4,7 @@ from __future__ import (
 )
 
 import abc
+from typing import Dict  # noqa: F401 TODO Python 3
 
 import six
 
@@ -50,13 +51,13 @@ class Serializer(object):
     mime_type = None
 
     @classmethod
-    def resolve_serializer(cls, mime_type):
+    def resolve_serializer(cls, mime_type):  # type: (six.text_type) -> Serializer
         if mime_type not in cls.all_supported_mime_types:
             raise ValueError('Mime type {} is not supported'.format(mime_type))
         return cls._mime_type_to_serializer_map[mime_type]()
 
     @abc.abstractmethod
-    def dict_to_blob(self, message_dict):
+    def dict_to_blob(self, message_dict):  # type: (Dict) -> six.binary_type
         """
         Take a message in the form of a dict and return a serialized message in the form of bytes (string).
 
@@ -68,7 +69,7 @@ class Serializer(object):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def blob_to_dict(self, blob):
+    def blob_to_dict(self, blob):  # type: (six.binary_type) -> Dict
         """
         Take a serialized message in the form of bytes (string) and return a dict.
 

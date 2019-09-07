@@ -4,6 +4,14 @@ from __future__ import (
 )
 
 import abc
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Callable,
+    Dict,
+    Optional,
+    Type,
+    Union,
+)
 
 import six
 
@@ -14,6 +22,14 @@ from pysoa.common.types import (
 from pysoa.server.errors import (
     ActionError,
     ResponseValidationError,
+)
+from pysoa.server.settings import ServerSettings
+from pysoa.server.types import EnrichedActionRequest
+
+
+__all__ = (
+    'Action',
+    'ActionType',
 )
 
 
@@ -34,7 +50,7 @@ class Action(object):
     request_schema = None
     response_schema = None
 
-    def __init__(self, settings=None):
+    def __init__(self, settings=None):  # type: (Optional[ServerSettings]) -> None
         """
         Construct a new action. Concrete classes can override this and define a different interface, but they must
         still pass the server settings to this base constructor by calling `super`.
@@ -45,7 +61,7 @@ class Action(object):
         self.settings = settings
 
     @abc.abstractmethod
-    def run(self, request):
+    def run(self, request):  # type: (EnrichedActionRequest) -> Dict[str, Any]
         """
         Override this to perform your business logic, and either return a value abiding by the `response_schema` or
         raise an `ActionError`.
@@ -60,7 +76,7 @@ class Action(object):
         """
         raise NotImplementedError()
 
-    def validate(self, request):
+    def validate(self, request):  # type: (EnrichedActionRequest) -> None
         """
         Override this to perform custom validation logic before the `run()` method is run. Raise `ActionError` if you
         find issues, otherwise return (the return value is ignored). If this method raises an error, `run()` will not
@@ -74,7 +90,7 @@ class Action(object):
         """
         pass
 
-    def __call__(self, action_request):
+    def __call__(self, action_request):  # type: (EnrichedActionRequest) -> ActionResponse
         """
         Main entry point for actions from the `Server` (or potentially from tests). Validates that the request matches
         the `request_schema`, then calls `validate()`, then calls `run()` if `validate()` raised no errors, and then
@@ -120,3 +136,9 @@ class Action(object):
             )
         else:
             return ActionResponse(action=action_request.action)
+
+
+ActionType = Union[
+    Type[Action],
+    Callable[[ServerSettings], Callable[[EnrichedActionRequest], ActionResponse]],
+]

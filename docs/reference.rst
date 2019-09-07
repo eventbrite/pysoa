@@ -338,7 +338,7 @@ Raises
 
 - ``object``
 
-  - ``exceptions.Exception``
+  - ``builtins.Exception``
 
     - ``JobError``
 
@@ -364,7 +364,7 @@ Parameters
 
 - ``object``
 
-  - ``exceptions.Exception``
+  - ``builtins.Exception``
 
     - ``CallActionError``
 
@@ -711,7 +711,31 @@ Defines an interface for incrementing a counter.
 Increments the counter.
 
 Parameters
-  - ``amount`` - The amount by which to increment the counter, which must default to 1.
+  - ``amount`` (``int``) - The amount by which to increment the counter, which must default to 1.
+
+
+.. _pysoa.common.metrics.Histogram:
+
+``abstract class Histogram``
+++++++++++++++++++++++++++++
+
+**module:** ``pysoa.common.metrics``
+
+- ``object``
+
+  - ``Histogram``
+
+Defines an interface for tracking an arbitrary number of something per named activity.
+
+.. _pysoa.common.metrics.Histogram.set:
+
+``method set(value=None)``
+**************************
+
+Sets the histogram value.
+
+Parameters
+  - ``value`` (``Optional[Union[int, float]]``) - The histogram value.
 
 
 .. _pysoa.common.metrics.MetricsRecorder:
@@ -726,7 +750,7 @@ Parameters
   - ``MetricsRecorder``
 
 Defines an interface for recording metrics. All metrics recorders registered with PySOA must implement this
-interface. Note that counters and timers with the same name will not be recorded. If your metrics backend needs
+interface. Note that counters and timers with the same name may not be recorded. If your metrics backend needs
 timers to also have associated counters, your implementation of this recorder must take care of filling that gap.
 
 .. _pysoa.common.metrics.MetricsRecorder.commit:
@@ -742,36 +766,50 @@ no-op if metrics are recorded immediately.
 ``method counter(name, **kwargs)``
 **********************************
 
-Returns a counter that can be incremented. Implementations do not have to return an instance of ``Counter``, but
-they must at least return an object that matches the interface for ``Counter``.
+Returns a counter that can be incremented.
 
 Parameters
-  - ``name`` - The name of the counter
-  - ``kwargs`` - Any other arguments that may be needed
+  - ``name`` (``str``) - The name of the counter
+  - ``kwargs`` - Any other arguments that may be needed (unrecognized keyword arguments should be treated as
+    metric "tags" and either passed to the metrics backend, if supported, or ignored)
 
 Returns
   ``Counter`` - a counter object.
+
+.. _pysoa.common.metrics.MetricsRecorder.histogram:
+
+``method histogram(name, **kwargs)``
+************************************
+
+Returns a histogram that can be set.
+
+Parameters
+  - ``name`` (``str``) - The name of the histogram
+  - ``kwargs`` - Any other arguments that may be needed (unrecognized keyword arguments should be treated as
+    metric "tags" and either passed to the metrics backend, if supported, or ignored)
+
+Returns
+  ``Histogram`` - a histogram object.
 
 .. _pysoa.common.metrics.MetricsRecorder.timer:
 
 ``method timer(name, resolution=TimerResolution.MILLISECONDS, **kwargs)``
 *************************************************************************
 
-Returns a timer that can be started and stopped. Implementations do not have to return an instance of ``Timer``,
-but they must at least return an object that matches the interface for ``Timer``, including serving as a context
-manager.
+Returns a timer that can be started and stopped.
 
 Parameters
-  - ``name`` - The name of the timer
-  - ``resolution`` (``enum.IntEnum``) - The resolution at which this timer should operate, defaulting to milliseconds. Its value
+  - ``name`` (``str``) - The name of the timer
+  - ``resolution`` (``TimerResolution``) - The resolution at which this timer should operate, defaulting to milliseconds. Its value
     should be a ``TimerResolution`` or any other equivalent ``IntEnum`` whose values serve as
     integer multipliers to convert decimal seconds to the corresponding units. It will only
     ever be access as a keyword argument, never as a positional argument, so it is not necessary
     for this to be the second positional argument in your equivalent recorder class.
-  - ``kwargs`` - Any other arguments that may be needed
+  - ``kwargs`` - Any other arguments that may be needed (unrecognized keyword arguments should be treated as
+    metric "tags" and either passed to the metrics backend, if supported, or ignored)
 
 Returns
-  ``Timer`` - a timer object
+  ``Timer`` - a timer object.
 
 
 .. _pysoa.common.metrics.NoOpMetricsRecorder:
@@ -812,23 +850,37 @@ Does nothing
 Returns a counter that does nothing.
 
 Parameters
-  - ``name`` - Unused
+  - ``name`` (``str``) - Unused
 
 Returns
-  ``NoOpMetricsRecorder.NoOpCounter`` - A do-nothing counter
+  ``Counter`` - A do-nothing counter
+
+.. _pysoa.common.metrics.NoOpMetricsRecorder.histogram:
+
+``method histogram(name, **kwargs)``
+************************************
+
+Returns a histogram that does nothing.
+
+Parameters
+  - ``name`` (``str``) - Unused
+
+Returns
+  ``Histogram`` - A do-nothing histogram
 
 .. _pysoa.common.metrics.NoOpMetricsRecorder.timer:
 
-``method timer(name, **kwargs)``
-********************************
+``method timer(name, resolution=TimerResolution.MILLISECONDS, **kwargs)``
+*************************************************************************
 
 Returns a timer that does nothing.
 
 Parameters
-  - ``name`` - Unused
+  - ``name`` (``str``) - Unused
+  - ``resolution`` (``TimerResolution``) - Unused
 
 Returns
-  ``NoOpMetricsRecorder.NoOpTimer`` - A do-nothing timer
+  ``Timer`` - A do-nothing timer
 
 
 .. _pysoa.common.metrics.NoOpMetricsRecorder_config_schema
@@ -854,23 +906,34 @@ Keys of any value are allowed.
 
 - ``object``
 
-  - ``Timer``
+  - `pysoa.common.metrics.Histogram`_
 
-Defines an interface for timing activity. Can be used as a context manager to time wrapped activity.
+    - ``Timer``
+
+Defines an interface for timing activity. Can be used as a context manager to time wrapped activity. Exists as a
+special Histogram whose value can be set based on starting and stopping the timer.
 
 .. _pysoa.common.metrics.Timer.__enter__:
 
 ``method __enter__()``
 **********************
 
-Starts the timer at the start of the context manager.
+Starts the timer at the start of the context manager. Returns self.
+
+Returns
+  ``Timer``
 
 .. _pysoa.common.metrics.Timer.__exit__:
 
-``method __exit__(*_, **__)``
-*****************************
+``method __exit__(exc_type, exc_value, traceback)``
+***************************************************
 
 Stops the timer at the end of the context manager. All parameters are ignored. Always returns ``False``.
+
+Parameters
+  - ``exc_type`` (``Any``)
+  - ``exc_value`` (``Any``)
+  - ``traceback`` (``Any``)
 
 Returns
   ``bool`` - ``False``
@@ -897,11 +960,38 @@ Stops the timer.
 
 **module:** ``pysoa.common.metrics``
 
+An enumeration.
+
 Constant Values:
 
 - ``MILLISECONDS`` (``1000``)
 - ``MICROSECONDS`` (``1000000``)
 - ``NANOSECONDS`` (``1000000000``)
+
+
+.. _pysoa.common.transport.base.Transport:
+
+``class Transport``
++++++++++++++++++++
+
+**module:** ``pysoa.common.transport.base``
+
+- ``object``
+
+  - ``Transport``
+
+A base transport from which all client and server transports inherit, establishing base metrics and service name
+attributes.
+
+.. _pysoa.common.transport.base.Transport-constructor-docs:
+
+Constructor
+***********
+
+Parameters
+  - ``service_name`` (``str``) - The name of the service to which this transport will send requests (and from which it will
+    receive responses)
+  - ``metrics`` (``MetricsRecorder``) - The optional metrics recorder
 
 
 .. _pysoa.common.transport.base.ClientTransport:
@@ -913,17 +1003,11 @@ Constant Values:
 
 - ``object``
 
-  - ``ClientTransport``
+  - `pysoa.common.transport.base.Transport`_
 
-.. _pysoa.common.transport.base.ClientTransport-constructor-docs:
+    - ``ClientTransport``
 
-Constructor
-***********
-
-Parameters
-  - ``service_name`` (``union[str, unicode]``) - The name of the service to which this transport will send requests (and from which it will
-    receive responses)
-  - ``metrics`` (``MetricsRecorder``) - The optional metrics recorder
+The base client transport defining the interface for transacting PySOA payloads on the client side.
 
 .. _pysoa.common.transport.base.ClientTransport.receive_response_message:
 
@@ -933,11 +1017,11 @@ Parameters
 Receive a response message from the backend and return a 3-tuple of (request_id, meta dict, message dict).
 
 Parameters
-  - ``receive_timeout_in_seconds`` (``int``) - How long to block waiting for a response to become available
+  - ``receive_timeout_in_seconds`` (``Optional[int]``) - How long to block waiting for a response to become available
     (implementations should provide a sane default or setting for default)
 
 Returns
-  ``tuple`` - A tuple of the request ID, meta dict, and message dict, in that order
+  ``ReceivedMessage`` - A named tuple ReceivedMessage of the request ID, meta dict, and message dict, in that order
 
 Raises
   ``ConnectionError``, ``MessageReceiveError``, ``MessageReceiveTimeout``
@@ -951,9 +1035,9 @@ Send a request message.
 
 Parameters
   - ``request_id`` (``int``) - The request ID
-  - ``meta`` (``dict``) - Meta information about the message
-  - ``body`` (``dict``) - The message body
-  - ``message_expiry_in_seconds`` (``int``) - How soon the message should expire if not retrieved by a server
+  - ``meta`` (``Dict[str, Any]``) - Meta information about the message
+  - ``body`` (``Dict[str, Any]``) - The message body
+  - ``message_expiry_in_seconds`` (``Optional[int]``) - How soon the message should expire if not retrieved by a server
     (implementations should provide a sane default or setting for default)
 
 Raises
@@ -969,16 +1053,11 @@ Raises
 
 - ``object``
 
-  - ``ServerTransport``
+  - `pysoa.common.transport.base.Transport`_
 
-.. _pysoa.common.transport.base.ServerTransport-constructor-docs:
+    - ``ServerTransport``
 
-Constructor
-***********
-
-Parameters
-  - ``service_name`` (``union[str, unicode]``) - The name of the service for which this transport will receive requests and send responses
-  - ``metrics`` (``MetricsRecorder``) - The optional metrics recorder
+The base server transport defining the interface for transacting PySOA payloads on the server side.
 
 .. _pysoa.common.transport.base.ServerTransport.receive_request_message:
 
@@ -989,7 +1068,7 @@ Receive a request message from the backend and return a 3-tuple of (request_id, 
 metadata may include client reply-to information that should be passed back to send_response_message.
 
 Returns
-  ``tuple`` - A tuple of the request ID, meta dict, and message dict, in that order
+  ``ReceivedMessage`` - A named tuple ReceivedMessage of the request ID, meta dict, and message dict, in that order
 
 Raises
   ``ConnectionError``, ``MessageReceiveError``, ``MessageReceiveTimeout``
@@ -1004,8 +1083,8 @@ second argument.
 
 Parameters
   - ``request_id`` (``int``) - The request ID
-  - ``meta`` (``dict``) - Meta information about the message
-  - ``body`` (``dict``) - The message body
+  - ``meta`` (``Dict[str, Any]``) - Meta information about the message
+  - ``body`` (``Dict[str, Any]``) - The message body
 
 Raises
   ``ConnectionError``, ``MessageSendError``, ``MessageSendTimeout``, ``MessageTooLarge``
@@ -1032,10 +1111,10 @@ Constructor
 ***********
 
 Parameters
-  - ``service_name`` (``union[str, unicode]``) - The service name
+  - ``service_name`` (``str``) - The service name
   - ``metrics`` (``MetricsRecorder``) - The metrics recorder
-  - ``server_class`` (``class``) - The server class for which this transport will serve as a client
-  - ``server_settings`` (``dict``) - The server settings that will be passed to the server class on instantiation
+  - ``server_class`` (``Union[str, Type[Server]]``) - The server class for which this transport will serve as a client
+  - ``server_settings`` (``Union[str, Dict[str, Any]]``) - The server settings that will be passed to the server class on instantiation
 
 .. _pysoa.common.transport.local.LocalClientTransport.receive_request_message:
 
@@ -1044,6 +1123,9 @@ Parameters
 
 Gives the server the current request (we are actually inside the stack of send_request_message so we know this
 is OK).
+
+Returns
+  ``ReceivedMessage``
 
 .. _pysoa.common.transport.local.LocalClientTransport.receive_response_message:
 
@@ -1055,7 +1137,10 @@ because by the time the thread calls this method, a response is already availabl
 happened and a response will never be available. This method does not wait and returns immediately.
 
 Parameters
-  - ``_``
+  - ``_`` (``Optional[int]``)
+
+Returns
+  ``ReceivedMessage``
 
 .. _pysoa.common.transport.local.LocalClientTransport.send_request_message:
 
@@ -1067,10 +1152,10 @@ supported. Messages do not expire, as the server handles the request immediately
 this method returns. This method blocks until the server has completed handling the request.
 
 Parameters
-  - ``request_id``
-  - ``meta``
-  - ``body``
-  - ``_``
+  - ``request_id`` (``int``)
+  - ``meta`` (``Dict[str, Any]``)
+  - ``body`` (``Dict[str, Any]``)
+  - ``_`` (``Optional[int]``)
 
 .. _pysoa.common.transport.local.LocalClientTransport.send_response_message:
 
@@ -1080,9 +1165,9 @@ Parameters
 Add the response to the deque.
 
 Parameters
-  - ``request_id``
-  - ``meta``
-  - ``body``
+  - ``request_id`` (``int``)
+  - ``meta`` (``Dict[str, Any]``)
+  - ``body`` (``Dict[str, Any]``)
 
 
 .. _pysoa.common.transport.local.LocalClientTransport_config_schema
@@ -1101,9 +1186,9 @@ strict ``dict``: The constructor kwargs for the local client transport.
   - a unicode string importable Python path in the format "foo.bar.MyClass", "foo.bar:YourClass.CONSTANT", etc. The importable Python path to the ``Server``-extending class. The imported item at the specified path must match the following schema:
 
     schema
-      a Python ``type`` that is a subclass of the following class or classes: ``object``.
+      a Python ``type`` that is a subclass of the following class or classes: ``builtins.object``.
 
-  - a Python ``type`` that is a subclass of the following class or classes: ``object``. A reference to the ``Server``-extending class
+  - a Python ``type`` that is a subclass of the following class or classes: ``builtins.object``. A reference to the ``Server``-extending class
 
 - ``server_settings`` - any of the types bulleted below: The settings to use when instantiating the ``server_class``.
 
@@ -1202,7 +1287,7 @@ In addition to the two named positional arguments, this constructor expects keyw
 Redis transport settings schema.
 
 Parameters
-  - ``service_name`` (``union[str, unicode]``) - The name of the service to which this transport will send requests (and from which it will
+  - ``service_name`` (``str``) - The name of the service to which this transport will send requests (and from which it will
     receive responses)
   - ``metrics`` (``MetricsRecorder``) - The optional metrics recorder
 
@@ -1221,6 +1306,9 @@ Parameters
 Indicates the number of requests currently outstanding, which still need to be received. If this value is less
 than 1, calling ``receive_response_message`` will result in a return value of ``(None, None, None)`` instead of
 raising a ``MessageReceiveTimeout``.
+
+Returns
+  ``int``
 
 *(Property is read-only)*
 
@@ -1241,7 +1329,7 @@ raising a ``MessageReceiveTimeout``.
 
 Settings Schema Definition
 **************************
-strict ``dict``: The constructor kwargs for the Redis client and server transports.
+strict ``dict``: The constructor kwargs for the Redis client transport.
 
 - ``backend_layer_kwargs`` - strict ``dict``: The arguments passed to the Redis connection manager
 
@@ -1258,7 +1346,7 @@ strict ``dict``: The constructor kwargs for the Redis client and server transpor
     values
       any of the types bulleted below: *(no description)*
 
-      - ``tuple``: *(no description)* (additional information: ``{u'contents': [{u'type': u'unicode'}, {u'type': u'integer'}]}``)
+      - ``tuple``: *(no description)* (additional information: ``{'contents': [{'type': 'unicode'}, {'type': 'integer'}]}``)
       - ``unicode``: *(no description)*
 
   - ``redis_db`` - ``integer``: The Redis database, a shortcut for putting this in ``connection_kwargs``.
@@ -1271,7 +1359,7 @@ strict ``dict``: The constructor kwargs for the Redis client and server transpor
 
   Optional keys: ``connection_kwargs``, ``hosts``, ``redis_db``, ``redis_port``, ``sentinel_failover_retries``, ``sentinel_services``
 
-- ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{u'values': [u'redis.sentinel', u'redis.standard']}``)
+- ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{'values': ['redis.sentinel', 'redis.standard']}``)
 - ``default_serializer_config`` - dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). The configuration for the serializer this transport should use. The imported item at the specified ``path`` must be a subclass of ``pysoa.common.serializer.base.Serializer``.
 - ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
 - ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
@@ -1305,7 +1393,7 @@ In addition to the two named positional arguments, this constructor expects keyw
 Redis transport settings schema.
 
 Parameters
-  - ``service_name`` (``union[str, unicode]``) - The name of the service for which this transport will receive requests and send responses
+  - ``service_name`` (``str``) - The name of the service for which this transport will receive requests and send responses
   - ``metrics`` (``MetricsRecorder``) - The optional metrics recorder
 
 .. _pysoa.common.transport.redis_gateway.server.RedisServerTransport.receive_request_message:
@@ -1332,7 +1420,7 @@ Parameters
 
 Settings Schema Definition
 **************************
-strict ``dict``: The constructor kwargs for the Redis client and server transports.
+strict ``dict``: The constructor kwargs for the Redis server transport.
 
 - ``backend_layer_kwargs`` - strict ``dict``: The arguments passed to the Redis connection manager
 
@@ -1349,7 +1437,7 @@ strict ``dict``: The constructor kwargs for the Redis client and server transpor
     values
       any of the types bulleted below: *(no description)*
 
-      - ``tuple``: *(no description)* (additional information: ``{u'contents': [{u'type': u'unicode'}, {u'type': u'integer'}]}``)
+      - ``tuple``: *(no description)* (additional information: ``{'contents': [{'type': 'unicode'}, {'type': 'integer'}]}``)
       - ``unicode``: *(no description)*
 
   - ``redis_db`` - ``integer``: The Redis database, a shortcut for putting this in ``connection_kwargs``.
@@ -1362,7 +1450,8 @@ strict ``dict``: The constructor kwargs for the Redis client and server transpor
 
   Optional keys: ``connection_kwargs``, ``hosts``, ``redis_db``, ``redis_port``, ``sentinel_failover_retries``, ``sentinel_services``
 
-- ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{u'values': [u'redis.sentinel', u'redis.standard']}``)
+- ``backend_type`` - ``constant``: Which backend (standard or sentinel) should be used for this Redis transport (additional information: ``{'values': ['redis.sentinel', 'redis.standard']}``)
+- ``chunk_messages_larger_than_bytes`` - ``integer``: If set, responses larger than this setting will be chunked and sent back to the client in pieces, to prevent blocking single-threaded Redis for long periods of time to handle large responses. When set, this value must be greater than or equal to 102400, and ``maximum_message_size_in_bytes`` must also be set and must be at least 5 times greater than this value (because ``maximum_message_size_in_bytes`` is still enforced).
 - ``default_serializer_config`` - dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). The configuration for the serializer this transport should use. The imported item at the specified ``path`` must be a subclass of ``pysoa.common.serializer.base.Serializer``.
 - ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
 - ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
@@ -1371,7 +1460,7 @@ strict ``dict``: The constructor kwargs for the Redis client and server transpor
 - ``queue_full_retries`` - ``integer``: How many times to retry sending a message to a full queue before giving up
 - ``receive_timeout_in_seconds`` - ``integer``: How long to block waiting on a message to be received
 
-Optional keys: ``backend_layer_kwargs``, ``default_serializer_config``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``
+Optional keys: ``backend_layer_kwargs``, ``chunk_messages_larger_than_bytes``, ``default_serializer_config``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``
 
 
 .. _pysoa.common.types.ActionRequest:
@@ -1526,7 +1615,7 @@ Construct a new action. Concrete classes can override this and define a differen
 still pass the server settings to this base constructor by calling ``super``.
 
 Parameters
-  - ``settings`` (``dict``) - The server settings object
+  - ``settings`` (``Optional[ServerSettings]``) - The server settings object
 
 .. _pysoa.server.action.base.Action.__call__:
 
@@ -1559,7 +1648,7 @@ Parameters
   - ``request`` (``EnrichedActionRequest``) - The request object
 
 Returns
-  ``dict`` - The response
+  ``Dict[str, Any]`` - The response
 
 Raises
   ``ActionError``
@@ -1958,18 +2047,27 @@ processes that request, sends its response, and returns when done.
 
 .. _pysoa.server.server.Server.handle_shutdown_signal:
 
-``method handle_shutdown_signal(*_)``
-*************************************
+``method handle_shutdown_signal(signal_number, _stack_frame)``
+**************************************************************
 
 Handles the reception of a shutdown signal.
 
+Parameters
+  - ``signal_number`` (``int``)
+  - ``_stack_frame`` (``FrameType``)
+
 .. _pysoa.server.server.Server.harakiri:
 
-``method harakiri(*_)``
-***********************
+``method harakiri(signal_number, stack_frame)``
+***********************************************
 
 Handles the reception of a timeout signal indicating that a request has been processing for too long, as
-defined by the Harakiri settings.
+defined by the harakiri settings. This method makes use of two "private" Python functions,
+``sys._current_frames`` and ``os._exit``, but both of these functions are publicly documented and supported.
+
+Parameters
+  - ``signal_number`` (``int``)
+  - ``stack_frame`` (``FrameType``)
 
 .. _pysoa.server.server.Server.initialize:
 
@@ -2002,6 +2100,8 @@ Command-line entry point for running a PySOA server. The chain of method calls i
       -> self.run
           |
           -> self.setup
+          -> [async event loop started if Python 3.5+]
+          -> [heartbeat file created if configured]
           -> loop: self.handle_next_request while not self.shutting_down
                     |
                     -> transport.receive_request_message
@@ -2012,6 +2112,10 @@ Command-line entry point for running a PySOA server. The chain of method calls i
                         -> middleware(self.execute_job)
                     -> transport.send_response_message
                     -> self.perform_post_request_actions
+          -> self.teardown
+          -> [async event loop joined in Python 3.5+; this make take a few seconds to finish running tasks]
+          -> [Django resources cleaned up]
+          -> [heartbeat file deleted if configured]
 
 Parameters
   - ``forked_process_id`` (``int``) - If multiple processes are forked by the same parent process, this will be set to a
@@ -2032,6 +2136,22 @@ Parameters
 
 Returns
   ``Client`` - A client configured with this server's ``client_routing`` settings
+
+.. _pysoa.server.server.Server.make_middleware_stack:
+
+``method make_middleware_stack(middleware, base)``
+**************************************************
+
+Given a list of in-order middleware callable objects ``middleware`` and a base function ``base``, chains them
+together so each middleware is fed the function below, and returns the top level ready to call.
+
+Parameters
+  - ``middleware`` (``iterable[callable]``) - The middleware stack
+  - ``base`` (``callable``) - The base callable that the lowest-order middleware wraps
+
+Returns
+  ``callable`` - The topmost middleware, which calls the next middleware ... which calls the lowest-order middleware,
+which calls the ``base`` callable.
 
 .. _pysoa.server.server.Server.perform_idle_actions:
 
@@ -2059,6 +2179,16 @@ full details on the chain of ``Server`` method calls.
 Runs just before the server accepts a new request. Call super().perform_pre_request_actions() if you override.
 Be sure your purpose for overriding isn't better met with middleware. See the documentation for ``Server.main``
 for full details on the chain of ``Server`` method calls.
+
+.. _pysoa.server.server.Server.pre_fork:
+
+``static method pre_fork()``
+****************************
+
+Called only if the --fork argument is used to pre-fork multiple worker processes. In this case, it is called
+by the parent process immediately after signal handlers are set and immediately before the worker sub-processes
+are spawned. It is never called again in the life span of the parent process, even if a worker process crashes
+and gets re-spawned.
 
 .. _pysoa.server.server.Server.process_job:
 
@@ -2093,6 +2223,15 @@ method calls.
 Runs just before the server starts, if you need to do one-time loads or cache warming. Call super().setup() if
 you override. See the documentation for ``Server.main`` for full details on the chain of ``Server`` method calls.
 
+.. _pysoa.server.server.Server.teardown:
+
+``method teardown()``
+*********************
+
+Runs just before the server shuts down, if you need to do any kind of clean up (like updating a metrics gauge,
+etc.). Call super().teardown() if you override. See the documentation for ``Server.main`` for full details on the
+chain of ``Server`` method calls.
+
 
 .. _pysoa.server.settings.ServerSettings
 
@@ -2124,14 +2263,18 @@ Settings Schema Definition
       ``anything``: *(no description)*
 
 
+- ``coroutine_middleware`` - ``list``: The list of all ``CoroutineMiddleware`` classes that should be constructed and applied to ``request.run_coroutine`` calls processed by this server. By default, ``pysoa.server.coroutine:DefaultCoroutineMiddleware`` will be configured first. You can change and/or add to this, but we recommend that you always configure ``DefaultCoroutineMiddleware`` as the first middleware.
+
+  values
+    dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). The imported item at the specified ``path`` must be a subclass of ``pysoa.server.coroutine.CoroutineMiddleware``.
 - ``extra_fields_to_redact`` - ``set``: Use this field to supplement the set of fields that are automatically redacted/censored in request and response fields with additional fields that your service needs redacted.
 
   values
     ``unicode``: *(no description)*
 - ``harakiri`` - strict ``dict``: Instructions for automatically terminating a server process when request processing takes longer than expected.
 
-  - ``shutdown_grace`` - ``integer``: Seconds to forcefully shutdown after harakiri is triggered if shutdown does not occur (additional information: ``{u'gt': 0}``)
-  - ``timeout`` - ``integer``: Seconds of inactivity before harakiri is triggered; 0 to disable, defaults to 300 (additional information: ``{u'gte': 0}``)
+  - ``shutdown_grace`` - ``integer``: Seconds to forcefully shutdown after harakiri is triggered if shutdown does not occur (additional information: ``{'gt': 0}``)
+  - ``timeout`` - ``integer``: Seconds of inactivity before harakiri is triggered; 0 to disable, defaults to 300 (additional information: ``{'gte': 0}``)
 
 - ``heartbeat_file`` - ``unicode`` (nullable): If specified, the server will create a heartbeat file at the specified path on startup, update the timestamp in that file after the processing of every request or every time idle operations are processed, and delete the file when the server shuts down. The file name can optionally contain the specifier {{pid}}, which will be replaced with the server process PID. Finally, the file name can optionally contain the specifier {{fid}}, which will be replaced with the unique-and-deterministic forked process ID whenever the server is started with the --fork option (the minimum value is always 1 and the maximum value is always equal to the value of the --fork option).
 - ``logging`` - strict ``dict``: Settings for service logging, which should follow the standard Python logging configuration
@@ -2222,7 +2365,7 @@ Settings Schema Definition
 
     Optional keys: ``filters``, ``handlers``, ``level``, ``propagate``
 
-  - ``version`` - ``integer``: *(no description)* (additional information: ``{u'gte': 1, u'lte': 1}``)
+  - ``version`` - ``integer``: *(no description)* (additional information: ``{'gte': 1, 'lte': 1}``)
 
   Optional keys: ``filters``, ``formatters``, ``handlers``, ``incremental``, ``loggers``, ``root``, ``version``
 
@@ -2231,8 +2374,8 @@ Settings Schema Definition
 
   values
     dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). The imported item at the specified ``path`` must be a subclass of ``pysoa.server.middleware.ServerMiddleware``.
-- ``request_log_error_level`` - ``constant``: The logging level at which full request and response contents will be logged for requests whose responses contain errors (setting this to a more severe level than ``request_log_success_level`` will allow you to easily filter for unsuccessful requests) (additional information: ``{u'values': [u'CRITICAL', u'DEBUG', u'ERROR', u'INFO', u'WARNING']}``)
-- ``request_log_success_level`` - ``constant``: The logging level at which full request and response contents will be logged for successful requests (additional information: ``{u'values': [u'CRITICAL', u'DEBUG', u'ERROR', u'INFO', u'WARNING']}``)
+- ``request_log_error_level`` - ``constant``: The logging level at which full request and response contents will be logged for requests whose responses contain errors (setting this to a more severe level than ``request_log_success_level`` will allow you to easily filter for unsuccessful requests) (additional information: ``{'values': ['CRITICAL', 'DEBUG', 'ERROR', 'INFO', 'WARNING']}``)
+- ``request_log_success_level`` - ``constant``: The logging level at which full request and response contents will be logged for successful requests (additional information: ``{'values': ['CRITICAL', 'DEBUG', 'ERROR', 'INFO', 'WARNING']}``)
 - ``transport`` - dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). The imported item at the specified ``path`` must be a subclass of ``pysoa.common.transport.base.ServerTransport``.
 
 Default Values
@@ -2245,6 +2388,11 @@ apply as the default values.
 
     {
         "client_routing": {},
+        "coroutine_middleware": [
+            {
+                "path": "pysoa.server.coroutine:DefaultCoroutineMiddleware"
+            }
+        ],
         "extra_fields_to_redact": [],
         "harakiri": {
             "shutdown_grace": 30,
@@ -2394,8 +2542,8 @@ The use of this helper differs significantly from using the PySOA client to call
   middleware execution to this helper).
 
 Parameters
-  - ``action`` (``union[str, unicode]``) - The action to call (must exist within the ``action_class_map`` from the ``Server`` class)
-  - ``body`` (``dict``) - The body to send to the action
+  - ``action`` (``str``) - The action to call (must exist within the ``action_class_map`` from the ``Server`` class)
+  - ``body`` (``Dict``) - The body to send to the action
   - ``raise_action_errors`` (``bool``) - If ``True`` (the default), all action errors will be raised; otherwise, an
     ``ActionResponse`` containing the errors will be returned.
 

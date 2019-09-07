@@ -5,13 +5,11 @@ from __future__ import (
 
 from pysoa.server.action.base import (
     Action,
-    ActionError,
-    ActionResponse,
+    ActionType,
 )
 
 
 __all__ = (
     'Action',
-    'ActionError',
-    'ActionResponse',
+    'ActionType',
 )

@@ -8,6 +8,9 @@ SOA_SERVER_SETTINGS = {
         'kwargs': {
             'backend_layer_kwargs': {'hosts': [('redis.pysoa', 6379)]},
             'backend_type': REDIS_BACKEND_TYPE_STANDARD,
+            'chunk_messages_larger_than_bytes': 102400,
+            'maximum_message_size_in_bytes': 1048576,
+            'log_messages_larger_than_bytes': 800000,
         },
     },
 }

@@ -8,50 +8,8 @@ from typing import List  # noqa: F401 TODO Python 3
 
 import six  # noqa: F401 TODO Python 3
 
-from pysoa.client.client import Client
-from pysoa.common.transport.redis_gateway.constants import (
-    REDIS_BACKEND_TYPE_SENTINEL,
-    REDIS_BACKEND_TYPE_STANDARD,
-)
-
 
 COMPOSE_FILE = 'tests/functional/docker/docker-compose.yaml'
-
-
-_standard = {
-    'backend_layer_kwargs': {'hosts': [('redis.pysoa', 6379)]},
-    'backend_type': REDIS_BACKEND_TYPE_STANDARD,
-}
-
-_sentinel = {
-    'backend_layer_kwargs': {'hosts': [('redis-sentinel.pysoa', 26379)]},
-    'backend_type': REDIS_BACKEND_TYPE_SENTINEL,
-}
-
-
-pysoa_client = Client(
-    config={
-        'echo': {
-            'transport': {
-                'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
-                'kwargs': _standard,
-            },
-        },
-        'meta': {
-            'transport': {
-                'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
-                'kwargs': _standard,
-            },
-        },
-        'user': {
-            'transport': {
-                'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
-                'kwargs': _sentinel,
-            },
-        },
-    },
-    expansion_config={},  # TODO
-)
 
 
 def call_command_in_container(container, command):  # type: (six.text_type, List[six.text_type]) -> six.text_type

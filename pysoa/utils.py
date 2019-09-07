@@ -4,6 +4,14 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+    FrozenSet,
+    Hashable,
+    Tuple,
+)
+
 import six
 
 
@@ -12,7 +20,7 @@ __all__ = (
 )
 
 
-def dict_to_hashable(d):
+def dict_to_hashable(d):  # type: (Dict[Hashable, Any]) -> FrozenSet[Tuple[Hashable, ...]]
     """
     Takes a dict and returns an immutable, hashable version of that dict that can be used as a key in dicts or as a
     set value. Any two dicts passed in with the same content are guaranteed to return the same value. Any two dicts

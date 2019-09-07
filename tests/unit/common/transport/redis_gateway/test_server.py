@@ -3,17 +3,16 @@ from __future__ import (
     unicode_literals,
 )
 
+import random
 import unittest
-import uuid
 
 from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.exceptions import InvalidMessageError
-from pysoa.common.transport.redis_gateway.constants import DEFAULT_MAXIMUM_MESSAGE_BYTES_SERVER
 from pysoa.common.transport.redis_gateway.server import RedisServerTransport
 from pysoa.test.compatibility import mock
 
 
-@mock.patch('pysoa.common.transport.redis_gateway.server.RedisTransportCore')
+@mock.patch('pysoa.common.transport.redis_gateway.server.RedisTransportServerCore')
 class TestServerTransport(unittest.TestCase):
     @staticmethod
     def _get_transport(service='my_service', **kwargs):
@@ -27,8 +26,6 @@ class TestServerTransport(unittest.TestCase):
             hello='world',
             goodbye='earth',
             metrics=transport.metrics,
-            metrics_prefix='server',
-            maximum_message_size_in_bytes=DEFAULT_MAXIMUM_MESSAGE_BYTES_SERVER,
         )
 
         mock_core.reset_mock()
@@ -40,14 +37,13 @@ class TestServerTransport(unittest.TestCase):
             hello='world',
             goodbye='earth',
             metrics=transport.metrics,
-            metrics_prefix='server',
             maximum_message_size_in_bytes=79,
         )
 
     def test_receive_request_message(self, mock_core):
         transport = self._get_transport()
 
-        request_id = uuid.uuid4().hex
+        request_id = random.randint(1, 1000)
         meta = {'app': 'ppa'}
         message = {'test': 'payload'}
 
@@ -60,7 +56,7 @@ class TestServerTransport(unittest.TestCase):
     def test_receive_request_message_another_service(self, mock_core):
         transport = self._get_transport('geo')
 
-        request_id = uuid.uuid4().hex
+        request_id = random.randint(1, 1000)
         message = {'another': 'message'}
 
         mock_core.return_value.receive_message.return_value = request_id, {}, message
@@ -72,7 +68,7 @@ class TestServerTransport(unittest.TestCase):
     def test_send_response_message_no_reply_to(self, mock_core):
         transport = self._get_transport()
 
-        request_id = uuid.uuid4().hex
+        request_id = random.randint(1, 1000)
         meta = {'app': 'ppa'}
         message = {'test': 'payload'}
 
@@ -84,7 +80,7 @@ class TestServerTransport(unittest.TestCase):
     def test_send_response_message(self, mock_core):
         transport = self._get_transport()
 
-        request_id = uuid.uuid4().hex
+        request_id = random.randint(1, 1000)
         meta = {'app': 'ppa', 'reply_to': 'my_reply_to_queue'}
         message = {'test': 'payload'}
 
@@ -100,7 +96,7 @@ class TestServerTransport(unittest.TestCase):
     def test_send_response_message_another_service(self, mock_core):
         transport = self._get_transport()
 
-        request_id = uuid.uuid4().hex
+        request_id = random.randint(1, 1000)
         meta = {'reply_to': 'service.tag.123498afe09b9128cd92348a8c7bde31!'}
         message = {'another': 'message'}
 
