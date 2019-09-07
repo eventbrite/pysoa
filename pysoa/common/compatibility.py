@@ -4,22 +4,23 @@ from __future__ import (
 )
 
 import sys
+import threading
 from typing import (  # noqa: F401 TODO Python 3
+    Any,
     Generic,
     Optional,
     TypeVar,
     cast,
 )
+import warnings
 
 import six  # noqa: F401 TODO Python 3
 
 
 try:
     import contextvars
-    threading = None
 except ImportError:
-    contextvars = None
-    import threading
+    contextvars = None  # type: ignore
 
 
 __all__ = (
@@ -28,7 +29,8 @@ __all__ = (
 )
 
 
-def set_running_loop(_loop):
+# noinspection PyUnusedLocal
+def set_running_loop(loop):  # noqa
     pass
 
 
@@ -86,7 +88,7 @@ if (3, 4) < sys.version_info < (3, 7):
         """
         if not asyncio.coroutines.iscoroutine(coro):
             raise TypeError('A coroutine object is required')
-        future = concurrent.futures.Future()
+        future = concurrent.futures.Future()  # type: concurrent.futures.Future
 
         # This is the only change to this function: Creating the task here, in the caller thread, instead of within
         # `callback`, which is executed in the loop's thread. This does not run the task; it just _creates_ it.
@@ -95,7 +97,7 @@ if (3, 4) < sys.version_info < (3, 7):
         def callback():
             try:
                 # noinspection PyProtectedMember,PyUnresolvedReferences
-                asyncio.futures._chain_future(task, future)
+                asyncio.futures._chain_future(task, future)  # type: ignore
             except Exception as exc:
                 if future.set_running_or_notify_cancel():
                     future.set_exception(exc)
@@ -123,35 +125,51 @@ class ContextVar(Generic[VT]):
     This enables service code to use one API (this class) to access ContextVar when available and thread locals
     otherwise.
     """
-    def __init__(self, name, default=cast(VT, _NO_DEFAULT)):  # type: (six.text_type, Optional[VT]) -> None
+    def __init__(self, name, default=cast(VT, _NO_DEFAULT)):  # type: (six.text_type, VT) -> None
         self.name = name
         self.has_default = default is not _NO_DEFAULT
         self.default = default
+
+        self._cv_variable = None  # type: Optional[contextvars.ContextVar[VT]]
+        self._tl_variable = None  # type: Optional[threading.local]
         if contextvars:
             if self.has_default:
-                self.variable = contextvars.ContextVar(name, default=default)  # type: contextvars.ContextVar[VT]
+                self._cv_variable = contextvars.ContextVar(name, default=default)
             else:
-                self.variable = contextvars.ContextVar(name)  # type: contextvars.ContextVar[VT]
-        else:
-            self.variable = threading.local()
+                self._cv_variable = contextvars.ContextVar(name)
+        elif threading:
+            self._tl_variable = threading.local()
+
+    @property
+    def variable(self):  # type: () -> Any
+        warnings.warn(
+            '`ContextVar.variable` has been deprecated and will be removed in PySOA 1.0.0',
+            DeprecationWarning,
+        )
+        return self._cv_variable if self._cv_variable is not None else self._tl_variable
 
     def set(self, value):  # type: (VT) -> None
-        if contextvars:
-            self.variable.set(value)
+        if self._cv_variable is not None:
+            self._cv_variable.set(value)
+        elif self._tl_variable is not None:
+            self._tl_variable.value = value
         else:
-            self.variable.value = value
+            raise TypeError('This context var has been internally messed with and is no longer valid.')
 
     def get(self, default=cast(VT, _NO_DEFAULT)):  # type: (VT) -> VT
         has_default = default is not _NO_DEFAULT
 
-        if contextvars:
-            return self.variable.get(default) if has_default else self.variable.get()
+        if self._cv_variable is not None:
+            return self._cv_variable.get(default) if has_default else self._cv_variable.get()
+
+        if self._tl_variable is None:
+            raise TypeError('This context var has been internally messed with and is no longer valid.')
 
         if has_default or self.has_default:
-            return cast(VT, getattr(self.variable, 'value', default if has_default else self.default))
+            return cast(VT, getattr(self._tl_variable, 'value', default if has_default else self.default))
 
         try:
-            return cast(VT, self.variable.value)
+            return cast(VT, self._tl_variable.value)
         except AttributeError:
             raise LookupError(self)
 

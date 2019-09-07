@@ -3,11 +3,13 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import cast
 import unittest
 
 from conformity import fields
 
 from pysoa.common.constants import ERROR_CODE_INVALID
+from pysoa.server.action.base import Action
 from pysoa.server.action.introspection import IntrospectionAction
 from pysoa.server.action.status import (
     BaseStatusAction,
@@ -16,19 +18,20 @@ from pysoa.server.action.status import (
 from pysoa.server.action.switched import SwitchedAction
 from pysoa.server.errors import ActionError
 from pysoa.server.server import Server
+from pysoa.server.settings import ServerSettings
 from pysoa.server.types import EnrichedActionRequest
 
 
-class FakeActionOne(object):
+class FakeActionOne(Action):
     """Test action documentation"""
 
     description = 'The real documentation'
 
 
-class FakeActionTwo(object):
+class FakeActionTwo(Action):
     """Test action documentation"""
 
-    request_schema = fields.UnicodeString(description='Be weird.')
+    request_schema = fields.SchemalessDictionary(description='Be weird.')
 
     response_schema = fields.Dictionary(
         {
@@ -60,11 +63,10 @@ class FakeServerOne(Server):
         'one': FakeActionOne,
     }
 
-    settings = {}
-
     # noinspection PyMissingConstructor
     def __init__(self):
-        pass  # Do not call super
+        # Do not call super
+        self.settings = cast(ServerSettings, {})
 
 
 class FakeServerTwo(Server):
@@ -78,11 +80,10 @@ class FakeServerTwo(Server):
         'two': FakeActionTwo,
     }
 
-    settings = {}
-
     # noinspection PyMissingConstructor
     def __init__(self):
-        pass  # Do not call super
+        # Do not call super
+        self.settings = cast(ServerSettings, {})
 
 
 class FakeServerThree(Server):
@@ -91,14 +92,15 @@ class FakeServerThree(Server):
         'your_switched_action': SwitchedActionTwo,
     }
 
-    settings = {}
-
     # noinspection PyMissingConstructor
     def __init__(self):
-        pass  # Do not call super
+        # Do not call super
+        self.settings = cast(ServerSettings, {})
 
 
 class TestIntrospectionAction(unittest.TestCase):
+    maxDiff = 65000
+
     def test_null_action_name(self):
         action = IntrospectionAction(FakeServerOne())
 

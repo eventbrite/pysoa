@@ -5,10 +5,11 @@ from __future__ import (
 
 from collections import deque
 from typing import (  # noqa: F401 TODO Python 3
-    TYPE_CHECKING,
     Any,
     Deque,
     Dict,
+    Hashable,
+    Mapping,
     Optional,
     Type,
     Union,
@@ -23,11 +24,15 @@ from pysoa.common.transport.base import (
     ReceivedMessage,
     ServerTransport,
 )
+from pysoa.server.server import Server
 
 
-if TYPE_CHECKING:
-    # For now, only import during type checking, in order to work around circular import errors
-    from pysoa.server.server import Server  # noqa: F401 TODO Python 3
+__all__ = (
+    'LocalClientTransport',
+    'LocalClientTransportSchema',
+    'LocalServerTransport',
+    'LocalServerTransportSchema',
+)
 
 
 _server_settings = fields.SchemalessDictionary(
@@ -42,9 +47,11 @@ class LocalClientTransportSchema(fields.Dictionary):
         'server_class': fields.Any(
             fields.TypePath(
                 description='The importable Python path to the `Server`-extending class.',
+                base_classes=Server,
             ),
             fields.TypeReference(
                 description='A reference to the `Server`-extending class',
+                base_classes=Server,
             ),
             description='The path to the `Server` class to use locally (as a library), or a reference to the '
                         '`Server`-extending class/type itself.',
@@ -64,7 +71,7 @@ class LocalClientTransportSchema(fields.Dictionary):
 
 
 @fields.ClassConfigurationSchema.provider(LocalClientTransportSchema())
-class LocalClientTransport(ClientTransport):
+class LocalClientTransport(ClientTransport, ServerTransport):
     """A transport that incorporates a server for running a service and client in a single thread."""
 
     def __init__(
@@ -90,13 +97,11 @@ class LocalClientTransport(ClientTransport):
         # If the server is specified as a path, resolve it to a class
         if isinstance(server_class, six.string_types):
             try:
-                server_class = fields.PythonPath.resolve_python_path(server_class)  # type: Type[Server]
+                server_class = fields.PythonPath.resolve_python_path(server_class)
             except (ValueError, ImportError, AttributeError) as e:
                 raise type(e)('Could not resolve server class path {}: {!r}'.format(server_class, e))
 
-        # Now we can import for real, in order to check types
-        from pysoa.server.server import Server  # noqa: F811
-        if not issubclass(server_class, Server):
+        if not isinstance(server_class, type) or not issubclass(server_class, Server):
             raise TypeError('server_class must be or extend Server')
 
         # Make sure the client and the server match names
@@ -116,9 +121,10 @@ class LocalClientTransport(ClientTransport):
             if not isinstance(settings_dict, dict):
                 raise TypeError('Imported settings path {} is not a dictionary.'.format(server_settings))
         else:
-            settings_dict = server_settings  # type: Dict[six.text_type, Any]
+            settings_dict = server_settings
 
-        # Patch settings_dict to use LocalServerTransport
+        # Patch settings_dict to use LocalServerTransport, temporarily, to prevent recursive construction (actual
+        # transport will be set to `self` below).
         settings_dict['transport'] = {
             'path': 'pysoa.common.transport.local:LocalServerTransport',
         }
@@ -131,7 +137,7 @@ class LocalClientTransport(ClientTransport):
 
         # Create and setup Server instance
         self.server_settings = server_class.settings_class(settings_dict)
-        self.server = server_class(self.server_settings)
+        self.server = server_class(self.server_settings)  # type: Server
         self.server.transport = self
         self.server.setup()
 
@@ -146,7 +152,7 @@ class LocalClientTransport(ClientTransport):
         try:
             self.server.handle_next_request()
         finally:
-            self._current_request = None  # type: Optional[ReceivedMessage]
+            self._current_request = None
 
     def receive_request_message(self):
         # type: () -> ReceivedMessage
@@ -158,7 +164,7 @@ class LocalClientTransport(ClientTransport):
             try:
                 return self._current_request
             finally:
-                self._current_request = None  # type: Optional[ReceivedMessage]
+                self._current_request = None
         else:
             raise RuntimeError('Local server tried to receive message more than once')
 
@@ -182,7 +188,7 @@ class LocalClientTransport(ClientTransport):
 
 
 class LocalServerTransportSchema(fields.Dictionary):
-    contents = {}
+    contents = {}  # type: Mapping[Hashable, fields.Base]
     description = 'The local server transport takes no constructor kwargs.'
 
 

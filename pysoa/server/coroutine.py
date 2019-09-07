@@ -30,7 +30,7 @@ _logger = logging.getLogger(__name__)
 
 
 class CoroutineMiddleware:
-    def before_run_coroutine(self):
+    def before_run_coroutine(self) -> None:  # noqa: E999
         """
         When `request.run_coroutine` is called, this method will be invoked, synchronously, in the calling context
         (e.g., the calling thread), to execute any logic necessary before handing the coroutine off to the async event
@@ -42,7 +42,7 @@ class CoroutineMiddleware:
         coroutine call stack in the same order the middleware are configured).
         """
 
-    def coroutine(self, coroutine: Coroutine) -> Coroutine:  # noqa: E999
+    def coroutine(self, coroutine: Coroutine) -> Coroutine:
         """
         Returns a coroutine (`async def ...`) that wraps the given coroutine. This wrapping coroutine can be used to
         execute code before and after the target coroutine. The wrapping pattern is identical to server and client

@@ -4,14 +4,25 @@ from __future__ import (
 )
 
 import os
+from typing import (  # noqa: F401 TODO Python 3
+    Dict,
+    List,
+    Optional,
+    Type,
+    cast,
+)
 import unittest
 
+import six  # noqa: F401 TODO Python 3
+
+from pysoa.common.types import ActionResponse  # noqa: F401 TODO Python 3
 from pysoa.test.compatibility import mock
 from pysoa.test.plan import ServicePlanTestCase
 from pysoa.test.plan.errors import (
     FixtureLoadError,
     StatusError,
 )
+from pysoa.test.plan.grammar.directive import Directive
 
 
 class Error1(BaseException):
@@ -35,8 +46,7 @@ class Error5(BaseException):
 
 
 class MockedTestCase(ServicePlanTestCase):
-    addError = mock.MagicMock()
-    addFailure = mock.MagicMock()
+    add_error = mock.MagicMock()
     set_up_test_fixture = mock.MagicMock()
     tear_down_test_fixture = mock.MagicMock()
     setUp = mock.MagicMock()
@@ -47,7 +57,7 @@ class MockedTestCase(ServicePlanTestCase):
     tear_down_test_case_action = mock.MagicMock()
     _run_test_case = mock.MagicMock()
 
-    _all_directives = (mock.MagicMock(), )
+    _all_directives = [cast(Type[Directive], mock.MagicMock()), ]
 
     def __init__(self):
         super(MockedTestCase, self).__init__('fake_test')
@@ -65,8 +75,7 @@ class MockedTestCase(ServicePlanTestCase):
             if hasattr(cls, '_test_fixture_setup_succeeded'):
                 del cls._test_fixture_setup_succeeded
 
-        cls.addError = mock.MagicMock()
-        cls.addFailure = mock.MagicMock()
+        cls.add_error = mock.MagicMock()
         cls.set_up_test_fixture = mock.MagicMock()
         cls.tear_down_test_fixture = mock.MagicMock()
         cls.setUp = mock.MagicMock()
@@ -77,7 +86,7 @@ class MockedTestCase(ServicePlanTestCase):
         cls.tear_down_test_case_action = mock.MagicMock()
         cls._run_test_case = mock.MagicMock()
 
-        cls._all_directives = (mock.MagicMock(),)
+        cls._all_directives = [cast(Type[Directive], mock.MagicMock()), ]
         # Mock doesn't automatically mock methods that start with `assert`, so we have to do this
         cls._all_directives[0].return_value.assert_test_fixture_results = mock.MagicMock()
 
@@ -106,8 +115,8 @@ class TestInvalidFixturePaths(unittest.TestCase):
 
     def test_abnormal_fixture_tear_down_succeeded(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
@@ -131,12 +140,13 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_not_called()
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_not_called()
-        test._all_directives[0].return_value.set_up_test_case.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case.assert_not_called()
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+        mock_dir.return_value.set_up_test_fixture.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_not_called()
+        mock_dir.return_value.set_up_test_case.assert_not_called()
+        mock_dir.return_value.tear_down_test_case.assert_not_called()
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
         test_function(test)
 
@@ -150,26 +160,25 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_not_called()
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_not_called()
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
         test.tearDownClass()
 
         test.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
 
-        test.addError.assert_not_called()
-        test.addFailure.assert_not_called()
+        test.add_error.assert_not_called()
 
     def test_abnormal_fixture_tear_down_failed(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
@@ -195,13 +204,14 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_not_called()
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_not_called()
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
         test.tear_down_test_fixture.side_effect = Error1()
 
@@ -209,15 +219,14 @@ class TestInvalidFixturePaths(unittest.TestCase):
             test.tearDownClass()
 
         test.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
 
-        test.addError.assert_not_called()
-        test.addFailure.assert_not_called()
+        test.add_error.assert_not_called()
 
     def test_normal_fixture_tear_down(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
@@ -228,7 +237,7 @@ class TestInvalidFixturePaths(unittest.TestCase):
             test_fixture,
             test_fixture_results,
         )
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
         self.assertEqual('My test description', test_function.__doc__)
 
@@ -244,29 +253,29 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
         test.tearDownClass()
 
         test.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
 
-        test.addError.assert_not_called()
-        test.addFailure.assert_not_called()
+        test.add_error.assert_not_called()
 
     def test_fixture_setup_failed(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
@@ -277,7 +286,7 @@ class TestInvalidFixturePaths(unittest.TestCase):
             test_fixture,
             test_fixture_results,
         )
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
         self.assertEqual('My test description', test_function.__doc__)
 
@@ -296,26 +305,27 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_not_called()
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_not_called()
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_not_called()
-        test._all_directives[0].return_value.set_up_test_case.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case.assert_not_called()
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+        mock_dir.return_value.set_up_test_fixture.assert_not_called()
+        mock_dir.return_value.assert_test_fixture_results.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_not_called()
+        mock_dir.return_value.set_up_test_case.assert_not_called()
+        mock_dir.return_value.tear_down_test_case.assert_not_called()
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
         with self.assertRaises(StatusError):
             test_function(test)
 
     def test_error_on_set_up_no_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
         test.setUp.side_effect = Error1()
 
@@ -332,29 +342,29 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_not_called()
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case.assert_not_called()
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_not_called()
+        mock_dir.return_value.tear_down_test_case.assert_not_called()
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_not_called()
-        test.addFailure.assert_not_called()
+        test.add_error.assert_not_called()
 
     def test_error_on_set_up_some_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
         test.setUp.side_effect = Error1()
         test.tearDown.side_effect = Error2()
@@ -373,33 +383,35 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_not_called()
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case.assert_not_called()
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_not_called()
+        mock_dir.return_value.tear_down_test_case.assert_not_called()
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        self.assertEqual(2, test.addError.call_count)
-        test.addFailure.assert_not_called()
+        self.assertEqual(2, test.add_error.call_count)
 
     def test_error_on_set_up_different_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
+
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
 
         test.setUp.side_effect = Error3()
         test.tearDown.side_effect = KeyboardInterrupt()
-        test._all_directives[0].return_value.assert_test_fixture_results.side_effect = AssertionError()
+        mock_dir.return_value.assert_test_fixture_results.side_effect = AssertionError()
         test.tear_down_test_fixture.side_effect = KeyboardInterrupt()
 
         with self.assertRaises(Error3):
@@ -415,29 +427,28 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_not_called()
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case.assert_not_called()
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_not_called()
+        mock_dir.return_value.tear_down_test_case.assert_not_called()
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_not_called()
-        test.assertEqual(1, test.addFailure.call_count)
+        test.assertEqual(1, test.add_error.call_count)
 
     def test_error_on_set_up_test_case_no_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
         test.set_up_test_case.side_effect = Error1()
 
@@ -454,29 +465,30 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_not_called()
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case.assert_not_called()
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_not_called()
+        mock_dir.return_value.tear_down_test_case.assert_not_called()
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_not_called()
-        test.addFailure.assert_not_called()
+        test.add_error.assert_not_called()
+        test.add_error.assert_not_called()
 
     def test_error_on_run_test_no_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
         test._run_test_case.side_effect = Error1()
 
@@ -493,29 +505,29 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_not_called()
-        test.addFailure.assert_not_called()
+        test.add_error.assert_not_called()
 
     def test_error_on_run_test_no_some_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
         test._run_test_case.side_effect = Error1()
         test.tear_down_test_case.side_effect = Error2()
@@ -534,33 +546,35 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        self.assertEqual(2, test.addError.call_count)
-        test.addFailure.assert_not_called()
+        self.assertEqual(2, test.add_error.call_count)
 
     def test_error_on_run_test_no_different_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
+
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
 
         test._run_test_case.side_effect = Error4()
         test.tear_down_test_case.side_effect = KeyboardInterrupt()
-        test._all_directives[0].return_value.assert_test_fixture_results.side_effect = Error5()
+        mock_dir.return_value.assert_test_fixture_results.side_effect = Error5()
 
         with self.assertRaises(Error4):
             test_function(test)
@@ -575,29 +589,28 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.assertEqual(1, test.addError.call_count)
-        test.addFailure.assert_not_called()
+        test.assertEqual(1, test.add_error.call_count)
 
     def test_keyboard_error_on_tear_down_test_case_no_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
         test.tear_down_test_case.side_effect = KeyboardInterrupt()
 
@@ -614,32 +627,34 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_not_called()
-        test.addFailure.assert_not_called()
+        test.add_error.assert_not_called()
 
     def test_other_error_on_tear_down_test_case_some_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
+
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
 
         test.tear_down_test_case.side_effect = Error2()
-        test._all_directives[0].return_value.assert_test_fixture_results.side_effect = Error5()
+        mock_dir.return_value.assert_test_fixture_results.side_effect = Error5()
 
         with self.assertRaises(Error2):
             test_function(test)
@@ -654,29 +669,28 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.assertEqual(1, test.addError.call_count)
-        test.addFailure.assert_not_called()
+        test.assertEqual(1, test.add_error.call_count)
 
     def test_keyboard_error_on_tear_down_no_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
         test.tearDown.side_effect = KeyboardInterrupt()
 
@@ -693,32 +707,34 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_not_called()
-        test.addFailure.assert_not_called()
+        test.add_error.assert_not_called()
 
     def test_other_error_on_tear_down_some_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
+
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
 
         test.tearDown.side_effect = Error2()
-        test._all_directives[0].return_value.assert_test_fixture_results.side_effect = KeyboardInterrupt()
+        mock_dir.return_value.assert_test_fixture_results.side_effect = KeyboardInterrupt()
 
         with self.assertRaises(Error2):
             test_function(test)
@@ -733,31 +749,32 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_not_called()
-        test.addFailure.assert_not_called()
+        test.add_error.assert_not_called()
 
     def test_keyboard_error_on_assert_test_fixture_results_no_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
-        test._all_directives[0].return_value.assert_test_fixture_results.side_effect = KeyboardInterrupt()
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+
+        mock_dir.return_value.assert_test_fixture_results.side_effect = KeyboardInterrupt()
 
         with self.assertRaises(KeyboardInterrupt):
             test_function(test)
@@ -772,31 +789,32 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_not_called()
-        test.addFailure.assert_not_called()
+        test.add_error.assert_not_called()
 
     def test_assertion_error_on_assert_test_fixture_results_some_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
-        test._all_directives[0].return_value.assert_test_fixture_results.side_effect = AssertionError()
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+
+        mock_dir.return_value.assert_test_fixture_results.side_effect = AssertionError()
         test.tear_down_test_fixture.side_effect = Error5()
 
         with self.assertRaises(AssertionError):
@@ -812,32 +830,33 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.assertEqual(1, test.addError.call_count)
-        test.addFailure.assert_not_called()
+        test.assertEqual(1, test.add_error.call_count)
 
     def test_other_error_on_assert_test_fixture_results_some_other_errors(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
-        test._all_directives[0].return_value.assert_test_fixture_results.side_effect = Error3()
-        test._all_directives[0].return_value.tear_down_test_fixture.side_effect = Error4()
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+
+        mock_dir.return_value.assert_test_fixture_results.side_effect = Error3()
+        mock_dir.return_value.tear_down_test_fixture.side_effect = Error4()
 
         with self.assertRaises(Error3):
             test_function(test)
@@ -852,29 +871,28 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.assertEqual(1, test.addError.call_count)
-        test.addFailure.assert_not_called()
+        test.assertEqual(1, test.add_error.call_count)
 
     def test_keyboard_error_on_tear_down_test_fixture(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
         test.tear_down_test_fixture.side_effect = KeyboardInterrupt()
 
@@ -891,31 +909,33 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_not_called()
-        test.addFailure.assert_not_called()
+        test.add_error.assert_not_called()
 
     def test_other_error_on_tear_down_test_fixture(self):
         test_case = {'my': 'case'}
-        test_fixture = ['foo', 'bar']
-        test_fixture_results = ['baz', 'qux']
+        test_fixture = [{'foo': 'bar'}]
+        test_fixture_results = [{'baz': None}]  # type: List[Dict[six.text_type, Optional[ActionResponse]]]
 
         test = MockedTestCase()
 
         test_function = test._create_test_function('aaa', 'bbb', test_case, test_fixture, test_fixture_results)
-        test_function._last_fixture_test = True
+        test_function._last_fixture_test = True  # type: ignore
 
-        test._all_directives[0].return_value.tear_down_test_fixture.side_effect = Error1()
+        mock_dir = cast(mock.MagicMock, test._all_directives[0])
+
+        mock_dir.return_value.tear_down_test_fixture.side_effect = Error1()
 
         with self.assertRaises(Error1):
             test_function(test)
@@ -930,16 +950,15 @@ class TestInvalidFixturePaths(unittest.TestCase):
         test.tear_down_test_case_action.assert_not_called()
         test._run_test_case.assert_called_once_with(test_case, test_fixture, test_fixture_results)
 
-        test._all_directives[0].return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.assert_test_fixture_results.assert_called_once_with(
+        mock_dir.return_value.set_up_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.assert_test_fixture_results.assert_called_once_with(
             test_fixture_results,
             test_fixture,
         )
-        test._all_directives[0].return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
-        test._all_directives[0].return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
-        test._all_directives[0].return_value.set_up_test_case_action.assert_not_called()
-        test._all_directives[0].return_value.tear_down_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_fixture.assert_called_once_with(test_fixture)
+        mock_dir.return_value.set_up_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.tear_down_test_case.assert_called_once_with(test_case, test_fixture)
+        mock_dir.return_value.set_up_test_case_action.assert_not_called()
+        mock_dir.return_value.tear_down_test_case_action.assert_not_called()
 
-        test.addError.assert_not_called()
-        test.addFailure.assert_not_called()
+        test.add_error.assert_not_called()

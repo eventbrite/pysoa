@@ -5,6 +5,10 @@ from __future__ import (
 
 import threading
 import time
+from typing import (  # noqa: F401 TODO Python 3
+    Dict,
+    Optional,
+)
 
 import pytest
 import six
@@ -15,11 +19,12 @@ from pysoa.common.compatibility import ContextVar
 try:
     import contextvars
 except ImportError:
-    contextvars = None
+    contextvars = None  # type: ignore
 
 
+# noinspection PyProtectedMember
 def test_one_thread():
-    var = ContextVar('test_one_thread1')
+    var = ContextVar('test_one_thread1')  # type: ContextVar[six.text_type]
 
     with pytest.raises(LookupError) as error_context:
         var.get()
@@ -27,10 +32,13 @@ def test_one_thread():
     if six.PY2:
         assert error_context.value.args[0] is var
         assert "pysoa.common.compatibility.ContextVar name='test_one_thread1' at " in repr(var)
-        assert isinstance(var.variable, getattr(threading, 'local'))
+        assert var._tl_variable is not None
+        assert isinstance(var._tl_variable, getattr(threading, 'local'))
     else:
         assert "ContextVar name='test_one_thread1' at " in repr(var)
-        assert isinstance(var.variable, contextvars.ContextVar)
+        assert var._cv_variable is not None
+        assert contextvars is not None
+        assert isinstance(var._cv_variable, contextvars.ContextVar)
 
     assert var.get('default1') == 'default1'
     assert var.get(default='default2') == 'default2'
@@ -56,8 +64,8 @@ def test_one_thread():
 
 
 def test_multiple_threads():
-    var1 = ContextVar('test_multiple_threads1')
-    var2 = ContextVar('test_multiple_threads1')
+    var1 = ContextVar('test_multiple_threads1')  # type: ContextVar[six.text_type]
+    var2 = ContextVar('test_multiple_threads1')  # type: ContextVar[six.text_type]
 
     test_context = {
         'var1_thread1_start': None,
@@ -72,7 +80,7 @@ def test_multiple_threads():
         'var2_thread2_mid': None,
         'var1_thread2_end': None,
         'var2_thread2_end': None,
-    }
+    }  # type: Dict[six.text_type, Optional[six.text_type]]
 
     def t1():
         test_context['var1_thread1_start'] = var1.get('default1_thread1')

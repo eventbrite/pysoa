@@ -4,10 +4,27 @@ from __future__ import (
 )
 
 import abc
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Optional,
+    Sequence,
+    SupportsInt,
+    Tuple,
+    Union,
+)
 
 import six
 
-from pysoa.server.internal.types import is_switch
+from pysoa.common.types import ActionResponse  # noqa: F401 TODO Python 3
+from pysoa.server.internal.types import (  # noqa: F401 TODO Python 3
+    SupportsIntValue,
+    is_switch,
+)
+from pysoa.server.settings import ServerSettings  # noqa: F401 TODO Python 3
+from pysoa.server.types import (  # noqa: F401 TODO Python 3
+    ActionType,
+    EnrichedActionRequest,
+)
 
 
 __all__ = (
@@ -15,7 +32,7 @@ __all__ = (
 )
 
 
-def _len(item):
+def _len(item):  # type: (Any) -> int
     # Safe length that won't raise an error on values that don't support length
     return getattr(item, '__len__', lambda *_: -1)()
 
@@ -36,23 +53,32 @@ class _SwitchedActionMetaClass(abc.ABCMeta):
         is instantiated. This identifies problems earlier (on import) and improves performance by not performing this
         validation every time the action is called.
         """
+        if len(bases) > 1:
+            raise TypeError('You cannot use multiple inheritance with SwitchedActions')
+
         cls = super(_SwitchedActionMetaClass, mcs).__new__(mcs, name, bases, body)
 
-        # noinspection PyUnresolvedReferences
-        if bases[0] is not object and (
-            not cls.switch_to_action_map or
-            not hasattr(cls.switch_to_action_map, '__iter__') or
-            _len(cls.switch_to_action_map) < 2 or
-            any(
-                True for i in cls.switch_to_action_map
-                if not hasattr(i, '__getitem__') or _len(i) != 2 or not is_switch(i[0]) or not callable(i[1])
-            )
-        ):
-            raise ValueError(
-                'Class attribute switch_to_action_map must be an iterable of at least two indexable items, each '
-                'with exactly two indexes, where the first element is a switch and the second element is an action '
-                '(callable).'
-            )
+        if bases and bases[0] is not object:
+            if not issubclass(cls, SwitchedAction):
+                raise TypeError('The internal _SwitchedActionMetaClass is only valid on SwitchedActions')
+
+            if cls.DEFAULT_ACTION is not bases[0].DEFAULT_ACTION:
+                raise TypeError('Overriding SwitchedAction.DEFAULT_ACTION is not permitted')
+
+            if (
+                not cls.switch_to_action_map or
+                not hasattr(cls.switch_to_action_map, '__iter__') or
+                _len(cls.switch_to_action_map) < 2 or
+                any(
+                    True for i in cls.switch_to_action_map
+                    if not hasattr(i, '__getitem__') or _len(i) != 2 or not is_switch(i[0]) or not callable(i[1])
+                )
+            ):
+                raise ValueError(
+                    'Class attribute switch_to_action_map must be an iterable of at least two indexable items, each '
+                    'with exactly two indexes, where the first element is a switch and the second element is an action '
+                    '(callable).'
+                )
 
         return cls
 
@@ -97,35 +123,32 @@ class SwitchedAction(object):
 
     DEFAULT_ACTION = _DefaultAction()
 
-    switch_to_action_map = ()
+    switch_to_action_map = ()  # type: Sequence[Tuple[Union[SupportsInt, SupportsIntValue], ActionType]]
 
-    def __init__(self, settings=None):
+    def __init__(self, settings=None):    # type: (Optional[ServerSettings]) -> None
         """
         Construct a new action. Concrete classes should not override this.
 
         :param settings: The server settings object
-        :type settings: dict
         """
         if self.__class__ is SwitchedAction:
             raise TypeError('Cannot instantiate abstract SwitchedAction')
 
         self.settings = settings
 
-    def get_uninitialized_action(self, action_request):
+    def get_uninitialized_action(self, action_request):  # type: (EnrichedActionRequest) -> ActionType
         """
         Get the raw action (such as the action class or the base action callable) without instantiating/calling
         it, based on the switches in the action request, or the default raw action if no switches were present or
         no switches matched.
 
         :param action_request: The request object
-        :type action_request: EnrichedActionRequest
 
         :return: The action
-        :rtype: callable
         """
-        last_action = None
-        matched_action = None
-        default_action = None
+        last_action = None  # type: Optional[ActionType]
+        matched_action = None  # type: Optional[ActionType]
+        default_action = None  # type: Optional[ActionType]
 
         for switch, action in self.switch_to_action_map:
             if switch == self.DEFAULT_ACTION:
@@ -136,19 +159,24 @@ class SwitchedAction(object):
             else:
                 last_action = action
 
-        return matched_action or default_action or last_action
+        if matched_action:
+            return matched_action
+        if default_action:
+            return default_action
+        if last_action:
+            return last_action
 
-    def __call__(self, action_request):
+        raise TypeError('Metaclass validation makes this error impossible')
+
+    def __call__(self, action_request):  # type: (EnrichedActionRequest) -> ActionResponse
         """
         Main entry point for actions from the `Server` (or potentially from tests). Finds the appropriate real action
         to invoke based on the switches enabled in the request, initializes the action with the server settings, and
         then calls the action with the request object, returning its response directly.
 
         :param action_request: The request object
-        :type action_request: EnrichedActionRequest
 
         :return: The response object
-        :rtype: ActionResponse
 
         :raise: ActionError, ResponseValidationError
         """

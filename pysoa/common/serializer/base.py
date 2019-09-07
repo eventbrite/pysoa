@@ -4,7 +4,11 @@ from __future__ import (
 )
 
 import abc
-from typing import Dict  # noqa: F401 TODO Python 3
+from typing import (  # noqa: F401 TODO Python 3
+    Dict,
+    FrozenSet,
+    Type,
+)
 
 import six
 
@@ -15,17 +19,20 @@ __all__ = (
 
 
 class _SerializerMeta(abc.ABCMeta):
-    _mime_type_to_serializer_map = {}
-    _all_supported_mime_types = frozenset()
+    _mime_type_to_serializer_map = {}  # type: Dict[six.text_type, Type[Serializer]]
+    _all_supported_mime_types = frozenset()  # type: FrozenSet[six.text_type]
 
     def __new__(mcs, name, bases, body):
         # Don't allow multiple inheritance as it mucks up mime-type collection
         if len(bases) != 1:
             raise ValueError('You cannot use multiple inheritance with Serializers')
-        # Make the new class
+
         cls = super(_SerializerMeta, mcs).__new__(mcs, name, bases, body)
 
-        if bases[0] is not object:
+        if bases and bases[0] is not object:
+            if not issubclass(cls, Serializer):
+                raise TypeError('The internal _SerializerMeta is only valid on Serializers')
+
             if not cls.mime_type or not cls.mime_type.strip():
                 raise ValueError('All serializers must have a non-null, non-blank MIME type')
 
@@ -41,17 +48,34 @@ class _SerializerMeta(abc.ABCMeta):
         return cls
 
     @property
-    def all_supported_mime_types(cls):
+    def all_supported_mime_types(cls):  # type: () -> FrozenSet[six.text_type]
+        """
+        Return all mime types supported by all implementations of `Serializer`.
+
+        :return: A frozen set of mime types.
+        """
         return cls._all_supported_mime_types
 
 
 @six.add_metaclass(_SerializerMeta)
 class Serializer(object):
 
-    mime_type = None
+    """
+    The mime type that this serializer supports.
+    """
+    mime_type = None  # type: six.text_type
 
     @classmethod
     def resolve_serializer(cls, mime_type):  # type: (six.text_type) -> Serializer
+        """
+        Given the requested mime type, return an initialized `Serializer` that understands that mime type.
+
+        :param mime_type: The mime type for which to get a compatible `Serializer`
+
+        :return: A compatible `Serializer`.
+
+        :raises: ValueError if there is no `Serializer` that understands this mime type.
+        """
         if mime_type not in cls.all_supported_mime_types:
             raise ValueError('Mime type {} is not supported'.format(mime_type))
         return cls._mime_type_to_serializer_map[mime_type]()
@@ -61,21 +85,17 @@ class Serializer(object):
         """
         Take a message in the form of a dict and return a serialized message in the form of bytes (string).
 
-        Returns:
-            string
-        Raises:
-            InvalidField
+        :param message_dict: The message to serialize into a blob.
+
+        :return: The serialized blob.
         """
-        raise NotImplementedError()
 
     @abc.abstractmethod
     def blob_to_dict(self, blob):  # type: (six.binary_type) -> Dict
         """
         Take a serialized message in the form of bytes (string) and return a dict.
 
-        Returns:
-            dict
-        Raises:
-            InvalidMessage
+        :param blob: The blob to deserialize into a message
+
+        :return: The deserialized message.
         """
-        raise NotImplementedError()

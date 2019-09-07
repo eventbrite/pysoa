@@ -6,9 +6,16 @@ from __future__ import (
 import sys
 import traceback
 import types
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+    List,
+)
 from unittest import TestCase
 
 from conformity import fields
+import pytest
+import six  # noqa: F401 TODO Python 3
 
 from pysoa.client.client import Client
 from pysoa.client.middleware import ClientMiddleware
@@ -62,7 +69,7 @@ class RaiseExceptionOnRequestMiddleware(ClientMiddleware):
 class CatchExceptionOnRequestMiddleware(ClientMiddleware):
 
     def __init__(self, *args, **kwargs):
-        super(CatchExceptionOnRequestMiddleware, self).__init__(*args, **kwargs)
+        super(CatchExceptionOnRequestMiddleware, self).__init__(*args, **kwargs)  # type: ignore
         self.error_count = 0
         self.request_count = 0
 
@@ -106,7 +113,7 @@ class RaiseExceptionOnResponseMiddleware(ClientMiddleware):
 class CatchExceptionOnResponseMiddleware(ClientMiddleware):
 
     def __init__(self, *args, **kwargs):
-        super(CatchExceptionOnResponseMiddleware, self).__init__(*args, **kwargs)
+        super(CatchExceptionOnResponseMiddleware, self).__init__(*args, **kwargs)  # type: ignore
         self.error_count = 0
         self.request_count = 0
 
@@ -122,14 +129,19 @@ class CatchExceptionOnResponseMiddleware(ClientMiddleware):
         return handler
 
 
+def _job_error(*_, **__):
+    def a(*_, **__):
+        raise JobError(errors=[Error(code='BAD_JOB', message='You are a bad job')])
+
+    return a
+
+
 class ErrorServer(Server):
     service_name = 'error_service'
 
     # noinspection PyTypeChecker
     action_class_map = {
-        'job_error': lambda *_, **__: (_ for _ in ()).throw(
-            JobError(errors=[Error(code='BAD_JOB', message='You are a bad job')])
-        ),
+        'job_error': _job_error,
         'okay_action': lambda *_, **__: lambda *_, **__: ActionResponse(action='okay_action', body={'no_error': True}),
     }
 
@@ -253,11 +265,11 @@ class TestClientSendReceive(TestCase):
                 'action': 'action_2',
                 'body': {},
             },
-        ]
+        ]  # type: List[Dict[six.text_type, Any]]
         client = Client(self.client_settings)
 
         for actions in (action_request, [ActionRequest(**a) for a in action_request]):
-            response = client.call_actions(SERVICE_NAME, actions, timeout=2)
+            response = client.call_actions(SERVICE_NAME, actions, timeout=2)  # type: ignore
             self.assertTrue(isinstance(response, JobResponse))
             self.assertTrue(all([isinstance(a, ActionResponse) for a in response.actions]))
             self.assertEqual(len(response.actions), 2)
@@ -278,19 +290,13 @@ class TestClientSendReceive(TestCase):
                 'action': 'action_2',
                 'body': {},
             },
-        ]
+        ]  # type: List[Dict[six.text_type, Any]]
         client = Client(self.client_settings)
 
         for actions in (action_request, [ActionRequest(**a) for a in action_request]):
-            response = client.call_actions(SERVICE_NAME, actions, timeout=2, suppress_response=True)
-            self.assertTrue(isinstance(response, JobResponse))
-            self.assertTrue(all([isinstance(a, ActionResponse) for a in response.actions]))
-            self.assertEqual(len(response.actions), 2)
-            # ensure that the response is structured as expected
-            self.assertEqual(response.actions[0].action, 'action_1')
-            self.assertEqual(response.actions[0].body['foo'], 'bar')
-            self.assertEqual(response.actions[1].action, 'action_2')
-            self.assertEqual(response.actions[1].body['baz'], 3)
+            with pytest.raises(TypeError):
+                # noinspection PyArgumentList
+                client.call_actions(SERVICE_NAME, actions, timeout=2, suppress_response=True)  # type: ignore
 
     def test_call_actions_raises_exception_on_action_error(self):
         """Client.call_actions raises CallActionError when any action response is an error."""
@@ -303,27 +309,23 @@ class TestClientSendReceive(TestCase):
                 'action': 'action_2',
                 'body': {},
             },
-        ]
-        error_expected = [
-            Error(
-                code=ERROR_CODE_INVALID,
-                message='Invalid input',
-                field='foo',
-            )
-        ]
-        self.client_settings[SERVICE_NAME]['transport']['kwargs']['action_map']['action_1'] = {'errors': error_expected}
+        ]  # type: List[Dict[six.text_type, Any]]
+        error_expected = Error(code=ERROR_CODE_INVALID, message='Invalid input', field='foo')
+        self.client_settings[SERVICE_NAME]['transport']['kwargs']['action_map']['action_1'] = {
+            'errors': [error_expected],
+        }
         client = Client(self.client_settings)
 
         for actions in (action_request, [ActionRequest(**a) for a in action_request]):
             with self.assertRaises(Client.CallActionError) as e:
-                client.call_actions(SERVICE_NAME, actions)
+                client.call_actions(SERVICE_NAME, actions)  # type: ignore
                 self.assertEqual(len(e.value.actions), 1)
                 self.assertEqual(e.value.actions[0].action, 'action_1')
                 error_response = e.value.actions[0].errors
                 self.assertEqual(len(error_response), 1)
-                self.assertEqual(error_response[0].code, error_expected[0]['code'])
-                self.assertEqual(error_response[0].message, error_expected[0]['message'])
-                self.assertEqual(error_response[0].field, error_expected[0]['field'])
+                self.assertEqual(error_response[0].code, error_expected.code)
+                self.assertEqual(error_response[0].message, error_expected.message)
+                self.assertEqual(error_response[0].field, error_expected.field)
 
     def test_call_actions_no_raise_action_errors(self):
         action_request = [
@@ -335,20 +337,16 @@ class TestClientSendReceive(TestCase):
                 'action': 'action_2',
                 'body': {},
             },
-        ]
-        error_expected = [
-            Error(
-                code=ERROR_CODE_INVALID,
-                message='Invalid input',
-                field='foo'
-            )
-        ]
-        self.client_settings[SERVICE_NAME]['transport']['kwargs']['action_map']['action_2'] = {'errors': error_expected}
+        ]  # type: List[Dict[six.text_type, Any]]
+        error_expected = Error(code=ERROR_CODE_INVALID, message='Invalid input', field='foo')
+        self.client_settings[SERVICE_NAME]['transport']['kwargs']['action_map']['action_2'] = {
+            'errors': [error_expected],
+        }
         client = Client(self.client_settings)
         for actions in (action_request, [ActionRequest(**a) for a in action_request]):
-            response = client.call_actions(SERVICE_NAME, actions, raise_action_errors=False)
+            response = client.call_actions(SERVICE_NAME, actions, raise_action_errors=False)  # type: ignore
             self.assertEqual(response.actions[0].body, {'foo': 'bar'})
-            self.assertEqual(response.actions[1].errors, error_expected)
+            self.assertEqual(response.actions[1].errors, [error_expected])
             self.assertIsNotNone(response.context['correlation_id'])
 
     def test_call_actions_raises_exception_on_job_error(self):
@@ -356,7 +354,7 @@ class TestClientSendReceive(TestCase):
         client = Client(self.client_settings)
         errors = [Error(code=ERROR_CODE_SERVER_ERROR, message='Something went wrong!')]
         with mock.patch.object(
-            client._get_handler(SERVICE_NAME).transport.server,
+            client._get_handler(SERVICE_NAME).transport.server,  # type: ignore
             'execute_job',
             new=mock.Mock(side_effect=JobError(errors)),
         ):
@@ -460,23 +458,17 @@ class TestClientParallelSendReceive(TestCase):
         self.assertEqual({'baz': 3}, action_responses[1].body)
         self.assertEqual({'foo': 'bar'}, action_responses[2].body)
 
-    def test_call_actions_parallel_suppress_response_is_ignored(self):
+    def test_call_actions_parallel_suppress_response_is_prohibited(self):
         """
         Test that call_actions_parallel works to call multiple actions run parallel on a single service.
         """
-        action_responses = self.client.call_actions_parallel(
-            'service_1',
-            [ActionRequest(action='action_1'), ActionRequest(action='action_2'), ActionRequest(action='action_1')],
-            suppress_response=True,
-        )
-
-        self.assertIsNotNone(action_responses)
-
-        action_responses = list(action_responses)
-        self.assertEqual(3, len(action_responses))
-        self.assertEqual({'foo': 'bar'}, action_responses[0].body)
-        self.assertEqual({'baz': 3}, action_responses[1].body)
-        self.assertEqual({'foo': 'bar'}, action_responses[2].body)
+        with pytest.raises(TypeError):
+            # noinspection PyArgumentList
+            self.client.call_actions_parallel(  # type: ignore
+                'service_1',
+                [ActionRequest(action='action_1'), ActionRequest(action='action_2'), ActionRequest(action='action_1')],
+                suppress_response=True,
+            )
 
     def test_call_actions_parallel_with_extras(self):
         """
@@ -492,7 +484,6 @@ class TestClientParallelSendReceive(TestCase):
             ],
             timeout=2,
             raise_action_errors=False,
-            continue_on_error=True,
         )
 
         self.assertIsNotNone(action_responses)
@@ -517,7 +508,6 @@ class TestClientParallelSendReceive(TestCase):
             ],
             timeout=2,
             raise_job_errors=False,
-            continue_on_error=True,
         )
 
         self.assertIsNotNone(action_responses)
@@ -551,7 +541,6 @@ class TestClientParallelSendReceive(TestCase):
                 ],
                 timeout=2,
                 catch_transport_errors=True,
-                continue_on_error=True,
             )
 
         self.assertIsNotNone(action_responses)
@@ -860,7 +849,7 @@ class TestFutureSendReceive(TestCase):
         mock_present_sounds.assert_called_once_with({'foo': 'bar'})
 
         with self.assertRaises(client.CallActionError) as error_context:
-            raise future.exception()
+            raise future.exception()  # type: ignore
 
         first_exception = error_context.exception
 
@@ -882,7 +871,7 @@ class TestFutureSendReceive(TestCase):
         assert error.message == 'Broken, dude'
 
         with self.assertRaises(client.CallActionError) as error_context:
-            raise future.exception()
+            raise future.exception()  # type: ignore
 
         assert error_context.exception is first_exception
 

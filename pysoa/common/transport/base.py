@@ -34,6 +34,15 @@ from pysoa.common.metrics import (
 )
 
 
+__all__ = (
+    'ClientTransport',
+    'get_hex_thread_id',
+    'ReceivedMessage',
+    'ServerTransport',
+    'Transport',
+)
+
+
 def get_hex_thread_id():  # type: () -> six.text_type
     return '{:012x}'.format(threading.current_thread().ident)
 
@@ -41,9 +50,9 @@ def get_hex_thread_id():  # type: () -> six.text_type
 ReceivedMessage = NamedTuple(
     'ReceivedMessage',
     (
-        ('request_id', int),
-        ('meta', Dict[six.text_type, Any]),
-        ('body', Dict[six.text_type, Any]),
+        ('request_id', Optional[int]),
+        ('meta', Optional[Dict[six.text_type, Any]]),
+        ('body', Optional[Dict[six.text_type, Any]]),
     ),
 )
 
@@ -105,7 +114,6 @@ class ClientTransport(Transport):
 
         :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout
         """
-        raise NotImplementedError()
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -125,7 +133,6 @@ class ServerTransport(Transport):
 
         :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout
         """
-        raise NotImplementedError()
 
     @abc.abstractmethod
     def send_response_message(self, request_id, meta, body):
@@ -140,4 +147,3 @@ class ServerTransport(Transport):
 
         :raise: ConnectionError, MessageSendError, MessageSendTimeout, MessageTooLarge
         """
-        raise NotImplementedError()

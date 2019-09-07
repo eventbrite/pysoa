@@ -6,7 +6,6 @@ from __future__ import (
 from typing import (  # noqa: F401 TODO Python 3
     Any,
     Dict,
-    cast,
 )
 import warnings
 
@@ -24,15 +23,18 @@ import six  # noqa: F401 TODO Python 3
 from pysoa.common.logging import SyslogHandler
 from pysoa.common.settings import SOASettings
 from pysoa.common.transport.base import ServerTransport as BaseServerTransport
-from pysoa.common.transport.local import LocalServerTransport
-from pysoa.common.transport.redis_gateway.server import RedisServerTransport
 from pysoa.server.middleware import ServerMiddleware
+
+
+__all__ = (
+    'ServerSettings',
+)
 
 
 try:
     from pysoa.server.internal.event_loop import coroutine_middleware_config
 except (ImportError, SyntaxError):
-    coroutine_middleware_config = None
+    coroutine_middleware_config = None  # type: ignore
 
 
 def log_level_schema(*args, **kwargs):
@@ -179,18 +181,10 @@ class ServerSettings(SOASettings):
     )  # type: SettingsData
 
 
-cast(fields.ClassConfigurationSchema, ServerSettings.schema['transport']).initiate_cache_for(
-    'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
-)
-cast(fields.ClassConfigurationSchema, ServerSettings.schema['transport']).initiate_cache_for(
-    'pysoa.common.transport.local:LocalServerTransport',
-)
-
-
 class RedisServerSettings(ServerSettings):
-    schema = {
-        'transport': fields.ClassConfigurationSchema(base_class=RedisServerTransport),
-    }  # type: SettingsSchema
+    """
+    DEPRECATED. Use `ServerSettings`, whose settings are polymorphic.
+    """
 
     defaults = {
         'transport': {
@@ -198,16 +192,16 @@ class RedisServerSettings(ServerSettings):
         }
     }  # type: SettingsData
 
+    def __init__(self, *args, **kwargs):
+        super(RedisServerSettings, self).__init__(*args, **kwargs)
 
-cast(fields.ClassConfigurationSchema, RedisServerSettings.schema['transport']).initiate_cache_for(
-    'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
-)
+        warnings.warn('RedisServerSettings is deprecated; use ServerSettings instead', DeprecationWarning)
 
 
 class LocalServerSettings(ServerSettings):
-    schema = {
-        'transport': fields.ClassConfigurationSchema(base_class=LocalServerTransport),
-    }  # type: SettingsSchema
+    """
+    DEPRECATED. Use `ServerSettings`, whose settings are polymorphic.
+    """
 
     defaults = {
         'transport': {
@@ -215,10 +209,10 @@ class LocalServerSettings(ServerSettings):
         }
     }  # type: SettingsData
 
+    def __init__(self, *args, **kwargs):
+        super(LocalServerSettings, self).__init__(*args, **kwargs)
 
-cast(fields.ClassConfigurationSchema, LocalServerSettings.schema['transport']).initiate_cache_for(
-    'pysoa.common.transport.local:LocalServerTransport',
-)
+        warnings.warn('LocalServerSettings is deprecated; use ServerSettings instead', DeprecationWarning)
 
 
 class PolymorphicServerSettings(ServerSettings):

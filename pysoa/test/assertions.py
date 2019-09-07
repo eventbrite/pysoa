@@ -4,40 +4,74 @@ from __future__ import (
 )
 
 import contextlib
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
+from _pytest._code.code import ExceptionInfo
 import pytest
 import six
 
-from pysoa.client import Client
+from pysoa.client.client import Client
+from pysoa.common.types import Error  # noqa: F401 TODO Python 3
+
+
+__all__ = (
+    'raises_call_action_error',
+    'raises_error_codes',
+    'raises_field_errors',
+    'raises_only_error_codes',
+    'raises_only_field_errors',
+)
+
+
+# Type-shed stub used only for casting to provide intelligent IDEs with `soa_errors`
+class _PySOAExceptionInfo(ExceptionInfo):
+    soa_errors = []  # type: List[Error]
+
+
+E = Tuple[six.text_type, six.text_type]
 
 
 @contextlib.contextmanager
-def raises_call_action_error(**kwargs):
+def raises_call_action_error(**kwargs):  # type: (**Any) -> Iterator[_PySOAExceptionInfo]
     with pytest.raises(Client.CallActionError, **kwargs) as exc_info:
-        yield exc_info
+        yield cast(_PySOAExceptionInfo, exc_info)
 
     exc_info.soa_errors = exc_info.value.actions[0].errors
 
 
 @contextlib.contextmanager
-def raises_error_codes(error_codes, only=False, **kwargs):
+def raises_error_codes(
+    error_codes,  # type: Union[Iterable[six.text_type], six.text_type]
+    only=False,  # type: bool
+    **kwargs  # type: Any
+):  # type: (...) -> Iterator[_PySOAExceptionInfo]
     with raises_call_action_error(**kwargs) as exc_info:
         yield exc_info
 
     raised_errors = exc_info.soa_errors
 
-    if not isinstance(error_codes, set):
-        if isinstance(error_codes, list):
+    if not isinstance(error_codes, Set):
+        if not isinstance(error_codes, six.text_type):
             error_codes = set(error_codes)
         else:
             error_codes = {error_codes}
 
-    unexpected_errors = []
-    missing_errors = []
+    unexpected_errors = []  # type: List[Union[E, Dict[six.text_type, E]]]
+    missing_errors = []  # type: List[six.text_type]
 
     # Go through all the errors returned by the action, mark any that are unexpected, remove any that match
     for error in raised_errors:
-        if getattr(error, 'field', None):
+        if hasattr(error, 'field') and error.field:
             unexpected_errors.append({error.field: (error.code, error.message)})
             continue
 
@@ -48,8 +82,8 @@ def raises_error_codes(error_codes, only=False, **kwargs):
         error_codes.remove(error.code)
 
     # Go through all the remaining expected errors that weren't matched
-    for error in error_codes:
-        missing_errors.append(error)
+    for error_code in error_codes:
+        missing_errors.append(error_code)
 
     error_msg = ''
     if missing_errors:
@@ -65,49 +99,61 @@ def raises_error_codes(error_codes, only=False, **kwargs):
         pytest.fail(error_msg)
 
 
-def raises_only_error_codes(error_codes, **kwargs):
-    return raises_error_codes(error_codes, only=True, **kwargs)
+@contextlib.contextmanager
+def raises_only_error_codes(
+    error_codes,  # type: Union[Iterable[six.text_type], six.text_type]
+    **kwargs  # type: Any
+):  # type: (...) -> Iterator[_PySOAExceptionInfo]
+    with raises_error_codes(error_codes, only=True, **kwargs) as exc_info:
+        yield exc_info
 
 
 @contextlib.contextmanager
-def raises_field_errors(field_errors, only=False, **kwargs):
+def raises_field_errors(
+    field_errors,  # type: Dict[six.text_type, Union[Iterable[six.text_type], six.text_type]]
+    only=False,  # type: bool
+    **kwargs  # type: Any
+):  # type: (...) -> Iterator[_PySOAExceptionInfo]
     with raises_call_action_error(**kwargs) as exc_info:
         yield exc_info
 
     raised_errors = exc_info.soa_errors
-    unexpected_errors = []
-    missing_errors = []
+    unexpected_errors = []  # type: List[Union[E, Dict[six.text_type, E]]]
+    missing_errors = []  # type: List[Dict[six.text_type, six.text_type]]
 
     # Provide the flexibility for them to pass it a set or list of error codes, or a single code, per field
+    new_field_errors = {}  # type: Dict[six.text_type, Set[six.text_type]]
     for field, errors in six.iteritems(field_errors):
-        if not isinstance(errors, set):
-            if isinstance(errors, list):
-                field_errors[field] = set(errors)
+        if not isinstance(errors, Set):
+            if not isinstance(errors, six.text_type):
+                new_field_errors[field] = set(errors)
             else:
-                field_errors[field] = {errors}
+                new_field_errors[field] = {errors}
+        else:
+            new_field_errors[field] = errors
 
     # Go through all the errors returned by the action, mark any that are unexpected, remove any that match
     for error in raised_errors:
-        if not getattr(error, 'field', None):
+        if not hasattr(error, 'field') or not error.field:
             unexpected_errors.append((error.code, error.message))
             continue
 
-        if error.field not in field_errors:
+        if error.field not in new_field_errors:
             unexpected_errors.append({error.field: (error.code, error.message)})
             continue
 
-        if error.code not in field_errors[error.field]:
+        if error.code not in new_field_errors[error.field]:
             unexpected_errors.append({error.field: (error.code, error.message)})
             continue
 
-        field_errors[error.field].remove(error.code)
-        if not field_errors[error.field]:
-            del field_errors[error.field]
+        new_field_errors[error.field].remove(error.code)
+        if not new_field_errors[error.field]:
+            del new_field_errors[error.field]
 
     # Go through all the remaining expected errors that weren't matched
-    for field, errors in six.iteritems(field_errors):
-        for error in errors:
-            missing_errors.append({field: error})
+    for field, error_codes in six.iteritems(new_field_errors):
+        for error_code in error_codes:
+            missing_errors.append({field: error_code})
 
     error_msg = ''
     if missing_errors:
@@ -123,5 +169,10 @@ def raises_field_errors(field_errors, only=False, **kwargs):
         pytest.fail(error_msg)
 
 
-def raises_only_field_errors(field_errors, **kwargs):
-    return raises_field_errors(field_errors, only=True, **kwargs)
+@contextlib.contextmanager
+def raises_only_field_errors(
+    field_errors,  # type: Dict[six.text_type, Union[Iterable[six.text_type], six.text_type]]
+    **kwargs  # type: Any
+):  # type: (...) -> Iterator[_PySOAExceptionInfo]
+    with raises_field_errors(field_errors, only=True, **kwargs) as exc_info:
+        yield exc_info

@@ -482,9 +482,9 @@ class ServicePlanFixtureTestTracebackEntry(TracebackEntry):
     def ishidden(self):
         return False
 
-    def name(self):
+    def getname(self):
         return self._name
-    name = property(name, None, None, str('name of underlaying code'))
+    name = property(getname, None, None, str('name of underlaying code'))
 
     def __str__(self):
         return '  File {path} line {line_number} (approximate) in {test}\n  {source}\n'.format(

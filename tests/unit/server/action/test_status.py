@@ -5,10 +5,10 @@ from __future__ import (
 )
 
 import platform
+import sys
 import unittest
 
 import conformity
-from conformity.fields.basic import Boolean
 import six
 
 import pysoa
@@ -24,7 +24,9 @@ from pysoa.server.action.status import (
     StatusActionFactory,
     make_default_status_action_class,
 )
+from pysoa.server.server import Server
 from pysoa.server.types import EnrichedActionRequest
+from pysoa.test.compatibility import mock
 from pysoa.test.stub_service import stub_action
 
 
@@ -59,10 +61,10 @@ class _CheckOtherServicesAction(BaseStatusAction):
 class TestBaseStatusAction(unittest.TestCase):
     def test_cannot_instantiate_base_action(self):
         with self.assertRaises(TypeError):
-            BaseStatusAction()
+            BaseStatusAction()  # type: ignore
 
     def test_basic_status_works(self):
-        action_request = EnrichedActionRequest(action='status', body={}, switches=None)
+        action_request = EnrichedActionRequest(action='status', body={})
 
         response = StatusActionFactory('1.2.3', 'example_service-72-1.2.3-python3')()(action_request)
 
@@ -80,7 +82,7 @@ class TestBaseStatusAction(unittest.TestCase):
         )
 
     def test_complex_status_body_none_works(self):
-        action_request = EnrichedActionRequest(action='status', body=None, switches=None)
+        action_request = EnrichedActionRequest(action='status', body={})
 
         response = _ComplexStatusAction()(action_request)
 
@@ -102,7 +104,7 @@ class TestBaseStatusAction(unittest.TestCase):
         )
 
     def test_complex_status_verbose_omitted_works(self):
-        action_request = EnrichedActionRequest(action='status', body={}, switches=None)
+        action_request = EnrichedActionRequest(action='status', body={})
 
         response = _ComplexStatusAction()(action_request)
 
@@ -124,7 +126,7 @@ class TestBaseStatusAction(unittest.TestCase):
         )
 
     def test_complex_status_verbose_true_works(self):
-        action_request = EnrichedActionRequest(action='status', body={'verbose': True}, switches=None)
+        action_request = EnrichedActionRequest(action='status', body={'verbose': True})
 
         response = _ComplexStatusAction()(action_request)
 
@@ -146,7 +148,7 @@ class TestBaseStatusAction(unittest.TestCase):
         )
 
     def test_complex_status_verbose_false_works(self):
-        action_request = EnrichedActionRequest(action='status', body={'verbose': False}, switches=None)
+        action_request = EnrichedActionRequest(action='status', body={'verbose': False})
 
         response = _ComplexStatusAction()(action_request)
 
@@ -163,26 +165,50 @@ class TestBaseStatusAction(unittest.TestCase):
         )
 
     def test_make_default_status_action_class(self):
-        action_class = make_default_status_action_class(ActionResponse)
-        self.assertIsNotNone(action_class)
-        self.assertTrue(issubclass(action_class, BaseStatusAction))
+        class TestServer1(Server):
+            pass
 
-        action = action_class({})
-        self.assertEqual(six.text_type(pysoa.__version__), action._version)
-        self.assertIsNone(action._build)
+        class TestServer2(Server):
+            pass
 
-        action_class = make_default_status_action_class(Boolean)
-        self.assertIsNotNone(action_class)
-        self.assertTrue(issubclass(action_class, BaseStatusAction))
+        module1 = mock.MagicMock()
+        module1.__name__ = 'neat_service'
+        module1.__version__ = '1.6.3'
+        module2 = mock.MagicMock()
+        module2.__name__ = 'cooler_service'
+        module2.__version__ = '3.15.5'
+        module2.__build__ = 'cooler_service-3.15.5-af7ed3c'
 
-        action = action_class({})
-        self.assertEqual(six.text_type(conformity.__version__), action._version)
-        self.assertIsNone(action._build)
+        TestServer1.__module__ = 'neat_service.server'
+        TestServer2.__module__ = 'cooler_service.further.lower.server'
+
+        with mock.patch.dict(sys.modules, {'neat_service': module1, 'cooler_service': module2}):
+            action_class = make_default_status_action_class(TestServer1)
+            assert action_class is not None
+            assert issubclass(action_class, BaseStatusAction)
+
+            # noinspection PyArgumentList
+            action = action_class()
+            assert action is not None
+            assert isinstance(action, BaseStatusAction)
+            assert action._version == '1.6.3'
+            assert action._build is None
+
+            action_class = make_default_status_action_class(TestServer2)
+            assert action_class is not None
+            assert issubclass(action_class, BaseStatusAction)
+
+            # noinspection PyArgumentList
+            action = action_class()
+            assert action is not None
+            assert isinstance(action, BaseStatusAction)
+            assert action._version == '3.15.5'
+            assert action._build == 'cooler_service-3.15.5-af7ed3c'
 
     def test_check_client_settings_no_settings(self):
         client = Client({})
 
-        action_request = EnrichedActionRequest(action='status', body={}, switches=None, client=client)
+        action_request = EnrichedActionRequest(action='status', body={}, client=client)
 
         response = _CheckOtherServicesAction()(action_request)
 
@@ -206,7 +232,7 @@ class TestBaseStatusAction(unittest.TestCase):
             'qux': {'transport': {'path': 'pysoa.test.stub_service:StubClientTransport'}},
         })
 
-        action_request = EnrichedActionRequest(action='status', body={}, switches=None, client=client)
+        action_request = EnrichedActionRequest(action='status', body={}, client=client)
 
         baz_body = {
             'conformity': '1.2.3',

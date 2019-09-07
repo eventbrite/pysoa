@@ -4,13 +4,25 @@ from __future__ import (
 )
 
 import re
+from typing import (  # noqa: F401 TODO Python 3
+    AbstractSet,
+    Any,
+    Dict,
+    List,
+    Mapping,
+    MutableMapping,
+    Tuple,
+    Type,
+    Union,
+)
 
-from pyparsing import (
+from pyparsing import (  # noqa: F401 TODO Python 3
     And,
     Literal,
     MatchFirst,
     Optional,
     Or,
+    ParserElement,
     Regex,
     White,
     Word,
@@ -26,6 +38,7 @@ SOURCE_PATH_FIND_PATH_WITHOUT_INDEX_TO_ADD_INDEX_ZERO = re.compile(r'^([\w_]+)\.
 
 
 def path_put(out, path, value):
+    # type: (Union[List, MutableMapping], six.text_type, Any) -> None
     """
     Put data into dict structures based on a string path in the following format:
 
@@ -44,61 +57,78 @@ def path_put(out, path, value):
     slot, path_rest = _path_get_next_path_element(path)
 
     if path_rest is None:
+        if slot is None:
+            return
+
         # Set tip of the branch value (no more recursion at this point)
-        if type(out) == list:
+        if isinstance(out, list):
+            assert isinstance(slot, int), path
             _vivify_array(out, slot, dict)
-        out[slot] = value
+        out[slot] = value  # type: ignore
     else:
         next_slot, x = _path_get_next_path_element(path_rest)
-        if next_slot is not None and type(next_slot) == int:
-            prototype = []
+        if next_slot is not None and isinstance(next_slot, int):
+            prototype = []  # type: Union[List, Dict]
         else:
             prototype = {}
 
-        if type(out) == dict and slot not in out:
+        assert slot is not None, path
+
+        if isinstance(out, MutableMapping) and slot not in out:
             out[slot] = prototype
 
-        if type(out) == list:
+        if isinstance(out, list):
+            assert isinstance(slot, int), path
             _vivify_array(out, slot, type(prototype))
 
-        path_put(out[slot], path_rest, value)
+        path_put(out[slot], path_rest, value)  # type: ignore
 
 
 def _vivify_array(array, count, prototype):
+    # type: (List, int, Union[Type[List], Type[Mapping]]) -> None
     for i in range(len(array), count + 1):
         array.append(prototype())
 
 
 def path_get(data, path):
+    # type: (Union[Mapping, List, Tuple, AbstractSet], six.text_type) -> Any
     """
     Converse of path_put. Raises `KeyError` or `IndexError` for unaddressable paths.
     """
     slot, path_rest = _path_get_next_path_element(path)
-    if isinstance(data, dict) and slot not in data:
+    assert slot is not None, path
+    if isinstance(data, Mapping) and slot not in data:
         raise KeyError(slot)
 
-    elif isinstance(data, (list, tuple, set)):
-        if type(slot) != int or len(data) < slot + 1:
+    if isinstance(data, (list, tuple, AbstractSet)):  # do not use Sequence, might cause infinite recursion
+        if not isinstance(slot, int):
+            raise TypeError('{} should be an integer for sequences and sets'.format(slot))
+        if len(data) < slot + 1:
             raise IndexError(slot)
 
-    if isinstance(data, set):
-        data = sorted(list(data))
+        if isinstance(data, AbstractSet):
+            data = sorted(list(data))
+
+        new_data = data[slot]  # satisfy MyPy
+    else:
+        new_data = data[slot]  # satisfy MyPy
 
     if not path_rest:
-        return data[slot]
+        return new_data
 
-    return path_get(data[slot], path_rest)
+    return path_get(new_data, path_rest)
 
 
 def get_all_paths(data, current_path=''):
+    # type: (Union[Mapping, List, Tuple, AbstractSet], six.text_type) -> List[six.text_type]
     paths = []
-    if isinstance(data, dict):
+    if isinstance(data, Mapping):
         for k, v in six.iteritems(data):
             if isinstance(k, six.string_types) and (k.isdigit() or '.' in k):
                 k = '{{{}}}'.format(k)
             paths.extend(get_all_paths(v, _dot_join(current_path, k)))
-    elif isinstance(data, (list, set)):
-        if isinstance(data, set):
+    elif isinstance(data, (list, tuple, AbstractSet)):  # do not use Sequence, definitely causes infinite recursion
+        if isinstance(data, AbstractSet):
             data = sorted(list(data))
         for i, v in enumerate(data):
             paths.extend(get_all_paths(v, _dot_join(current_path, i)))
@@ -108,12 +138,14 @@ def get_all_paths(data, current_path=''):
 
 
 def _dot_join(a, b):
+    # type: (six.text_type, Union[six.text_type, int]) -> six.text_type
     if not a:
-        return b
+        return six.text_type(b)
     return '.'.join([six.text_type(a), six.text_type(b)])
 
 
 def _path_get_next_path_element(path):
+    # type: (six.text_type) -> Union[Tuple[None, None], Tuple[Union[six.text_type, int], Union[six.text_type, None]]]
     # returns next path element and path remainder
     #
     # This is what happens when you don't really think ahead on your language.
@@ -158,15 +190,18 @@ def _path_get_next_path_element(path):
         next_element_chars.append(char)
 
     next_element = ''.join(next_element_chars)
+    next_element_final = next_element  # type: Union[six.text_type, int]
     if not was_in_brace and next_element.isdigit():
-        next_element = int(next_element)
+        next_element_final = int(next_element)
 
     remainder = path[i + 1:] or None
 
-    return next_element, remainder
+    return next_element_final, remainder
 
 
+# noinspection PyUnresolvedReferences
 def recursive_parse_expr_repr(parse_expression):
+    # type: (ParserElement) -> six.text_type
     """
     Return a reasonable BNF(ish) style representation of a parse_expression.
     """
@@ -201,6 +236,7 @@ def recursive_parse_expr_repr(parse_expression):
 
 
 def substitute_variables(data, *sources):
+    # type: (Union[MutableMapping, List], *Union[Mapping, List, Tuple, AbstractSet]) -> None
     """
     Overlay [[NAME]] values with values from sources, if possible.
     """
@@ -251,6 +287,7 @@ def substitute_variables(data, *sources):
 
 
 def _find_path_in_sources(source_path, *sources):
+    # type: (six.text_type, *Union[Mapping, List, Tuple, AbstractSet]) -> Any
     for source in sources:
         try:
             return path_get(source, source_path)

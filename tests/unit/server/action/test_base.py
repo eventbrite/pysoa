@@ -42,7 +42,6 @@ class TestActionValidation(unittest.TestCase):
             body={
                 'string_field': 'a unicode string',
             },
-            switches=None,
         )
 
     def test_validate_without_request_schema(self):

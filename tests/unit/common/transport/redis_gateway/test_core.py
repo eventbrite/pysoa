@@ -6,10 +6,15 @@ from __future__ import (
 import datetime
 import time
 import timeit
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+)
 
 import attr
 import freezegun
 import pytest
+import six  # noqa: F401 TODO Python 3
 
 from pysoa.common.serializer.json_serializer import JSONSerializer
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
@@ -58,7 +63,7 @@ class TestRedisTransportCore(object):
     def test_standard_client_created_with_defaults(self, mock_standard, mock_sentinel):
         # noinspection PyArgumentList
         core = RedisTransportServerCore(backend_type=REDIS_BACKEND_TYPE_STANDARD)
-        core.backend_layer.anything()
+        core.backend_layer.anything()  # type: ignore
 
         assert core.message_expiry_in_seconds == 60
         assert core.queue_capacity == 10000
@@ -88,7 +93,7 @@ class TestRedisTransportCore(object):
             receive_timeout_in_seconds=10,
             default_serializer_config={'object': MockSerializer, 'kwargs': {'kwarg1': 'hello'}},
         )
-        core.backend_layer.anything()
+        core.backend_layer.anything()  # type: ignore
 
         assert core.service_name == 'example'
         assert core.message_expiry_in_seconds == 30
@@ -126,7 +131,7 @@ class TestRedisTransportCore(object):
             receive_timeout_in_seconds=6,
             default_serializer_config={'object': MockSerializer, 'kwargs': {'kwarg2': 'goodbye'}},
         )
-        core.backend_layer.anything()
+        core.backend_layer.anything()  # type: ignore
 
         assert core.message_expiry_in_seconds == 45
         assert core.queue_capacity == 7500
@@ -150,7 +155,7 @@ class TestRedisTransportCore(object):
     def test_chunking_not_supported_on_client(self, mock_standard, mock_sentinel):
         with pytest.raises(TypeError) as error_context:
             # noinspection PyArgumentList
-            RedisTransportClientCore(
+            RedisTransportClientCore(  # type: ignore
                 backend_type=REDIS_BACKEND_TYPE_SENTINEL,
                 backend_layer_kwargs={
                     'connection_kwargs': {'hello': 'world'},
@@ -256,7 +261,7 @@ class TestRedisTransportCore(object):
             chunk_messages_larger_than_bytes=102400,
             maximum_message_size_in_bytes=102400 * 5,
         )
-        core.backend_layer.anything()
+        core.backend_layer.anything()  # type: ignore
 
         assert core.message_expiry_in_seconds == 45
         assert core.queue_capacity == 7500
@@ -780,7 +785,7 @@ class TestRedisTransportCore(object):
         core = self._get_server_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)
 
         message = {'request_id': 79, 'meta': {'yes': 'no'}, 'body': {'baz': 'qux'}}
-        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})
+        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})  # type: ignore
 
         serialized = MsgpackSerializer().dict_to_blob(message)
 
@@ -801,7 +806,7 @@ class TestRedisTransportCore(object):
         core = self._get_client_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)
 
         message = {'request_id': 79, 'meta': {'yes': 'no'}, 'body': {'baz': 'qux'}}
-        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})
+        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})  # type: ignore
 
         serialized = MsgpackSerializer().dict_to_blob(message)
 
@@ -828,7 +833,7 @@ class TestRedisTransportCore(object):
         core = self._get_client_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)
 
         message = {'request_id': 80, 'meta': {'no': 'yes'}, 'body': {'foo': 'bar'}}
-        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})
+        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})  # type: ignore
 
         serialized = MsgpackSerializer().dict_to_blob(message)
 
@@ -857,7 +862,7 @@ class TestRedisTransportCore(object):
         core = self._get_client_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)
 
         message = {'request_id': 83, 'meta': {'no': 'yes'}, 'body': {'baz': 'qux'}}
-        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})
+        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})  # type: ignore
 
         serialized = JSONSerializer().dict_to_blob(message)
 
@@ -886,7 +891,7 @@ class TestRedisTransportCore(object):
         core = self._get_client_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)
 
         message = {'request_id': 79, 'meta': {'yes': 'no'}, 'body': {'baz': 'qux'}}
-        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})
+        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})  # type: ignore
 
         serialized = MsgpackSerializer().dict_to_blob(message)
 
@@ -907,7 +912,7 @@ class TestRedisTransportCore(object):
         core = self._get_client_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)
 
         message = {'request_id': 79, 'meta': {'yes': 'no'}, 'body': {'baz': 'qux'}}
-        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})
+        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})  # type: ignore
 
         serialized = MsgpackSerializer().dict_to_blob(message)
 
@@ -928,7 +933,7 @@ class TestRedisTransportCore(object):
         core = self._get_client_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)
 
         message = {'request_id': 79, 'meta': {'yes': 'no'}, 'body': {'baz': 'qux'}}
-        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})
+        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})  # type: ignore
 
         serialized = MsgpackSerializer().dict_to_blob(message)
 
@@ -949,7 +954,7 @@ class TestRedisTransportCore(object):
         core = self._get_client_core(receive_timeout_in_seconds=3, message_expiry_in_seconds=10)
 
         message = {'request_id': 79, 'meta': {'yes': 'no'}, 'body': {'baz': 'qux'}}
-        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})
+        message['body'].update({'key-{}'.format(i): 'value-{}'.format(i) for i in range(200)})  # type: ignore
 
         serialized = MsgpackSerializer().dict_to_blob(message)
 
@@ -1120,7 +1125,7 @@ class TestRedisTransportCore(object):
             maximum_message_size_in_bytes=111111 * 6,
         )
 
-        meta = {}
+        meta = {}  # type: Dict[six.text_type, Any]
         body = {'test': ['payload%i' % i for i in range(10000, 75000)]}  # > 111111 * 6
 
         with pytest.raises(MessageTooLarge) as error_context:

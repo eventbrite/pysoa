@@ -1,3 +1,4 @@
+"""isort:skip_file"""
 import collections
 import sys
 import typing
@@ -19,7 +20,7 @@ if (3, 5) <= sys.version_info < (3, 5, 3):
         patch backports that fix to 3.5.0-3.5.2.
         """
 
-    typing.Type = PatchedType
+    typing.Type = PatchedType  # type: ignore
 
 
 if (3, 5) <= sys.version_info < (3, 5, 4) or (3, 6) <= sys.version_info < (3, 6, 1):
@@ -38,8 +39,8 @@ if (3, 5) <= sys.version_info < (3, 5, 4) or (3, 6) <= sys.version_info < (3, 6,
 
         # noinspection PyProtectedMember,PyUnresolvedReferences,PyArgumentList
         def __new__(cls, *args, **kwargs):
-            if typing._geqv(cls, Deque):
+            if typing._geqv(cls, Deque):  # type: ignore
                 return collections.deque(*args, **kwargs)
-            return collections.deque.__new__(cls, *args, **kwargs)
+            return collections.deque.__new__(cls, *args, **kwargs)  # type: ignore
 
     typing.Deque = Deque

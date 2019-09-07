@@ -3,16 +3,55 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Iterable,
+    Optional,
+    SupportsInt,
+    Type,
+    Union,
+)
 
-def get_switch(item):
+
+try:
+    from typing import Protocol
+    try:
+        # Py3.8, Py2.7 backport
+        from typing import runtime_checkable
+    except ImportError:
+        # Some Py3.7
+        from typing import runtime as runtime_checkable  # type: ignore
+except ImportError:
+    # Some Py3.7, all Py3<3.7
+    from typing_extensions import (  # type: ignore
+        Protocol,
+        runtime_checkable,
+    )
+
+
+__all__ = (
+    'get_switch',
+    'is_switch',
+    'RequestSwitchSet',
+    'SupportsIntValue',
+    'SwitchSet',
+)
+
+
+@runtime_checkable
+class SupportsIntValue(Protocol):
+    value = 0  # type: SupportsInt
+
+
+def get_switch(item):  # type: (Union[SupportsInt, SupportsIntValue]) -> int
     if hasattr(item, '__int__'):
-        return item.__int__()
+        return item.__int__()  # type: ignore
     if hasattr(getattr(item, 'value', None), '__int__'):
-        return item.value.__int__()
+        return item.value.__int__()  # type: ignore
     raise TypeError('switch does not implement the switch constant interface')
 
 
-def is_switch(item):
+def is_switch(item):  # type: (Any) -> bool
     try:
         get_switch(item)
         return True
@@ -26,49 +65,40 @@ class SwitchSet(frozenset):
     provide integers in some way.
     """
 
-    def __new__(cls, switches=None):
+    def __new__(
+        cls,
+        switches=None,  # type: Optional[Iterable[Union[SupportsInt, SupportsIntValue]]]
+    ):  # type: (...) -> Type[SwitchSet]
         """
         Create a new uninitialized `SwitchSet` instance.
 
         :param switches: An iterable of integers or objects that implement the switch constant interface (provide
                          `__int__` or provide `value` which is an integer or provides `__int__`)
-        :type switches: iterable
 
         :return: A new `SwitchSet`
-        :rtype: SwitchSet
-
-        :raise: TypeError
         """
-        return super(SwitchSet, cls).__new__(cls, (get_switch(switch) for switch in switches or []))
+        return super(SwitchSet, cls).__new__(cls, (get_switch(switch) for switch in switches or []))  # type: ignore
 
-    def __contains__(self, switch):
+    def __contains__(self, switch):  # type: (Any) -> bool
         """
         Determine whether or not a switch is in the `SwitchSet`.
 
         :param switch: An integer or object that implements the switch constant interface (provides `__int__` or
                        provides `value` which is an integer or provides `__int__`)
-        :type: union[int, provides(__int__), provides(value)]
 
         :return: A boolean indicating whether the switch is active (in the set)
-        :rtype: bool
-
-        :raise: TypeError
         """
-        return super(SwitchSet, self).__contains__(get_switch(switch))
+        return super(SwitchSet, self).__contains__(get_switch(switch))  # type: ignore
 
 
 class RequestSwitchSet(SwitchSet):
-    def is_active(self, switch):
+    def is_active(self, switch):  # type: (Union[SupportsInt, SupportsIntValue]) -> bool
         """
         Determine whether or not a switch is active.
 
         :param switch: An integer or object that implements the switch constant interface (provides `__int__` or
                        provides `value` which is an integer or provides `__int__`)
-        :type: union[int, provides(__int__), provides(value)]
 
         :return: A boolean indicating whether the switch is active (in the set)
-        :rtype: bool
-
-        :raise: TypeError
         """
         return switch in self

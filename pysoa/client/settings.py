@@ -3,7 +3,6 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import cast
 import warnings
 
 from conformity import fields
@@ -15,8 +14,11 @@ from conformity.settings import (  # noqa: F401 TODO Python 3
 from pysoa.client.middleware import ClientMiddleware
 from pysoa.common.settings import SOASettings
 from pysoa.common.transport.base import ClientTransport as BaseClientTransport
-from pysoa.common.transport.local import LocalClientTransport
-from pysoa.common.transport.redis_gateway.client import RedisClientTransport
+
+
+__all__ = (
+    'ClientSettings',
+)
 
 
 class ClientSettings(SOASettings):
@@ -49,18 +51,10 @@ class ClientSettings(SOASettings):
     }  # type: SettingsData
 
 
-cast(fields.ClassConfigurationSchema, ClientSettings.schema['transport']).initiate_cache_for(
-    'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
-)
-cast(fields.ClassConfigurationSchema, ClientSettings.schema['transport']).initiate_cache_for(
-    'pysoa.common.transport.local:LocalClientTransport',
-)
-
-
 class RedisClientSettings(ClientSettings):
-    schema = {
-        'transport': fields.ClassConfigurationSchema(base_class=RedisClientTransport),
-    }  # type: SettingsSchema
+    """
+    DEPRECATED. Use `ClientSettings`, whose settings are polymorphic.
+    """
 
     defaults = {
         'transport': {
@@ -68,16 +62,16 @@ class RedisClientSettings(ClientSettings):
         }
     }  # type: SettingsData
 
+    def __init__(self, *args, **kwargs):
+        super(RedisClientSettings, self).__init__(*args, **kwargs)
 
-cast(fields.ClassConfigurationSchema, RedisClientSettings.schema['transport']).initiate_cache_for(
-    'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
-)
+        warnings.warn('RedisClientSettings is deprecated; use ClientSettings instead', DeprecationWarning)
 
 
 class LocalClientSettings(ClientSettings):
-    schema = {
-        'transport': fields.ClassConfigurationSchema(base_class=LocalClientTransport),
-    }  # type: SettingsSchema
+    """
+    DEPRECATED. Use `ClientSettings`, whose settings are polymorphic.
+    """
 
     defaults = {
         'transport': {
@@ -85,10 +79,10 @@ class LocalClientSettings(ClientSettings):
         }
     }  # type: SettingsData
 
+    def __init__(self, *args, **kwargs):
+        super(LocalClientSettings, self).__init__(*args, **kwargs)
 
-cast(fields.ClassConfigurationSchema, LocalClientSettings.schema['transport']).initiate_cache_for(
-    'pysoa.common.transport.local:LocalClientTransport',
-)
+        warnings.warn('LocalClientSettings is deprecated; use ClientSettings instead', DeprecationWarning)
 
 
 class PolymorphicClientSettings(ClientSettings):
