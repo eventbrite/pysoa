@@ -1364,11 +1364,16 @@ strict ``dict``: The constructor kwargs for the Redis client transport.
 - ``log_messages_larger_than_bytes`` - ``integer``: By default, messages larger than 100KB that do not trigger errors (see ``maximum_message_size_in_bytes``) will be logged with level WARNING to a logger named ``pysoa.transport.oversized_message``. To disable this behavior, set this setting to 0. Or, you can set it to some other number to change the threshold that triggers logging.
 - ``maximum_message_size_in_bytes`` - ``integer``: The maximum message size, in bytes, that is permitted to be transmitted over this transport (defaults to 100KB on the client and 250KB on the server)
 - ``message_expiry_in_seconds`` - ``integer``: How long after a message is sent that it is considered expired, dropped from queue
+- ``protocol_version`` - any of the types bulleted below: The default protocol version between clients and servers was Version 1 prior to PySOA 0.67.0, Version 2 as of 0.67.0, and will be Version 3 as of 1.0.0. The server can only detect what protocol the client is speaking and respond with the same protocol. However, the client cannot pre-determine what protocol the server is speaking. So, if you need to differ from the default (currently Version 2), use this setting to tell the client which protocol to speak.
+
+  - ``integer``: *(no description)*
+  - a Python object that is an instance of the following class or classes: ``pysoa.common.transport.redis_gateway.constants.ProtocolVersion``.
+
 - ``queue_capacity`` - ``integer``: The capacity of the message queue to which this transport will send messages
 - ``queue_full_retries`` - ``integer``: How many times to retry sending a message to a full queue before giving up
 - ``receive_timeout_in_seconds`` - ``integer``: How long to block waiting on a message to be received
 
-Optional keys: ``backend_layer_kwargs``, ``default_serializer_config``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``
+Optional keys: ``backend_layer_kwargs``, ``default_serializer_config``, ``log_messages_larger_than_bytes``, ``maximum_message_size_in_bytes``, ``message_expiry_in_seconds``, ``protocol_version``, ``queue_capacity``, ``queue_full_retries``, ``receive_timeout_in_seconds``
 
 
 .. _pysoa.common.transport.redis_gateway.server.RedisServerTransport:
