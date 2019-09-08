@@ -11,6 +11,7 @@ from functools import wraps
 import re
 
 from conformity import fields
+from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
 import six
 
 from pysoa.client.client import (
@@ -84,7 +85,7 @@ class StubClientSettings(ClientSettings):
         'transport': {
             'path': 'pysoa.test.stub_service:StubClientTransport'
         }
-    }
+    }  # type: SettingsData
 
 
 class StubClient(Client):

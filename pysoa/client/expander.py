@@ -4,9 +4,11 @@ from __future__ import (
 )
 
 from conformity import fields
+from conformity.settings import (  # noqa: F401 TODO Python 3
+    Settings,
+    SettingsSchema,
+)
 import six
-
-from pysoa.common.settings import Settings
 
 
 class ExpansionSettings(Settings):
@@ -93,7 +95,7 @@ class ExpansionSettings(Settings):
             description='The definition of all types that may contain identifiers that can be expanded into objects '
                         'using the `type_routes` configurations',
         ),
-    }
+    }  # type: SettingsSchema
 
 
 class TypeNode(object):
