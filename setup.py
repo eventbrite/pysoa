@@ -22,6 +22,7 @@ base_requirements = [
     'currint>=1.6,<3',
     'enum34;python_version<"3.4"',
     'msgpack-python~=0.5,>=0.5.2',
+    'pytz>=2019.1',
     'redis~=2.10',
     'six~=1.10',
     'typing;python_version<"3.5"',
@@ -41,15 +42,15 @@ test_plan_requirements = test_helper_requirements + [
     'pyparsing~=2.2',
     'pytest>=3.1,<6,!=4.2.0',  # 4.2.0 has a regression breaking our test plans, fixed in 4.2.1
     'pytest-asyncio;python_version>"3.4"',
-    'pytz>=2019.1',
 ]
 
 test_requirements = [
+    'coverage~=4.5',
     'factory_boy~=2.11.1',
     'freezegun~=0.3',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
-    'coverage~=4.5',
+    'mypy;python_version>"3.4"',
 ] + test_plan_requirements
 
 

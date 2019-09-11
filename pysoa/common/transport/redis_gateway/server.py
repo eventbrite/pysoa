@@ -3,24 +3,48 @@ from __future__ import (
     unicode_literals,
 )
 
-from conformity import fields
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+)
 
-from pysoa.common.metrics import TimerResolution
-from pysoa.common.transport.base import ServerTransport
+from conformity import fields
+import six  # noqa: F401 TODO Python 3
+
+from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
+    MetricsRecorder,
+    TimerResolution,
+)
+from pysoa.common.transport.base import (  # noqa: F401 TODO Python 3
+    ReceivedMessage,
+    ServerTransport,
+)
 from pysoa.common.transport.exceptions import (
     InvalidMessageError,
     MessageReceiveTimeout,
 )
-from pysoa.common.transport.redis_gateway.constants import DEFAULT_MAXIMUM_MESSAGE_BYTES_SERVER
-from pysoa.common.transport.redis_gateway.core import RedisTransportCore
+from pysoa.common.transport.redis_gateway.core import RedisTransportServerCore
 from pysoa.common.transport.redis_gateway.settings import RedisTransportSchema
 from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
 
 
-@fields.ClassConfigurationSchema.provider(RedisTransportSchema())
+@fields.ClassConfigurationSchema.provider(RedisTransportSchema().extend(
+    contents={
+        'chunk_messages_larger_than_bytes': fields.Integer(
+            description='If set, responses larger than this setting will be chunked and sent back to the client in '
+                        'pieces, to prevent blocking single-threaded Redis for long periods of time to handle large '
+                        'responses. When set, this value must be greater than or equal to 102400, and '
+                        '`maximum_message_size_in_bytes` must also be set and must be at least 5 times greater than '
+                        'this value (because `maximum_message_size_in_bytes` is still enforced).',
+        ),
+    },
+    optional_keys=('chunk_messages_larger_than_bytes', ),
+    description='The constructor kwargs for the Redis server transport.',
+))
 class RedisServerTransport(ServerTransport):
 
     def __init__(self, service_name, metrics, **kwargs):
+        # type: (six.text_type, MetricsRecorder, **Any) -> None
         """
         In addition to the two named positional arguments, this constructor expects keyword arguments abiding by the
         Redis transport settings schema.
@@ -32,13 +56,12 @@ class RedisServerTransport(ServerTransport):
         """
         super(RedisServerTransport, self).__init__(service_name, metrics)
 
-        if 'maximum_message_size_in_bytes' not in kwargs:
-            kwargs['maximum_message_size_in_bytes'] = DEFAULT_MAXIMUM_MESSAGE_BYTES_SERVER
-
-        self._receive_queue_name = make_redis_queue_name(self._service_name)
-        self.core = RedisTransportCore(service_name=service_name, metrics=metrics, metrics_prefix='server', **kwargs)
+        self._receive_queue_name = make_redis_queue_name(service_name)
+        # noinspection PyArgumentList
+        self.core = RedisTransportServerCore(service_name=service_name, metrics=metrics, **kwargs)
 
     def receive_request_message(self):
+        # type: () -> ReceivedMessage
         timer = self.metrics.timer('server.transport.redis_gateway.receive', resolution=TimerResolution.MICROSECONDS)
         timer.start()
         stop_timer = True
@@ -52,6 +75,7 @@ class RedisServerTransport(ServerTransport):
                 timer.stop()
 
     def send_response_message(self, request_id, meta, body):
+        # type: (int, Dict[six.text_type, Any], Dict[six.text_type, Any]) -> None
         try:
             queue_name = meta['reply_to']
         except KeyError:

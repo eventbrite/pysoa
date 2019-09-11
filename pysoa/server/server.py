@@ -16,7 +16,12 @@ import threading
 import time
 import traceback
 from types import FrameType  # noqa: F401 TODO Python 3
-from typing import Type  # noqa: F401 TODO Python 3
+from typing import (  # noqa: F401 TODO Python 3
+    Callable,
+    Mapping,
+    Optional,
+    Type,
+)
 
 import attr
 import six
@@ -47,6 +52,7 @@ from pysoa.common.types import (
     JobResponse,
     UnicodeKeysDict,
 )
+from pysoa.server.action.base import ActionType  # noqa: F401 TODO Python 3
 from pysoa.server.errors import (
     ActionError,
     JobError,
@@ -110,9 +116,9 @@ class Server(object):
     request_class = EnrichedActionRequest  # type: Type[EnrichedActionRequest]
     client_class = Client  # type: Type[Client]
 
-    use_django = False
-    service_name = None
-    action_class_map = {}
+    use_django = False  # type: bool
+    service_name = None  # type: Optional[six.text_type]
+    action_class_map = {}  # type: Mapping[six.text_type, ActionType]
 
     def __init__(self, settings, forked_process_id=None):
         """

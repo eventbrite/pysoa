@@ -821,6 +821,15 @@ The Redis Gateway transport takes the following extra keyword arguments for conf
   messages larger than this (set this to 0 to disable the warning)
 - ``maximum_message_size_in_bytes``: Defaults to 102,400 bytes on the client and 256,000 bytes on the server, defines
   the threshold at which ``MessageTooLarge`` will be raised.
+- ``chunk_messages_larger_than_bytes``: This option exists only for the Server transport and not for the Client
+  transport and controls the threshold at which responses will be chunked. Chunked responses allows your servers to
+  return very large responses back to clients without blocking single-threaded Redis for long periods of time with the
+  I/O from a single very large response. With chunking, each small chunk will compete for Redis resources as if it were
+  its own response, resulting in an infrastructure more torerable to large responses. By default, this is -1 (disabled).
+  If you configure this value, it must be at least 102,400 bytes, and ``maximum_message_size_in_bytes`` must also be
+  configured to be at least 5 times larger (because maximum message sizes can still be enforced, above which not even
+  chunking is allowed). You will probably also want to increase ``log_messages_larger_than_bytes`` to avoid verbose
+  response logging.
 
 
 Middleware

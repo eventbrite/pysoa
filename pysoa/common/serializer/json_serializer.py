@@ -4,6 +4,7 @@ from __future__ import (
 )
 
 import json
+from typing import Dict  # noqa: F401 TODO Python 3
 
 from conformity import fields
 import six
@@ -29,14 +30,15 @@ class JSONSerializer(BaseSerializer):
     """
     mime_type = 'application/json'
 
-    def dict_to_blob(self, data_dict):
-        assert isinstance(data_dict, dict), 'Input must be a dict'
+    def dict_to_blob(self, data_dict):  # type: (Dict) -> six.binary_type
+        if not isinstance(data_dict, dict):
+            raise ValueError('Input must be a dict')
         try:
             return json.dumps(data_dict).encode('utf-8')
         except TypeError as e:
             raise InvalidField(*e.args)
 
-    def blob_to_dict(self, blob):
+    def blob_to_dict(self, blob):  # type: (six.binary_type) -> Dict
         try:
             if six.PY3 and isinstance(blob, six.binary_type):
                 blob = blob.decode('utf-8')

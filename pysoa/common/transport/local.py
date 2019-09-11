@@ -4,14 +4,30 @@ from __future__ import (
 )
 
 from collections import deque
+from typing import (  # noqa: F401 TODO Python 3
+    TYPE_CHECKING,
+    Any,
+    Deque,
+    Dict,
+    Optional,
+    Type,
+    Union,
+)
 
 from conformity import fields
 import six
 
+from pysoa.common.metrics import MetricsRecorder  # noqa: F401 TODO Python 3
 from pysoa.common.transport.base import (
     ClientTransport,
+    ReceivedMessage,
     ServerTransport,
 )
+
+
+if TYPE_CHECKING:
+    # For now, only import during type checking, in order to work around circular import errors
+    from pysoa.server.server import Server  # noqa: F401 TODO Python 3
 
 
 _server_settings = fields.SchemalessDictionary(
@@ -51,7 +67,14 @@ class LocalClientTransportSchema(fields.Dictionary):
 class LocalClientTransport(ClientTransport):
     """A transport that incorporates a server for running a service and client in a single thread."""
 
-    def __init__(self, service_name, metrics, server_class, server_settings):
+    def __init__(
+        self,
+        service_name,  # type: six.text_type
+        metrics,  # type: MetricsRecorder
+        server_class,  # type: Union[six.text_type, Type[Server]]
+        server_settings  # type: Union[six.text_type, Dict[six.text_type, Any]]
+    ):
+        # type: (...) -> None
         """
         :param service_name: The service name
         :type service_name: union[str, unicode]
@@ -67,9 +90,14 @@ class LocalClientTransport(ClientTransport):
         # If the server is specified as a path, resolve it to a class
         if isinstance(server_class, six.string_types):
             try:
-                server_class = fields.PythonPath.resolve_python_path(server_class)
+                server_class = fields.PythonPath.resolve_python_path(server_class)  # type: Type[Server]
             except (ValueError, ImportError, AttributeError) as e:
                 raise type(e)('Could not resolve server class path {}: {!r}'.format(server_class, e))
+
+        # Now we can import for real, in order to check types
+        from pysoa.server.server import Server  # noqa: F811
+        if not issubclass(server_class, Server):
+            raise TypeError('server_class must be or extend Server')
 
         # Make sure the client and the server match names
         if server_class.service_name != service_name:
@@ -82,13 +110,13 @@ class LocalClientTransport(ClientTransport):
         # See if the server settings is actually a string to the path for settings
         if isinstance(server_settings, six.string_types):
             try:
-                settings_dict = fields.PythonPath.resolve_python_path(server_settings)
+                settings_dict = fields.PythonPath.resolve_python_path(server_settings)  # type: Dict[six.text_type, Any]
             except (ValueError, ImportError, AttributeError) as e:
                 raise type(e)('Could not resolve settings path {}: {!r}'.format(server_settings, e))
             if not isinstance(settings_dict, dict):
                 raise TypeError('Imported settings path {} is not a dictionary.'.format(server_settings))
         else:
-            settings_dict = server_settings
+            settings_dict = server_settings  # type: Dict[six.text_type, Any]
 
         # Patch settings_dict to use LocalServerTransport
         settings_dict['transport'] = {
@@ -96,10 +124,10 @@ class LocalClientTransport(ClientTransport):
         }
 
         # Set an empty queued request; we'll use this later
-        self._current_request = None
+        self._current_request = None  # type: Optional[ReceivedMessage]
 
         # Set up a deque for responses for just this client
-        self.response_messages = deque()
+        self.response_messages = deque()  # type: Deque[ReceivedMessage]
 
         # Create and setup Server instance
         self.server_settings = server_class.settings_class(settings_dict)
@@ -108,18 +136,20 @@ class LocalClientTransport(ClientTransport):
         self.server.setup()
 
     def send_request_message(self, request_id, meta, body, _=None):
+        # type: (int, Dict[six.text_type, Any], Dict[six.text_type, Any], Optional[int]) -> None
         """
         Receives a request from the client and handles and dispatches in in-thread. `message_expiry_in_seconds` is not
         supported. Messages do not expire, as the server handles the request immediately in the same thread before
         this method returns. This method blocks until the server has completed handling the request.
         """
-        self._current_request = (request_id, meta, body)
+        self._current_request = ReceivedMessage(request_id, meta, body)
         try:
             self.server.handle_next_request()
         finally:
-            self._current_request = None
+            self._current_request = None  # type: Optional[ReceivedMessage]
 
     def receive_request_message(self):
+        # type: () -> ReceivedMessage
         """
         Gives the server the current request (we are actually inside the stack of send_request_message so we know this
         is OK).
@@ -128,17 +158,19 @@ class LocalClientTransport(ClientTransport):
             try:
                 return self._current_request
             finally:
-                self._current_request = None
+                self._current_request = None  # type: Optional[ReceivedMessage]
         else:
             raise RuntimeError('Local server tried to receive message more than once')
 
     def send_response_message(self, request_id, meta, body):
+        # type: (int, Dict[six.text_type, Any], Dict[six.text_type, Any]) -> None
         """
         Add the response to the deque.
         """
-        self.response_messages.append((request_id, meta, body))
+        self.response_messages.append(ReceivedMessage(request_id, meta, body))
 
     def receive_response_message(self, _=None):
+        # type: (Optional[int]) -> ReceivedMessage
         """
         Receives a message from the deque. `receive_timeout_in_seconds` is not supported. Receive does not time out,
         because by the time the thread calls this method, a response is already available in the deque, or something
@@ -146,7 +178,7 @@ class LocalClientTransport(ClientTransport):
         """
         if self.response_messages:
             return self.response_messages.popleft()
-        return None, None, None
+        return ReceivedMessage(None, None, None)
 
 
 class LocalServerTransportSchema(fields.Dictionary):

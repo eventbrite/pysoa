@@ -8,10 +8,15 @@ from __future__ import (
 import datetime
 import decimal
 import struct
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+)
 
 from conformity import fields
 import currint
 import msgpack
+import pytz
 import six
 
 from pysoa.common.serializer.base import Serializer as BaseSerializer
@@ -67,6 +72,7 @@ class MsgpackSerializer(BaseSerializer):
     EXT_CURRINT = 2
     EXT_DATE = 3
     EXT_DATETIME = 1
+    EXT_DATETIME_UTC = 10
     EXT_DECIMAL = 5
     EXT_TIME = 4
 
@@ -76,33 +82,43 @@ class MsgpackSerializer(BaseSerializer):
     STRUCT_DECIMAL_LENGTH = struct.Struct(str('!H'))
     STRUCT_TIME = struct.Struct(str('!3BL'))
 
-    def dict_to_blob(self, data_dict):
-        assert isinstance(data_dict, dict), 'Input must be a dict'
+    EPOCH = datetime.datetime(1970, 1, 1)
+    EPOCH_UTC = datetime.datetime(1970, 1, 1, tzinfo=pytz.UTC)
+
+    def dict_to_blob(self, data_dict):  # type: (Dict) -> six.binary_type
+        if not isinstance(data_dict, dict):
+            raise ValueError('Input must be a dict')
         try:
-            return msgpack.packb(data_dict, default=self.default, use_bin_type=True)
+            return msgpack.packb(data_dict, default=self._default, use_bin_type=True)
         except TypeError as e:
             raise InvalidField(*e.args)
 
-    def blob_to_dict(self, blob):
+    def blob_to_dict(self, blob):  # type: (six.binary_type) -> Dict
         try:
-            return msgpack.unpackb(blob, raw=False, ext_hook=self.ext_hook)
+            return msgpack.unpackb(blob, raw=False, ext_hook=self._ext_hook)
         except (TypeError, msgpack.UnpackValueError, msgpack.ExtraData) as e:
             raise InvalidMessage(*e.args)
 
-    def default(self, obj):
+    def _default(self, obj):  # type: (Any) -> msgpack.ExtType
         """
         Encodes unknown object types (we use it to make extended types)
         """
         if isinstance(obj, datetime.datetime):
             # Serialize date-time objects. Make sure they're naive.
+            ext_code = self.EXT_DATETIME
+            epoch = self.EPOCH
             if obj.tzinfo is not None:
-                raise TypeError('Cannot encode time zone-aware date-times to MessagePack')
+                if obj.tzinfo == pytz.UTC:
+                    ext_code = self.EXT_DATETIME_UTC
+                    epoch = self.EPOCH_UTC
+                else:
+                    raise TypeError('Cannot encode time zone-aware date-times to MessagePack')
             # Then, work out the timestamp in seconds.
-            seconds = (obj - datetime.datetime(1970, 1, 1)).total_seconds()
+            seconds = (obj - epoch).total_seconds()
             microseconds = int(seconds * 1000000.0)
             # Then pack it into a big-endian signed 64-bit integer.
             return msgpack.ExtType(
-                self.EXT_DATETIME,
+                ext_code,
                 self.STRUCT_DATETIME.pack(microseconds),
             )
         elif isinstance(obj, datetime.date):
@@ -136,18 +152,21 @@ class MsgpackSerializer(BaseSerializer):
                 self.EXT_CURRINT,
                 self.STRUCT_CURRINT.pack(code, obj.value),
             )
-        else:
-            # Wuh-woh
-            raise TypeError('Cannot encode value of type {} to MessagePack: {}'.format(type(obj).__name__, obj))
 
-    def ext_hook(self, code, data):
+        # Wuh-woh
+        raise TypeError('Cannot encode value of type {} to MessagePack: {}'.format(type(obj).__name__, obj))
+
+    def _ext_hook(self, code, data):  # type: (int, six.binary_type) -> Any
         """
         Decodes our custom extension types
         """
-        if code == self.EXT_DATETIME:
+        if code in (self.EXT_DATETIME, self.EXT_DATETIME_UTC):
             # Unpack datetime object from a big-endian signed 64-bit integer.
             microseconds = self.STRUCT_DATETIME.unpack(data)[0]
-            return datetime.datetime.utcfromtimestamp(microseconds / 1000000.0)
+            value = datetime.datetime.utcfromtimestamp(microseconds / 1000000.0)
+            if code == self.EXT_DATETIME_UTC:
+                value = value.replace(tzinfo=pytz.UTC)
+            return value
         elif code == self.EXT_DATE:
             # Unpack local-date object from a big-endian unsigned short and two big-endian unsigned chars
             return datetime.date(*self.STRUCT_DATE.unpack(data))
@@ -163,5 +182,5 @@ class MsgpackSerializer(BaseSerializer):
             # Unpack Amount object into (code, minor) from a 3-char ASCII string and a signed 64-bit integer.
             code, minor_value = self.STRUCT_CURRINT.unpack(data)
             return currint.Amount.from_code_and_minor(code.decode('ascii'), minor_value)
-        else:
-            raise TypeError('Cannot decode unknown extension type {} from MessagePack'.format(code))
+
+        raise TypeError('Cannot decode unknown extension type {} from MessagePack'.format(code))

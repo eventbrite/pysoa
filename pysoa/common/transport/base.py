@@ -19,60 +19,89 @@ from __future__ import (
 
 import abc
 import threading
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+    NamedTuple,
+    Optional,
+)
 
 import six
 
-from pysoa.common.metrics import NoOpMetricsRecorder
+from pysoa.common.metrics import (
+    MetricsRecorder,
+    NoOpMetricsRecorder,
+)
 
 
-def get_hex_thread_id():
+def get_hex_thread_id():  # type: () -> six.text_type
     return '{:012x}'.format(threading.current_thread().ident)
 
 
+ReceivedMessage = NamedTuple(
+    'ReceivedMessage',
+    (
+        ('request_id', int),
+        ('meta', Dict[six.text_type, Any]),
+        ('body', Dict[six.text_type, Any]),
+    ),
+)
+
+
 @six.add_metaclass(abc.ABCMeta)
-class ClientTransport(object):
+class Transport(object):
+    """
+    A base transport from which all client and server transports inherit, establishing base metrics and service name
+    attributes.
+    """
 
     def __init__(self, service_name, metrics=NoOpMetricsRecorder()):
+        # type: (six.text_type, MetricsRecorder) -> None
         """
         :param service_name: The name of the service to which this transport will send requests (and from which it will
                              receive responses)
-        :type service_name: union[str, unicode]
         :param metrics: The optional metrics recorder
-        :type metrics: MetricsRecorder
         """
+        if not isinstance(service_name, six.text_type):
+            raise ValueError('service_name must be a unicode string')
+        if not isinstance(metrics, MetricsRecorder):
+            raise ValueError('metrics must be a MetricsRecorder')
+
         self.service_name = service_name
         self.metrics = metrics
 
+
+@six.add_metaclass(abc.ABCMeta)
+class ClientTransport(Transport):
+    """
+    The base client transport defining the interface for transacting PySOA payloads on the client side.
+    """
+
     @abc.abstractmethod
     def send_request_message(self, request_id, meta, body, message_expiry_in_seconds=None):
+        # type: (int, Dict[six.text_type, Any], Dict[six.text_type, Any], Optional[int]) -> None
         """
         Send a request message.
 
         :param request_id: The request ID
-        :type request_id: int
         :param meta: Meta information about the message
-        :type meta: dict
         :param body: The message body
-        :type body: dict
         :param message_expiry_in_seconds: How soon the message should expire if not retrieved by a server
                                           (implementations should provide a sane default or setting for default)
-        :type message_expiry_in_seconds: int
 
         :raise: ConnectionError, MessageSendError, MessageSendTimeout, MessageTooLarge
         """
-        raise NotImplementedError()
 
     @abc.abstractmethod
     def receive_response_message(self, receive_timeout_in_seconds=None):
+        # type: (Optional[int]) -> ReceivedMessage
         """
         Receive a response message from the backend and return a 3-tuple of (request_id, meta dict, message dict).
 
         :param receive_timeout_in_seconds: How long to block waiting for a response to become available
                                            (implementations should provide a sane default or setting for default)
-        :type receive_timeout_in_seconds: int
 
-        :return: A tuple of the request ID, meta dict, and message dict, in that order
-        :rtype: tuple
+        :return: A named tuple ReceivedMessage of the request ID, meta dict, and message dict, in that order
 
         :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout
         """
@@ -80,26 +109,19 @@ class ClientTransport(object):
 
 
 @six.add_metaclass(abc.ABCMeta)
-class ServerTransport(object):
-
-    def __init__(self, service_name, metrics=NoOpMetricsRecorder()):
-        """
-        :param service_name: The name of the service for which this transport will receive requests and send responses
-        :type service_name: union[str, unicode]
-        :param metrics: The optional metrics recorder
-        :type metrics: MetricsRecorder
-        """
-        self.service_name = service_name
-        self.metrics = metrics
+class ServerTransport(Transport):
+    """
+    The base server transport defining the interface for transacting PySOA payloads on the server side.
+    """
 
     @abc.abstractmethod
     def receive_request_message(self):
+        # type: () -> ReceivedMessage
         """
         Receive a request message from the backend and return a 3-tuple of (request_id, meta dict, message dict). The
         metadata may include client reply-to information that should be passed back to send_response_message.
 
-        :return: A tuple of the request ID, meta dict, and message dict, in that order
-        :rtype: tuple
+        :return: A named tuple ReceivedMessage of the request ID, meta dict, and message dict, in that order
 
         :raise: ConnectionError, MessageReceiveError, MessageReceiveTimeout
         """
@@ -107,16 +129,14 @@ class ServerTransport(object):
 
     @abc.abstractmethod
     def send_response_message(self, request_id, meta, body):
+        # type: (int, Dict[six.text_type, Any], Dict[six.text_type, Any]) -> None
         """
         Send a response message. The meta dict returned by receive_request_message should be passed verbatim as the
         second argument.
 
         :param request_id: The request ID
-        :type request_id: int
         :param meta: Meta information about the message
-        :type meta: dict
         :param body: The message body
-        :type body: dict
 
         :raise: ConnectionError, MessageSendError, MessageSendTimeout, MessageTooLarge
         """

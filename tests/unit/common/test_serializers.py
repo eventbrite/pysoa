@@ -8,6 +8,7 @@ import decimal
 
 import currint
 import pytest
+import pytz
 
 from pysoa.common.serializer import (
     JSONSerializer,
@@ -121,7 +122,27 @@ class TestMsgpackSerializer(object):
     ])
     def test_datetime(self, value):
         serializer = MsgpackSerializer()
-        assert serializer.blob_to_dict(serializer.dict_to_blob({'v': value}))['v'] == value
+        deserialized = serializer.blob_to_dict(serializer.dict_to_blob({'v': value}))['v']  # type: datetime.datetime
+        assert deserialized == value
+        assert deserialized.tzinfo is None
+
+    @pytest.mark.parametrize('value', [
+        datetime.datetime(2011, 1, 24, tzinfo=pytz.UTC),
+        datetime.datetime(1970, 1, 1, tzinfo=pytz.UTC),
+        datetime.datetime(2017, 4, 28, 14, 30, 21, 231718, tzinfo=pytz.UTC),
+        datetime.datetime(3, 1, 1, 5, 30, tzinfo=pytz.UTC),
+        datetime.datetime(9998, 3, 27, 1, 45, tzinfo=pytz.UTC),
+    ])
+    def test_datetime_utc(self, value):
+        serializer = MsgpackSerializer()
+        deserialized = serializer.blob_to_dict(serializer.dict_to_blob({'v': value}))['v']  # type: datetime.datetime
+        assert deserialized == value
+        assert deserialized.tzinfo == pytz.UTC
+
+    def test_datetime_non_naive(self):
+        serializer = MsgpackSerializer()
+        with pytest.raises(InvalidField):
+            serializer.dict_to_blob({'v': datetime.datetime(2011, 1, 24, tzinfo=pytz.timezone('America/Chicago'))})
 
     @pytest.mark.parametrize('value', [
         datetime.date(3, 1, 1),

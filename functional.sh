@@ -13,6 +13,13 @@ then
     exit 0
 fi
 
+verbose="false"
+if [[ "$1" == "verbose" ]]
+then
+    verbose="true"
+    shift
+fi
+
 set -ex
 
 docker build --tag pysoa-test-mysql --file tests/functional/docker/Dockerfile-mysql .
@@ -46,7 +53,7 @@ echo  "Running functional tests..."
 #docker-compose -f $DCF exec -T test pytest tests/functional
 docker-compose -f $DCF exec -T test \
     coverage run --concurrency=multiprocessing --rcfile=/srv/run/.coveragerc -m \
-    pytest -vv -p no:pysoa_test_plan tests/functional
+    pytest -vv -p no:pysoa_test_plan tests/functional "$@"
 RET=$?
 
 # Stop these now, so that coverage files get written
@@ -83,7 +90,7 @@ fi
 
 docker-compose -f $DCF stop
 
-if [[ "$1" == "verbose" ]]
+if [[ "$verbose" == "true" ]]
 then
     docker-compose -f $DCF logs
 fi
