@@ -3,6 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
+import os
 from typing import (  # noqa: F401 TODO Python 3
     Any,
     Dict,
@@ -56,7 +57,11 @@ class RedisServerTransport(ServerTransport):
         """
         super(RedisServerTransport, self).__init__(service_name, metrics)
 
-        self._receive_queue_name = make_redis_queue_name(service_name)
+        self._service_name = service_name
+        if os.getenv('MANGLED_SERVICE_NAME'):
+            self._service_name = os.environ['MANGLED_SERVICE_NAME']
+
+        self._receive_queue_name = make_redis_queue_name(self._service_name)
         # noinspection PyArgumentList
         self.core = RedisTransportServerCore(service_name=service_name, metrics=metrics, **kwargs)
 
