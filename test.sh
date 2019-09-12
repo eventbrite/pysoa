@@ -2,7 +2,7 @@
 
 # For running tests locally (not Docker, not Tox) with all dependencies already installed
 
-coverage run --parallel-mode -m pytest tests/unit tests/integration
+coverage run --parallel-mode -m pytest tests/unit tests/integration "$@"
 RET=$?
 
 coverage combine

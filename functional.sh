@@ -27,6 +27,8 @@ docker build --tag pysoa-test-redis --file tests/functional/docker/Dockerfile-re
 docker build --tag pysoa-test-redis-sentinel --file tests/functional/docker/Dockerfile-redis-sentinel .
 docker build --tag pysoa-test-service --file tests/functional/docker/Dockerfile-service .
 docker build --tag pysoa-test-service-echo --file tests/functional/services/echo/Dockerfile .
+docker build --tag pysoa-test-service-echo-double-import-trap \
+    --file tests/functional/services/echo/Dockerfile-double-import-trap .
 docker build --tag pysoa-test-service-meta --file tests/functional/services/meta/Dockerfile .
 docker build --tag pysoa-test-service-user --file tests/functional/services/user/Dockerfile .
 docker build --tag pysoa-test-test --file tests/functional/docker/Dockerfile-test .

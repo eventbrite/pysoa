@@ -24,25 +24,37 @@ def setup_module(_):
     imported.
     """
     global standalone
-    try:
-        from pysoa.server import standalone
-        assert False, 'Should not have been able to import standalone; should have received SystemExit'
-    except SystemExit as e:
-        # This first bit is actually a test; it confirms that the double-import trap is triggered
-        assert e.args[0] == 99
 
-    # Now we actually import the module, but we have to make sure the double-import trap isn't triggered before we do.
-    # Running `pytest` or `setup.py` looks to `standalone` like there is a problem, so we temporarily remove `pytest`
-    # or `setup.py` from the first path item...
-    prev_path_0 = sys.path[0]
-    sys.path[0] = ''
-    try:
-        from pysoa.server import standalone
-    except SystemExit as e:
-        assert False, 'Expected import to succeed, instead got SystemExit with code {}'.format(e.args[0])
-    finally:
-        # ...and then we put it back in so that we haven't caused any problems.
-        sys.path[0] = prev_path_0
+    with mock.patch('pysoa.utils.get_python_interpreter_arguments') as mock_get_args:
+        prev_path_0 = sys.path[0]
+        mock_get_args.return_value = ['python', '/path/to/module.py']
+
+        # Force this to bad
+        sys.path[0] = '/path/to/module.py'
+        try:
+            from pysoa.server import standalone
+            assert False, 'Should not have been able to import standalone; should have received SystemExit'
+        except SystemExit as e:
+            # This first bit is actually a test; it confirms that the double-import trap is triggered
+            assert e.args[0] == 99
+        finally:
+            # ...and then we put this back so that we haven't caused any problems.
+            sys.path[0] = prev_path_0
+
+        # Now we actually import the module, but we have to make sure the double-import trap isn't triggered before we
+        # do. Running `pytest` or `setup.py` looks to `standalone` like there is a problem, so we temporarily remove
+        # `pytest` or `setup.py` from the first path item if it's Py<3.7, change return value of mock for 3.7+...
+        if sys.version_info < (3, 7):
+            sys.path[0] = ''
+        else:
+            mock_get_args.return_value = ['python', '-m', 'service_module']
+        try:
+            from pysoa.server import standalone
+        except SystemExit as e:
+            assert False, 'Expected import to succeed, instead got SystemExit with code {}'.format(e.args[0])
+        finally:
+            # ...and then we put this back so that we haven't caused any problems.
+            sys.path[0] = prev_path_0
 
 
 class TestSimpleMain(unittest.TestCase):
