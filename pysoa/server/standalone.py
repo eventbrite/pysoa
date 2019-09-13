@@ -21,6 +21,8 @@ from typing import (  # noqa: F401 TODO Python 3
 
 import attr
 
+import pysoa.utils
+
 
 __all__ = (
     'django_main',
@@ -28,10 +30,24 @@ __all__ = (
 )
 
 
-if sys.path[0] and not sys.path[0].endswith('/bin'):
-    # When Python is invoked using `python -m some_module`, the first item in the path is always empty
-    # When Python is invoked using an entry-point binary, the first item in the path is a /bin folder somewhere
-    # When Python is invoked using `python /path/to/file.py`, the first item in the path is `/path/to`, which is bad
+def is_double_import():  # type: () -> bool
+    # - When Python is invoked using `python -m some_module`, the first item in the path is always empty in Python 2.7
+    #   through 3.6. In 3.7+, it is equal to the full path to and including the module file.
+    # - When Python is invoked using an entry-point binary, the first item in the path is a /bin folder somewhere
+    # - When Python is invoked using `python /path/to/file.py`, the first item in the path is `/path/to`
+    #
+    # We want to require an entry-point binary or `-m` and disallow `python /path/to/file.py`. In Python 2.7-3.6 we
+    # can just check sys.path, but in Python 3.7 we must check the raw interpreter arguments.
+    if not sys.path[0] or sys.path[0].endswith('/bin') or sys.path[0].endswith('/sbin'):
+        return False
+
+    if sys.version_info >= (3, 7):
+        return '-m' not in pysoa.utils.get_python_interpreter_arguments()
+
+    return True
+
+
+if is_double_import():
     print(
         'ERROR: You have triggered a double-import trap (see '
         'http://python-notes.curiousefficiency.org/en/latest/python_concepts/import_traps.html#the-double-import-trap '

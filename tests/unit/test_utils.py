@@ -5,7 +5,10 @@ from __future__ import (
 
 from unittest import TestCase
 
-from pysoa.utils import dict_to_hashable
+from pysoa.utils import (
+    dict_to_hashable,
+    get_python_interpreter_arguments,
+)
 
 
 class TestDictToHashable(TestCase):
@@ -86,3 +89,14 @@ class TestDictToHashable(TestCase):
         self.assertEqual('goodbye', cache[('a_type', dict_to_hashable(d4))])
 
         self.assertEqual(2, len(cache))
+
+
+def test_get_python_interpreter_arguments():
+    args = get_python_interpreter_arguments()
+    assert len(args) > 1
+    assert 'python' in args[0]
+    assert (
+        'test' in args[1] or
+        ('setup.py' in args[1] and 'test' in args[2]) or
+        ('coverage' in args[1] and 'run' in args and '-m' in args and 'pytest' in args)
+    )
