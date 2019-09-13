@@ -14,7 +14,7 @@ def get_redis_client():
 
 
 def make_service_route_map_name(service, route_map):
-    return 'route_map.' + route_map + '.service.' + service
+    return 'route_map.' + route_map + '.apps.' + service
 
 
 def make_token_route(token):
