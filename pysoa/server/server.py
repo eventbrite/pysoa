@@ -556,7 +556,7 @@ class Server(object):
         finally:
             self._shutdown_lock.release()
 
-    def harakiri(self, signal_number, stack_frame):  # type: (int, FrameType) -> None
+    def harakiri(self, signal_number, _stack_frame):  # type: (int, FrameType) -> None
         """
         Handles the reception of a timeout signal indicating that a request has been processing for too long, as
         defined by the harakiri settings. This method makes use of two "private" Python functions,
@@ -567,16 +567,15 @@ class Server(object):
             # prevent handling them all. The duplicates can always be ignored, so this is a non-blocking acquire.
             return
 
-        current_thread_id = threading.current_thread().ident
-
         threads = {t.ident: {'name': t.name, 'traceback': ['Unknown']} for t in threading.enumerate()}
         # noinspection PyProtectedMember
         for thread_id, frame in sys._current_frames().items():
             stack = []
-            # If this is the current thread, we use the passed in `stack_frame` instead of the `frame` from
-            # `current_frames`, so that this harakiri code is not in the logged stack trace.
-            for f in traceback.format_stack(stack_frame if current_thread_id == thread_id else frame):
+            for f in traceback.format_stack(frame):
                 stack.extend(f.rstrip().split('\n'))
+            if 'for f in traceback.format_stack(frame):' in stack[-1] and 'in harakiri' in stack[-2]:
+                # We don't need the stack data from this code right here at the end of the stack; it's just confusing.
+                stack = stack[:-2]
             threads.setdefault(thread_id, {'name': thread_id})['traceback'] = stack
 
         extra = {'data': {'thread_status': {
