@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.67.1 (2019-09-13)
+-------------------
+- [PATCH] Fix import errors in Python 3.5.2/3.6.1 and fix Harakiri logging
+
 0.67.0 (2019-09-12)
 -------------------
 - [MINOR] Fix #198: Double import trap is broken in Python 3.7
