@@ -3,9 +3,14 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import cast
 import warnings
 
 from conformity import fields
+from conformity.settings import (  # noqa: F401 TODO Python 3
+    SettingsData,
+    SettingsSchema,
+)
 
 from pysoa.client.middleware import ClientMiddleware
 from pysoa.common.settings import SOASettings
@@ -34,51 +39,54 @@ class ClientSettings(SOASettings):
                         'will remain in place until 2018-06-15 to give a safe period for people to remove it from '
                         'settings, but its value will always be ignored.',
         ),
-    }
+    }  # type: SettingsSchema
+
     defaults = {
         'transport': {
             'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
         },
         'transport_cache_time_in_seconds': 0,
-    }
+    }  # type: SettingsData
 
 
-ClientSettings.schema['transport'].initiate_cache_for(
+cast(fields.ClassConfigurationSchema, ClientSettings.schema['transport']).initiate_cache_for(
     'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
 )
-ClientSettings.schema['transport'].initiate_cache_for(
+cast(fields.ClassConfigurationSchema, ClientSettings.schema['transport']).initiate_cache_for(
     'pysoa.common.transport.local:LocalClientTransport',
 )
 
 
 class RedisClientSettings(ClientSettings):
+    schema = {
+        'transport': fields.ClassConfigurationSchema(base_class=RedisClientTransport),
+    }  # type: SettingsSchema
+
     defaults = {
         'transport': {
             'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
         }
-    }
-    schema = {
-        'transport': fields.ClassConfigurationSchema(base_class=RedisClientTransport),
-    }
+    }  # type: SettingsData
 
 
-RedisClientSettings.schema['transport'].initiate_cache_for(
+cast(fields.ClassConfigurationSchema, RedisClientSettings.schema['transport']).initiate_cache_for(
     'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
 )
 
 
 class LocalClientSettings(ClientSettings):
+    schema = {
+        'transport': fields.ClassConfigurationSchema(base_class=LocalClientTransport),
+    }  # type: SettingsSchema
+
     defaults = {
         'transport': {
             'path': 'pysoa.common.transport.local:LocalClientTransport',
         }
-    }
-    schema = {
-        'transport': fields.ClassConfigurationSchema(base_class=LocalClientTransport),
-    }
+    }  # type: SettingsData
 
 
-LocalClientSettings.schema['transport'].initiate_cache_for(
+cast(fields.ClassConfigurationSchema, LocalClientSettings.schema['transport']).initiate_cache_for(
     'pysoa.common.transport.local:LocalClientTransport',
 )
 

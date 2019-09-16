@@ -12,9 +12,8 @@ import sys
 
 import attr
 from conformity import fields
+from conformity.settings import Settings
 import six
-
-from pysoa.common.settings import Settings
 
 
 if sys.version_info < (3, 5):
@@ -417,10 +416,8 @@ def _pretty_introspect(value, depth=1, nullable=''):
         documentation += 'flexible ``dict``{}: {}\n'.format(nullable, description)
         documentation += '\n{}keys\n{}{}\n'.format(first, second, _pretty_introspect(value.key_type, depth + 1))
         documentation += '\n{}values\n{}{}\n'.format(first, second, _pretty_introspect(value.value_type, depth + 1))
-    elif isinstance(value, fields.List):
-        noun = 'list'
-        if isinstance(value, fields.Set):
-            noun = 'set'
+    elif isinstance(value, (fields.List, fields.Sequence, fields.Set)):
+        noun = value.introspect_type
         documentation += '``{}``{}: {}\n'.format(noun, nullable, description)
         documentation += '\n{}values\n{}{}'.format(first, second, _pretty_introspect(value.contents, depth + 1))
     elif isinstance(value, fields.Nullable):
