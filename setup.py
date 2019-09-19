@@ -25,7 +25,7 @@ base_requirements = [
     'pytz>=2019.1',
     'redis~=2.10',
     'six~=1.10',
-    'typing;python_version<"3.5"',
+    'typing~=3.7.4;python_version<"3.5"',
 
     # For context, see the comment in pysoa.common.compatibility. Due to the peculiarities of the patching detailed
     # there, we pin these dependencies to hard versions, or else things might break when they update. When new versions
