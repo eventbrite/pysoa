@@ -41,7 +41,7 @@ def get_route_map_server_queue(service, route_map):
     record = redisClient.get(key)
     if record:
         record = json.loads(record.decode('utf-8'))
-        return record.get('mangled_service_name', None)
+        return record.get('mangled_name', None)
     return None
 
 
