@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.67.2 (2019-09-19)
+-------------------
+- [PATCH] Make typing dependency more specific to fix missing types
+
 0.67.1 (2019-09-13)
 -------------------
 - [PATCH] Fix import errors in Python 3.5.2/3.6.1 and fix Harakiri logging
