@@ -11,9 +11,9 @@ from typing import (
 )
 import unittest
 
+from pymetrics.recorders.noop import noop_metrics
 import six
 
-from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.exceptions import MessageReceiveTimeout
 from pysoa.common.transport.redis_gateway.client import RedisClientTransport
 from pysoa.common.transport.redis_gateway.constants import REDIS_BACKEND_TYPE_STANDARD
@@ -106,14 +106,14 @@ class TestThreadSafety(unittest.TestCase):
 
         server_transport = RedisServerTransport(
             'threaded',
-            NoOpMetricsRecorder(),
+            noop_metrics,
             backend_type=REDIS_BACKEND_TYPE_STANDARD,
         )
         server_transport.core._backend_layer = backend  # type: ignore
 
         client_transport = RedisClientTransport(
             'threaded',
-            NoOpMetricsRecorder(),
+            noop_metrics,
             backend_type=REDIS_BACKEND_TYPE_STANDARD,
         )
         client_transport.core._backend_layer = backend  # type: ignore

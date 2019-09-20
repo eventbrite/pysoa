@@ -11,12 +11,10 @@ from typing import (
 import uuid
 
 from conformity import fields
+from pymetrics.instruments import TimerResolution
+from pymetrics.recorders.base import MetricsRecorder
 import six
 
-from pysoa.common.metrics import (
-    MetricsRecorder,
-    TimerResolution,
-)
 from pysoa.common.transport.base import (
     ClientTransport,
     ReceivedMessage,

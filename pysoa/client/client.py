@@ -30,9 +30,10 @@ import uuid
 
 import attr
 from conformity.settings import SettingsData
+from pymetrics.instruments import TimerResolution
+from pymetrics.recorders.base import MetricsRecorder
 import six
 
-from pysoa.version import __version_info__
 from pysoa.client.expander import (
     ExpansionConverter,
     ExpansionNode,
@@ -47,10 +48,6 @@ from pysoa.client.middleware import (
     ClientResponseMiddlewareTask,
 )
 from pysoa.client.settings import ClientSettings
-from pysoa.common.metrics import (
-    MetricsRecorder,
-    TimerResolution,
-)
 from pysoa.common.transport.base import ClientTransport
 from pysoa.common.transport.exceptions import (
     ConnectionError,
@@ -72,6 +69,7 @@ from pysoa.common.types import (
     JobResponse,
     UnicodeKeysDict,
 )
+from pysoa.version import __version_info__
 
 
 __all__ = (
@@ -161,7 +159,7 @@ class ServiceHandler(object):
                 wrapper(request_id, meta, job_request, message_expiry_in_seconds)
             return request_id
         finally:
-            self.metrics.commit()
+            self.metrics.publish_all()
 
     def _base_get_response(self, receive_timeout_in_seconds=None):
         # type: (int) -> Tuple[Optional[int], Optional[JobResponse]]
@@ -199,7 +197,7 @@ class ServiceHandler(object):
                     break
                 yield request_id, response
         finally:
-            self.metrics.commit()
+            self.metrics.publish_all()
 
 
 _FR = TypeVar(

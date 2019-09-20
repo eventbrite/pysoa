@@ -14,14 +14,13 @@ from typing import (
     Optional,
 )
 
+from pymetrics.instruments import Counter
 import redis
 import redis.client
 import six
 
-from pysoa.common.metrics import (
-    Counter,
-    NoOpMetricsRecorder,
-)
+
+_no_op_counter = Counter('')
 
 
 class CannotGetConnectionError(Exception):
@@ -128,4 +127,4 @@ class BaseRedisClient(object):
         return int(big_value / ring_divisor)
 
     def _get_counter(self, name):  # type: (six.text_type) -> Counter
-        return self.metrics_counter_getter(name) if self.metrics_counter_getter else NoOpMetricsRecorder.no_op_counter
+        return self.metrics_counter_getter(name) if self.metrics_counter_getter else _no_op_counter

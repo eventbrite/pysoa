@@ -24,21 +24,19 @@ from typing import (
     Union,
     cast,
 )
-from typing_extensions import Literal
 
 from conformity import fields
 from conformity.settings import SettingsData
+from pymetrics.recorders.base import MetricsRecorder
+from pymetrics.recorders.noop import noop_metrics
 import six
+from typing_extensions import Literal
 
 from pysoa.client.client import (
     Client,
     ServiceHandler,
 )
 from pysoa.client.settings import ClientSettings
-from pysoa.common.metrics import (
-    MetricsRecorder,
-    NoOpMetricsRecorder,
-)
 from pysoa.common.transport.exceptions import (
     MessageReceiveError,
     MessageReceiveTimeout,
@@ -239,7 +237,7 @@ class StubClientTransport(LocalClientTransport):
             (StubServer,),
             dict(service_name=service_name, action_class_map=action_class_map),
         ))
-        super(StubClientTransport, self).__init__(service_name, metrics or NoOpMetricsRecorder(), server_class, {})
+        super(StubClientTransport, self).__init__(service_name, metrics or noop_metrics, server_class, {})
 
     def stub_action(self, action, body=None, errors=None):
         # type: (six.text_type, Optional[Body], Optional[Errors]) -> None

@@ -26,12 +26,9 @@ from typing import (
     Optional,
 )
 
+from pymetrics.recorders.base import MetricsRecorder
+from pymetrics.recorders.noop import noop_metrics
 import six
-
-from pysoa.common.metrics import (
-    MetricsRecorder,
-    NoOpMetricsRecorder,
-)
 
 
 __all__ = (
@@ -64,7 +61,7 @@ class Transport(object):
     attributes.
     """
 
-    def __init__(self, service_name, metrics=NoOpMetricsRecorder()):
+    def __init__(self, service_name, metrics=noop_metrics):
         # type: (six.text_type, MetricsRecorder) -> None
         """
         :param service_name: The name of the service to which this transport will send requests (and from which it will

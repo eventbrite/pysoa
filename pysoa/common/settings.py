@@ -11,8 +11,7 @@ from conformity.settings import (
     SettingsData,
     SettingsSchema,
 )
-
-from pysoa.common.metrics import MetricsSchema
+from pymetrics.recorders.base import MetricsRecorder
 
 
 class Settings(ConformitySettings):
@@ -38,10 +37,13 @@ class SOASettings(ConformitySettings):
             fields.ClassConfigurationSchema(),
             description='The list of all middleware objects that should be applied to this server or client',
         ),
-        'metrics': MetricsSchema(),
+        'metrics': fields.ClassConfigurationSchema(
+            base_class=MetricsRecorder,
+            description='Configuration for defining a usage and performance metrics recorder.',
+        ),
     }  # type: SettingsSchema
 
     defaults = {
         'middleware': [],
-        'metrics': {'path': 'pysoa.common.metrics:NoOpMetricsRecorder'},
+        'metrics': {'path': 'pymetrics.recorders.noop:NonOperationalMetricsRecorder'},
     }  # type: SettingsData
