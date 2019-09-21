@@ -58,6 +58,13 @@ import subprocess
 import sys
 import threading
 import time
+from types import ModuleType  # noqa: F401 TODO Python 3
+from typing import (  # noqa: F401 TODO Python 3
+    Dict,
+    List,
+    Optional,
+    Set,
+)
 
 import six
 
@@ -120,6 +127,7 @@ class AbstractReloader(object):
     """
 
     def __init__(self, main_module_name, watch_modules, signal_forks=False):
+        # type: (six.text_type, Optional[six.text_type], bool) -> None
         """
         Constructs a new abstract reloader. All subclasses must call `super(...).__init__(...)`.
 
@@ -144,8 +152,8 @@ class AbstractReloader(object):
             r'^{}'.format('|'.join(watch_modules).replace('.', r'\.'))
         ) if watch_modules else None
         self.signal_forks = signal_forks
-        self.cached_modules = set()
-        self.cached_file_names = []
+        self.cached_modules = set()  # type: Set[ModuleType]
+        self.cached_file_names = []  # type: List[six.text_type]
         self.watching = False
         self.shutting_down_for_reload = False
 
@@ -248,9 +256,10 @@ class AbstractReloader(object):
         :return: The code with which the clone subprocess exited if not `NEED_RELOAD_EXIT_CODE`.
         """
         # This entire method runs in the parent process
-        if os.environ.get('PYSOA_RELOADER_WRAPPER_BIN'):
+        wrapper_bin = os.environ.get('PYSOA_RELOADER_WRAPPER_BIN')
+        if wrapper_bin:
             # Primitive, but effective, way to override the default executable, such as when using Coverage.py.
-            command = os.environ.get('PYSOA_RELOADER_WRAPPER_BIN').split(' ')
+            command = wrapper_bin.split(' ')
         else:
             command = [sys.executable] + ['-W{}'.format(o) for o in sys.warnoptions]
         if self.main_module_name and '{}.py'.format(self.main_module_name.replace('.', '/')) in sys.argv[0]:
@@ -421,7 +430,7 @@ class _PollingReloader(AbstractReloader):
     is_windows = sys.platform == 'win32'
 
     def __init__(self, main_module_name, watch_modules, signal_forks=False):
-        self.modified_times = {}
+        self.modified_times = {}  # type: Dict[six.text_type, int]
         super(_PollingReloader, self).__init__(main_module_name, watch_modules, signal_forks)
 
     def code_changed(self):

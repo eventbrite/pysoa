@@ -7,26 +7,41 @@ import codecs
 import copy
 import functools
 import os
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+    List,
+    Optional,
+    Type,
+)
 
-from pyparsing import (
+from pyparsing import (  # noqa: F401 TODO Python 3
     LineEnd,
     LineStart,
     MatchFirst,
     OneOrMore,
     ParseException,
+    ParserElement,
+    ParseResults,
     StringEnd,
     StringStart,
     col as get_parse_column,
     line as get_parse_line,
     lineno as get_parse_line_number,
 )
+import six  # noqa: F401 TODO Python 3
 
 from pysoa.test.plan.errors import (
     FixtureLoadError,
     FixtureSyntaxError,
 )
 from pysoa.test.plan.grammar.data_types import DataTypeConversionError
-from pysoa.test.plan.grammar.directive import get_all_directives
+from pysoa.test.plan.grammar.directive import (  # noqa: F401 TODO Python 3
+    Directive,
+    TestCase,
+    TestFixture,
+    get_all_directives,
+)
 from pysoa.test.plan.grammar.tools import (
     get_all_paths,
     path_get,
@@ -41,13 +56,12 @@ class ServiceTestPlanFixtureParser(object):
     """
 
     def __init__(self, fixture_file_name, fixture_name):
+        # type: (six.text_type, six.text_type) -> None
         """
         Construct a test fixture parser.
 
         :param fixture_file_name: The path to and name of the fixture file
-        :type fixture_file_name: union[str, unicode]
         :param fixture_name: The name of the fixture
-        :type fixture_name: union[str, unicode]
         """
         self._fixture_file_name = fixture_file_name
         self._fixture_name = fixture_name
@@ -56,23 +70,23 @@ class ServiceTestPlanFixtureParser(object):
         if not os.path.isabs(self._fixture_file_name):
             self._fixture_file_name = os.path.abspath(os.path.join(self._working_directory, self._fixture_file_name))
 
-        self.test_cases = []
-        self._global_directives = {}
-        self._working_action_case = {}
-        self._working_test_case = {}
+        self.test_cases = []  # type: TestFixture
+        self._global_directives = {}  # type: Dict[six.text_type, Any]
+        self._working_action_case = {}  # type: Dict[six.text_type, Any]
+        self._working_test_case = {}  # type: Dict[six.text_type, Any]
         self._working_test_case_line_number = 0
-        self._working_test_case_source = []
-        self._fixture_source = []
-        self._grammar = None
+        self._working_test_case_source = []  # type: List[six.text_type]
+        self._fixture_source = []  # type: List[six.text_type]
+        self._grammar = None  # type: Optional[ParserElement]
         self._line_number = 0
 
     def parse_test_fixture(self):
+        # type: () -> TestFixture
         """
         The main method responsible for the start-to-finish process of parsing test cases from a fixture file. It uses
         the other methods on this class, which generally should not be used directly.
 
         :return: The list of test cases
-        :rtype: list[dict]
         """
         self._grammar = self._compile_grammar()
 
@@ -84,7 +98,9 @@ class ServiceTestPlanFixtureParser(object):
         return self.test_cases
 
     def _ingest_directives(self):
+        # type: () -> None
         try:
+            assert self._grammar is not None
             with codecs.open(self._fixture_file_name, mode='rb', encoding='utf-8') as file_input:
                 self._grammar.parseFile(file_input)
 
@@ -120,6 +136,7 @@ class ServiceTestPlanFixtureParser(object):
             raise FixtureLoadError(str(e))
 
     def _compile_grammar(self):
+        # type: () -> ParserElement
         """
         Takes the individual grammars from each registered directive and compiles them into a full test fixture grammar
         whose callback methods are the bound methods on this class instance.
@@ -145,13 +162,12 @@ class ServiceTestPlanFixtureParser(object):
         return StringStart() + OneOrMore(MatchFirst(grammars)) + StringEnd()
 
     def _ingest_directive(self, directive_class, active_string, location, parse_result):
+        # type: (Type[Directive], six.text_type, int, ParseResults) -> None
         """
         A callback that ingests a particular matched directive. Called by PyParsing when processing the grammar.
 
         :param directive_class: The matched directive class (not an instance)
-        :type directive_class: type
         :param active_string: The contents of the fixture file
-        :type active_string: union[str, unicode]
         :param location: The file location of the current parsing activity
         :param parse_result: The resulting PyParsing parsing object
         """
@@ -202,11 +218,11 @@ class ServiceTestPlanFixtureParser(object):
         )
 
     def _finalize_test_case(self, active_string, location, _):
+        # type: (six.text_type, int, Optional[ParseResults]) -> None
         """
         Called by PyParsing at the end of each test case.
 
         :param active_string: The contents of the fixture file
-        :type active_string: union[str, unicode]
         :param location: The file location of the current parsing activity
         """
         self._fixture_source.append('')
@@ -256,7 +272,7 @@ class ServiceTestPlanFixtureParser(object):
 
         if self._global_directives:
             # merge, but make sure current overlays global where there is conflict
-            test_case = {}
+            test_case = {}  # type: TestCase
 
             for path in get_all_paths(self._global_directives):
                 try:

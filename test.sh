@@ -14,9 +14,19 @@ fi
 
 coverage report
 ret_sub=$?
-if [[ $ret_sub -gt 0 ]] && [[ $RET -eq 0 ]]
+if [[ $ret_sub -gt 0 ]]
 then
-    RET=$ret_sub
+    if [[ $ret_sub -eq 2 ]]
+    then
+        echo "ERROR: Coverage report failed due to insufficient coverage"
+    else
+        echo "ERROR: Coverage report failed for unknown reasons"
+    fi
+
+    if [[ $RET -eq 0 ]]
+    then
+        RET=$ret_sub
+    fi
 fi
 
 echo "Inspecting code..."

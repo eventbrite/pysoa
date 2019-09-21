@@ -3,6 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
+import codecs
 from setuptools import (
     find_packages,
     setup,
@@ -12,11 +13,11 @@ from pysoa import __version__
 
 
 def readme():
-    with open('README.rst') as f:
+    with codecs.open('README.rst', 'rb', encoding='utf8') as f:
         return f.read()
 
 
-base_requirements = [
+install_requires = [
     'attrs>=17.4,<20',
     'conformity~=1.26',
     'currint>=1.6,<3',
@@ -26,6 +27,7 @@ base_requirements = [
     'redis~=2.10',
     'six~=1.10',
     'typing~=3.7.4;python_version<"3.5"',
+    'typing-extensions~=3.7.4;python_version<"3.8"',
 
     # For context, see the comment in pysoa.common.compatibility. Due to the peculiarities of the patching detailed
     # there, we pin these dependencies to hard versions, or else things might break when they update. When new versions
@@ -44,13 +46,14 @@ test_plan_requirements = test_helper_requirements + [
     'pytest-asyncio;python_version>"3.4"',
 ]
 
-test_requirements = [
+tests_require = [
     'coverage~=4.5',
     'factory_boy~=2.11.1',
     'freezegun~=0.3',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
     'mypy;python_version>"3.4"',
+    'pytest-runner',
 ] + test_plan_requirements
 
 
@@ -62,14 +65,17 @@ setup(
     description='A Python library for writing (micro)services and their clients',
     long_description=readme(),
     url='http://github.com/eventbrite/pysoa',
-    packages=list(map(str, find_packages(exclude=['*.tests', '*.tests.*', 'tests.*', 'tests']))),
+    packages=list(map(str, find_packages(include=['pysoa', 'pysoa.*']))),
+    package_data={
+        str('pysoa'): [str('py.typed')],  # PEP 561,
+    },
+    zip_safe=False,  # PEP 561
     include_package_data=True,
-    install_requires=base_requirements,
-    tests_require=test_requirements,
-    setup_requires=['pytest-runner'],
+    install_requires=install_requires,
+    tests_require=tests_require,
     test_suite='tests',
     extras_require={
-        'testing': test_requirements,
+        'testing': tests_require,
         'test_helpers': test_helper_requirements,
         'test_plans': test_plan_requirements,
     },
@@ -89,9 +95,14 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Topic :: Software Development',
     ],
+    project_urls={
+        'Documentation': 'https://pysoa.readthedocs.io',
+        'Issues': 'https://github.com/eventbrite/pysoa/issues',
+        'CI': 'https://travis-ci.org/eventbrite/pysoa/',
+    },
 )

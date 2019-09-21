@@ -1,7 +1,8 @@
 #!/bin/bash
 
-if [[ "$1" != "--no-flake" ]]
+if [[ "$1" != "--no-flake" ]] && [[ "$2" != "--no-flake" ]]
 then
+    echo "Running Flake8..."
     if python -c 'import sys; exit(0 if sys.version_info > (3, ) else 1)'
     then
         if which flake8-python3 > /dev/null
@@ -23,6 +24,8 @@ then
 else
     RET=0
 fi
+
+echo "Checking for prohibited thread-local usage..."
 
 args=(--include \*.py --exclude compatibility.py --exclude-dir .git --exclude-dir build --exclude-dir .eggs --exclude-dir *.egg-info --exclude-dir .tox)
 
@@ -52,5 +55,20 @@ ____HERE
         fi
     fi
 done
+
+if [[ "$1" != "--no-mypy" ]] && [[ "$2" != "--no-mypy" ]]
+then
+    py_ver=$(python --version 2>&1 | cut -f 2 -d ' ' | cut -f 1 -d '.')
+    if [[ "$py_ver" != "2" ]]
+    then
+        echo "Running MyPy..."
+        mypy .
+        ret_sub=$?
+        if [[ $ret_sub -gt 0 ]] && [[ $RET -eq 0 ]]
+        then
+            RET=$ret_sub
+        fi
+    fi
+fi
 
 exit $RET

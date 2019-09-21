@@ -5,7 +5,7 @@ from __future__ import (
 
 import pytest
 
-from pysoa.client import Client
+from pysoa.client.client import Client
 from pysoa.common.types import (
     ActionResponse,
     Error,

@@ -3,6 +3,8 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import Any  # noqa: F401 TODO Python 3
+
 from django.core.cache.backends.locmem import LocMemCache
 from django.core.cache.backends.memcached import (
     MemcachedCache,
@@ -24,7 +26,7 @@ class PySOARequestScopedMemoryCache(LocMemCache):
     Django cache engine. You are free to use your own implementation, of course. You can also use this in combination
     with other cache engines (from this module or others) in a multi-cache Django configuration.
     """
-    def close(self, **_kwargs):
+    def close(self, **_kwargs):  # type: (**Any) -> None
         """
         Clear the cache completely at the end of each request.
         """
@@ -37,7 +39,7 @@ class PySOAProcessScopedMemoryCache(LocMemCache):
     this Django cache engine. You are free to use your own implementation, of course. You can also use this in
     combination with other cache engines (from this module or others) in a multi-cache Django configuration.
     """
-    def close(self, **_kwargs):
+    def close(self, **_kwargs):  # type: (**Any) -> None
         """
         There is no reason to ever clear the cache.
         """
@@ -50,11 +52,11 @@ class PySOAMemcachedCache(MemcachedCache):
     your own implementation, of course. You can also use this in combination with other cache engines (from this module
     or others) in a multi-cache Django configuration.
     """
-    def close(self, for_shutdown=False, **_kwargs):
+    def close(self, for_shutdown=False, **_kwargs):  # type: (bool, **Any) -> None
         """
         Only call super().close() if the server is shutting down (not between requests).
 
-        :param for_shutdown: If `False` (the default)
+        :param for_shutdown: If `True`, the socket connections to Memcached are closed (defaults to `False`).
         """
         if for_shutdown:
             super(PySOAMemcachedCache, self).close()
@@ -68,11 +70,11 @@ class PySOAPyLibMCCache(PyLibMCCache):
     combination with other cache engines (from this module or others) in a multi-cache Django configuration.
     """
 
-    def close(self, for_shutdown=False, **_kwargs):
+    def close(self, for_shutdown=False, **_kwargs):  # type: (bool, **Any) -> None
         """
         Only call super().close() if the server is shutting down (not between requests).
 
-        :param for_shutdown: If `False` (the default)
+        :param for_shutdown: If `True`, the socket connections to Memcached are closed (defaults to `False`).
         """
         if for_shutdown:
             super(PySOAPyLibMCCache, self).close()

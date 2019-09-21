@@ -3,7 +3,13 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+)
 import unittest
+
+import six  # noqa: F401 TODO Python 3
 
 from pysoa.test.plan.errors import StatusError
 from pysoa.test.plan.grammar.tools import (
@@ -16,69 +22,69 @@ from pysoa.test.plan.grammar.tools import (
 
 class TestPathAccessors(unittest.TestCase):
     def test_001_simple_put(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'foo', 'bar')
 
         self.assertEqual(out, {'foo': 'bar'})
         self.assertEqual(path_get(out, 'foo'), 'bar')
 
     def test_002_nested_put(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'foo.bar', 'baz')
 
         self.assertEqual(out, {'foo': {'bar': 'baz'}})
         self.assertEqual(path_get(out, 'foo.bar'), 'baz')
 
     def test_003_bracket_name_put(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'foo.{bar.baz}', 'moo')
 
         self.assertEqual(out, {'foo': {'bar.baz': 'moo'}})
         self.assertEqual(path_get(out, 'foo.{bar.baz}'), 'moo')
 
     def test_004_bracket_name_then_more_depth(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'foo.{bar.baz}.gar', 'moo')
 
         self.assertEqual(out, {'foo': {'bar.baz': {'gar': 'moo'}}})
         self.assertEqual(path_get(out, 'foo.{bar.baz}.gar'), 'moo')
 
     def test_005_simple_array_put(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'foo.bar.0', 'thing')
 
         self.assertEqual(out, {'foo': {'bar': ['thing']}})
         self.assertEqual(path_get(out, 'foo.bar.0'), 'thing')
 
     def test_005_02_bracket_name_then_list(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'foo.bar.{thing.in.bracket}.0', 'la la la')
         self.assertEqual(out, {'foo': {'bar': {'thing.in.bracket': ['la la la']}}})
         self.assertEqual(path_get(out, 'foo.bar.{thing.in.bracket}.0'), 'la la la')
 
     def test_006_array_with_nested_dict(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'foo.bar.0.baz', 'thing')
 
         self.assertEqual(out, {'foo': {'bar': [{'baz': 'thing'}]}})
         self.assertEqual(path_get(out, 'foo.bar.0.baz'), 'thing')
 
     def test_007_array_with_nested_array(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'foo.bar.0.0.baz', 'thing')
 
         self.assertEqual(out, {'foo': {'bar': [[{'baz': 'thing'}]]}})
         self.assertEqual(path_get(out, 'foo.bar.0.0.baz'), 'thing')
 
     def test_008_array_with_missing_index(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'foo.bar.2.baz', 'thing')
 
         self.assertEqual(out, {'foo': {'bar': [{}, {}, {'baz': 'thing'}]}})
         self.assertEqual(path_get(out, 'foo.bar.2.baz'), 'thing')
 
     def test_009_numeric_dictionary_keys(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'foo.bar.{2}.baz', 'thing')
         self.assertEqual(out, {'foo': {'bar': {'2': {'baz': 'thing'}}}})
         self.assertEqual(path_get(out, 'foo.bar.{2}.baz'), 'thing')
@@ -108,13 +114,13 @@ class TestPathAccessors(unittest.TestCase):
             path_get({'foo': [[{}, {}]]}, 'foo.0.4')
 
     def test_016_escaped_array_index_key(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, '{record_transaction.0}.inputs.foo', 'bar')
         self.assertEqual(out, {'record_transaction.0': {'inputs': {'foo': 'bar'}}})
         self.assertEqual(path_get(out, '{record_transaction.0}.inputs.foo'), 'bar')
 
     def test_017_escaped_array_of_dict(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'transaction.metadata.references.0.reference_type', 'FOO')
         path_put(out, 'transaction.metadata.references.0.reference_ids.0', '1234')
         self.assertEqual(
@@ -139,14 +145,14 @@ class TestPathAccessors(unittest.TestCase):
             'transaction.metadata.references.0.reference_ids.0',
         ]
 
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         for path in path_list:
             path_put(out, path, 'blah_blah')
 
         self.assertEqual(sorted(path_list), sorted(get_all_paths(out)))
 
     def test_020_nested_brackets(self):
-        out = {}
+        out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'charge.cost_components.{{item.gross}}', {'MISSING'})
 
         self.assertEqual(out, {'charge': {'cost_components': {'{item.gross}': {'MISSING'}}}})

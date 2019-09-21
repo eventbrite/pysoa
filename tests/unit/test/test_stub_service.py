@@ -7,9 +7,10 @@ import random
 from unittest import TestCase
 
 import attr
+from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
 import six
 
-from pysoa.client import Client
+from pysoa.client.client import Client
 from pysoa.common.constants import (
     ERROR_CODE_INVALID,
     ERROR_CODE_NOT_AUTHORIZED,
@@ -205,10 +206,10 @@ class TestStubClient(TestCase):
                 self.assertEqual(action_response.action, requests_by_id[response_id]['actions'][i]['action'])
                 # The action response matches the expected response
                 # Errors are returned as the Error type, so convert them to dict first
-                self.assertEqual(action_response.body, responses[action_response.action]['body'])
+                self.assertEqual(action_response.body, responses[action_response.action]['body'])  # type: ignore
                 self.assertEqual(
                     [attr.asdict(e, dict_factory=UnicodeKeysDict) for e in action_response.errors],
-                    responses[action_response.action]['errors'],
+                    responses[action_response.action]['errors'],  # type: ignore
                 )
 
 
@@ -270,7 +271,7 @@ def stub_test_action(add_extra=True):
 
 class TestStubAction(ServerTestCase):
     server_class = _TestServiceServer
-    server_settings = {}
+    server_settings = {}  # type: SettingsData
 
     def setUp(self):
         super(TestStubAction, self).setUp()
@@ -334,7 +335,7 @@ class TestStubAction(ServerTestCase):
             (Client.get_all_responses, original_client_get_all_responses),
         ):
             self.assertTrue(
-                six.get_unbound_function(client_func) is six.get_unbound_function(original_func)
+                six.get_unbound_function(client_func) is six.get_unbound_function(original_func)  # type: ignore
             )
 
         self.assertEqual({'value': 1}, response.body)
@@ -1083,7 +1084,7 @@ class TestStubAction(ServerTestCase):
 @stub_action('test_service', 'test_action_2')
 class TestStubActionAsDecoratedClass(ServerTestCase):
     server_class = _TestServiceServer
-    server_settings = {}
+    server_settings = {}  # type: SettingsData
 
     def setUp(self):
         super(TestStubActionAsDecoratedClass, self).setUp()
@@ -1173,7 +1174,7 @@ class TestStubActionAsDecoratedClass(ServerTestCase):
 @mock.patch(__name__ + '._test_function', return_value=42)
 class TestStubActionAsStubAndPatchDecoratedClass(ServerTestCase):
     server_class = _TestServiceServer
-    server_settings = {}
+    server_settings = {}  # type: SettingsData
 
     def test_works_as_expected(self, mock_randint, stub_test_action_2):
         response = self.client.call_action('test_service', 'test_action_1')

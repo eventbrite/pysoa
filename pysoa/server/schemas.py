@@ -21,6 +21,7 @@ ActionRequestSchema = Dictionary(
     optional_keys=('body', ),
 )
 
+# TODO Update this
 ControlHeaderSchema = Dictionary(
     {
         'continue_on_error': Boolean(),
@@ -28,6 +29,7 @@ ControlHeaderSchema = Dictionary(
     allow_extra_keys=True,
 )
 
+# TODO Update this
 ContextHeaderSchema = Dictionary(
     {
         'switches': List(Integer()),

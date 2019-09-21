@@ -9,6 +9,21 @@ from collections import (
 )
 from functools import wraps
 import re
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 from conformity import fields
 from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
@@ -19,15 +34,19 @@ from pysoa.client.client import (
     ServiceHandler,
 )
 from pysoa.client.settings import ClientSettings
-from pysoa.common.metrics import NoOpMetricsRecorder
+from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
+    MetricsRecorder,
+    NoOpMetricsRecorder,
+)
 from pysoa.common.transport.exceptions import (
     MessageReceiveError,
     MessageReceiveTimeout,
 )
 from pysoa.common.transport.local import LocalClientTransport
-from pysoa.common.types import (
+from pysoa.common.types import (  # noqa: F401 TODO Python 3
     ActionRequest,
     ActionResponse,
+    Body,
     Error,
     JobResponse,
 )
@@ -37,41 +56,39 @@ from pysoa.server.errors import (
     JobError,
 )
 from pysoa.server.server import Server
+from pysoa.server.types import (  # noqa: F401 TODO Python 3
+    ActionType,
+    EnrichedActionRequest,
+)
 from pysoa.test.compatibility import mock
 
 
-def _make_stub_action(action_name, body=None, errors=None):
-    body = body or {}
-    errors = errors or []
-    action_class_name = ''.join([part.capitalize() for part in re.split(r'[^a-zA-Z0-9]+', action_name)])
-    return type(
-        str(action_class_name),
-        (_StubAction,),
-        dict(body=body, errors=errors),
-    )
+__all__ = (
+    'Errors',
+    'stub_action',
+    'StubClient',
+    'StubClientSettings',
+    'StubClientTransport',
+    'StubClientTransportSchema',
+    'StubServer',
+)
+
+
+Errors = Union[Iterable[Mapping[six.text_type, Any]], Iterable[Error]]
 
 
 class _StubAction(Action):
     """An Action that simply returns a preset value or error."""
 
-    body = {}
-    errors = []
+    body = {}  # type: Body
+    errors = []  # type: Errors
 
     def run(self, request):
         if self.errors:
-            raise ActionError(
-                errors=[
-                    Error(
-                        code=e['code'],
-                        message=e['message'],
-                        field=e.get('field'),
-                    ) if not isinstance(e, Error) else e for e in self.errors
-                ]
-            )
-        else:
-            return self.body
+            raise ActionError(errors=[e if isinstance(e, Error) else Error(**e) for e in self.errors])
+        return self.body
 
-    def __call__(self, action_request):
+    def __call__(self, action_request):  # type: (EnrichedActionRequest) -> ActionResponse
         response_body = self.run(action_request)
 
         if response_body is not None:
@@ -80,11 +97,26 @@ class _StubAction(Action):
             return ActionResponse(action=action_request.action)
 
 
+def _make_stub_action(
+    action_name,  # type: six.text_type
+    body=None,  # type: Optional[Body]
+    errors=None,  # type: Errors
+):  # type: (...) -> Type[_StubAction]
+    body = body or {}
+    errors = errors or []
+    action_class_name = ''.join([part.capitalize() for part in re.split(r'[^a-zA-Z0-9]+', action_name)])
+    return cast(Type[_StubAction], type(
+        str(action_class_name),
+        (_StubAction,),
+        dict(body=body, errors=errors),
+    ))
+
+
 class StubClientSettings(ClientSettings):
     defaults = {
         'transport': {
-            'path': 'pysoa.test.stub_service:StubClientTransport'
-        }
+            'path': 'pysoa.test.stub_service:StubClientTransport',
+        },
     }  # type: SettingsData
 
 
@@ -100,11 +132,11 @@ class StubClient(Client):
     settings_class = StubClientSettings
 
     def __init__(self, service_action_map=None, **_):
+        # type: (Optional[Mapping[six.text_type, Mapping[six.text_type, Mapping[six.text_type, Any]]]], **Any) -> None
         """
         Generate settings based on a mapping of service names to actions.
 
-        Args:
-            service_action_map: dict of {service_name: <action map>}
+        :param service_action_map: Dictionary of `{service_name: {action_name: {'body': ..., 'errors': ...}}}`
         """
         service_action_map = service_action_map or {}
         config = {}
@@ -113,12 +145,13 @@ class StubClient(Client):
                 'transport': {
                     'kwargs': {
                         'action_map': action_map,
-                    }
-                }
+                    },
+                },
             }
         super(StubClient, self).__init__(config)
 
     def stub_action(self, service_name, action, body=None, errors=None):
+        # type: (six.text_type, six.text_type, Optional[Body], Optional[Errors]) -> None
         """
         Stub the given action for the given service, configuring a handler and transport for that service if necessary.
 
@@ -129,7 +162,7 @@ class StubClient(Client):
         """
         if service_name not in self.handlers:
             self.handlers[service_name] = ServiceHandler(service_name, self.settings_class({}))
-        self.handlers[service_name].transport.stub_action(action, body=body, errors=errors)
+        cast(StubClientTransport, self.handlers[service_name].transport).stub_action(action, body=body, errors=errors)
 
 
 class StubClientTransportSchema(fields.Dictionary):
@@ -175,17 +208,23 @@ class StubClientTransportSchema(fields.Dictionary):
 
 @fields.ClassConfigurationSchema.provider(StubClientTransportSchema())
 class StubClientTransport(LocalClientTransport):
-    """A transport that incorporates an automatically-configured Server for handling requests."""
+    """A transport that incorporates an automatically-configured StubServer for handling requests."""
 
-    def __init__(self, service_name='test', metrics=None, action_map=None):
+    def __init__(
+        self,
+        service_name='test',  # type: six.text_type
+        metrics=None,  # type: Optional[MetricsRecorder]
+        action_map=None,  # type: Optional[Mapping[six.text_type, Mapping[six.text_type, Any]]]
+    ):
+        # type: (...) -> None
         """
         Configure a StubServer to handle requests. Creates a new subclass of StubServer using the service name and
         action mapping provided.
 
-        Args:
-            service_name: string
-            action_map: dict of {action_name: {'body': action_body, 'errors': action_errors}} where action_body is a
-                dict and action_errors is a list
+        :param service_name: The service name.
+        :param metrics: You can omit this, but if you really want, override the default `NoOpMetricsRecorder`.
+        :param action_map: Dictionary of `{action_name: {'body': action_body, 'errors': action_errors}}` where
+                           `action_body` is a dictionary and `action_errors` is a list.
         """
         action_map = action_map or {}
         # Build the action_class_map property for the new Server class
@@ -194,14 +233,15 @@ class StubClientTransport(LocalClientTransport):
         }
         # Create the new Server subclass
         server_class_name = ''.join([part.capitalize() for part in re.split(r'[^a-zA-Z0-9]+', service_name)]) + 'Server'
-        server_class = type(
+        server_class = cast(Type[StubServer], type(
             str(server_class_name),
             (StubServer,),
             dict(service_name=service_name, action_class_map=action_class_map),
-        )
+        ))
         super(StubClientTransport, self).__init__(service_name, metrics or NoOpMetricsRecorder(), server_class, {})
 
     def stub_action(self, action, body=None, errors=None):
+        # type: (six.text_type, Optional[Body], Optional[Errors]) -> None
         """
         Stub the given action with the configured server.
 
@@ -209,7 +249,7 @@ class StubClientTransport(LocalClientTransport):
         :param body: The optional body to return
         :param errors: The optional errors to raise
         """
-        self.server.stub_action(action, body=body, errors=errors)
+        cast(StubServer, self.server).stub_action(action, body=body, errors=errors)
 
 
 class StubServer(Server):
@@ -226,14 +266,14 @@ class StubServer(Server):
         :param body: The optional body to return
         :param errors: The optional errors to raise
         """
-        self.action_class_map[action] = _make_stub_action(action, body, errors)
+        cast(Dict[six.text_type, ActionType], self.action_class_map)[action] = _make_stub_action(action, body, errors)
 
 
 class _StubActionRequestCounter(object):
-    def __init__(self):
+    def __init__(self):  # type: () -> None
         self._counter = 0
 
-    def get_next(self):
+    def get_next(self):  # type: () -> int
         value = self._counter
         self._counter += 1
         return value
@@ -241,8 +281,13 @@ class _StubActionRequestCounter(object):
 
 _global_stub_action_request_counter = _StubActionRequestCounter()
 
+_CT = TypeVar('_CT', Type[Any], Callable)
+_CT_T = TypeVar('_CT_T', bound=Type[Any])
+_CT_C = TypeVar('_CT_C', bound=Callable)
 
-class stub_action(object):  # noqa
+
+# noinspection PyProtectedMember
+class stub_action(object):
     """
     Stub an action temporarily. This is useful for things like unit testing, where you really need to test the code
     calling a service, but you don't want to test the actual service along with it, or the actual service isn't easily
@@ -252,6 +297,8 @@ class stub_action(object):  # noqa
     class methods. Decorating static methods and functions will cause it to barf on argument order.
 
     Some example uses cases:
+
+    .. code-block:: python
 
         @stub_action('user', 'get_user', body={'user': {'id': 1234, 'username': 'John', 'email': 'john@example.org'}})
         class TestSomeCode(unittest.TestCase):
@@ -345,7 +392,14 @@ class stub_action(object):  # noqa
         def call_bodies(self):
             return tuple(args[0][0] for args in self.call_args_list)
 
-    def __init__(self, service, action, body=None, errors=None, side_effect=None):
+    def __init__(
+        self,
+        service,  # type: six.text_type
+        action,  # type: six.text_type
+        body=None,  # type: Optional[Body]
+        errors=None,  # type: Optional[Errors]
+        side_effect=None,  # type: Optional[Union[Body, Exception, Callable[[Body], Body]]]
+    ):  # type: (...) -> None
         assert isinstance(service, six.text_type), 'Stubbed service name "{}" must be unicode'.format(service)
         assert isinstance(action, six.text_type), 'Stubbed action name "{}" must be unicode'.format(action)
 
@@ -357,22 +411,30 @@ class stub_action(object):  # noqa
         self.enabled = False
 
         # Play nice with @mock.patch
-        self.attribute_name = None
+        self.attribute_name = None  # type: Optional[six.text_type]
         self.new = mock.DEFAULT
 
-        self._current_mock_action = None
-        self._stub_action_responses_outstanding = defaultdict(dict)
-        self._stub_action_responses_to_merge = defaultdict(dict)
+        # noinspection PyProtectedMember
+        self._current_mock_action = None  # type: Optional[stub_action._MockAction]
+        self._stub_action_responses_outstanding = defaultdict(
+            dict,
+        )  # type: Dict[six.text_type, Dict[int, Union[Exception, JobResponse]]]
+        self._stub_action_responses_to_merge = defaultdict(
+            dict,
+        )  # type: Dict[six.text_type, Dict[int, Tuple[int, bool]]]
 
-    def __enter__(self):
+    def __enter__(self):  # type: () -> stub_action._MockAction
         if self.enabled:
+            assert self._current_mock_action is not None, (
+                'Enabled stub_action with no current mock is in an inconsistent state'
+            )
             return self._current_mock_action
 
         self._current_mock_action = self._MockAction(name='{}.{}'.format(self.service, self.action))
 
         self._wrapped_client_send_request = Client.send_request
         self._wrapped_client_get_all_responses = Client.get_all_responses
-        self._services_with_calls_sent_to_wrapped_client = set()
+        self._services_with_calls_sent_to_wrapped_client = set()  # type: Set[six.text_type]
 
         if self.body or self.errors:
             self._current_mock_action.return_value = ActionResponse(self.action, errors=self.errors, body=self.body)
@@ -386,18 +448,19 @@ class stub_action(object):  # noqa
                 service_name,
             )
 
-            actions_to_send_to_mock = OrderedDict()
-            actions_to_send_to_wrapped_client = []
+            actions_to_send_to_mock = OrderedDict()  # type: OrderedDict[int, ActionRequest]
+            actions_to_send_to_wrapped_client = []  # type: List[ActionRequest]
             for i, action_request in enumerate(actions):
                 action_name = getattr(action_request, 'action', None) or action_request['action']
                 assert isinstance(action_name, six.text_type), 'Called action name "{}" must be unicode'.format(
                     action_name,
                 )
 
+                if not isinstance(action_request, ActionRequest):
+                    action_request = ActionRequest(**action_request)
+
                 if service_name == self.service and action_name == self.action:
                     # If the service AND action name match, we should send the request to our mocked client
-                    if not isinstance(action_request, ActionRequest):
-                        action_request = ActionRequest(**action_request)
                     actions_to_send_to_mock[i] = action_request
                 else:
                     # If the service OR action name DO NOT match, we should delegate the request to the wrapped client
@@ -410,6 +473,7 @@ class stub_action(object):  # noqa
             if actions_to_send_to_wrapped_client:
                 # If any un-stubbed actions need to be sent to the original client, send them
                 self._services_with_calls_sent_to_wrapped_client.add(service_name)
+                # noinspection PyArgumentList,PyTypeChecker
                 unwrapped_request_id = self._wrapped_client_send_request(
                     client,
                     service_name,
@@ -426,13 +490,17 @@ class stub_action(object):  # noqa
                     continue_on_error,
                 )
 
-            ordered_actions_for_merging = OrderedDict()
-            job_response_transport_exception = None
+            ordered_actions_for_merging = OrderedDict()  # type: OrderedDict[int, ActionResponse]
+            job_response_transport_exception = None  # type: Optional[Exception]
             job_response = JobResponse()
-            for i, action_request in actions_to_send_to_mock.items():
+            for i, action_request_obj in actions_to_send_to_mock.items():
                 mock_response = None
                 try:
-                    mock_response = self._current_mock_action(action_request.body or {})
+                    # noinspection PyCallingNonCallable
+                    assert self._current_mock_action is not None, (
+                        'Enabled stub_action with no current mock is in an inconsistent state'
+                    )
+                    mock_response = self._current_mock_action(action_request_obj.body or {})
                     if isinstance(mock_response, JobResponse):
                         job_response.errors.extend(mock_response.errors)
                         if mock_response.actions:
@@ -459,16 +527,18 @@ class stub_action(object):  # noqa
 
             if actions_to_send_to_wrapped_client:
                 # If the responses will have to be merged by get_all_responses, replace the list with the ordered dict
-                job_response.actions = ordered_actions_for_merging
+                job_response.actions = ordered_actions_for_merging  # type: ignore
 
             self._stub_action_responses_outstanding[service_name][request_id] = (
                 job_response_transport_exception or job_response
             )
             return request_id
-        wrapped_send_request.description = '<stub {service}.{action} wrapper around {wrapped}>'.format(
-            service=self.service,
-            action=self.action,
-            wrapped=getattr(Client.send_request, 'description', Client.send_request.__repr__()),
+        wrapped_send_request.description = (  # type: ignore
+            '<stub {service}.{action} wrapper around {wrapped}>'.format(
+                service=self.service,
+                action=self.action,
+                wrapped=getattr(Client.send_request, 'description', Client.send_request.__repr__()),
+            )
         )  # This description is a helpful debugging tool
 
         @wraps(Client.get_all_responses)
@@ -477,6 +547,7 @@ class stub_action(object):  # noqa
                 # Check if the any requests were actually sent wrapped client for this service; we do this because
                 # the service may exist solely as a stubbed service, and calling the wrapped get_all_responses
                 # will result in an error in this case.
+                # noinspection PyArgumentList,PyTypeChecker
                 for request_id, response in self._wrapped_client_get_all_responses(
                     client,
                     service_name,
@@ -492,7 +563,9 @@ class stub_action(object):  # noqa
                         if isinstance(response_to_merge, Exception):
                             raise response_to_merge
 
-                        for i, action_response in six.iteritems(response_to_merge.actions):
+                        # response_to_merge.actions here is actually an ordered dict of number to action response
+                        # noinspection PyTypeChecker
+                        for i, action_response in six.iteritems(response_to_merge.actions):  # type: ignore
                             response.actions.insert(i, action_response)
 
                         if not continue_on_error:
@@ -511,46 +584,49 @@ class stub_action(object):  # noqa
             if self._stub_action_responses_to_merge[service_name]:
                 raise Exception('Something very bad happened, and there are still stubbed responses to merge!')
 
-            for request_id, response in six.iteritems(self._stub_action_responses_outstanding[service_name]):
-                if isinstance(response, Exception):
-                    raise response
-                yield request_id, response
+            for request_id, response_or_e in six.iteritems(self._stub_action_responses_outstanding[service_name]):
+                if isinstance(response_or_e, Exception):
+                    raise response_or_e
+                yield request_id, response_or_e
 
             self._stub_action_responses_outstanding[service_name] = {}
-        wrapped_get_all_responses.description = '<stub {service}.{action} wrapper around {wrapped}>'.format(
-            service=self.service,
-            action=self.action,
-            wrapped=getattr(Client.get_all_responses, 'description', Client.get_all_responses.__repr__()),
+        wrapped_get_all_responses.description = (  # type: ignore
+            '<stub {service}.{action} wrapper around {wrapped}>'.format(
+                service=self.service,
+                action=self.action,
+                wrapped=getattr(Client.get_all_responses, 'description', Client.get_all_responses.__repr__()),
+            )
         )  # This description is a helpful debugging tool
 
         # Wrap Client.send_request, whose original version was saved in self._wrapped_client_send_request (which itself
         # might be another wrapper if we have stubbed multiple actions).
-        Client.send_request = wrapped_send_request
+        Client.send_request = wrapped_send_request  # type: ignore
 
         # Wrap Client.get_all_responses, whose original version was saved in self._wrapped_client_get_all_responses
         # (which itself might be another wrapper if we have stubbed multiple actions).
-        Client.get_all_responses = wrapped_get_all_responses
+        Client.get_all_responses = wrapped_get_all_responses  # type: ignore
 
         self.enabled = True
         return self._current_mock_action
 
-    def __exit__(self, *args):
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):  # type: (Any, Any, Any) -> bool
         if not self.enabled:
-            return
+            return False
 
         # Unwrap Client.send_request and Client.get_all_responses to their previous versions (which might themselves be
         # other wrappers if we have stubbed multiple actions).
-        Client.send_request = self._wrapped_client_send_request
-        Client.get_all_responses = self._wrapped_client_get_all_responses
+        Client.send_request = self._wrapped_client_send_request  # type: ignore
+        Client.get_all_responses = self._wrapped_client_get_all_responses  # type: ignore
         self.enabled = False
+        return False
 
-    def __call__(self, func):
+    def __call__(self, func):  # type: (_CT) -> _CT
         # This code inspired by mock.patch
         if isinstance(func, type):
             return self.decorate_class(func)
         return self.decorate_callable(func)
 
-    def decorate_class(self, _class):
+    def decorate_class(self, _class):  # type: (_CT_T) -> _CT_T
         # This code inspired by mock.patch
         for attr in dir(_class):
             # noinspection PyUnresolvedReferences
@@ -565,10 +641,10 @@ class stub_action(object):  # noqa
             setattr(_class, attr, stubber(attr_value))
         return _class
 
-    def decorate_callable(self, func):
+    def decorate_callable(self, func):  # type: (_CT_C) -> _CT_C
         # This code inspired by mock.patch
         if hasattr(func, 'patchings'):
-            func.patchings.append(self)
+            getattr(func, 'patchings').append(self)
             return func
 
         @wraps(func)
@@ -577,15 +653,15 @@ class stub_action(object):  # noqa
                 args = args[:1] + (mock_arg, ) + args[1:]
                 return func(*args, **kwargs)
 
-        return wrapped
+        return cast(_CT_C, wrapped)
 
     @property
-    def is_local(self):
+    def is_local(self):  # type: () -> bool
         # Play nice with @mock.patch
         return self.enabled
 
-    def start(self):
+    def start(self):  # type: () -> stub_action._MockAction
         return self.__enter__()
 
-    def stop(self):
+    def stop(self):  # type: () -> None
         self.__exit__()

@@ -220,7 +220,7 @@ class TestSOASettings(unittest.TestCase):
         assert 'is not one of or a subclass of one of' in error_context.value.args[0]
         assert 'ClientMiddleware' in error_context.value.args[0]
 
-        settings_dict['middleware'][0]['path'] = 'pysoa.server.middleware:ServerMiddleware'
+        settings_dict['middleware'][0]['path'] = 'pysoa.server.middleware:ServerMiddleware'  # type: ignore
 
         ServerSettings(settings_dict)
 
@@ -245,6 +245,6 @@ class TestSOASettings(unittest.TestCase):
         assert 'is not one of or a subclass of one of' in error_context.value.args[0]
         assert 'ServerMiddleware' in error_context.value.args[0]
 
-        settings_dict['middleware'][0]['path'] = 'pysoa.client.middleware:ClientMiddleware'
+        settings_dict['middleware'][0]['path'] = 'pysoa.client.middleware:ClientMiddleware'  # type: ignore
 
         ClientSettings(settings_dict)

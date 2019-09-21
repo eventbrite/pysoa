@@ -47,7 +47,7 @@ def dict_to_hashable(d):  # type: (Dict[Hashable, Any]) -> FrozenSet[Tuple[Hasha
     )
 
 
-def get_python_interpreter_arguments():  # type: () -> List[str]
+def get_python_interpreter_arguments():  # type: () -> List[six.text_type]
     """
     Returns a list of all the arguments passed to the Python interpreter, up to but not including the arguments
     present in `sys.argv`.
@@ -62,6 +62,6 @@ def get_python_interpreter_arguments():  # type: () -> List[str]
     # use a for-each loop on them. We have to do an old-school for-i loop.
     arguments = list()
     for i in range(argc.value - len(sys.argv) + 1):
-        arguments.append(argv[i])
+        arguments.append(six.text_type(argv[i]))
 
     return arguments

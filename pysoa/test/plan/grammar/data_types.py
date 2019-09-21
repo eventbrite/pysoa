@@ -7,8 +7,20 @@ import base64
 import datetime
 import decimal
 import re
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
-from pyparsing import oneOf
+from pyparsing import (  # noqa: F401 TODO Python 3
+    ParseResults,
+    oneOf,
+)
 import pytz
 import six
 
@@ -16,6 +28,16 @@ from pysoa.test.plan.errors import DataTypeConversionError
 from pysoa.test.plan.grammar.tools import (
     ENSURE_ACTION_SUBSTITUTION_DEFAULT_INDEX_RE,
     VARIABLE_SUBSTITUTION_RE,
+)
+
+
+__all__ = (
+    'AnyValue',
+    'data_type_descriptions',
+    'get_all_data_type_names',
+    'get_parsed_data_type_value',
+    'get_typed_value',
+    'RegexValue',
 )
 
 
@@ -42,10 +64,10 @@ data_type_descriptions = {
     'None': '``None``',
     'regex': 'Used for expectations only, the string value must match this regular expression',
     'not regex': 'Used for expectations only, the string value must *not* match this regular expression',
-}
+}  # type: Dict[six.text_type, six.text_type]
 
 
-def get_all_data_type_names():
+def get_all_data_type_names():  # type: () -> List[six.text_type]
     return sorted(six.iterkeys(data_type_descriptions), key=six.text_type.lower)
 
 
@@ -53,7 +75,7 @@ DataTypeGrammar = oneOf(get_all_data_type_names())('data_type')
 
 
 class AnyValue(object):
-    def __init__(self, data_type, permit_none=False):
+    def __init__(self, data_type, permit_none=False):  # type: (six.text_type, bool) -> None
         self.data_type = data_type
         self.permit_none = permit_none
 
@@ -95,7 +117,7 @@ class AnyValue(object):
 
 
 class RegexValue(object):
-    def __init__(self, pattern, negate=False):
+    def __init__(self, pattern, negate=False):  # type: (six.text_type, bool) -> None
         self.re = re.compile(pattern)
         self.pattern = pattern
         self.negate = negate
@@ -123,14 +145,25 @@ class RegexValue(object):
         return self
 
 
-def _parse_datetime_args(v):
-    return list(map(int, v.split(',')))
+DatetimeArgs = Union[
+    Tuple[int],
+    Tuple[int, int],
+    Tuple[int, int, int],
+    Tuple[int, int, int, int],
+    Tuple[int, int, int, int, int],
+    Tuple[int, int, int, int, int, int],
+    Tuple[int, int, int, int, int, int, int],
+]
 
 
-def _parse_timedelta_args(v):
+def _parse_datetime_args(v):  # type: (six.text_type) -> DatetimeArgs
+    return cast(DatetimeArgs, tuple(map(int, v.split(',', 6))))
+
+
+def _parse_timedelta_args(args):  # type: (six.text_type) -> Dict[six.text_type, int]
     argument_keys = ['days', 'hours', 'minutes', 'seconds', 'microseconds']
     kwargs = {}
-    for i, v in enumerate(map(int, v.split(','))):
+    for i, v in enumerate(map(int, args.split(','))):
         if i > 4:
             break
         kwargs[argument_keys[i]] = v
@@ -139,6 +172,7 @@ def _parse_timedelta_args(v):
 
 # value is expected to be unicode data type
 def get_typed_value(type_name, value):
+    # type: (Optional[six.text_type], Union[six.text_type, six.binary_type, AnyValue, RegexValue, None]) -> Any
     if isinstance(value, AnyValue):
         return value
     if isinstance(value, RegexValue):
@@ -152,6 +186,20 @@ def get_typed_value(type_name, value):
         return None
 
     try:
+        if type_name in ('bytes', 'base64_bytes'):
+            if not value:
+                return b''
+            if type_name == 'base64_bytes':
+                if not isinstance(value, six.binary_type):
+                    value = value.encode('utf-8')
+                return base64.b64decode(value)
+            if isinstance(value, six.binary_type):
+                return value
+            return value.encode('utf-8')  # All test plan files should be utf-8 encoded
+
+        if isinstance(value, six.binary_type):
+            value = value.decode('utf-8')
+
         if type_name == 'int':
             if not value:
                 return six.integer_types[-1](0)
@@ -171,17 +219,6 @@ def get_typed_value(type_name, value):
                 return True
             return False
 
-        if type_name in ('bytes', 'base64_bytes'):
-            if not value:
-                return b''
-            if type_name == 'base64_bytes':
-                if not isinstance(value, six.binary_type):
-                    value = value.encode('utf-8')
-                return base64.b64decode(value)
-            if isinstance(value, six.binary_type):
-                return value
-            return value.encode('utf-8')  # All test plan files should be utf-8 encoded
-
         if type_name in ('str', 'encoded_ascii', 'encoded_unicode'):
             if not value:
                 return ''
@@ -195,8 +232,6 @@ def get_typed_value(type_name, value):
                 # Encode it as a unicode byte sequence, and then decode the escape sequences back into a unicode string.
                 # Example: The file contains "item\u000B name", which becomes a Python literal "item\\u000B name".
                 return value.encode('utf-8').decode('unicode_escape')
-            if isinstance(value, six.binary_type):
-                return value.decode('utf-8')
             return value
     except (TypeError, ValueError, decimal.DecimalException) as e:
         raise DataTypeConversionError(e.args[0])
@@ -212,34 +247,34 @@ def get_typed_value(type_name, value):
         if not value:
             raise DataTypeConversionError('Attempt to convert false-y value to datetime value')
 
-        if isinstance(value, six.string_types):
+        if isinstance(value, six.text_type):
             if value.startswith(('now', 'utc_now', 'midnight', 'utc_midnight')):
                 try:
                     datetime_value, timedelta_value = value.strip().split(' ', 1)
                 except ValueError:
                     datetime_value = value.strip()[:]
-                    timedelta_value = None
+                    timedelta_value = ''
 
                 if datetime_value == 'now':
-                    datetime_value = datetime.datetime.now()
+                    datetime_value_dt = datetime.datetime.now()
                 elif datetime_value == 'utc_now':
-                    datetime_value = datetime.datetime.utcnow().replace(tzinfo=pytz.utc)
+                    datetime_value_dt = datetime.datetime.utcnow().replace(tzinfo=pytz.utc)
                 elif datetime_value == 'midnight':
-                    datetime_value = datetime.datetime.combine(datetime.date.today(), datetime.time())
+                    datetime_value_dt = datetime.datetime.combine(datetime.date.today(), datetime.time())
                 else:
-                    datetime_value = datetime.datetime.combine(
+                    datetime_value_dt = datetime.datetime.combine(
                         datetime.datetime.utcnow().date(),
                         datetime.time(),
                     ).replace(tzinfo=pytz.utc)
 
-                assert isinstance(datetime_value, datetime.datetime), 'Parse error, value is not a `datetime`'
+                assert isinstance(datetime_value_dt, datetime.datetime), 'Parse error, value is not a `datetime`'
 
-                datetime_value = datetime_value.replace(microsecond=0)
+                datetime_value_dt = datetime_value_dt.replace(microsecond=0)
 
                 if timedelta_value:
-                    datetime_value = datetime_value + datetime.timedelta(**_parse_timedelta_args(timedelta_value))
+                    datetime_value_dt = datetime_value_dt + datetime.timedelta(**_parse_timedelta_args(timedelta_value))
 
-                return datetime_value
+                return datetime_value_dt
 
             return datetime.datetime(*_parse_datetime_args(value))
 
@@ -251,7 +286,7 @@ def get_typed_value(type_name, value):
         if not value:
             raise DataTypeConversionError('Attempt to convert false-y value to date value')
 
-        if isinstance(value, six.string_types):
+        if isinstance(value, six.text_type):
             if value == 'today':
                 return datetime.date.today()
             elif value == 'utc_today':
@@ -265,25 +300,25 @@ def get_typed_value(type_name, value):
         if not value:
             raise DataTypeConversionError('Attempt to convert false-y value to time value')
 
-        if isinstance(value, six.string_types):
+        if isinstance(value, six.text_type):
             if value.startswith(('now', 'utc_now', 'midnight')):
                 try:
                     time_value, timedelta_value = value.strip().split(' ', 1)
                 except ValueError:
                     time_value = value.strip()[:]
-                    timedelta_value = None
+                    timedelta_value = ''
 
                 if time_value == 'now':
-                    datetime_value = datetime.datetime.now()
+                    datetime_value_dt = datetime.datetime.now()
                 elif time_value == 'utc_now':
-                    datetime_value = datetime.datetime.utcnow()
+                    datetime_value_dt = datetime.datetime.utcnow()
                 else:
-                    datetime_value = datetime.datetime(2000, 1, 1, 0, 0, 0, 0)
+                    datetime_value_dt = datetime.datetime(2000, 1, 1, 0, 0, 0, 0)
 
                 if timedelta_value:
-                    datetime_value = datetime_value + datetime.timedelta(**_parse_timedelta_args(timedelta_value))
+                    datetime_value_dt = datetime_value_dt + datetime.timedelta(**_parse_timedelta_args(timedelta_value))
 
-                return datetime_value.replace(microsecond=0).time()
+                return datetime_value_dt.replace(microsecond=0).time()
 
             return datetime.time(*_parse_datetime_args(value))
 
@@ -293,11 +328,14 @@ def get_typed_value(type_name, value):
 
 
 def get_parsed_data_type_value(parse_result, value):
+    # type: (ParseResults, Union[six.text_type, six.binary_type, AnyValue, RegexValue]) -> Any
     if getattr(parse_result, 'any') == 'any':
         return AnyValue(parse_result.data_type or 'str')
     elif parse_result.data_type == 'regex':
+        assert isinstance(value, six.text_type)
         return RegexValue(value)
     elif parse_result.data_type == 'not regex':
+        assert isinstance(value, six.text_type)
         return RegexValue(value, True)
     else:
         return get_typed_value(parse_result.data_type or 'str', value)

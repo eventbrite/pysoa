@@ -3,14 +3,22 @@ from __future__ import (
     unicode_literals,
 )
 
+import abc
 from typing import (  # noqa: F401 TODO Python 3
+    Any,
     Callable,
     Dict,
+    Iterable,
+    Optional,
+    SupportsInt,
+    Type,
+    Union,
 )
 
 import attr
 import six  # noqa: F401 TODO Python 3
 
+from pysoa.client.client import Client  # noqa: F401 TODO Python 3
 from pysoa.common.constants import (
     ERROR_CODE_SERVER_ERROR,
     ERROR_CODE_UNKNOWN,
@@ -21,7 +29,28 @@ from pysoa.common.types import (
     Error,
 )
 from pysoa.server.errors import ActionError
-from pysoa.server.internal.types import RequestSwitchSet
+from pysoa.server.internal.types import (  # noqa: F401 TODO Python 3
+    RequestSwitchSet,
+    SupportsIntValue,
+)
+from pysoa.server.settings import ServerSettings
+
+
+try:
+    import pysoa.server.coroutine
+    # noinspection PyCompatibility
+    import concurrent.futures
+
+    RunCoroutineType = Callable[[pysoa.server.coroutine.Coroutine], concurrent.futures.Future]
+except (ImportError, SyntaxError):
+    RunCoroutineType = None  # type: ignore
+
+
+def _convert_request_switch_set(value):
+    # type: (Union[RequestSwitchSet, Iterable[Union[SupportsInt, SupportsIntValue]]]) -> RequestSwitchSet
+    if isinstance(value, RequestSwitchSet):
+        return value
+    return RequestSwitchSet(value)
 
 
 @attr.s
@@ -39,16 +68,17 @@ class EnrichedActionRequest(ActionRequest):
     """
     switches = attr.ib(
         default=attr.Factory(RequestSwitchSet),
-        converter=lambda l: l if isinstance(l, RequestSwitchSet) else RequestSwitchSet(l),
-    )
-    context = attr.ib(default=attr.Factory(dict))
-    control = attr.ib(default=attr.Factory(dict))
-    client = attr.ib(default=None)
-    async_event_loop = attr.ib(default=None)  # deprecated
-    run_coroutine = attr.ib(default=None)  # replacement for async_event_loop
+        converter=_convert_request_switch_set,
+    )  # type: RequestSwitchSet
+    context = attr.ib(default=attr.Factory(dict))  # type: Dict[six.text_type, Any]
+    control = attr.ib(default=attr.Factory(dict))  # type: Dict[six.text_type, Any]
+    client = attr.ib(default=None)  # type: Client
+    run_coroutine = attr.ib(default=None)  # type: RunCoroutineType
+
+    _server = None
 
     def call_local_action(self, action, body, raise_action_errors=True):
-        # type: (six.text_type, Dict, bool) -> ActionResponse
+        # type: (six.text_type, Dict[six.text_type, Any], bool) -> ActionResponse
         """
         This helper calls another action, locally, that resides on the same service, using the provided action name
         and body. The called action will receive a copy of this request object with different action and body details.
@@ -94,15 +124,18 @@ class EnrichedActionRequest(ActionRequest):
                 raise ActionError(errors)
             return ActionResponse(action=action, errors=errors)
 
-        action_callable = (
-            server.action_class_map[action](server.settings)
-        )  # type: Callable[[ActionRequest], ActionResponse]
+        action_type = server.action_class_map[action]  # type: ActionType
+        action_callable = action_type(server.settings)
 
         request = self.__class__(
             action=action,
             body=body,
             # Dynamically copy all Attrs attributes so that subclasses introducing other Attrs can still work properly
-            **{a.name: getattr(self, a.name) for a in self.__attrs_attrs__ if a.name not in ('action', 'body')}
+            **{
+                a.name: getattr(self, a.name)
+                for a in getattr(self, '__attrs_attrs__')
+                if a.name not in ('action', 'body')
+            }
         )
         request._server = server
 
@@ -117,3 +150,38 @@ class EnrichedActionRequest(ActionRequest):
             raise ActionError(response.errors)
 
         return response
+
+
+@six.add_metaclass(abc.ABCMeta)
+class ActionInterface(object):
+    """
+    Actions should either be callables that accept a ServerSettings object and return another callable that accepts an
+    EnrichedActionRequest and returns an ActionResponse, or they should inherit from this class and implement its
+    abstract methods. Most actions, however, will simply extend `pysoa.server.action.base.Action` and implement its
+    interface, which is simpler and easier to use.
+    """
+
+    # noinspection PyUnusedLocal
+    @abc.abstractmethod
+    def __init__(self, settings=None):  # type: (Optional[ServerSettings]) -> None
+        """
+        Constructs a new action class.
+
+        :param settings: The Server settings
+        """
+
+    @abc.abstractmethod
+    def __call__(self, action_request):  # type: (EnrichedActionRequest) -> ActionResponse
+        """
+        Execute the action.
+
+        :param action_request: The action request
+
+        :return: The action response
+        """
+
+
+ActionType = Union[
+    Type[ActionInterface],
+    Callable[[Optional[ServerSettings]], Callable[[EnrichedActionRequest], ActionResponse]],
+]

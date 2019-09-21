@@ -45,7 +45,7 @@ class SentinelRedisClient(BaseRedisClient):
 
     def __init__(
         self,
-        hosts=None,  # type: Iterable[Tuple[six.text_type, int]]
+        hosts=None,  # type: Optional[Iterable[Tuple[six.text_type, int]]]
         connection_kwargs=None,  # type: Dict[six.text_type, Any]
         sentinel_services=None,  # type: Iterable[six.text_type]
         sentinel_failover_retries=0,  # type: int
@@ -64,18 +64,18 @@ class SentinelRedisClient(BaseRedisClient):
             self._validate_service_names(sentinel_services)
             self._services = list(sentinel_services)  # type: List[six.text_type]
         else:
-            self._services = self._get_service_names()  # type: List[six.text_type]
+            self._services = self._get_service_names()
         self._ring_size = len(self._services)
         self._connection_index_generator = itertools.cycle(range(self._ring_size))  # type: Iterator[int]
 
         super(SentinelRedisClient, self).__init__(ring_size=len(self._services))
 
-    def reset_clients(self):
-        self._master_clients = {}  # type: Dict[six.text_type, redis.StrictRedis]
+    def reset_clients(self):  # type: () -> None
+        self._master_clients = {}
 
     @staticmethod
     def _setup_hosts(
-        hosts,  # type: Iterable[Tuple[six.text_type, int]]
+        hosts,  # type: Optional[Iterable[Tuple[six.text_type, int]]]
     ):
         # type: (...) -> List[Tuple[six.text_type, int]]
         if not hosts:
@@ -152,10 +152,11 @@ class SentinelRedisClient(BaseRedisClient):
                 return self._get_master_client_for(self._services[index])
             except redis.sentinel.MasterNotFoundError:
                 self.reset_clients()  # make sure we reach out to get master info again on next call
-                if i == self._sentinel_failover_retries:
-                    raise CannotGetConnectionError('Master not found; gave up reloading master info after failover.')
-                self._get_counter('backend.sentinel.master_not_found_retry').increment()
-                time.sleep((2 ** i + random.random()) / 4.0)
+                if i != self._sentinel_failover_retries:
+                    self._get_counter('backend.sentinel.master_not_found_retry').increment()
+                    time.sleep((2 ** i + random.random()) / 4.0)
+
+        raise CannotGetConnectionError('Master not found; gave up reloading master info after failover.')
 
     def _get_random_index(self):  # type: () -> int
         return random.randint(0, len(self._services) - 1)

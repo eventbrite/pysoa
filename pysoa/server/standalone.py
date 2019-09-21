@@ -15,12 +15,17 @@ import threading
 import time
 from typing import (  # noqa: F401 TODO Python 3
     Any,
+    Callable,
+    Deque,
     List,
     Optional,
+    Type,
 )
 
 import attr
+import six  # noqa: F401 TODO Python 3
 
+from pysoa.server.server import Server  # noqa: F401 TODO Python 3
 import pysoa.utils
 
 
@@ -60,7 +65,7 @@ if is_double_import():
     exit(99)
 
 
-def _get_arg_parser():
+def _get_arg_parser():  # type: () -> argparse.ArgumentParser
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-f', '--fork-processes', '--fork',
@@ -92,7 +97,7 @@ def _get_arg_parser():
     return parser
 
 
-def _get_args(parser):
+def _get_args(parser):  # type: (argparse.ArgumentParser) -> argparse.Namespace
     return parser.parse_known_args()[0]
 
 
@@ -112,8 +117,8 @@ class _ProcessMonitor(threading.Thread):
         self.respawn = respawn
         self.process_kwargs = kwargs
         self.process = None  # type: Optional[multiprocessing.Process]
-        self.one_minute_restart_times = collections.deque(maxlen=8)  # type: collections.deque[float]
-        self.fifteen_second_restart_times = collections.deque(maxlen=3)  # type: collections.deque[float]
+        self.one_minute_restart_times = collections.deque(maxlen=8)  # type: Deque[float]
+        self.fifteen_second_restart_times = collections.deque(maxlen=3)  # type: Deque[float]
         super(_ProcessMonitor, self).__init__()
 
     def start_process(self):  # type: () -> _ProcessMonitor
@@ -130,6 +135,7 @@ class _ProcessMonitor(threading.Thread):
 
     def run(self):  # type: () -> None
         self._start_process()
+        assert self.process is not None
 
         while not self.signal_context.signaled:
             self.process.join()
@@ -169,7 +175,7 @@ class _ProcessMonitor(threading.Thread):
         self.process = None
 
 
-def _run_server(args, server_class):
+def _run_server(args, server_class):  # type: (argparse.Namespace, Type[Server]) -> None
     if args.fork_processes > 1:
         cpu_count = multiprocessing.cpu_count()
         num_processes = args.fork_processes
@@ -244,7 +250,7 @@ def _run_server(args, server_class):
         server_class.main()
 
 
-def _run_server_reloader_wrapper(args, server_class):
+def _run_server_reloader_wrapper(args, server_class):  # type: (argparse.Namespace, Type[Server]) -> None
     if args.use_file_watcher is False:
         # The actual value False means that the option was not specified
         # Do not check for None, which is false-y, because that means it was specified for all modules
@@ -255,7 +261,7 @@ def _run_server_reloader_wrapper(args, server_class):
         # This is, unfortunately, the only way to get the real main module name
         # noinspection PyUnresolvedReferences,PyPackageRequirements
         import __main__
-        module_name = None
+        module_name = None  # type: Optional[six.text_type]
         if hasattr(__main__, '__loader__'):
             module_name = getattr(__main__.__loader__, 'name', None) or getattr(__main__.__loader__, 'fullname', None)
         if module_name == '__main__':
@@ -273,7 +279,7 @@ def _run_server_reloader_wrapper(args, server_class):
         )
 
 
-def simple_main(server_getter):
+def simple_main(server_getter):  # type: (Callable[[], Type[Server]]) -> None
     """
     Call this within `__main__` to start the service as a standalone server without Django support. Your server should
     not have `use_django=True`. If it does, see `django_main`, instead.
@@ -283,7 +289,7 @@ def simple_main(server_getter):
     _run_server_reloader_wrapper(_get_args(_get_arg_parser()), server_getter())
 
 
-def django_main(server_getter):
+def django_main(server_getter):  # type: (Callable[[], Type[Server]]) -> None
     """
     Call this within `__main__` to start the service as a standalone server with Django support. Your server should have
     `use_django=True`. If it does not, see `simple_main`, instead.
@@ -311,16 +317,16 @@ def django_main(server_getter):
         # We have to import it manually, because we need to manipulate the settings before setup() is called, but we
         # can't import django.conf.settings until after setup() is called.
         django_settings = importlib.import_module(os.environ['DJANGO_SETTINGS_MODULE'])
-        if 'logging' in django_settings.SOA_SERVER_SETTINGS:
+        if 'logging' in django_settings.SOA_SERVER_SETTINGS:  # type: ignore
             if (
                 getattr(django_settings, 'LOGGING', None) and
-                django_settings.LOGGING != django_settings.SOA_SERVER_SETTINGS['logging']
+                django_settings.LOGGING != django_settings.SOA_SERVER_SETTINGS['logging']  # type: ignore
             ):
                 warn_about_logging = True
-            django_settings.LOGGING = django_settings.SOA_SERVER_SETTINGS['logging']
+            django_settings.LOGGING = django_settings.SOA_SERVER_SETTINGS['logging']  # type: ignore
         elif not getattr(django_settings, 'LOGGING', None):
             from pysoa.server.settings import ServerSettings
-            django_settings.LOGGING = ServerSettings.defaults['logging']
+            django_settings.LOGGING = ServerSettings.defaults['logging']  # type: ignore
     except ImportError:
         raise ValueError('Cannot import Django settings module `{}`.'.format(os.environ['DJANGO_SETTINGS_MODULE']))
     except AttributeError:

@@ -3,7 +3,30 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import (  # noqa: F401 TODO Python 3
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+)
+
 from conformity import fields
+import six  # noqa: F401 TODO Python 3
+
+from pysoa.common.types import (  # noqa: F401 TODO Python 3
+    ActionResponse,
+    JobResponse,
+)
+
+
+if TYPE_CHECKING:
+    # To prevent circular imports
+    from pysoa.server.types import EnrichedActionRequest  # noqa: F401 TODO Python 3
+
+
+__all__ = (
+    'ServerMiddleware',
+)
 
 
 @fields.ClassConfigurationSchema.provider(fields.Dictionary(
@@ -20,34 +43,46 @@ class ServerMiddleware(object):
     return a callable that takes the appropriate arguments and returns the appropriate value.
     """
 
-    def job(self, process_job):
+    def job(
+        self,
+        process_job,  # type: Callable[[Dict[six.text_type, Any]], JobResponse]
+    ):
+        # type: (...) -> Callable[[Dict[six.text_type, Any]], JobResponse]
         """
         In sub-classes, used for creating a wrapper around `process_job`. In this simple implementation, just returns
         'process_job`.
 
-        :param process_job: A callable that accepts a job request `dict` and returns a job response `dict`, or errors
-        :type process_job: callable(dict): dict
+        .. caution::
+           `This bug <https://github.com/eventbrite/pysoa/issues/197>`_ details a flaw in this method. Unlike all other
+           middleware tasks, which accept and return proper objects, this one accepts a dictionary and returns a proper
+           object. This is inconsistent and will be fixed prior to the release of PySOA 1.0.0, at which point the
+           callable argument and returned callable must accept a :class:`JobRequest` object instead of a job request
+           `dict`. TODO: Change this.
 
-        :return: A callable that accepts a job request `dict` and returns a job response `dict`, or errors, by calling
-                 the provided `process_job` and possibly doing other things.
-        :rtype: callable(dict): dict
+        :param process_job: A callable that accepts a job request `dict` and returns a :class:`JobResponse` object, or
+                            errors
+
+        :return: A callable that accepts a job request `dict` and returns a a :class:`JobResponse` object, or errors,
+                 by calling the provided `process_job` and possibly doing other things.
         """
 
         # Remove ourselves from the stack
         return process_job
 
-    def action(self, process_action):
+    def action(
+        self,
+        process_action,  # type: Callable[[EnrichedActionRequest], ActionResponse]
+    ):
+        # type: (...) -> Callable[[EnrichedActionRequest], ActionResponse]
         """
         In sub-classes, used for creating a wrapper around `process_action`. In this simple implementation, just
         returns `process_action`.
 
-        :param process_action: A callable that accepts an `ActionRequest` object and returns an `ActionResponse`
-                               object, or errors
-        :type process_action: callable(ActionRequest): ActionResponse
+        :param process_action: A callable that accepts an :class:`ActionRequest` object and returns an
+                               :class:`ActionResponse` object, or errors
 
-        :return: A callable that accepts an `ActionRequest` object and returns an `ActionResponse` object, or errors,
-                 by calling the provided `process_action` and possibly doing other things.
-        :rtype: callable(ActionRequest): ActionResponse
+        :return: A callable that accepts an :class:`ActionRequest` object and returns an :class:`ActionResponse`
+                 object, or errors, by calling the provided `process_action` and possibly doing other things.
         """
 
         # Remove ourselves from the stack

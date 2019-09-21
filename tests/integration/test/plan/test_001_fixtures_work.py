@@ -7,10 +7,12 @@ import datetime
 import os
 import random
 import sys
+from typing import List  # noqa: F401 TODO Python 3
 import unittest
 import uuid
 
 from conformity import fields
+from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
 import pytest
 import six
 
@@ -160,7 +162,7 @@ class MockingTestAction(Action):
                     request.body['min'],
                     **request.body['kwargs']
                 ),
-                'extra': function_which_shall_be_mocked.extra.value().for_me,
+                'extra': function_which_shall_be_mocked.extra.value().for_me,  # type: ignore
             }
         except AttributeError:
             raise ActionError(errors=[Error('ATTRIBUTE_ERROR', 'An attribute error was raised')])
@@ -226,7 +228,7 @@ class MockingAndStubbingServer(Server):
     }
 
 
-_plugin_testing_base_class_order_of_operations = []
+_plugin_testing_base_class_order_of_operations = []  # type: List[six.text_type]
 
 
 # Let's put in place some instrumentation so that we can test our tests, because we're actually testing the plugin
@@ -234,7 +236,7 @@ _plugin_testing_base_class_order_of_operations = []
 
 class PluginTestingOrderOfOperationsTestCase(ServicePlanTestCase):
     @classmethod
-    def get_order_of_operations(cls):
+    def get_order_of_operations(cls):  # type: () -> List[six.text_type]
         if cls is PluginTestingOrderOfOperationsTestCase:
             return _plugin_testing_base_class_order_of_operations
 
@@ -242,8 +244,8 @@ class PluginTestingOrderOfOperationsTestCase(ServicePlanTestCase):
             # We can't just add this as a class attribute of this class, because then all subclasses would share one
             # value instead of having their own values. So we have to dynamically ensure the subclass has this
             # attribute.
-            cls._order_of_operations = []
-        return cls._order_of_operations
+            setattr(cls, '_order_of_operations', [])
+        return getattr(cls, '_order_of_operations')
 
     @classmethod
     def setUpClass(cls):
@@ -308,7 +310,7 @@ class PluginTestingOrderOfOperationsTestCase(ServicePlanTestCase):
 
 class TestFirstFixtures(PluginTestingOrderOfOperationsTestCase):
     server_class = FirstStubServer
-    server_settings = {}
+    server_settings = {}  # type: SettingsData
     fixture_path = os.path.dirname(__file__) + '/first_fixtures'
     model_constants = {
         'test_first_user': {'username': 'beamerblvd'},
@@ -317,8 +319,6 @@ class TestFirstFixtures(PluginTestingOrderOfOperationsTestCase):
             {'username': 'allison.agd'},
         ],
     }
-
-    order_of_operations = []
 
     @staticmethod
     def _process_stub_action_stubbed_out(body):
@@ -354,10 +354,8 @@ def test_following():
 
 class TestSecondFixtures(PluginTestingOrderOfOperationsTestCase):
     server_class = SecondStubServer
-    server_settings = {}
+    server_settings = {}  # type: SettingsData
     fixture_path = os.path.dirname(__file__) + '/second_fixtures'
-
-    order_of_operations = []
 
     def test_a_regular_case(self):
         """
@@ -391,14 +389,14 @@ class TestSecondFixtures(PluginTestingOrderOfOperationsTestCase):
 @pytest.mark.skipif(sys.version_info < (2, 7), reason='These tests should all run because argument evaluates to False')
 class TestMockingAndStubbingFixtures(PluginTestingOrderOfOperationsTestCase):
     server_class = MockingAndStubbingServer
-    server_settings = {}
+    server_settings = {}  # type: SettingsData
     fixture_path = os.path.dirname(__file__) + '/mocking_and_stubbing'
 
 
 @unittest.skip(reason='Making sure skipping an entire class (and all of its fixtures) works (unittest)')
 class TestUnittestSkippedFixtures(PluginTestingOrderOfOperationsTestCase):
     server_class = SecondStubServer
-    server_settings = {}
+    server_settings = {}  # type: SettingsData
     fixture_path = os.path.dirname(__file__) + '/second_fixtures'
 
     def test_should_be_skipped(self):
@@ -409,7 +407,7 @@ class TestUnittestSkippedFixtures(PluginTestingOrderOfOperationsTestCase):
 @pytest.mark.skip(reason='Making sure skipping an entire class (and all of its fixtures) works (PyTest)')
 class TestPyTestSkippedFixtures(PluginTestingOrderOfOperationsTestCase):
     server_class = SecondStubServer
-    server_settings = {}
+    server_settings = {}  # type: SettingsData
     fixture_path = os.path.dirname(__file__) + '/second_fixtures'
 
     def test_should_be_skipped(self):
@@ -421,7 +419,7 @@ class TestPyTestSkippedFixtures(PluginTestingOrderOfOperationsTestCase):
 class TestPyTestSkippedIfFixtures(PluginTestingOrderOfOperationsTestCase):
     # Also tests that the `custom_fixtures` feature works
     server_class = SecondStubServer
-    server_settings = {}
+    server_settings = {}  # type: SettingsData
     custom_fixtures = (
         os.path.dirname(__file__) + '/second_fixtures/walk_and_run.pysoa',
     )
@@ -433,5 +431,5 @@ class TestPyTestSkippedIfFixtures(PluginTestingOrderOfOperationsTestCase):
 
 class TestGlobalSkippedFixtureTests(PluginTestingOrderOfOperationsTestCase):
     server_class = SecondStubServer
-    server_settings = {}
+    server_settings = {}  # type: SettingsData
     fixture_path = os.path.dirname(__file__) + '/skipped_fixtures'

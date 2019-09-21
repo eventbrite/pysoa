@@ -17,16 +17,21 @@ import time
 import traceback
 from types import FrameType  # noqa: F401 TODO Python 3
 from typing import (  # noqa: F401 TODO Python 3
+    Any,
     Callable,
+    Dict,
+    List,
     Mapping,
     Optional,
     Type,
+    TypeVar,
+    cast,
 )
 
 import attr
 import six
 
-from pysoa.client import Client
+from pysoa.client.client import Client
 from pysoa.common.constants import (
     ERROR_CODE_ACTION_TIMEOUT,
     ERROR_CODE_JOB_TIMEOUT,
@@ -39,35 +44,44 @@ from pysoa.common.logging import (
     PySOALogContextFilter,
     RecursivelyCensoredDictWrapper,
 )
-from pysoa.common.metrics import TimerResolution
+from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
+    MetricsRecorder,
+    Timer,
+    TimerResolution,
+)
 from pysoa.common.serializer.exceptions import InvalidField
+from pysoa.common.transport.base import ServerTransport  # noqa: F401 TODO Python 3
 from pysoa.common.transport.exceptions import (
     MessageReceiveError,
     MessageReceiveTimeout,
     MessageTooLarge,
 )
-from pysoa.common.types import (
+from pysoa.common.types import (  # noqa: F401 TODO Python 3
     ActionResponse,
+    Context,
     Error,
     JobResponse,
     UnicodeKeysDict,
 )
-from pysoa.server.action.base import ActionType  # noqa: F401 TODO Python 3
 from pysoa.server.errors import (
     ActionError,
     JobError,
 )
 from pysoa.server.internal.types import RequestSwitchSet
+from pysoa.server.middleware import ServerMiddleware  # noqa: F401 TODO Python 3
 from pysoa.server.schemas import JobRequestSchema
 from pysoa.server.settings import ServerSettings
-from pysoa.server.types import EnrichedActionRequest
+from pysoa.server.types import (  # noqa: F401 TODO Python 3
+    ActionType,
+    EnrichedActionRequest,
+)
 import pysoa.version
 
 
 try:
     from pysoa.server.internal.event_loop import AsyncEventLoopThread
 except (ImportError, SyntaxError):
-    AsyncEventLoopThread = None
+    AsyncEventLoopThread = None  # type: ignore
 
 try:
     from django.conf import settings as django_settings
@@ -79,14 +93,27 @@ try:
     from django.db.transaction import get_autocommit as django_get_autocommit
     from django.db.utils import DatabaseError
 except ImportError:
-    django_settings = None
-    django_caches = None
-    django_close_old_connections = None
-    django_reset_queries = None
-    django_get_autocommit = None
+    django_settings = None  # type: ignore
+    django_caches = None  # type: ignore
+    django_close_old_connections = None  # type: ignore
+    django_reset_queries = None  # type: ignore
+    django_get_autocommit = None  # type: ignore
 
-    class DatabaseError(Exception):
+    class DatabaseError(Exception):  # type: ignore
         pass
+
+
+__all__ = (
+    'HarakiriInterrupt',
+    'Server',
+    'ServerMiddlewareActionTask',
+    'ServerMiddlewareJobTask',
+)
+
+
+ServerMiddlewareJobTask = Callable[[Dict[six.text_type, Any]], JobResponse]
+ServerMiddlewareActionTask = Callable[[EnrichedActionRequest], ActionResponse]
+_MT = TypeVar('_MT', ServerMiddlewareActionTask, ServerMiddlewareJobTask)
 
 
 class HarakiriInterrupt(BaseException):
@@ -121,6 +148,7 @@ class Server(object):
     action_class_map = {}  # type: Mapping[six.text_type, ActionType]
 
     def __init__(self, settings, forked_process_id=None):
+        # type: (ServerSettings, Optional[int]) -> None
         """
         :param settings: The settings object, which must be an instance of `ServerSettings` or one of its subclasses
         :type settings: ServerSettings
@@ -137,33 +165,33 @@ class Server(object):
 
         # Store settings and extract transport
         self.settings = settings
-        self.metrics = self.settings['metrics']['object'](**self.settings['metrics'].get('kwargs', {}))
+        self.metrics = self.settings['metrics']['object'](
+            **self.settings['metrics'].get('kwargs', {})
+        )  # type: MetricsRecorder
         self.transport = self.settings['transport']['object'](
             self.service_name,
             self.metrics,
             **self.settings['transport'].get('kwargs', {})
-        )
+        )  # type: ServerTransport
 
-        self._async_event_loop = None
-        self._async_event_loop_thread = None
+        self._async_event_loop_thread = None  # type: Optional[AsyncEventLoopThread]
         if AsyncEventLoopThread:
             self._async_event_loop_thread = AsyncEventLoopThread([
                 m['object'](**m.get('kwargs', {}))
                 for m in self.settings['coroutine_middleware']
             ])
-            self._async_event_loop = self._async_event_loop_thread.loop
 
         # Set initial state
         self.shutting_down = False
         self._shutdown_lock = threading.Lock()
         self._last_signal = 0
-        self._last_signal_received = 0
+        self._last_signal_received = 0.0
 
         # Instantiate middleware
         self.middleware = [
             m['object'](**m.get('kwargs', {}))
             for m in self.settings['middleware']
-        ]
+        ]  # type: List[ServerMiddleware]
 
         # Set up logger
         # noinspection PyTypeChecker
@@ -172,25 +200,25 @@ class Server(object):
         self.job_logger = logging.getLogger('pysoa.server.job')
 
         # Set these as the integer equivalents of the level names
-        self.request_log_success_level = logging.getLevelName(self.settings['request_log_success_level'])
-        self.request_log_error_level = logging.getLevelName(self.settings['request_log_error_level'])
+        self.request_log_success_level = logging.getLevelName(self.settings['request_log_success_level'])  # type: int
+        self.request_log_error_level = logging.getLevelName(self.settings['request_log_error_level'])  # type: int
 
         class DictWrapper(RecursivelyCensoredDictWrapper):
             SENSITIVE_FIELDS = frozenset(
                 RecursivelyCensoredDictWrapper.SENSITIVE_FIELDS | settings['extra_fields_to_redact'],
             )
-        self.logging_dict_wrapper_class = DictWrapper
+        self.logging_dict_wrapper_class = DictWrapper  # type: Type[RecursivelyCensoredDictWrapper]
 
-        self._default_status_action_class = None
+        self._default_status_action_class = None  # type: Optional[ActionType]
 
-        self._idle_timer = None
+        self._idle_timer = None  # type: Optional[Timer]
 
-        self._heartbeat_file = None
-        self._heartbeat_file_path = None
-        self._heartbeat_file_last_update = 0
+        self._heartbeat_file = None  # type: Optional[codecs.StreamReaderWriter]
+        self._heartbeat_file_path = None  # type: Optional[six.text_type]
+        self._heartbeat_file_last_update = 0.0
         self._forked_process_id = forked_process_id
 
-    def handle_next_request(self):
+    def handle_next_request(self):  # type: () -> None
         """
         Retrieves the next request from the transport, or returns if it times out (no request has been made), and then
         processes that request, sends its response, and returns when done.
@@ -204,9 +232,14 @@ class Server(object):
         # Get the next JobRequest
         try:
             request_id, meta, job_request = self.transport.receive_request_message()
+            if request_id is None or meta is None or job_request is None:
+                self.logger.warning('Thought to be impossible, but the transport returned None')
+                raise MessageReceiveTimeout()
         except MessageReceiveTimeout:
             # no new message, nothing to do
+            # self._idle_timer.stop()  TODO when timers are re-entrant
             self.perform_idle_actions()
+            # self._idle_timer.start()  TODO when timers are re-entrant
             return
 
         # We are no longer idle, so stop the timer and reset for the next idle period
@@ -217,7 +250,7 @@ class Server(object):
             PySOALogContextFilter.set_logging_request_context(request_id=request_id, **job_request.get('context', {}))
         except TypeError:
             # Non unicode keys in job_request['context'] will break keywording of a function call.
-            # Try to recover by coercing the keys
+            # Try to recover by coercing the keys to unicode.
             PySOALogContextFilter.set_logging_request_context(
                 request_id=request_id,
                 **{six.text_type(k): v for k, v in six.iteritems(job_request['context'])}
@@ -290,45 +323,37 @@ class Server(object):
             PySOALogContextFilter.clear_logging_request_context()
             self.perform_post_request_actions()
 
-    def make_client(self, context):
+    def make_client(self, context):  # type: (Context) -> Client
         """
         Gets a `Client` that will propagate the passed `context` in order to to pass it down to middleware or Actions.
 
         :return: A client configured with this server's `client_routing` settings
-        :rtype: Client
         """
         return self.client_class(self.settings['client_routing'], context=context)
 
     @staticmethod
-    def make_middleware_stack(middleware, base):
+    def make_middleware_stack(middleware, base):  # type: (List[Callable[[_MT], _MT]], _MT) -> _MT
         """
         Given a list of in-order middleware callable objects `middleware` and a base function `base`, chains them
         together so each middleware is fed the function below, and returns the top level ready to call.
 
         :param middleware: The middleware stack
-        :type middleware: iterable[callable]
         :param base: The base callable that the lowest-order middleware wraps
-        :type base: callable
 
         :return: The topmost middleware, which calls the next middleware ... which calls the lowest-order middleware,
                  which calls the `base` callable.
-        :rtype: callable
         """
         for ware in reversed(middleware):
             base = ware(base)
         return base
 
-    def process_job(self, job_request):
+    def process_job(self, job_request):  # type: (Dict[six.text_type, Any]) -> JobResponse
         """
         Validate, execute, and run the job request, wrapping it with any applicable job middleware.
 
-        :param job_request: The job request
-        :type job_request: dict
+        :param job_request: The job request dict
 
         :return: A `JobResponse` object
-        :rtype: JobResponse
-
-        :raise: JobError
         """
 
         try:
@@ -344,11 +369,10 @@ class Server(object):
             if validation_errors:
                 raise JobError(errors=validation_errors)
 
-            # Add the client object in case a middleware wishes to use it
+            # Add the client object in case a middleware or action wishes to use it
             job_request['client'] = self.make_client(job_request['context'])
 
-            # Add the async event loop in case a middleware wishes to use it
-            job_request['async_event_loop'] = self._async_event_loop
+            # Add the run_coroutine in case a middleware or action wishes to use it
             if self._async_event_loop_thread:
                 job_request['run_coroutine'] = self._async_event_loop_thread.run_coroutine
             else:
@@ -372,9 +396,7 @@ class Server(object):
             )
         except JobError as e:
             self.metrics.counter('server.error.job_error').increment()
-            job_response = JobResponse(
-                errors=e.errors,
-            )
+            job_response = JobResponse(errors=e.errors)
         except Exception as e:
             # Send an error response if no middleware caught this.
             # Formatting the error might itself error, so try to catch that
@@ -384,16 +406,14 @@ class Server(object):
         return job_response
 
     def handle_job_exception(self, exception, variables=None):
+        # type: (Exception, Optional[Dict[six.text_type, Any]]) -> JobResponse
         """
-        Makes and returns a last-ditch error response.
+        Makes and returns a last-ditch error response based on an unknown, unexpected error.
 
         :param exception: The exception that happened
-        :type exception: Exception
         :param variables: A dictionary of context-relevant variables to include in the error response
-        :type variables: dict
 
         :return: A `JobResponse` object
-        :rtype: JobResponse
         """
         # Get the error and traceback if we can
         # noinspection PyBroadException
@@ -402,20 +422,20 @@ class Server(object):
         except Exception:
             self.metrics.counter('server.error.error_formatting_failure').increment()
             error_str, traceback_str = 'Error formatting error', traceback.format_exc()
+
         # Log what happened
         self.logger.exception(exception)
         if not isinstance(traceback_str, six.text_type):
             try:
-                # Try to
                 traceback_str = traceback_str.decode('utf-8')
             except UnicodeDecodeError:
                 traceback_str = 'UnicodeDecodeError: Traceback could not be decoded'
-        # Make a bare bones job response
+
         error_dict = {
             'code': ERROR_CODE_SERVER_ERROR,
             'message': 'Internal server error: %s' % error_str,
             'traceback': traceback_str,
-        }
+        }  # type: Dict[six.text_type, Any]
 
         if variables is not None:
             # noinspection PyBroadException
@@ -425,9 +445,29 @@ class Server(object):
                 self.metrics.counter('server.error.variable_formatting_failure').increment()
                 error_dict['variables'] = 'Error formatting variables'
 
-        return JobResponse(errors=[error_dict])
+        return JobResponse(errors=[Error(**error_dict)])
 
-    def handle_job_error_code(self, code, message, request_for_logging, response_for_logging, extra=None):
+    def handle_job_error_code(
+        self,
+        code,  # type: six.text_type
+        message,  # type: six.text_type
+        request_for_logging,  # type: RecursivelyCensoredDictWrapper
+        response_for_logging,  # type: RecursivelyCensoredDictWrapper
+        extra=None,  # type: Optional[Dict[six.text_type, Any]]
+    ):
+        # type: (...) -> JobResponse
+        """
+        Makes and returns a last-ditch error response based on a known, expected (though unwanted) error while
+        logging details about it.
+
+        :param code: The error code
+        :param message: The error message
+        :param request_for_logging: The censor-wrapped request dictionary
+        :param response_for_logging: The censor-wrapped response dictionary
+        :param extra: Any extra items to add to the logged error.
+
+        :return: A `JobResponse` object
+        """
         log_extra = {'data': {'request': request_for_logging, 'response': response_for_logging}}
         if extra:
             log_extra['data'].update(extra)
@@ -439,15 +479,20 @@ class Server(object):
         )
         return JobResponse(errors=[Error(code=code, message=message)])
 
-    def execute_job(self, job_request):
+    def execute_job(self, job_request):  # type: (Dict[six.text_type, Any]) -> JobResponse
         """
         Processes and runs the action requests contained in the job and returns a `JobResponse`.
 
+        .. caution::
+           `This bug <https://github.com/eventbrite/pysoa/issues/197>`_ details a flaw in this method. Unlike all other
+           middleware tasks, which accept and return proper objects, this server method and its middleware task accept
+           a dictionary and return a proper object. This is inconsistent and will be fixed prior to the release of
+           PySOA 1.0.0, at which point the argument will be a :class:`JobRequest` object instead of a job request
+           `dict`. TODO: Change this.
+
         :param job_request: The job request
-        :type job_request: dict
 
         :return: A `JobResponse` object
-        :rtype: JobResponse
         """
         # Run the Job's Actions
         harakiri = False
@@ -462,7 +507,6 @@ class Server(object):
                 context=job_request['context'],
                 control=job_request['control'],
                 client=job_request['client'],
-                async_event_loop=job_request['async_event_loop'],
                 run_coroutine=job_request['run_coroutine'],
             )
             action_request._server = self
@@ -480,6 +524,7 @@ class Server(object):
                         from pysoa.server.action.status import make_default_status_action_class
                         self._default_status_action_class = make_default_status_action_class(self.__class__)
                     action = self._default_status_action_class(self.settings)
+
                 # Wrap it in middleware
                 wrapper = self.make_middleware_stack(
                     [m.action for m in self.middleware],
@@ -567,7 +612,10 @@ class Server(object):
             # prevent handling them all. The duplicates can always be ignored, so this is a non-blocking acquire.
             return
 
-        threads = {t.ident: {'name': t.name, 'traceback': ['Unknown']} for t in threading.enumerate()}
+        threads = {
+            cast(int, t.ident): {'name': t.name, 'traceback': ['Unknown']}
+            for t in threading.enumerate()
+        }  # type: Dict[int, Dict[six.text_type, Any]]
         # noinspection PyProtectedMember
         for thread_id, frame in sys._current_frames().items():
             stack = []
@@ -639,20 +687,20 @@ class Server(object):
         finally:
             self._shutdown_lock.release()
 
-    def setup(self):
+    def setup(self):  # type: () -> None
         """
         Runs just before the server starts, if you need to do one-time loads or cache warming. Call super().setup() if
         you override. See the documentation for `Server.main` for full details on the chain of `Server` method calls.
         """
 
-    def teardown(self):
+    def teardown(self):  # type: () -> None
         """
         Runs just before the server shuts down, if you need to do any kind of clean up (like updating a metrics gauge,
         etc.). Call super().teardown() if you override. See the documentation for `Server.main` for full details on the
         chain of `Server` method calls.
         """
 
-    def _close_old_django_connections(self):
+    def _close_old_django_connections(self):  # type: () -> None
         if self.use_django:
             if not getattr(django_settings, 'DATABASES'):
                 # No database connections are configured, so we have nothing to do
@@ -680,7 +728,7 @@ class Server(object):
                     # But if we can't import PyTest, then it can't be that error, so raise
                     raise e
 
-    def _close_django_caches(self, shutdown=False):
+    def _close_django_caches(self, shutdown=False):  # type: (bool) -> None
         if self.use_django and django_caches:
             if shutdown:
                 self.logger.info('Closing all Django caches')
@@ -688,7 +736,7 @@ class Server(object):
             for cache in django_caches.all():
                 cache.close(for_shutdown=shutdown)
 
-    def _create_heartbeat_file(self):
+    def _create_heartbeat_file(self):  # type: () -> None
         if self.settings['heartbeat_file']:
             heartbeat_file_path = self.settings['heartbeat_file'].replace('{{pid}}', six.text_type(os.getpid()))
             if '{{fid}}' in heartbeat_file_path and self._forked_process_id is not None:
@@ -696,12 +744,17 @@ class Server(object):
 
             self.logger.info('Creating heartbeat file {}'.format(heartbeat_file_path))
 
-            self._heartbeat_file_path = os.path.abspath(heartbeat_file_path)
-            self._heartbeat_file = codecs.open(self._heartbeat_file_path, 'wb', encoding='utf-8')
+            file_path = os.path.abspath(heartbeat_file_path)
+            self._heartbeat_file_path = file_path
+            self._heartbeat_file = codecs.open(
+                filename=file_path,
+                mode='wb',
+                encoding='utf-8',
+            )
 
             self._update_heartbeat_file()
 
-    def _delete_heartbeat_file(self):
+    def _delete_heartbeat_file(self):  # type: () -> None
         if self._heartbeat_file:
             self.logger.info('Closing and removing heartbeat file')
 
@@ -713,11 +766,12 @@ class Server(object):
             finally:
                 # noinspection PyBroadException
                 try:
-                    os.remove(self._heartbeat_file_path)
+                    if self._heartbeat_file_path:
+                        os.remove(self._heartbeat_file_path)
                 except Exception:
                     self.logger.warning('Error while removing heartbeat file', exc_info=True)
 
-    def _update_heartbeat_file(self):
+    def _update_heartbeat_file(self):  # type: () -> None
         if self._heartbeat_file and time.time() - self._heartbeat_file_last_update > 2.5:
             # Only update the heartbeat file if one is configured and it has been at least 2.5 seconds since the last
             # update. This prevents us from dragging down service performance by constantly updating the file system.
@@ -726,7 +780,7 @@ class Server(object):
             self._heartbeat_file.flush()
             self._heartbeat_file_last_update = time.time()
 
-    def perform_pre_request_actions(self):
+    def perform_pre_request_actions(self):  # type: () -> None
         """
         Runs just before the server accepts a new request. Call super().perform_pre_request_actions() if you override.
         Be sure your purpose for overriding isn't better met with middleware. See the documentation for `Server.main`
@@ -742,7 +796,7 @@ class Server(object):
 
         self._close_old_django_connections()
 
-    def perform_post_request_actions(self):
+    def perform_post_request_actions(self):  # type: () -> None
         """
         Runs just after the server processes a request. Call super().perform_post_request_actions() if you override. Be
         sure your purpose for overriding isn't better met with middleware. See the documentation for `Server.main` for
@@ -754,7 +808,7 @@ class Server(object):
 
         self._update_heartbeat_file()
 
-    def perform_idle_actions(self):
+    def perform_idle_actions(self):  # type: () -> None
         """
         Runs periodically when the server is idle, if it has been too long since it last received a request. Call
         super().perform_idle_actions() if you override. See the documentation for `Server.main` for full details on the
@@ -764,7 +818,7 @@ class Server(object):
 
         self._update_heartbeat_file()
 
-    def run(self):
+    def run(self):  # type: () -> None
         """
         Starts the server run loop and returns after the server shuts down due to a shutdown-request, Harakiri signal,
         or unhandled exception. See the documentation for `Server.main` for full details on the chain of `Server`
@@ -818,7 +872,7 @@ class Server(object):
             self.logger.info('Server shutdown complete')
 
     @classmethod
-    def pre_fork(cls):
+    def pre_fork(cls):  # type: () -> None
         """
         Called only if the --fork argument is used to pre-fork multiple worker processes. In this case, it is called
         by the parent process immediately after signal handlers are set and immediately before the worker sub-processes
@@ -828,7 +882,7 @@ class Server(object):
 
     # noinspection PyUnusedLocal
     @classmethod
-    def initialize(cls, settings):
+    def initialize(cls, settings):  # type: (ServerSettings) -> Type[Server]
         """
         Called just before the `Server` class is instantiated, and passed the settings dict. Can be used to perform
         settings manipulation, server class patching (such as for performance tracing operations), and more. Use with
@@ -842,7 +896,7 @@ class Server(object):
         return cls
 
     @classmethod
-    def main(cls, forked_process_id=None):
+    def main(cls, forked_process_id=None):  # type: (Optional[int]) -> None
         """
         Command-line entry point for running a PySOA server. The chain of method calls is as follows::
 
@@ -875,7 +929,6 @@ class Server(object):
                                   file, etc. For example, if the `--fork` argument is used with the value 5 (creating
                                   five child processes), this argument will have the values 1, 2, 3, 4, and 5 across
                                   the five respective child processes.
-        :type forked_process_id: int
         """
         parser = argparse.ArgumentParser(
             description='Server for the {} SOA service'.format(cls.service_name),
@@ -924,6 +977,9 @@ class Server(object):
                     )
             settings = cls.settings_class(settings_dict)
 
+        if not cls.service_name:
+            raise AttributeError('Server subclass must set service_name')
+
         PySOALogContextFilter.set_service_name(cls.service_name)
 
         # Set up logging
@@ -937,7 +993,7 @@ class Server(object):
                 sys.exit()
 
         # Set up server and signal handling
-        server = cls.initialize(settings)(settings, forked_process_id)
+        server = cls.initialize(settings)(settings, forked_process_id)  # type: Server
 
         # Start server event loop
         server.run()
