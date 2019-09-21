@@ -32,6 +32,7 @@ import attr
 from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
 import six
 
+from pysoa.version import __version_info__
 from pysoa.client.expander import (  # noqa: F401 TODO Python 3
     ExpansionConverter,
     ExpansionNode,
@@ -84,6 +85,8 @@ _MT = TypeVar('_MT', ClientRequestMiddlewareTask, ClientResponseMiddlewareTask)
 
 class ServiceHandler(object):
     """Does the low-level work of communicating with an individual service through its configured transport."""
+
+    _client_version = list(__version_info__)
 
     def __init__(self, service_name, settings):  # type: (six.text_type, ClientSettings) -> None
         """
@@ -146,7 +149,9 @@ class ServiceHandler(object):
         """
         request_id = self.request_counter
         self.request_counter += 1
-        meta = {}  # type: Dict[six.text_type, Any]
+        meta = {
+            'client_version': self._client_version,
+        }  # type: Dict[six.text_type, Any]
         wrapper = self._make_middleware_stack(
             [m.request for m in self.middleware],
             self._base_send_request,

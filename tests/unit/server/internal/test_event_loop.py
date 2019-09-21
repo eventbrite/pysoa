@@ -92,9 +92,10 @@ class SpecialCoroutineMiddleware(CoroutineMiddleware):
 
             run_call_trace_pre.append('SpecialCoroutineMiddleware')
 
-            await coroutine
-
-            run_call_trace_post.append('SpecialCoroutineMiddleware')
+            try:
+                return await coroutine
+            finally:
+                run_call_trace_post.append('SpecialCoroutineMiddleware')
 
         return wrapper()
 
@@ -111,9 +112,10 @@ class TracingCoroutineMiddleware(CoroutineMiddleware):
         async def wrapper():
             run_call_trace_pre.append('TracingCoroutineMiddleware')
 
-            await coroutine
-
-            run_call_trace_post.append('TracingCoroutineMiddleware')
+            try:
+                return await coroutine
+            finally:
+                run_call_trace_post.append('TracingCoroutineMiddleware')
 
         return wrapper()
 
@@ -180,15 +182,19 @@ async def test_coroutine_middleware():
 
         run_call_trace_post.append('target')
 
+        return 'foo_coroutine_returned_this'
+
     thread = AsyncEventLoopThread([
         SpecialCoroutineMiddleware(42),
         TracingCoroutineMiddleware(),
     ])
     thread.start()
 
-    thread.run_coroutine(coroutine())
+    future = thread.run_coroutine(coroutine())
 
-    await asyncio.sleep(0.2)
+    await asyncio.sleep(0.01)
+
+    assert future.result() == 'foo_coroutine_returned_this'
 
     thread.join()
 
@@ -207,18 +213,46 @@ async def test_default_coroutine_middleware():
     class SpecialError(Exception):
         pass
 
+    context = {'i': 0}
+
     # noinspection PyCompatibility
     async def coroutine():
-        raise SpecialError()
+        context['i'] += 1
+        if context['i'] > 2:
+            return 'bar_returned_by_coroutine'
+        raise SpecialError(context['i'])
 
     thread = AsyncEventLoopThread([DefaultCoroutineMiddleware()])
     thread.start()
 
     with mock.patch('logging.Logger.exception') as mock_log_exception:
-        thread.run_coroutine(coroutine())
+        future = thread.run_coroutine(coroutine())
 
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.01)
+
+        with pytest.raises(SpecialError) as error_context:
+            future.result()
+
+        assert error_context.value.args[0] == 1
+        mock_log_exception.assert_called_once_with('Error occurred while awaiting coroutine in request.run_coroutine')
+        mock_log_exception.reset_mock()
+
+        future = thread.run_coroutine(coroutine())
+
+        await asyncio.sleep(0.01)
+
+        with pytest.raises(SpecialError) as error_context:
+            future.result()
+
+        assert error_context.value.args[0] == 2
+        mock_log_exception.assert_called_once_with('Error occurred while awaiting coroutine in request.run_coroutine')
+        mock_log_exception.reset_mock()
+
+        future = thread.run_coroutine(coroutine())
+
+        await asyncio.sleep(0.01)
+
+        assert future.result() == 'bar_returned_by_coroutine'
+        assert mock_log_exception.call_count == 0
 
         thread.join()
-
-    mock_log_exception.assert_called_once_with('Error occurred while awaiting coroutine in request.run_coroutine')

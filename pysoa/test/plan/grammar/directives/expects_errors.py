@@ -134,6 +134,8 @@ class ActionExpectsErrorsDirective(ActionDirective):
             field=getattr(parse_results, 'field_name', None) or AnyValue('str', permit_none=True),
             traceback=AnyValue('str', permit_none=True),
             variables=AnyValue('dict', permit_none=True),
+            denied_permissions=AnyValue('list', permit_none=True),
+            is_caller_error=AnyValue('bool'),
         ))
 
     def assert_test_case_action_results(
