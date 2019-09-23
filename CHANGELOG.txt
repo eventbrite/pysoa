@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.69.0 (2019-09-23)
+-------------------
+- [MAJOR] Add Python typing comments to type the API
+
 0.68.0 (2019-09-19)
 -------------------
 - [PATCH] Make typing dependency more specific to fix missing types
