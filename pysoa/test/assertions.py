@@ -61,7 +61,7 @@ def raises_error_codes(
     raised_errors = exc_info.soa_errors
 
     if not isinstance(error_codes, Set):
-        if not isinstance(error_codes, six.text_type):
+        if not isinstance(error_codes, six.string_types):
             error_codes = set(error_codes)
         else:
             error_codes = {error_codes}
@@ -125,7 +125,7 @@ def raises_field_errors(
     new_field_errors = {}  # type: Dict[six.text_type, Set[six.text_type]]
     for field, errors in six.iteritems(field_errors):
         if not isinstance(errors, Set):
-            if not isinstance(errors, six.text_type):
+            if not isinstance(errors, six.string_types):
                 new_field_errors[field] = set(errors)
             else:
                 new_field_errors[field] = {errors}
