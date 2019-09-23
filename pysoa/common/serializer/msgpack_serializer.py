@@ -26,6 +26,11 @@ from pysoa.common.serializer.exceptions import (
 )
 
 
+__all__ = (
+    'MsgpackSerializer',
+)
+
+
 @fields.ClassConfigurationSchema.provider(
     fields.Dictionary({}, description='The Msgpack serializer has no constructor args'),
 )
@@ -180,7 +185,7 @@ class MsgpackSerializer(BaseSerializer):
             return decimal.Decimal(obj_decoder.unpack(data[2:])[0].decode('utf-8'))
         elif code == self.EXT_CURRINT:
             # Unpack Amount object into (code, minor) from a 3-char ASCII string and a signed 64-bit integer.
-            code, minor_value = self.STRUCT_CURRINT.unpack(data)
-            return currint.Amount.from_code_and_minor(code.decode('ascii'), minor_value)
+            currency, minor_value = self.STRUCT_CURRINT.unpack(data)
+            return currint.Amount.from_code_and_minor(currency.decode('ascii'), minor_value)
 
         raise TypeError('Cannot decode unknown extension type {} from MessagePack'.format(code))

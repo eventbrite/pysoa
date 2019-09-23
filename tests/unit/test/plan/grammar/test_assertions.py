@@ -10,6 +10,7 @@ from pysoa.test.plan.grammar import assertions
 from pysoa.test.plan.grammar.data_types import AnyValue
 
 
+# noinspection PyTypeChecker
 class TestCustomAssertions(unittest.TestCase):
     def test_assert_not_wanted_full_match(self):
         with self.assertRaises(AssertionError):
@@ -49,15 +50,15 @@ class TestCustomAssertions(unittest.TestCase):
 
     def test_assert_not_wanted_errors_array_empty(self):
         assertions.assert_actual_list_not_subset(
-            [Error(code='INVALID', message=AnyValue('str'), field=AnyValue('str', permit_none=True))],
+            [Error(code='INVALID', message=AnyValue('str'), field=AnyValue('str', permit_none=True))],  # type: ignore
             [],
         )
 
     def test_assert_not_wanted_errors_mismatch_list(self):
         assertions.assert_actual_list_not_subset(
             [
-                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
             ],
             [
                 Error(code='BAZ', message='Baz message', field=None),
@@ -68,8 +69,8 @@ class TestCustomAssertions(unittest.TestCase):
         with self.assertRaises(AssertionError):
             assertions.assert_actual_list_not_subset(
                 [
-                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
                 ],
                 [
                     Error(code='BAR', message='Bar message', field=None),
@@ -80,8 +81,8 @@ class TestCustomAssertions(unittest.TestCase):
         with self.assertRaises(AssertionError):
             assertions.assert_actual_list_not_subset(
                 [
-                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
                 ],
                 [
                     Error(code='FOO', message='Foo message', field='foo_field'),
@@ -92,8 +93,8 @@ class TestCustomAssertions(unittest.TestCase):
         with self.assertRaises(AssertionError):
             assertions.assert_actual_list_not_subset(
                 [
-                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
                 ],
                 [
                     Error(code='FOO', message='Foo message', field='foo_field'),
@@ -104,8 +105,8 @@ class TestCustomAssertions(unittest.TestCase):
     def test_assert_not_wanted_errors_mismatch_message(self):
         assertions.assert_actual_list_not_subset(
             [
-                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                Error(code='BAR', message='Bar message', field=AnyValue('str', permit_none=True)),
+                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                Error(code='BAR', message='Bar message', field=AnyValue('str', permit_none=True)),  # type: ignore
             ],
             [
                 Error(code='BAR', message='Qux message', field=None),
@@ -115,8 +116,8 @@ class TestCustomAssertions(unittest.TestCase):
     def test_assert_not_wanted_errors_mismatch_field(self):
         assertions.assert_actual_list_not_subset(
             [
-                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                Error(code='BAR', message=AnyValue('str'), field='bar_field'),
+                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                Error(code='BAR', message=AnyValue('str'), field='bar_field'),  # type: ignore
             ],
             [
                 Error(code='BAR', message='Bar message', field=None),
@@ -127,8 +128,8 @@ class TestCustomAssertions(unittest.TestCase):
         with self.assertRaises(AssertionError):
             assertions.assert_lists_match_any_order(
                 [
-                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
                 ],
                 [],
             )
@@ -138,8 +139,8 @@ class TestCustomAssertions(unittest.TestCase):
             assertions.assert_lists_match_any_order(
                 [],
                 [
-                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
                 ],
             )
 
@@ -147,8 +148,8 @@ class TestCustomAssertions(unittest.TestCase):
         with self.assertRaises(AssertionError):
             assertions.assert_lists_match_any_order(
                 [
-                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
                 ],
                 [
                     Error(code='BAR', message='Bar message', field=None),
@@ -158,8 +159,8 @@ class TestCustomAssertions(unittest.TestCase):
     def test_assert_all_wanted_errors_match_same_order(self):
         assertions.assert_lists_match_any_order(
             [
-                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
             ],
             [
                 Error(code='FOO', message='Foo message', field='foo_field'),
@@ -170,8 +171,8 @@ class TestCustomAssertions(unittest.TestCase):
     def test_assert_all_wanted_errors_match_different_order(self):
         assertions.assert_lists_match_any_order(
             [
-                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
             ],
             [
                 Error(code='BAR', message='Bar message', field=None),
@@ -183,8 +184,8 @@ class TestCustomAssertions(unittest.TestCase):
         with self.assertRaises(AssertionError):
             assertions.assert_expected_list_subset_of_actual(
                 [
-                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                    Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                    Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
                 ],
                 [],
             )
@@ -193,7 +194,7 @@ class TestCustomAssertions(unittest.TestCase):
         with self.assertRaises(AssertionError):
             assertions.assert_expected_list_subset_of_actual(
                 [
-                    Error(code='BAZ', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                    Error(code='BAZ', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
                 ],
                 [
                     Error(code='FOO', message='Foo message', field='foo_field'),
@@ -204,7 +205,7 @@ class TestCustomAssertions(unittest.TestCase):
     def test_assert_any_wanted_error_match(self):
         assertions.assert_expected_list_subset_of_actual(
             [
-                Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
             ],
             [
                 Error(code='FOO', message='Foo message', field='foo_field'),
@@ -215,7 +216,7 @@ class TestCustomAssertions(unittest.TestCase):
     def test_assert_any_wanted_error_match_with_field(self):
         assertions.assert_expected_list_subset_of_actual(
             [
-                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
             ],
             [
                 Error(code='FOO', message='Foo message', field='foo_field'),
@@ -226,8 +227,8 @@ class TestCustomAssertions(unittest.TestCase):
     def test_assert_any_wanted_error_match_with_field_multiples(self):
         assertions.assert_expected_list_subset_of_actual(
             [
-                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
-                Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),
+                Error(code='FOO', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
+                Error(code='BAR', message=AnyValue('str'), field=AnyValue('str', permit_none=True)),  # type: ignore
             ],
             [
                 Error(code='FOO', message='Foo message', field='foo_field'),

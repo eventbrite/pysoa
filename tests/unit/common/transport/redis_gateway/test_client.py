@@ -4,7 +4,14 @@ from __future__ import (
 )
 
 import random
+import re
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+)
 import unittest
+
+import six  # noqa: F401 TODO Python 3
 
 from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.base import get_hex_thread_id
@@ -29,7 +36,7 @@ class TestClientTransport(unittest.TestCase):
             metrics=transport.metrics,
         )
 
-        self.assertRegex(transport.client_id, r'^[0-9a-fA-F]{32}$')
+        assert re.compile(r'^[0-9a-fA-F]{32}$').match(transport.client_id), transport.client_id
 
         mock_core.reset_mock()
 
@@ -43,7 +50,7 @@ class TestClientTransport(unittest.TestCase):
             maximum_message_size_in_bytes=42,
         )
 
-        self.assertRegex(transport.client_id, r'^[0-9a-fA-F]{32}$')
+        assert re.compile(r'^[0-9a-fA-F]{32}$').match(transport.client_id), transport.client_id
 
     def test_send_request_message(self, mock_core):
         transport = self._get_transport()
@@ -118,7 +125,7 @@ class TestClientTransport(unittest.TestCase):
         transport._requests_outstanding = 1
 
         request_id = random.randint(1, 1000)
-        meta = {}
+        meta = {}  # type: Dict[six.text_type, Any]
         message = {'another': 'message'}
 
         mock_core.return_value.receive_message.return_value = request_id, meta, message

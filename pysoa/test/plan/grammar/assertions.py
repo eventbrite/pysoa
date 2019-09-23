@@ -4,6 +4,17 @@ from __future__ import (
 )
 
 import pprint
+from typing import (  # noqa: F401 TODO Python 3
+    AbstractSet,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import six
 
@@ -17,6 +28,7 @@ __test_plan_prune_traceback = True  # ensure code in this file is not included i
 
 
 def make_error_msg_header(msg, header=None):
+    # type: (Optional[six.text_type], Optional[six.text_type]) -> six.text_type
     if isinstance(msg, six.string_types):
         msg += '\n{}\nDATA ERROR:'.format('-' * 70)
     else:
@@ -27,6 +39,7 @@ def make_error_msg_header(msg, header=None):
 
 
 def make_missing_error_message(missing, msg):
+    # type: (Iterable, six.text_type) -> six.text_type
     msg += '\nMissing values:\n  `{missing}`'.format(
         missing='`\n  `'.join(sorted(missing)),
     )
@@ -34,6 +47,7 @@ def make_missing_error_message(missing, msg):
 
 
 def make_mismatch_error_message(mismatch, mismatch_values, msg):
+    # type: (Iterable, Mapping, six.text_type) -> six.text_type
     msg += '\nMismatch values:\n  `{mismatch}`'.format(
         mismatch='`\n  `'.join(sorted(mismatch)),
     )
@@ -57,6 +71,7 @@ def make_mismatch_error_message(mismatch, mismatch_values, msg):
 
 
 def make_not_expected_error_message(not_expected_fields, msg):
+    # type: (Iterable, six.text_type) -> six.text_type
     msg += '\nNot Expected fields present:\n   `{not_expected}`'.format(
         not_expected='`\n   `'.join(sorted(not_expected_fields)),
     )
@@ -64,6 +79,7 @@ def make_not_expected_error_message(not_expected_fields, msg):
 
 
 def make_failed_comparision_error_message(expected_key, expected, actual):
+    # type: (six.text_type, Any, Any) -> six.text_type
     return '\nFull body {expected_key}:\n{expected}\n\nFull body actual:\n{actual}\n'.format(
         expected_key=expected_key,
         expected=expected,
@@ -72,6 +88,7 @@ def make_failed_comparision_error_message(expected_key, expected, actual):
 
 
 def assert_subset_structure(expected, actual, subset_lists=False, msg=None):
+    # type: (Dict, Dict, bool, Optional[six.text_type]) -> None
     """
     Check that expected is a valid subset of actual, descend nested dicts
     """
@@ -100,14 +117,17 @@ def assert_subset_structure(expected, actual, subset_lists=False, msg=None):
 
 
 def assert_expected_list_subset_of_actual(expected, actual, msg=None):
+    # type: (List, List, Optional[six.text_type]) -> None
     _assert_lists_match_any_order(expected, actual, True, msg)
 
 
 def assert_lists_match_any_order(expected, actual, msg=None):
+    # type: (List, List, Optional[six.text_type]) -> None
     _assert_lists_match_any_order(expected, actual, False, msg)
 
 
 def assert_not_expected(not_expected, actual, msg=None):
+    # type: (Dict, Dict, Optional[six.text_type]) -> None
     """
     Assert that the given not_expected values are not in actual
 
@@ -137,11 +157,15 @@ def assert_not_expected(not_expected, actual, msg=None):
         raise AssertionError(msg)
 
 
-def assert_not_present(not_present, actual, msg=None):
+def assert_not_present(
+    not_present,  # type: Union[Mapping, List, Tuple, AbstractSet]
+    actual,  # type: Union[Mapping, List, Tuple, AbstractSet]
+    msg=None,  # type: Optional[six.text_type]
+):  # type: (...) -> None
     """
     Assert that none of the keys in not_present exist in actual
     """
-    present = []
+    present = []  # type: List[six.text_type]
     for path in get_all_paths(not_present):
         try:
             path_get(actual, path)
@@ -160,6 +184,7 @@ def assert_not_present(not_present, actual, msg=None):
 
 
 def assert_actual_list_not_subset(not_expected, actual, msg=None):
+    # type: (List, List, Optional[six.text_type]) -> None
     if not isinstance(not_expected, list):
         raise AssertionError('not-expected value is not a list')
 
@@ -187,6 +212,7 @@ def assert_actual_list_not_subset(not_expected, actual, msg=None):
 
 
 def assert_exact_structure(expected, actual, msg=None):
+    # type: (Dict, Dict, Optional[six.text_type]) -> None
     """
     Check that expected is an exact match for actual
     """
@@ -219,6 +245,7 @@ def assert_exact_structure(expected, actual, msg=None):
 
 
 def _assert_lists_match_any_order(expected, actual, subset=False, msg=None):
+    # type: (List, List, bool, Optional[six.text_type]) -> None
     if not isinstance(expected, list):
         raise AssertionError('expected value is not a list')
 
@@ -247,11 +274,24 @@ def _assert_lists_match_any_order(expected, actual, subset=False, msg=None):
         raise AssertionError(msg)
 
 
-def _compare_values(expected_val, actual_val, full_path=None, subset_lists=False):
-    missing_keys = []
-    extra_keys = []
-    mismatching_keys = []
-    mismatching_values = {}
+CompareReturn = Tuple[
+    List[six.text_type],
+    List[six.text_type],
+    Dict[six.text_type, Dict[six.text_type, Any]],
+    List[six.text_type],
+]
+
+
+def _compare_values(
+    expected_val,  # type: Any
+    actual_val,  # type: Any
+    full_path=None,  # type: Optional[six.text_type]
+    subset_lists=False,  # type: bool
+):  # type: (...) -> CompareReturn
+    missing_keys = []  # type: List[six.text_type]
+    extra_keys = []  # type: List[six.text_type]
+    mismatching_keys = []  # type: List[six.text_type]
+    mismatching_values = {}  # type: Dict[six.text_type, Dict[six.text_type, Any]]
 
     if isinstance(expected_val, dict) and isinstance(actual_val, dict):
         # Expected value is a dict, iterate recursively
@@ -269,12 +309,12 @@ def _compare_values(expected_val, actual_val, full_path=None, subset_lists=False
 
         elif actual_val:
             # expected empty dict but got a populated one
-            mismatching_keys.append(full_path)
-            mismatching_values[full_path] = {
+            mismatching_keys.append(full_path or '')
+            mismatching_values[full_path or ''] = {
                 'expected': expected_val,
                 'actual': actual_val,
             }
-            extra_keys.extend(get_all_paths(actual_val, current_path=full_path))
+            extra_keys.extend(get_all_paths(actual_val, current_path=full_path or ''))
 
     elif isinstance(actual_val, list) and (subset_lists or isinstance(expected_val, list)):
         # Expected value is a list, iterate recursively
@@ -292,16 +332,16 @@ def _compare_values(expected_val, actual_val, full_path=None, subset_lists=False
 
         elif actual_val:
             # expected empty list but got a populated one
-            mismatching_keys.append(full_path)
-            mismatching_values[full_path] = {
+            mismatching_keys.append(full_path or '')
+            mismatching_values[full_path or ''] = {
                 'expected': expected_val,
                 'actual': actual_val,
             }
-            extra_keys.extend(get_all_paths(actual_val, current_path=full_path))
+            extra_keys.extend(get_all_paths(actual_val, current_path=full_path or ''))
 
     elif expected_val != actual_val:
-        mismatching_keys.append(full_path)
-        mismatching_values[full_path] = {
+        mismatching_keys.append(full_path or '')
+        mismatching_values[full_path or ''] = {
             'expected': expected_val,
             'actual': actual_val,
         }
@@ -309,17 +349,23 @@ def _compare_values(expected_val, actual_val, full_path=None, subset_lists=False
     return sorted(missing_keys), sorted(mismatching_keys), mismatching_values, sorted(extra_keys)
 
 
-def _check_subset_list(expected, actual, subset_lists=False, prefix=None):
+def _check_subset_list(
+    expected,  # type: Any
+    actual,  # type: List
+    subset_lists=False,  # type: bool
+    prefix=None,  # type: Optional[six.text_type]
+):
+    # type: (...) -> CompareReturn
     """
     Contrasts `expected` and `actual` lists and annotates missing/mismatching values.
 
     If `subset_lists` is `True`, then `expected` can be a single value to find in actual. If `False`, then `expected`
     and `actual` must be identical lists.
     """
-    missing_keys = []
-    extra_keys = []
-    mismatching_keys = []
-    mismatching_values = {}
+    missing_keys = []  # type: List[six.text_type]
+    extra_keys = []  # type: List[six.text_type]
+    mismatching_keys = []  # type: List[six.text_type]
+    mismatching_values = {}  # type: Dict[six.text_type, Dict[six.text_type, Any]]
 
     if not isinstance(actual, list):
         raise AssertionError('actual value is not a list')
@@ -373,14 +419,20 @@ def _check_subset_list(expected, actual, subset_lists=False, prefix=None):
     return sorted(missing_keys), sorted(mismatching_keys), mismatching_values, sorted(extra_keys)
 
 
-def _check_subset_dict(expected, actual, subset_lists=False, prefix=None):
+def _check_subset_dict(
+    expected,  # type: Dict
+    actual,  # type: Dict
+    subset_lists=False,  # type: bool
+    prefix=None,  # type: Optional[six.text_type]
+):
+    # type: (...) -> CompareReturn
     """
     Contrasts `expected` and `actual` dicts and annotates missing/mismatching values.
     """
-    missing_keys = []
-    extra_keys = []
-    mismatching_keys = []
-    mismatching_values = {}
+    missing_keys = []  # type: List[six.text_type]
+    extra_keys = []  # type: List[six.text_type]
+    mismatching_keys = []  # type: List[six.text_type]
+    mismatching_values = {}  # type: Dict[six.text_type, Dict[six.text_type, Any]]
 
     if not isinstance(expected, dict):
         raise AssertionError('expected value is not a dict')

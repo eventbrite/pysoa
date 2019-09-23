@@ -8,6 +8,11 @@ import asyncio
 import sys
 import threading
 import time
+from typing import (
+    Dict,
+    Optional,
+    Union,
+)
 
 import pytest
 
@@ -17,13 +22,13 @@ from pysoa.common.compatibility import (
 )
 
 
-# noinspection PyCompatibility
+# noinspection PyCompatibility,PyUnresolvedReferences,PyProtectedMember
 @pytest.mark.asyncio
 async def test_task_creation_patching():  # noqa: E999
-    var = ContextVar('test_task_creation_patching')
+    var = ContextVar('test_task_creation_patching')  # type: ContextVar[Union[str, int]]
     var.set(12)
 
-    test_context = {'var': None, 'new_var': None}
+    test_context = {'var': None, 'new_var': None}  # type: Dict[str, Union[str, int, None]]
 
     # noinspection PyCompatibility
     async def coroutine():
@@ -34,11 +39,11 @@ async def test_task_creation_patching():  # noqa: E999
     loop = asyncio.get_event_loop()
     task = loop.create_task(coroutine())
 
+    assert var._cv_variable is not None
+
     if sys.version_info < (3, 7):
-        # noinspection PyUnresolvedReferences
-        assert var.variable in task.context
-        # noinspection PyUnresolvedReferences
-        assert task.context[var.variable] == 12
+        assert var._cv_variable in task.context
+        assert task.context[var._cv_variable] == 12
 
     await task
 
@@ -80,8 +85,8 @@ class SimpleLoopThread(threading.Thread):
 # noinspection PyCompatibility
 @pytest.mark.asyncio
 async def test_multiple_coroutines_async():
-    var1 = ContextVar('test_multiple_threads1')
-    var2 = ContextVar('test_multiple_threads1')
+    var1 = ContextVar('test_multiple_threads1')  # type: ContextVar[str]
+    var2 = ContextVar('test_multiple_threads1')  # type: ContextVar[str]
 
     test_context = {
         'c1_called': False,
@@ -100,7 +105,7 @@ async def test_multiple_coroutines_async():
         'var2_thread2_mid': None,
         'var1_thread2_end': None,
         'var2_thread2_end': None,
-    }
+    }  # type: Dict[str, Union[bool, Optional[str]]]
 
     # noinspection PyCompatibility
     async def c1():
@@ -198,9 +203,10 @@ async def test_multiple_coroutines_async():
     assert test_context['var2_thread2_end'] == 'value4'
 
 
+# noinspection PyCompatibility
 def test_multiple_coroutines_sync():
-    var1 = ContextVar('test_multiple_threads1')
-    var2 = ContextVar('test_multiple_threads1')
+    var1 = ContextVar('test_multiple_threads1')  # type: ContextVar[str]
+    var2 = ContextVar('test_multiple_threads1')  # type: ContextVar[str]
 
     test_context = {
         'c1_called': False,
@@ -219,7 +225,7 @@ def test_multiple_coroutines_sync():
         'var2_thread2_mid': None,
         'var1_thread2_end': None,
         'var2_thread2_end': None,
-    }
+    }  # type: Dict[str, Union[bool, Optional[str]]]
 
     # noinspection PyCompatibility
     async def c1():

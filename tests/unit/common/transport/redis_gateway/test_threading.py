@@ -5,7 +5,13 @@ from __future__ import (
 
 import threading
 import time
+from typing import (  # noqa: F401 TODO Python 3
+    Dict,
+    List,
+)
 import unittest
+
+import six  # noqa: F401 TODO Python 3
 
 from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.exceptions import MessageReceiveTimeout
@@ -21,7 +27,7 @@ class _FakeBackend(object):
     intentionally controlling the timing of things.
     """
     def __init__(self):
-        self._container = {}
+        self._container = {}  # type: Dict[six.text_type, List[six.binary_type]]
 
     def get_connection(self, *_):
         return self
@@ -103,14 +109,14 @@ class TestThreadSafety(unittest.TestCase):
             NoOpMetricsRecorder(),
             backend_type=REDIS_BACKEND_TYPE_STANDARD,
         )
-        server_transport.core._backend_layer = backend
+        server_transport.core._backend_layer = backend  # type: ignore
 
         client_transport = RedisClientTransport(
             'threaded',
             NoOpMetricsRecorder(),
             backend_type=REDIS_BACKEND_TYPE_STANDARD,
         )
-        client_transport.core._backend_layer = backend
+        client_transport.core._backend_layer = backend  # type: ignore
 
         server = _FakeEchoingServer(server_transport)
 

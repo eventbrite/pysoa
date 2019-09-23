@@ -210,7 +210,8 @@ class TestGetTypedValue(unittest.TestCase):
             data_types.get_typed_value('datetime', '')
 
         with self.assertRaises(DataTypeConversionError):
-            data_types.get_typed_value('datetime', 123)
+            # noinspection PyTypeChecker
+            data_types.get_typed_value('datetime', 123)  # type: ignore
 
         self.assertEqual(
             datetime.datetime(2014, 11, 6, 5, 37, 51, 172938),
@@ -264,7 +265,8 @@ class TestGetTypedValue(unittest.TestCase):
             data_types.get_typed_value('date', '')
 
         with self.assertRaises(DataTypeConversionError):
-            data_types.get_typed_value('date', 123)
+            # noinspection PyTypeChecker
+            data_types.get_typed_value('date', 123)  # type: ignore
 
         self.assertEqual(datetime.date(1986, 11, 5), data_types.get_typed_value('date', '1986,11,5'))
         self.assertEqual(datetime.date(2000, 1, 1), data_types.get_typed_value('date', '2000,1,1'))
@@ -276,7 +278,8 @@ class TestGetTypedValue(unittest.TestCase):
             data_types.get_typed_value('time', '')
 
         with self.assertRaises(DataTypeConversionError):
-            data_types.get_typed_value('time', 123)
+            # noinspection PyTypeChecker
+            data_types.get_typed_value('time', 123)  # type: ignore
 
         self.assertEqual(datetime.time(13, 11, 5), data_types.get_typed_value('time', '13,11,5'))
         self.assertEqual(datetime.time(3, 14, 16), data_types.get_typed_value('time', '3,14,16'))

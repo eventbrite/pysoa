@@ -3,12 +3,15 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import Mapping  # noqa: F401 TODO Python 3
 from unittest import TestCase
 
 from conformity import fields
+import six  # noqa: F401 TODO Python 3
 
 from pysoa.common.transport.base import ServerTransport
 from pysoa.server.server import Server
+from pysoa.server.types import ActionType  # noqa: F401 TODO Python 3
 from pysoa.test import factories
 
 
@@ -17,7 +20,7 @@ class HandleNextRequestServer(Server):
     Stub server to test against.
     """
     service_name = 'test_service'
-    action_class_map = {}
+    action_class_map = {}  # type: Mapping[six.text_type, ActionType]
 
 
 @fields.ClassConfigurationSchema.provider(fields.Dictionary({}))
@@ -52,4 +55,4 @@ class ProcessNextRequestsTests(TestCase):
         self.assertTrue('errors' in response)
         errors = response['errors']
         self.assertEqual(len(errors), 3)
-        self.assertEqual(set(['actions', 'control', 'context']), set([e.get('field', None) for e in errors]))
+        self.assertEqual({'actions', 'control', 'context'}, set([e.get('field', None) for e in errors]))

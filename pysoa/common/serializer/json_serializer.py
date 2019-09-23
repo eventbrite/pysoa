@@ -16,6 +16,11 @@ from pysoa.common.serializer.exceptions import (
 )
 
 
+__all__ = (
+    'JSONSerializer',
+)
+
+
 @fields.ClassConfigurationSchema.provider(
     fields.Dictionary({}, description='The JSON serializer has no constructor args'),
 )
@@ -41,7 +46,7 @@ class JSONSerializer(BaseSerializer):
     def blob_to_dict(self, blob):  # type: (six.binary_type) -> Dict
         try:
             if six.PY3 and isinstance(blob, six.binary_type):
-                blob = blob.decode('utf-8')
+                return json.loads(blob.decode('utf-8'))
             return json.loads(blob)
         except (ValueError, UnicodeDecodeError) as e:
             raise InvalidMessage(*e.args)

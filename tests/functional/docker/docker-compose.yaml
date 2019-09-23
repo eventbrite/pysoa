@@ -40,6 +40,19 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+  echo_service_double_import_trap:
+    image: "pysoa-test-service-echo-double-import-trap"
+    init: true
+    stop_grace_period: 15s
+    networks:
+      - pysoa
+    volumes:
+      - type: bind
+        source: ../run
+        target: /srv/run
+    depends_on:
+      redis:
+        condition: service_healthy
   meta_service:
     image: "pysoa-test-service-meta"
     init: true

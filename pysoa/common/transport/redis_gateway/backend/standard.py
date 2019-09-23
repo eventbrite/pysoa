@@ -22,7 +22,7 @@ from pysoa.common.transport.redis_gateway.backend.base import BaseRedisClient
 class StandardRedisClient(BaseRedisClient):
     def __init__(
         self,
-        hosts=None,  # type: Iterable[Union[six.text_type, Tuple[six.text_type, int]]]
+        hosts=None,  # type: Optional[Iterable[Union[six.text_type, Tuple[six.text_type, int]]]]
         connection_kwargs=None,  # type: Dict[six.text_type, Any]
     ):
         # type: (...) -> None
@@ -35,7 +35,7 @@ class StandardRedisClient(BaseRedisClient):
 
     @staticmethod
     def _setup_hosts(
-        hosts,  # type: Iterable[Union[six.text_type, Tuple[six.text_type, int]]]
+        hosts,  # type: Optional[Iterable[Union[six.text_type, Tuple[six.text_type, int]]]]
     ):
         # type: (...) -> List[six.text_type]
         if not hosts:

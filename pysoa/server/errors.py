@@ -3,14 +3,21 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import List  # noqa: F401 TODO Python 3
+
+from conformity.error import Error as ConformityError  # noqa: F401 TODO Python 3
+import six  # noqa: F401 TODO Python 3
+
+from pysoa.common.types import Error  # noqa: F401 TODO Python 3
+
 
 class JobError(Exception):
-    def __init__(self, errors):
+    def __init__(self, errors):  # type: (List[Error]) -> None
         self.errors = errors
 
 
 class ActionError(Exception):
-    def __init__(self, errors):
+    def __init__(self, errors):  # type: (List[Error]) -> None
         self.errors = errors
 
 
@@ -20,7 +27,7 @@ class ResponseValidationError(Exception):
     be caught and handled by the server other than going into the error logging
     infrastructure.
     """
-    def __init__(self, action, errors):
+    def __init__(self, action, errors):  # type: (six.text_type, List[ConformityError]) -> None
         self.action = action
         self.errors = errors
 

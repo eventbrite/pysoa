@@ -2282,24 +2282,10 @@ Settings Schema Definition
   - ``timeout`` - ``integer``: Seconds of inactivity before harakiri is triggered; 0 to disable, defaults to 300 (additional information: ``{'gte': 0}``)
 
 - ``heartbeat_file`` - ``unicode`` (nullable): If specified, the server will create a heartbeat file at the specified path on startup, update the timestamp in that file after the processing of every request or every time idle operations are processed, and delete the file when the server shuts down. The file name can optionally contain the specifier {{pid}}, which will be replaced with the server process PID. Finally, the file name can optionally contain the specifier {{fid}}, which will be replaced with the unique-and-deterministic forked process ID whenever the server is started with the --fork option (the minimum value is always 1 and the maximum value is always equal to the value of the --fork option).
-- ``logging`` - strict ``dict``: Settings for service logging, which should follow the standard Python logging configuration
+- ``logging`` - strict ``dict``: Settings to enforce the standard Python logging dictionary-based configuration, as you would load with ``logging.config.dictConfig()``. For more information than the documentation here, see https://docs.python.org/3/library/logging.config.html#configuration-dictionary-schema.
 
-  - ``disable_existing_loggers`` - ``boolean``: *(no description)*
-  - ``filters`` - flexible ``dict``: *(no description)*
-
-    keys
-      ``unicode``: *(no description)*
-
-    values
-      strict ``dict``: *(no description)*
-
-      - ``()`` - ``anything``: The optional filter class
-      - ``name`` - ``unicode``: The optional filter name
-
-      Optional keys: ``()``, ``name``
-
-
-  - ``formatters`` - flexible ``dict``: *(no description)*
+  - ``disable_existing_loggers`` - ``boolean``: Whether all existing loggers (objects obtained from ``logging.getLogger()``) should be disabled when this logging config is loaded. Take our advice and *always* set this to ``False``. It defaults to ``True`` and you almost never want that, because loggers in already-loaded modules will stop working.
+  - ``filters`` - flexible ``dict``: This defines a mapping of logging filter names to filter configurations. If a config has only the ``name`` key, then ``logging.Filter`` will be instantiated with that argument. You can specify a ``()`` key (yes, really) to override the default ``logging.Filter`` class with a custom filter implementation (which should extend ``logging.Filter``). Extra keys are allowed only for custom implementations having extra constructor arguments matching those key names.
 
     keys
       ``unicode``: *(no description)*
@@ -2307,13 +2293,31 @@ Settings Schema Definition
     values
       strict ``dict``: *(no description)*
 
-      - ``datefmt`` - ``unicode``: *(no description)*
-      - ``format`` - ``unicode``: *(no description)*
+      - ``()`` - a unicode string importable Python path in the format "foo.bar.MyClass", "foo.bar:YourClass.CONSTANT", etc. The optional, fully-qualified name of the class extending ``logging.Filter``, used to override the default class ``logging.Filter``. The imported item at the specified path must match the following schema:
+
+        schema
+          a Python ``type`` that is a subclass of the following class or classes: ``logging.Filter``.
+
+      - ``name`` - ``unicode``: The optional filter name which will be passed to the ``name`` argument of the ``logging.Filter`` class.
+
+      Extra keys of any value are allowed. Optional keys: ``()``, ``name``
+
+
+  - ``formatters`` - flexible ``dict``: This defines a mapping of logging formatter names to formatter configurations. The ``format`` key specifies the log format and the ``datefmt`` key specifies the date format.
+
+    keys
+      ``unicode``: *(no description)*
+
+    values
+      strict ``dict``: *(no description)*
+
+      - ``datefmt`` - ``unicode``: The optional date format used when formatting dates in the log output (see https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior).
+      - ``format`` - ``unicode``: The format string for this formatter (see https://docs.python.org/3/library/logging.html#logrecord-attributes).
 
       Optional keys: ``datefmt``
 
 
-  - ``handlers`` - flexible ``dict``: *(no description)*
+  - ``handlers`` - flexible ``dict``: This defines a mapping of logging handler names to handler configurations. The ``class`` key is the importable Python path to the class extending ``logging.Handler``. The ``level`` and ``filters`` keys apply to all handlers. The ``formatter`` key is valid for all handlers, but not all handlers will use it. Extra keys are allowed only for handlers having extra constructor arguments matching those key names.
 
     keys
       ``unicode``: *(no description)*
@@ -2321,19 +2325,23 @@ Settings Schema Definition
     values
       strict ``dict``: *(no description)*
 
-      - ``class`` - ``unicode``: *(no description)*
-      - ``filters`` - ``list``: *(no description)*
+      - ``class`` - a unicode string importable Python path in the format "foo.bar.MyClass", "foo.bar:YourClass.CONSTANT", etc. The fully-qualified name of the class extending ``logging.Handler``. The imported item at the specified path must match the following schema:
+
+        schema
+          a Python ``type`` that is a subclass of the following class or classes: ``logging.Handler``.
+
+      - ``filters`` - ``list``: A list of references to keys from ``filters`` for assigning those filters to this handler.
 
         values
           ``unicode``: *(no description)*
-      - ``formatter`` - ``unicode``: *(no description)*
-      - ``level`` - ``unicode``: *(no description)*
+      - ``formatter`` - ``unicode``: A reference to a key from ``formatters`` for assigning that formatter to this handler.
+      - ``level`` - ``constant``: The logging level at or above which this handler will emit logging events. (additional information: ``{'values': ['CRITICAL', 'DEBUG', 'ERROR', 'INFO', 'WARNING']}``)
 
       Extra keys of any value are allowed. Optional keys: ``filters``, ``formatter``, ``level``
 
 
-  - ``incremental`` - ``boolean``: *(no description)*
-  - ``loggers`` - flexible ``dict``: *(no description)*
+  - ``incremental`` - ``boolean``: Whether this configuration should be considered incremental to any existing configuration. It defaults to ``False`` and it is rare that you should ever need to change that.
+  - ``loggers`` - flexible ``dict``: This defines a mapping of logger names to logger configurations. A log event not handled by one of these configured loggers (if any) will instead be handled by the root logger. A log event handled by one of these configured loggers may still be handled by another logger or the root logger unless its ``propagate`` key is set to ``False``.
 
     keys
       ``unicode``: *(no description)*
@@ -2341,38 +2349,37 @@ Settings Schema Definition
     values
       strict ``dict``: *(no description)*
 
-      - ``filters`` - ``list``: *(no description)*
+      - ``filters`` - ``list``: A list of references to keys from ``filters`` for assigning those filters to this logger.
 
         values
           ``unicode``: *(no description)*
-      - ``handlers`` - ``list``: *(no description)*
+      - ``handlers`` - ``list``: A list of references to keys from ``handlers`` for assigning those handlers to this logger.
 
         values
           ``unicode``: *(no description)*
-      - ``level`` - ``unicode``: *(no description)*
-      - ``propagate`` - ``boolean``: *(no description)*
+      - ``level`` - ``constant``: The logging level at or above which this logger will handle logging events and send them to its configured handlers. (additional information: ``{'values': ['CRITICAL', 'DEBUG', 'ERROR', 'INFO', 'WARNING']}``)
+      - ``propagate`` - ``boolean``: Whether logging events handled by this logger should propagate to other loggers and/or the root logger. Defaults to ``True``.
 
       Optional keys: ``filters``, ``handlers``, ``level``, ``propagate``
 
 
   - ``root`` - strict ``dict``: *(no description)*
 
-    - ``filters`` - ``list``: *(no description)*
+    - ``filters`` - ``list``: A list of references to keys from ``filters`` for assigning those filters to this logger.
 
       values
         ``unicode``: *(no description)*
-    - ``handlers`` - ``list``: *(no description)*
+    - ``handlers`` - ``list``: A list of references to keys from ``handlers`` for assigning those handlers to this logger.
 
       values
         ``unicode``: *(no description)*
-    - ``level`` - ``unicode``: *(no description)*
-    - ``propagate`` - ``boolean``: *(no description)*
+    - ``level`` - ``constant``: The logging level at or above which this logger will handle logging events and send them to its configured handlers. (additional information: ``{'values': ['CRITICAL', 'DEBUG', 'ERROR', 'INFO', 'WARNING']}``)
 
-    Optional keys: ``filters``, ``handlers``, ``level``, ``propagate``
+    Optional keys: ``filters``, ``handlers``, ``level``
 
   - ``version`` - ``integer``: *(no description)* (additional information: ``{'gte': 1, 'lte': 1}``)
 
-  Optional keys: ``filters``, ``formatters``, ``handlers``, ``incremental``, ``loggers``, ``root``, ``version``
+  Optional keys: ``disable_existing_loggers``, ``filters``, ``formatters``, ``handlers``, ``incremental``, ``loggers``, ``root``, ``version``
 
 - ``metrics`` - dictionary with keys ``path`` and ``kwargs`` whose ``kwargs`` schema switches based on the value of ``path``, dynamically based on class imported from ``path`` (see the configuration settings schema documentation for the class named at ``path``). Configuration for defining a usage and performance metrics recorder. The imported item at the specified ``path`` must be a subclass of ``pysoa.common.metrics.MetricsRecorder``.
 - ``middleware`` - ``list``: The list of all ``ServerMiddleware`` objects that should be applied to requests processed by this server

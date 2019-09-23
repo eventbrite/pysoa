@@ -45,11 +45,21 @@ from __future__ import (
 
 import abc
 import sys
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+    List,
+    Mapping,
+    Optional as OptionalType,
+    Type,
+)
 
 import pkg_resources
-from pyparsing import (
+from pyparsing import (  # noqa: F401 TODO Python 3
     Literal,
     Optional,
+    ParserElement,
+    ParseResults,
     Word,
     alphanums,
     nums,
@@ -57,25 +67,41 @@ from pyparsing import (
 )
 import six
 
-from pysoa.common.types import (  # noqa F401
+from pysoa.common.types import (  # noqa: F401 TODO Python 3
     ActionResponse,
     JobResponse,
 )
 from pysoa.test.plan.grammar.tools import recursive_parse_expr_repr
 
 
-ENTRY_POINT_DIRECTIVES = []
-REGISTERED_DIRECTIVES = []
+__all__ = (
+    'ActionCase',
+    'ActionDirective',
+    'ActionResults',
+    'Directive',
+    'get_all_directives',
+    'register_directive',
+    'TestCase',
+    'TestFixture',
+    'TestFixtureResults',
+    'VarNameGrammar',
+    'VarValueGrammar',
+)
+
+
+ENTRY_POINT_DIRECTIVES = []  # type: List[Type[Directive]]
+REGISTERED_DIRECTIVES = []  # type: List[Type[Directive]]
 
 VarNameGrammar = Word(alphanums + '-_.{}')('variable_name')
 VarValueGrammar = restOfLine('value').setParseAction(lambda s, l, t: t[0].strip(' \t'))
 
 
-def get_all_directives():
+def get_all_directives():  # type: () -> List[Type[Directive]]
     if not ENTRY_POINT_DIRECTIVES:
         for entry_point in pkg_resources.iter_entry_points('pysoa.test.plan.grammar.directives'):
             try:
                 directive_class = entry_point.resolve()
+                assert issubclass(directive_class, Directive)
                 ENTRY_POINT_DIRECTIVES.append(directive_class)
             except ImportError:
                 sys.stderr.write('Warning: could not resolve {}\n'.format(entry_point))
@@ -83,8 +109,15 @@ def get_all_directives():
     return REGISTERED_DIRECTIVES + ENTRY_POINT_DIRECTIVES
 
 
-def register_directive(directive):
+def register_directive(directive):  # type: (Type[Directive]) -> None
     REGISTERED_DIRECTIVES.append(directive)
+
+
+ActionCase = Dict[six.text_type, Any]
+ActionResults = Dict[six.text_type, OptionalType[ActionResponse]]
+TestCase = Dict[six.text_type, Any]
+TestFixture = List[TestCase]
+TestFixtureResults = List[ActionResults]
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -176,13 +209,14 @@ class Directive(object):
     @classmethod
     @abc.abstractmethod
     def name(cls):
+        # type: () -> six.text_type
         """
         Return a [a-z_]+ name for this directive
         """
-        raise NotImplementedError('{} does not implement `name`'.format(str(cls)))
 
     @classmethod
     def supplies_additional_grammar_types(cls):
+        # type: () -> Mapping[six.text_type, six.text_type]
         """
         If the grammar produces base types not already listed in the documentation, this method should be overridden
         to return a non-empty map where the keys are the base type names and the values are the grammar definitions
@@ -194,13 +228,14 @@ class Directive(object):
     @classmethod
     @abc.abstractmethod
     def get_full_grammar(cls):
+        # type: () -> ParserElement
         """
         Return the full pyparsing grammar needed to parse an entire line for this directive
         """
-        raise NotImplementedError('{} does not implement `get_full_grammar`'.format(str(cls)))
 
     @abc.abstractmethod
     def ingest_from_parsed_test_fixture(self, action_case, test_case, parse_results, file_name, line_number):
+        # type: (ActionCase, TestCase, ParseResults, six.text_type, int) -> None
         """
         Take parse results and populate test_case with directives for later processing.
 
@@ -213,9 +248,9 @@ class Directive(object):
         :param file_name: The name of the file currently being parsed
         :param line_number: The line number that has just been parsed
         """
-        raise NotImplementedError('{} does not implement `ingest_from_parsed_test_fixture`'.format(str(self.__class__)))
 
     def post_parse_test_case(self, test_case):
+        # type: (TestCase) -> None
         """
         Do work after parsing a test case, before parsing the next test case in the fixture.
 
@@ -223,6 +258,7 @@ class Directive(object):
         """
 
     def post_parse_test_case_action(self, action_case, test_case):
+        # type: (ActionCase, TestCase) -> None
         """
         Do work after parsing a test case action, before parsing the next test case action.
 
@@ -231,6 +267,7 @@ class Directive(object):
         """
 
     def set_up_test_fixture(self, test_fixture, **kwargs):
+        # type: (TestFixture, **Any) -> None
         """
         Do setup work after parsing the test fixture file and before running any tests
 
@@ -238,6 +275,7 @@ class Directive(object):
         """
 
     def set_up_test_case(self, test_case, test_fixture, **kwargs):
+        # type: (TestCase, TestFixture, **Any) -> None
         """
         Do setup work before running a test
 
@@ -246,6 +284,7 @@ class Directive(object):
         """
 
     def set_up_test_case_action(self, action_name, action_case, test_case, test_fixture, **kwargs):
+        # type: (six.text_type, ActionCase, TestCase, TestFixture, **Any) -> None
         """
         Do setup work before running an action in a test
 
@@ -258,15 +297,16 @@ class Directive(object):
     @abc.abstractmethod
     def assert_test_case_action_results(
         self,
-        action_name,
-        action_case,
-        test_case,
-        test_fixture,
-        action_response,
-        job_response,
-        msg=None,
-        **kwargs
+        action_name,  # type: six.text_type
+        action_case,  # type: ActionCase
+        test_case,  # type: TestCase
+        test_fixture,  # type: TestFixture
+        action_response,  # type: ActionResponse
+        job_response,  # type: JobResponse
+        msg=None,  # type: OptionalType[six.text_type]
+        **kwargs  # type: Any
     ):
+        # type: (...) -> None
         """
         Run assertions against the results of running an action.
 
@@ -275,16 +315,14 @@ class Directive(object):
         :param test_case: The directive instructions to run and assert this specific test case
         :param test_fixture: List of test cases in this fixture
         :param action_response: The action response
-        :type action_response: ActionResponse
         :param job_response: The job response
-        :type job_response: JobResponse
         :param msg: Error message to include in the thrown AssertionError
 
         :raise: AssertionError
         """
-        raise NotImplementedError('{} does not implement `assert_test_case_action_results`'.format(str(self.__class__)))
 
     def tear_down_test_case_action(self, action_name, action_case, test_case, test_fixture, **kwargs):
+        # type: (six.text_type, ActionCase, TestCase, TestFixture, **Any) -> None
         """
         Do cleanup work after running an action in a test
 
@@ -294,7 +332,15 @@ class Directive(object):
         :param test_fixture: List of test cases in this fixture
         """
 
-    def assert_test_case_results(self, test_action_results_dict, test_case, test_fixture, msg=None, **kwargs):
+    def assert_test_case_results(
+        self,
+        test_action_results_dict,  # type: Dict[six.text_type, OptionalType[ActionResponse]]
+        test_case,  # type: TestCase
+        test_fixture,  # type: TestFixture
+        msg=None,  # type: OptionalType[six.text_type]
+        **kwargs  # type: Any
+    ):
+        # type: (...) -> None
         """
         Run assertions against the entire set of test results.
 
@@ -310,6 +356,7 @@ class Directive(object):
         """
 
     def tear_down_test_case(self, test_case, test_fixture, **kwargs):
+        # type: (TestCase, TestFixture, **Any) -> None
         """
         Do cleanup work after running a test
 
@@ -317,7 +364,14 @@ class Directive(object):
         :param test_fixture: List of test cases in this fixture
         """
 
-    def assert_test_fixture_results(self, test_fixture_results, test_fixture, msg=None, **kwargs):
+    def assert_test_fixture_results(
+        self,
+        test_fixture_results,  # type: TestFixtureResults
+        test_fixture,  # type: TestFixture
+        msg=None,  # type: OptionalType[six.text_type]
+        **kwargs  # type: Any
+    ):
+        # type: (...) -> None
         """
         Run assertions against entire test fixture file results before moving on to next test file.
 
@@ -331,6 +385,7 @@ class Directive(object):
         """
 
     def tear_down_test_fixture(self, test_fixture, **kwargs):
+        # type: (TestFixture, **Any) -> None
         """
         Do cleanup work after running all the tests in a test fixture file.
 
@@ -349,6 +404,7 @@ class ActionDirective(Directive):
 
     @classmethod
     def get_full_grammar(cls):
+        # type: () -> ParserElement
         action = ~(Literal('input') | Literal('expect')) + Word(alphanums + '_')('action')
         action_index = '.' + Word(nums)('action_index')
         global_scope = Literal('global')('is_global').setParseAction(lambda s, l, t: t[0] == 'global')

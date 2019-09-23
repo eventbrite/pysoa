@@ -1,9 +1,4 @@
-# The __future__ imports are only here to satisfy isort; they are not needed.
-from __future__ import (
-    absolute_import,
-    unicode_literals,
-)
-
+"""isort:skip_file"""
 # noinspection PyCompatibility
 import asyncio
 # noinspection PyCompatibility
@@ -11,7 +6,10 @@ import concurrent.futures
 import logging
 import sys
 import threading
-from typing import List
+from typing import (
+    List,
+    Optional,
+)
 
 from conformity import fields
 
@@ -43,11 +41,11 @@ class AsyncEventLoopThread(threading.Thread):
         self._done = threading.Event()
         self._logger = logging.getLogger('pysoa.async')
 
-    def _loop_stop_callback(self):
+    def _loop_stop_callback(self) -> None:
         self._logger.info('Stopping async event loop thread')
         self.loop.stop()
 
-    def run(self):
+    def run(self) -> None:
         self._logger.info('Starting async event loop thread')
         self._done.clear()
         asyncio.set_event_loop(self.loop)
@@ -69,7 +67,7 @@ class AsyncEventLoopThread(threading.Thread):
                 set_running_loop(None)
                 self._done.set()
 
-    def join(self, timeout=None):
+    def join(self, timeout: Optional[float] = None):
         if self.loop.is_running():
             self._logger.info('Scheduling async event loop thread shutdown')
             self.loop.call_soon_threadsafe(self._loop_stop_callback)
@@ -80,7 +78,7 @@ class AsyncEventLoopThread(threading.Thread):
         # noinspection PyCompatibility
         super().join(timeout)
 
-    def run_coroutine(self, coroutine):  # type: (Coroutine) -> concurrent.futures.Future
+    def run_coroutine(self, coroutine: Coroutine) -> concurrent.futures.Future:
         for middleware_obj in self._coroutine_middleware:
             middleware_obj.before_run_coroutine()
 

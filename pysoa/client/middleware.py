@@ -3,7 +3,32 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Callable,
+    Dict,
+    Optional,
+    Tuple,
+)
+
 from conformity import fields
+import six  # noqa: F401 TODO Python 3
+
+from pysoa.common.types import (  # noqa: F401 TODO Python 3
+    JobRequest,
+    JobResponse,
+)
+
+
+__all__ = (
+    'ClientMiddleware',
+    'ClientRequestMiddlewareTask',
+    'ClientResponseMiddlewareTask',
+)
+
+
+ClientRequestMiddlewareTask = Callable[[int, Dict[six.text_type, Any], JobRequest, Optional[int]], None]
+ClientResponseMiddlewareTask = Callable[[Optional[int]], Tuple[Optional[int], Optional[JobResponse]]]
 
 
 @fields.ClassConfigurationSchema.provider(fields.Dictionary(
@@ -16,38 +41,35 @@ class ClientMiddleware(object):
     documentation that you should follow for creating your middleware classes. If you extend this class, you may
     override either one or both of the methods.
 
-    Middleware must have two callable attributes, ``request`` and ``response``, that, when called with the next level
+    Middleware must have two callable attributes, `request` and `response`, that, when called with the next level
     down, return a callable that takes the appropriate arguments and returns the appropriate value.
     """
 
-    def request(self, send_request):
+    def request(self, send_request):  # type: (ClientRequestMiddlewareTask) -> ClientRequestMiddlewareTask
         """
-        In sub-classes, used for creating a wrapper around ``send_request``. In this simple implementation, just
-        returns ``send_request``.
+        In sub-classes, used for creating a wrapper around `send_request`. In this simple implementation, just
+        returns `send_request`.
 
-        :param send_request: A callable that accepts a request ID int, meta ``dict``, ``JobRequest`` object, and
+        :param send_request: A callable that accepts a request ID int, meta `dict`, :class:`JobRequest` object, and
                              message expiry int and returns nothing
-        :type send_request: callable(int, dict, JobRequest, int): undefined
 
-        :return: A callable that accepts a request ID int, meta ``dict``, ``JobRequest`` object, and message expiry int
-                 and returns nothing.
-        :rtype: callable(int, dict, JobRequest, int): undefined
+        :return: A callable that accepts a request ID int, meta `dict`, :class:`JobRequest` object, and message expiry
+                 int and returns nothing.
         """
 
         # Remove ourselves from the stack
         return send_request
 
-    def response(self, get_response):
+    def response(self, get_response):  # type: (ClientResponseMiddlewareTask) -> ClientResponseMiddlewareTask
         """
-        In sub-classes, used for creating a wrapper around ``get_response``. In this simple implementation, just
-        returns ``get_response``.
+        In sub-classes, used for creating a wrapper around `get_response`. In this simple implementation, just
+        returns `get_response`.
 
         :param get_response: A callable that accepts a timeout int and returns tuple of request ID int and
-                             ``JobResponse`` object
-        :type get_response: callable(int): tuple<int, JobResponse>
+                             :class:`JobResponse` object
 
-        :return: A callable that accepts a timeout int and returns tuple of request ID int and ``JobResponse`` object.
-        :rtype: callable(int): tuple<int, JobResponse>
+        :return: A callable that accepts a timeout int and returns tuple of request ID int and :class:`JobResponse`
+                 object.
         """
 
         # Remove ourselves from the stack

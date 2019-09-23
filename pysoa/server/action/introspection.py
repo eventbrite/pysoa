@@ -4,6 +4,16 @@ from __future__ import (
 )
 
 import re
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+    Generator,
+    Optional,
+    SupportsInt,
+    Tuple,
+    Type,
+    cast,
+)
 
 from conformity import fields
 import six
@@ -16,6 +26,10 @@ from pysoa.server.action.switched import SwitchedAction
 from pysoa.server.errors import ActionError
 from pysoa.server.internal.types import get_switch
 from pysoa.server.server import Server
+from pysoa.server.types import (  # noqa: F401 TODO Python 3
+    ActionType,
+    EnrichedActionRequest,
+)
 
 
 SWITCHED_ACTION_RE = re.compile(r'^(?P<action>[a-zA-Z0-9_-]+)(\[(switch:(?P<switch>\d+)|(?P<default>DEFAULT))\])$')
@@ -99,7 +113,7 @@ class IntrospectionAction(Action):
         optional_keys=('documentation', ),
     )
 
-    def __init__(self, server):
+    def __init__(self, server):  # type: (Server) -> None
         """
         Construct a new introspection action. Unlike its base class, which accepts a server settings object, this
         must be passed a `Server` object, from which it will obtain a settings object. The `Server` code that calls
@@ -115,7 +129,7 @@ class IntrospectionAction(Action):
 
         self.server = server
 
-    def run(self, request):
+    def run(self, request):  # type: (EnrichedActionRequest) -> Dict[six.text_type, Any]
         """
         Introspects all of the actions on the server and returns their documentation.
 
@@ -125,16 +139,16 @@ class IntrospectionAction(Action):
         :return: The response
         """
         if request.body.get('action_name'):
-            return self._get_response_for_single_action(request.body.get('action_name'))
+            return self._get_response_for_single_action(cast(six.text_type, request.body.get('action_name')))
 
         return self._get_response_for_all_actions()
 
-    def _get_response_for_single_action(self, request_action_name):
+    def _get_response_for_single_action(self, request_action_name):  # type: (six.text_type) -> Dict[six.text_type, Any]
         action_name = request_action_name
-        switch = None
+        switch = None  # type: Optional[SupportsInt]
 
-        if SWITCHED_ACTION_RE.match(action_name):
-            match = SWITCHED_ACTION_RE.match(action_name)
+        match = SWITCHED_ACTION_RE.match(action_name)
+        if match:
             action_name = match.group(str('action'))
             if match.group(str('default')):
                 switch = SwitchedAction.DEFAULT_ACTION
@@ -148,7 +162,7 @@ class IntrospectionAction(Action):
 
         if action_name in self.server.action_class_map:
             action_class = self.server.action_class_map[action_name]
-            if issubclass(action_class, SwitchedAction):
+            if isinstance(action_class, type) and issubclass(action_class, SwitchedAction):
                 if switch:
                     if switch == SwitchedAction.DEFAULT_ACTION:
                         action_class = action_class.switch_to_action_map[-1][1]
@@ -160,7 +174,7 @@ class IntrospectionAction(Action):
                     response = {
                         'action_names': [],
                         'actions': {}
-                    }
+                    }  # type: Dict[six.text_type, Any]
                     for sub_name, sub_class in self._iterate_switched_actions(action_name, action_class):
                         response['action_names'].append(sub_name)
                         response['actions'][sub_name] = self._introspect_action(sub_class)
@@ -176,12 +190,12 @@ class IntrospectionAction(Action):
             'actions': {request_action_name: self._introspect_action(action_class)}
         }
 
-    def _get_response_for_all_actions(self):
+    def _get_response_for_all_actions(self):  # type: () -> Dict[six.text_type, Any]
         response = {
             'actions': {},
             'action_names': [],
             'documentation': getattr(self.server.__class__, 'description', self.server.__class__.__doc__) or None,
-        }
+        }  # type: Dict[six.text_type, Any]
 
         if 'introspect' not in self.server.action_class_map:
             response['action_names'].append('introspect')
@@ -192,12 +206,13 @@ class IntrospectionAction(Action):
             response['actions']['status'] = self._introspect_action(BaseStatusAction)
 
         for action_name, action_class in six.iteritems(self.server.action_class_map):
-            if issubclass(action_class, SwitchedAction):
+            if isinstance(action_class, type) and issubclass(action_class, SwitchedAction):
                 for sub_action_name, sub_action_class in self._iterate_switched_actions(action_name, action_class):
                     response['action_names'].append(sub_action_name)
                     response['actions'][sub_action_name] = self._introspect_action(sub_action_class)
             else:
                 response['action_names'].append(action_name)
+                # noinspection PyTypeChecker
                 response['actions'][action_name] = self._introspect_action(action_class)
 
         response['action_names'] = list(sorted(response['action_names']))
@@ -206,6 +221,7 @@ class IntrospectionAction(Action):
 
     @staticmethod
     def _iterate_switched_actions(action_name, action_class):
+        # type: (six.text_type, Type[SwitchedAction]) -> Generator[Tuple[six.text_type, ActionType], None, None]
         found_default = False
         last_index = len(action_class.switch_to_action_map) - 1
         for i, (switch, sub_action_class) in enumerate(action_class.switch_to_action_map):
@@ -220,17 +236,19 @@ class IntrospectionAction(Action):
             yield sub_action_name, sub_action_class
 
     @staticmethod
-    def _introspect_action(action_class):
+    def _introspect_action(action_class):  # type: (ActionType) -> Dict[six.text_type, Any]
         action = {
-            'documentation': getattr(action_class, 'description', action_class.__doc__) or None,
+            'documentation': getattr(action_class, 'description', None) or action_class.__doc__ or None,
             'request_schema': None,
             'response_schema': None,
         }
 
-        if getattr(action_class, 'request_schema', None):
-            action['request_schema'] = action_class.request_schema.introspect()
+        schema = getattr(action_class, 'request_schema', None)  # type: Optional[fields.Base]
+        if schema:
+            action['request_schema'] = schema.introspect()
 
-        if getattr(action_class, 'response_schema', None):
-            action['response_schema'] = action_class.response_schema.introspect()
+        schema = getattr(action_class, 'response_schema', None)
+        if schema:
+            action['response_schema'] = schema.introspect()
 
         return action

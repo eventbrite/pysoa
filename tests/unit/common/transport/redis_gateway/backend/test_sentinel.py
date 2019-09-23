@@ -3,10 +3,15 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+)
 import unittest
 
 import msgpack
 import redis.sentinel
+import six  # noqa: F401 TODO Python 3
 
 from pysoa.common.transport.redis_gateway.backend.base import CannotGetConnectionError
 from pysoa.common.transport.redis_gateway.backend.sentinel import SentinelRedisClient
@@ -17,7 +22,7 @@ from tests.unit.common.transport.redis_gateway.backend.test_standard import mock
 
 
 class MockSentinelRedis(mockredis.MockRedis):
-    MASTERS = {'service1': {}, 'service2': {}, 'service3': {}}
+    MASTERS = {'service1': {}, 'service2': {}, 'service3': {}}  # type: Dict[six.text_type, Dict[Any, Any]]
 
     def __init__(self):
         super(MockSentinelRedis, self).__init__(strict=True, load_lua_dependencies=False)
@@ -51,10 +56,10 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
     @mock.patch('redis.sentinel.Sentinel', new=MockSentinel)
     def test_invalid_hosts(self):
         with self.assertRaises(ValueError):
-            SentinelRedisClient(hosts='redis://localhost:1234/0')
+            SentinelRedisClient(hosts='redis://localhost:1234/0')  # type: ignore
 
         with self.assertRaises(ValueError):
-            SentinelRedisClient(hosts=['redis://localhost:1234/0'])
+            SentinelRedisClient(hosts=['redis://localhost:1234/0'])  # type: ignore
 
     @mock.patch('redis.sentinel.Sentinel', new=MockSentinel)
     def test_invalid_services(self):

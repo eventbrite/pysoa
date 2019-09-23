@@ -7,6 +7,7 @@ import json
 import time
 
 import redis
+import six  # noqa: F401 TODO Python 3
 
 
 def get_redis_client():
@@ -63,5 +64,5 @@ def set_mangled_service_data_route_map(service_name, mangled_service_name):
     return data
 
 
-def make_redis_queue_name(service_name):
+def make_redis_queue_name(service_name):  # type: (six.text_type) -> six.text_type
     return 'service.' + service_name

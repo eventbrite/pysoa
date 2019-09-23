@@ -6,13 +6,12 @@ from __future__ import (
 import abc
 from typing import (  # noqa: F401 TODO Python 3
     Any,
-    Callable,
     Dict,
     Optional,
-    Type,
     Union,
 )
 
+from conformity import fields  # noqa: F401 TODO Python 3
 import six
 
 from pysoa.common.types import (
@@ -23,32 +22,37 @@ from pysoa.server.errors import (
     ActionError,
     ResponseValidationError,
 )
-from pysoa.server.settings import ServerSettings
-from pysoa.server.types import EnrichedActionRequest
+from pysoa.server.settings import ServerSettings  # noqa: F401 TODO Python 3
+from pysoa.server.types import (  # noqa: F401 TODO Python 3
+    ActionInterface,
+    EnrichedActionRequest,
+)
 
 
 __all__ = (
     'Action',
-    'ActionType',
 )
 
 
 @six.add_metaclass(abc.ABCMeta)
-class Action(object):
+class Action(ActionInterface):
     """
-    Base class from which all SOA service actions inherit.
+    Base class from which most SOA service actions should inherit.
 
     Contains the basic framework for implementing an action:
 
     - Subclass and override `run()` with the body of your code
     - Optionally provide a `description` attribute, which should be a unicode string and is used to display
-      introspection for the action.
-    - Optionally provide `request_schema` and/or `response_schema` attributes. These should be Conformity fields.
+      introspection information for the action.
+    - Optionally provide `request_schema` and/or `response_schema` attributes. These should be Conformity Dictionaries,
+      and are used both to validate the request and response body and to display introspection information for the
+      action.
     - Optionally provide a `validate()` method to do custom validation on the request.
     """
 
-    request_schema = None
-    response_schema = None
+    description = None  # type: Optional[six.text_type]
+    request_schema = None  # type: Optional[Union[fields.Dictionary, fields.SchemalessDictionary]]
+    response_schema = None  # type: Optional[Union[fields.Dictionary, fields.SchemalessDictionary]]
 
     def __init__(self, settings=None):  # type: (Optional[ServerSettings]) -> None
         """
@@ -56,21 +60,19 @@ class Action(object):
         still pass the server settings to this base constructor by calling `super`.
 
         :param settings: The server settings object
-        :type settings: dict
         """
+        super(Action, self).__init__(settings)
         self.settings = settings
 
     @abc.abstractmethod
-    def run(self, request):  # type: (EnrichedActionRequest) -> Dict[str, Any]
+    def run(self, request):  # type: (EnrichedActionRequest) -> Dict[six.text_type, Any]
         """
         Override this to perform your business logic, and either return a value abiding by the `response_schema` or
         raise an `ActionError`.
 
         :param request: The request object
-        :type request: EnrichedActionRequest
 
-        :return: The response
-        :rtype: dict
+        :return: The response body, which should validate according to the `response_schema`.
 
         :raise: ActionError
         """
@@ -84,7 +86,6 @@ class Action(object):
         perform it in `run()`.
 
         :param request: The request object
-        :type request: EnrichedActionRequest
 
         :raise: ActionError
         """
@@ -98,10 +99,8 @@ class Action(object):
         `ActionResponse`.
 
         :param action_request: The request object
-        :type action_request: EnrichedActionRequest
 
         :return: The response object
-        :rtype: ActionResponse
 
         :raise: ActionError, ResponseValidationError
         """
@@ -125,9 +124,9 @@ class Action(object):
         # the service, and so we just raise a Python exception and let error
         # middleware catch it. The server will return a SERVER_ERROR response.
         if self.response_schema:
-            errors = self.response_schema.errors(response_body)
-            if errors:
-                raise ResponseValidationError(action=action_request.action, errors=errors)
+            conformity_errors = self.response_schema.errors(response_body)
+            if conformity_errors:
+                raise ResponseValidationError(action=action_request.action, errors=conformity_errors)
         # Make an ActionResponse and return it
         if response_body is not None:
             return ActionResponse(
@@ -136,9 +135,3 @@ class Action(object):
             )
         else:
             return ActionResponse(action=action_request.action)
-
-
-ActionType = Union[
-    Type[Action],
-    Callable[[ServerSettings], Callable[[EnrichedActionRequest], ActionResponse]],
-]

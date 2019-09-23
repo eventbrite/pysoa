@@ -1,6 +1,22 @@
 Changelog
 =========
 
+0.68.0 (2019-09-19)
+-------------------
+- [PATCH] Make typing dependency more specific to fix missing types
+- [MINOR] Use Conformity's Settings and deprecate PySOA's Settings
+
+0.67.1 (2019-09-13)
+-------------------
+- [PATCH] Fix import errors in Python 3.5.2/3.6.1 and fix Harakiri logging
+
+0.67.0 (2019-09-12)
+-------------------
+- [MINOR] Fix #198: Double import trap is broken in Python 3.7
+- [PATCH] Update docs further
+- [MAJOR] Add support for response chunking to Redis Gateway transport
+- [MAJOR] Support UTC-aware datetime objects in MsgpackSerializer
+
 0.66.0 (2019-08-23)
 -------------------
 - [MINOR] Add pre-fork hook method to Server class, clean up prints

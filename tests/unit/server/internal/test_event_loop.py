@@ -1,3 +1,4 @@
+"""isort:skip_file until https://github.com/timothycrosley/isort/issues/726 is fixed"""
 from __future__ import (
     absolute_import,
     unicode_literals,
@@ -75,7 +76,7 @@ run_call_trace_post = []  # type: List[str]
     fields.Dictionary({'var_value': fields.Integer()}),
 )
 class SpecialCoroutineMiddleware(CoroutineMiddleware):
-    def __init__(self, var_value):
+    def __init__(self, var_value: int):
         self.var_value = var_value
 
     def before_run_coroutine(self):
@@ -86,7 +87,7 @@ class SpecialCoroutineMiddleware(CoroutineMiddleware):
 
         # noinspection PyCompatibility
         async def wrapper():
-            var = contextvars.ContextVar('middleware_var')
+            var = contextvars.ContextVar('middleware_var')  # type: contextvars.ContextVar[int]
             var.set(self.var_value)
 
             run_call_trace_pre.append('SpecialCoroutineMiddleware')
@@ -159,7 +160,7 @@ async def test_coroutine_middleware():
     run_call_trace_pre.clear()
     run_call_trace_post.clear()
 
-    var = contextvars.ContextVar('caller_var')
+    var = contextvars.ContextVar('caller_var')  # type: contextvars.ContextVar[str]
     var.set('yes man')
 
     test_context = {

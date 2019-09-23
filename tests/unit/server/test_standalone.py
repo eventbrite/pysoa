@@ -8,6 +8,8 @@ import os
 import signal
 import sys
 import time
+from types import ModuleType  # noqa: F401 TODO Python 3
+from typing import Optional  # noqa: F401 TODO Python 3
 import unittest
 
 import freezegun
@@ -15,7 +17,7 @@ import freezegun
 from pysoa.test.compatibility import mock
 
 
-standalone = None
+standalone = None  # type: Optional[ModuleType]
 
 
 def setup_module(_):
@@ -24,25 +26,37 @@ def setup_module(_):
     imported.
     """
     global standalone
-    try:
-        from pysoa.server import standalone
-        assert False, 'Should not have been able to import standalone; should have received SystemExit'
-    except SystemExit as e:
-        # This first bit is actually a test; it confirms that the double-import trap is triggered
-        assert e.args[0] == 99
 
-    # Now we actually import the module, but we have to make sure the double-import trap isn't triggered before we do.
-    # Running `pytest` or `setup.py` looks to `standalone` like there is a problem, so we temporarily remove `pytest`
-    # or `setup.py` from the first path item...
-    prev_path_0 = sys.path[0]
-    sys.path[0] = ''
-    try:
-        from pysoa.server import standalone
-    except SystemExit as e:
-        assert False, 'Expected import to succeed, instead got SystemExit with code {}'.format(e.args[0])
-    finally:
-        # ...and then we put it back in so that we haven't caused any problems.
-        sys.path[0] = prev_path_0
+    with mock.patch('pysoa.utils.get_python_interpreter_arguments') as mock_get_args:
+        prev_path_0 = sys.path[0]
+        mock_get_args.return_value = ['python', '/path/to/module.py']
+
+        # Force this to bad
+        sys.path[0] = '/path/to/module.py'
+        try:
+            from pysoa.server import standalone  # type: ignore
+            assert False, 'Should not have been able to import standalone; should have received SystemExit'
+        except SystemExit as e:
+            # This first bit is actually a test; it confirms that the double-import trap is triggered
+            assert e.args[0] == 99
+        finally:
+            # ...and then we put this back so that we haven't caused any problems.
+            sys.path[0] = prev_path_0
+
+        # Now we actually import the module, but we have to make sure the double-import trap isn't triggered before we
+        # do. Running `pytest` or `setup.py` looks to `standalone` like there is a problem, so we temporarily remove
+        # `pytest` or `setup.py` from the first path item if it's Py<3.7, change return value of mock for 3.7+...
+        if sys.version_info < (3, 7):
+            sys.path[0] = ''
+        else:
+            mock_get_args.return_value = ['python', '-m', 'service_module']
+        try:
+            from pysoa.server import standalone  # type: ignore
+        except SystemExit as e:
+            assert False, 'Expected import to succeed, instead got SystemExit with code {}'.format(e.args[0])
+        finally:
+            # ...and then we put this back so that we haven't caused any problems.
+            sys.path[0] = prev_path_0
 
 
 class TestSimpleMain(unittest.TestCase):
@@ -58,7 +72,7 @@ class TestSimpleMain(unittest.TestCase):
 
         sys.argv = ['/path/to/example_service/standalone.py']
 
-        standalone.simple_main(server_getter)
+        standalone.simple_main(server_getter)  # type: ignore
 
         server_getter.assert_called_once_with()
         server_getter.return_value.main.assert_called_once_with()
@@ -69,7 +83,7 @@ class TestSimpleMain(unittest.TestCase):
 
         sys.argv = ['/path/to/example_service/standalone.py', '--use-file-watcher']
 
-        standalone.simple_main(server_getter)
+        standalone.simple_main(server_getter)  # type: ignore
 
         server_getter.assert_called_once_with()
         self.assertFalse(server_getter.return_value.main.called)
@@ -91,7 +105,7 @@ class TestSimpleMain(unittest.TestCase):
 
         sys.argv = ['/path/to/example_service/standalone.py', '--use-file-watcher', 'example,pysoa,conformity']
 
-        standalone.simple_main(server_getter)
+        standalone.simple_main(server_getter)  # type: ignore
 
         server_getter.assert_called_once_with()
         self.assertFalse(server_getter.return_value.main.called)
@@ -114,7 +128,7 @@ class TestSimpleMain(unittest.TestCase):
 
         sys.argv = ['/path/to/example_service/standalone.py', '--use-file-watcher', '-f', '5']
 
-        standalone.simple_main(server_getter)
+        standalone.simple_main(server_getter)  # type: ignore
 
         server_getter.assert_called_once_with()
         self.assertFalse(server_getter.return_value.main.called)
@@ -137,7 +151,7 @@ class TestSimpleMain(unittest.TestCase):
 
         sys.argv = ['/path/to/example_service/standalone.py', '--use-file-watcher', 'pysoa', '-f', '5']
 
-        standalone.simple_main(server_getter)
+        standalone.simple_main(server_getter)  # type: ignore
 
         server_getter.assert_called_once_with()
         self.assertFalse(server_getter.return_value.main.called)
@@ -163,7 +177,7 @@ class TestSimpleMain(unittest.TestCase):
 
         sys.argv = ['/path/to/example_service/standalone.py', '-f', '10', '--no-respawn']
 
-        prev_sigint = prev_sigterm = prev_sighup = False
+        prev_sigint = prev_sigterm = prev_sighup = None
         try:
             prev_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
             prev_sigterm = signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -172,7 +186,7 @@ class TestSimpleMain(unittest.TestCase):
             processes = [mock.MagicMock() for _ in range(0, 10)]
             mock_process.side_effect = processes
 
-            standalone.simple_main(server_getter)
+            standalone.simple_main(server_getter)  # type: ignore
 
             server_getter.assert_called_once_with()
             self.assertFalse(server_getter.return_value.main.called)
@@ -193,11 +207,11 @@ class TestSimpleMain(unittest.TestCase):
             for i, process in enumerate(processes):
                 assert process.terminate.called is False
         finally:
-            if prev_sigint is not False:
+            if prev_sigint is not None:
                 signal.signal(signal.SIGINT, prev_sigint or signal.SIG_IGN)
-            if prev_sigterm is not False:
+            if prev_sigterm is not None:
                 signal.signal(signal.SIGTERM, prev_sigterm or signal.SIG_IGN)
-            if prev_sighup is not False:
+            if prev_sighup is not None:
                 signal.signal(signal.SIGHUP, prev_sighup or signal.SIG_IGN)
 
     @mock.patch('multiprocessing.Process')
@@ -209,7 +223,7 @@ class TestSimpleMain(unittest.TestCase):
 
         sys.argv = ['/path/to/example_service/standalone.py', '-f', '10', '--no-respawn']
 
-        prev_sigint = prev_sigterm = prev_sighup = False
+        prev_sigint = prev_sigterm = prev_sighup = None
         try:
             prev_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
             prev_sigterm = signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -218,7 +232,7 @@ class TestSimpleMain(unittest.TestCase):
             processes = [mock.MagicMock() for _ in range(0, 5)]
             mock_process.side_effect = processes
 
-            standalone.simple_main(server_getter)
+            standalone.simple_main(server_getter)  # type: ignore
 
             server_getter.assert_called_once_with()
             self.assertFalse(server_getter.return_value.main.called)
@@ -239,11 +253,11 @@ class TestSimpleMain(unittest.TestCase):
             for i, process in enumerate(processes):
                 assert process.terminate.called is False
         finally:
-            if prev_sigint is not False:
+            if prev_sigint is not None:
                 signal.signal(signal.SIGINT, prev_sigint or signal.SIG_IGN)
-            if prev_sigterm is not False:
+            if prev_sigterm is not None:
                 signal.signal(signal.SIGTERM, prev_sigterm or signal.SIG_IGN)
-            if prev_sighup is not False:
+            if prev_sighup is not None:
                 signal.signal(signal.SIGHUP, prev_sighup or signal.SIG_IGN)
 
     class _MockProcess(object):
@@ -266,7 +280,7 @@ class TestSimpleMain(unittest.TestCase):
 
         sys.argv = ['/path/to/example_service/standalone.py', '-f', '3']
 
-        prev_sigint = prev_sigterm = prev_sighup = False
+        prev_sigint = prev_sigterm = prev_sighup = None
         try:
             prev_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
             prev_sigterm = signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -325,7 +339,7 @@ class TestSimpleMain(unittest.TestCase):
 
                 mock_process.side_effect = se
 
-                standalone.simple_main(server_getter)
+                standalone.simple_main(server_getter)  # type: ignore
 
             server_getter.assert_called_once_with()
             assert server_getter.return_value.main.called is False
@@ -362,9 +376,9 @@ class TestSimpleMain(unittest.TestCase):
                 p.join.assert_called_once_with()
                 assert p.terminate.called is False
         finally:
-            if prev_sigint is not False:
+            if prev_sigint is not None:
                 signal.signal(signal.SIGINT, prev_sigint or signal.SIG_IGN)
-            if prev_sigterm is not False:
+            if prev_sigterm is not None:
                 signal.signal(signal.SIGTERM, prev_sigterm or signal.SIG_IGN)
-            if prev_sighup is not False:
+            if prev_sighup is not None:
                 signal.signal(signal.SIGHUP, prev_sighup or signal.SIG_IGN)

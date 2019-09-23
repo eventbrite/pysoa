@@ -1,3 +1,4 @@
+"""isort:skip_file until https://github.com/timothycrosley/isort/issues/726 is fixed"""
 from __future__ import (
     absolute_import,
     unicode_literals,
@@ -10,6 +11,10 @@ import signal
 import sys
 import tempfile
 import time
+from typing import (  # noqa: F401 TODO Python 3
+    Dict,
+    Optional,
+)
 import unittest
 
 import pysoa
@@ -37,7 +42,7 @@ class MockReloader(AbstractReloader):
         super(MockReloader, self).__init__(*args, **kwargs)
         self.code_changed_called = False
         self.code_changed_return_value = False
-        self.code_changed_set_watching_to = False
+        self.code_changed_set_watching_to = False  # type: Optional[bool]
 
     def code_changed(self):
         self.code_changed_called = True
@@ -130,38 +135,38 @@ class TestAbstractReloader(unittest.TestCase):
     """
     def test_cannot_instantiate_abstract_class(self):
         with self.assertRaises(TypeError):
-            AbstractReloader('example_service.name', None)
+            AbstractReloader('example_service.name', None)  # type: ignore
 
     # noinspection PyCompatibility
     def test_constructor(self):
         reloader = MockReloader('example_service.standalone', None)
-        self.assertEqual('example_service.standalone', reloader.main_module_name)
-        self.assertIsNone(reloader.watch_modules)
-        self.assertFalse(reloader.signal_forks)
+        assert reloader.main_module_name == 'example_service.standalone'
+        assert reloader.signal_forks is False
+        assert reloader.watch_modules is None
 
         reloader = MockReloader('example_service.another', [], True)
-        self.assertEqual('example_service.another', reloader.main_module_name)
-        self.assertIsNone(reloader.watch_modules)
-        self.assertTrue(reloader.signal_forks)
+        assert reloader.main_module_name == 'example_service.another'
+        assert reloader.signal_forks is True
+        assert reloader.watch_modules is None
 
         reloader = MockReloader('example_service.server', ['example', 'pysoa', 'django'])
-        self.assertEqual('example_service.server', reloader.main_module_name)
-        self.assertIsNotNone(reloader.watch_modules)
-        self.assertFalse(reloader.signal_forks)
+        assert reloader.main_module_name == 'example_service.server'
+        assert reloader.signal_forks is False
+        assert reloader.watch_modules is not None
 
-        self.assertRegex('example_service', reloader.watch_modules)
-        self.assertRegex('example_service.actions', reloader.watch_modules)
-        self.assertRegex('example_service.models', reloader.watch_modules)
-        self.assertRegex('example_service.server', reloader.watch_modules)
-        self.assertRegex('example_library', reloader.watch_modules)
-        self.assertRegex('example_library.utils', reloader.watch_modules)
-        self.assertRegex('pysoa', reloader.watch_modules)
-        self.assertRegex('pysoa.server', reloader.watch_modules)
-        self.assertRegex('pysoa.version', reloader.watch_modules)
-        self.assertRegex('django', reloader.watch_modules)
-        self.assertRegex('django.conf', reloader.watch_modules)
+        assert reloader.watch_modules.search('example_service'), reloader.watch_modules
+        assert reloader.watch_modules.search('example_service.actions'), reloader.watch_modules
+        assert reloader.watch_modules.search('example_service.models'), reloader.watch_modules
+        assert reloader.watch_modules.search('example_service.server'), reloader.watch_modules
+        assert reloader.watch_modules.search('example_library'), reloader.watch_modules
+        assert reloader.watch_modules.search('example_library.utils'), reloader.watch_modules
+        assert reloader.watch_modules.search('pysoa'), reloader.watch_modules
+        assert reloader.watch_modules.search('pysoa.server'), reloader.watch_modules
+        assert reloader.watch_modules.search('pysoa.version'), reloader.watch_modules
+        assert reloader.watch_modules.search('django'), reloader.watch_modules
+        assert reloader.watch_modules.search('django.conf'), reloader.watch_modules
 
-        self.assertFalse(reloader.watch_modules.match('another_library'))
+        assert not reloader.watch_modules.search('another_library'), reloader.watch_modules
 
     def test_get_watch_file_names(self):
         reloader = MockReloader(
@@ -197,13 +202,13 @@ class TestAbstractReloader(unittest.TestCase):
         )
 
     def test_watch_files_no_forks(self):
-        called_signals = {}
+        called_signals = {}  # type: Dict[int, int]
 
         def _sig_called(sig_num, _stack_frame):
             called_signals.setdefault(sig_num, 0)
             called_signals[sig_num] += 1
 
-        prev_sigterm = prev_sighup = False
+        prev_sigterm = prev_sighup = None
         try:
             prev_sigterm = signal.signal(signal.SIGTERM, _sig_called)
             prev_sighup = signal.signal(signal.SIGHUP, _sig_called)
@@ -248,19 +253,19 @@ class TestAbstractReloader(unittest.TestCase):
             self.assertEqual(2, called_signals[signal.SIGTERM])
             self.assertTrue(7.0 > time.time() - start > 6.0)
         finally:
-            if prev_sigterm is not False:
+            if prev_sigterm is not None:
                 signal.signal(signal.SIGTERM, prev_sigterm or signal.SIG_IGN)
-            if prev_sighup is not False:
+            if prev_sighup is not None:
                 signal.signal(signal.SIGHUP, prev_sighup or signal.SIG_IGN)
 
     def test_watch_files_with_forks(self):
-        called_signals = {}
+        called_signals = {}  # type: Dict[int, int]
 
         def _sig_called(sig_num, _stack_frame):
             called_signals.setdefault(sig_num, 0)
             called_signals[sig_num] += 1
 
-        prev_sigterm = prev_sighup = False
+        prev_sigterm = prev_sighup = None
         try:
             prev_sigterm = signal.signal(signal.SIGTERM, _sig_called)
             prev_sighup = signal.signal(signal.SIGHUP, _sig_called)
@@ -292,9 +297,9 @@ class TestAbstractReloader(unittest.TestCase):
             self.assertEqual(1, called_signals[signal.SIGHUP])
             assert time.time() - start < 0.3
         finally:
-            if prev_sigterm is not False:
+            if prev_sigterm is not None:
                 signal.signal(signal.SIGTERM, prev_sigterm or signal.SIG_IGN)
-            if prev_sighup is not False:
+            if prev_sighup is not None:
                 signal.signal(signal.SIGHUP, prev_sighup or signal.SIG_IGN)
 
     @mock.patch('pysoa.server.autoreload.subprocess')

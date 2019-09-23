@@ -6,51 +6,79 @@ from __future__ import (
 import logging
 import logging.handlers
 import socket
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import six
 
 from pysoa.common.compatibility import ContextVar
+from pysoa.common.types import Context  # noqa: F401 TODO Python 3
+
+
+__all__ = (
+    'PySOALogContextFilter',
+    'RecursivelyCensoredDictWrapper',
+    'SyslogHandler',
+)
 
 
 class PySOALogContextFilter(logging.Filter):
-    def __init__(self):
+    def __init__(self):  # type: () -> None
         super(PySOALogContextFilter, self).__init__('')
 
-    def filter(self, record):
+    def filter(self, record):  # type: (logging.LogRecord) -> bool
         context = self.get_logging_request_context()
         if context:
-            record.correlation_id = context.get('correlation_id') or '--'
-            record.request_id = context.get('request_id') or '--'
+            setattr(record, 'correlation_id', context.get('correlation_id') or '--')
+            setattr(record, 'request_id', context.get('request_id') or '--')
         else:
-            record.correlation_id = '--'
-            record.request_id = '--'
-        record.service_name = self._service_name or 'unknown'
+            setattr(record, 'correlation_id', '--')
+            setattr(record, 'request_id', '--')
+        setattr(record, 'service_name', self._service_name or 'unknown')
         return True
 
-    _context_stack = ContextVar('logging_context_stack', default=None)
+    _context_stack = ContextVar('logging_context_stack', default=None)  # type: ContextVar[Optional[List[Context]]]
 
     _service_name = None
 
     @classmethod
-    def set_logging_request_context(cls, **context):
-        if not cls._context_stack.get():
-            cls._context_stack.set([])
-        cls._context_stack.get().append(context)
+    def set_logging_request_context(cls, **context):  # type: (Any) -> None
+        value = cls._context_stack.get()
+        if not value:
+            value = []
+            cls._context_stack.set(value)
+        value.append(context)
 
     @classmethod
-    def clear_logging_request_context(cls):
-        if cls._context_stack.get():
-            cls._context_stack.get().pop()
+    def clear_logging_request_context(cls):  # type: () -> None
+        value = cls._context_stack.get()
+        if value:
+            value.pop()
 
     @classmethod
-    def get_logging_request_context(cls):
-        if cls._context_stack.get():
-            return cls._context_stack.get()[-1]
+    def get_logging_request_context(cls):  # type: () -> Optional[Context]
+        value = cls._context_stack.get()
+        if value:
+            return value[-1]
         return None
 
     @classmethod
-    def set_service_name(cls, service_name):
+    def set_service_name(cls, service_name):  # type: (six.text_type) -> None
         cls._service_name = service_name
+
+
+_VT = TypeVar('_VT')
 
 
 class RecursivelyCensoredDictWrapper(object):
@@ -139,11 +167,11 @@ class RecursivelyCensoredDictWrapper(object):
         'personal_identification_numbers', 'personal-identification-numbers', 'personalIdentificationNumbers',
     })
 
-    CENSOR_TYPES = six.string_types + six.integer_types
+    CENSOR_TYPES = cast(Tuple[Type, ...], six.string_types) + cast(Tuple[Type, ...], six.integer_types)
 
     CENSORED_STRING = '**********'
 
-    def __init__(self, wrapped_dict):
+    def __init__(self, wrapped_dict):  # type: (Mapping[six.text_type, Any]) -> None
         """
         Wraps a dict to censor its contents. The first time `repr` is called, it copies the dict, recursively
         censors sensitive fields, caches the result, and returns the censored dict repr-ed. All future calls use
@@ -155,54 +183,55 @@ class RecursivelyCensoredDictWrapper(object):
         if not isinstance(wrapped_dict, dict):
             raise ValueError('wrapped_dict must be a dict')
 
-        self._wrapped_dict = wrapped_dict
-        self._dict_cache = None
-        self._repr_cache = None
+        self._wrapped_dict = wrapped_dict  # type: Mapping[six.text_type, Any]
+        self._dict_cache = None  # type: Optional[Mapping[six.text_type, Any]]
+        self._repr_cache = None  # type: Optional[six.text_type]
 
-    def _get_repr_cache(self):
+    def _get_repr_cache(self):  # type: () -> str
         if not self._dict_cache:
             self._dict_cache = self._copy_and_censor_dict(self._wrapped_dict)
 
         return repr(self._dict_cache)
 
-    def __repr__(self):
+    def __repr__(self):  # type: () -> str
         if not self._repr_cache:
             self._repr_cache = self._get_repr_cache()
         return self._repr_cache
 
-    def __str__(self):
+    def __str__(self):  # type: () -> str
         return self.__repr__()
 
-    def __bytes__(self):
+    def __bytes__(self):  # type: () -> six.binary_type
         # If this method is called, we must be in Python 3, which means __str__ must be returning a string
-        return self.__str__().encode('utf-8')
+        return cast(six.text_type, self.__str__()).encode('utf-8')
 
-    def __unicode__(self):
+    def __unicode__(self):  # type: () -> six.text_type
         # If this method is called, we must be in Python 2, which means __str__ must be returning bytes
-        # noinspection PyUnresolvedReferences
-        return self.__str__().decode('utf-8')
+        return cast(six.binary_type, self.__str__()).decode('utf-8')
 
     @classmethod
-    def _copy_and_censor_unknown_value(cls, v, should_censor_strings):
+    def _copy_and_censor_unknown_value(cls, v, should_censor_values):
+        # type: (_VT, bool) -> Union[_VT, six.text_type]
         if isinstance(v, dict):
-            return cls._copy_and_censor_dict(v)
+            return cls._copy_and_censor_dict(v)  # type: ignore
 
         if isinstance(v, (list, tuple, set, frozenset)):
-            return cls._copy_and_censor_iterable(v, should_censor_strings)
+            return cls._copy_and_censor_iterable(v, should_censor_values)  # type: ignore
 
-        if should_censor_strings and v and isinstance(v, cls.CENSOR_TYPES) and not isinstance(v, bool):
+        if should_censor_values and v and isinstance(v, cls.CENSOR_TYPES) and not isinstance(v, bool):
             return cls.CENSORED_STRING
 
         return v
 
     @classmethod
-    def _copy_and_censor_dict(cls, d):
+    def _copy_and_censor_dict(cls, d):  # type: (Mapping[six.text_type, Any]) -> Mapping[six.text_type, Any]
         # This should only be _marginally_ slower than copy.deepcopy
         return {k: cls._copy_and_censor_unknown_value(v, k in cls.SENSITIVE_FIELDS) for k, v in six.iteritems(d)}
 
     @classmethod
-    def _copy_and_censor_iterable(cls, i, should_censor_strings):
-        return type(i)(cls._copy_and_censor_unknown_value(v, should_censor_strings) for v in i)
+    def _copy_and_censor_iterable(cls, i, should_censor_values):
+        # type: (Iterable[_VT], bool) -> Iterable[Union[_VT, six.text_type]]
+        return type(i)(cls._copy_and_censor_unknown_value(v, should_censor_values) for v in i)  # type: ignore
 
 
 IP_MTU_DISCOVER = 10  # Position of the IP Path MTU Discovery flag in request packets
@@ -212,7 +241,7 @@ MTU_ATTEMPTS = 65535, 2000, 1500, 1280
 DATAGRAM_HEADER_LENGTH_IN_BYTES = 28
 
 
-def _discover_minimum_mtu_to_target(address, port):
+def _discover_minimum_mtu_to_target(address, port):  # type: (six.text_type, int) -> int
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect((address, port))
     s.setsockopt(socket.IPPROTO_IP, IP_MTU_DISCOVER, IP_MTU_DISCOVER_DO)
@@ -228,6 +257,9 @@ def _discover_minimum_mtu_to_target(address, port):
                 break
             # Now we try again with a lower MTU, which might still be too high
     return WORST_CASE_MTU_IP
+
+
+_Addr = Union[six.text_type, Tuple[six.text_type, int]]
 
 
 class SyslogHandler(logging.handlers.SysLogHandler):
@@ -246,18 +278,18 @@ class SyslogHandler(logging.handlers.SysLogHandler):
     OVERFLOW_BEHAVIOR_FRAGMENT = 0
     OVERFLOW_BEHAVIOR_TRUNCATE = 1
 
-    _MINIMUM_MTU_CACHE = {}
+    _MINIMUM_MTU_CACHE = {}  # type: Dict[six.text_type, int]
 
     def __init__(
         self,
-        address=('localhost', logging.handlers.SYSLOG_UDP_PORT),
-        facility=logging.handlers.SysLogHandler.LOG_USER,
-        socket_type=None,
-        overflow=OVERFLOW_BEHAVIOR_FRAGMENT,
+        address=('localhost', logging.handlers.SYSLOG_UDP_PORT),  # type: _Addr
+        facility=logging.handlers.SysLogHandler.LOG_USER,  # type: int
+        socket_type=None,  # type: Optional[int]
+        overflow=OVERFLOW_BEHAVIOR_FRAGMENT,  # type: int
     ):
-        super(SyslogHandler, self).__init__(address, facility, socket_type)
+        super(SyslogHandler, self).__init__(address, facility, socket_type)  # type: ignore
 
-        if not self.unixsocket and self.socktype == socket.SOCK_DGRAM:
+        if not self.unixsocket and self.socktype == socket.SOCK_DGRAM:  # type: ignore
             if address[0] not in self._MINIMUM_MTU_CACHE:
                 # The MTU is unlikely to change while the process is running, and checking it is expensive
                 self._MINIMUM_MTU_CACHE[address[0]] = _discover_minimum_mtu_to_target(address[0], 9999)
@@ -268,7 +300,7 @@ class SyslogHandler(logging.handlers.SysLogHandler):
             self.maximum_length = 1048576  # Let's not send more than a megabyte to Syslog, even over TCP/Unix ... crazy
             self.overflow = self.OVERFLOW_BEHAVIOR_TRUNCATE
 
-    def emit(self, record):
+    def emit(self, record):  # type: (logging.LogRecord) -> None
         """
         Emits a record. The record is sent carefully, according to the following rules, to ensure that data is not
         lost by exceeding the MTU of the connection.
@@ -291,24 +323,25 @@ class SyslogHandler(logging.handlers.SysLogHandler):
         """
         # noinspection PyBroadException
         try:
-            formatted_message = self.format(record)
-            encoded_message = formatted_message.encode('utf-8')
+            formatted_message = self.format(record)  # type: six.text_type
+            encoded_message = formatted_message.encode('utf-8')  # type: six.binary_type
 
             prefix = suffix = b''
-            if getattr(self, 'ident', False):
-                prefix = self.ident.encode('utf-8') if isinstance(self.ident, six.text_type) else self.ident
+            ident = getattr(self, 'ident', None)  # type: Optional[Union[six.text_type, six.binary_type]]
+            if ident:
+                prefix = ident.encode('utf-8') if isinstance(ident, six.text_type) else ident
             if getattr(self, 'append_nul', True):
                 suffix = '\000'.encode('utf-8')
 
             priority = '<{:d}>'.format(
-                self.encodePriority(self.facility, self.mapPriority(record.levelname))
+                self.encodePriority(self.facility, self.mapPriority(record.levelname))  # type: ignore
             ).encode('utf-8')
 
             message_length = len(encoded_message)
             message_length_limit = self.maximum_length - len(prefix) - len(suffix) - len(priority)
 
             if message_length < message_length_limit:
-                parts = [priority + prefix + encoded_message + suffix]
+                parts = [priority + prefix + encoded_message + suffix]  # type: List[six.binary_type]
             elif self.overflow == self.OVERFLOW_BEHAVIOR_TRUNCATE:
                 truncated_message, _ = self._cleanly_slice_encoded_string(encoded_message, message_length_limit)
                 parts = [priority + prefix + truncated_message + suffix]
@@ -325,15 +358,15 @@ class SyslogHandler(logging.handlers.SysLogHandler):
                     # We can't locate the message in the formatted record? That's unfortunate. Let's make something up.
                     start_of_message, to_chunk = '{} '.format(formatted_message[:30]), formatted_message[30:]
 
-                start_of_message = start_of_message.encode('utf-8')
-                to_chunk = to_chunk.encode('utf-8')
+                start_of_message_bytes = start_of_message.encode('utf-8')
+                to_chunk_bytes = to_chunk.encode('utf-8')
 
                 # 12 is the length of "... (cont'd)" in bytes
-                chunk_length_limit = message_length_limit - len(start_of_message) - 12
+                chunk_length_limit = message_length_limit - len(start_of_message_bytes) - 12
 
                 i = 1
                 parts = []
-                remaining_message = to_chunk
+                remaining_message = to_chunk_bytes
                 while remaining_message:
                     message_id = b''
                     subtractor = 0
@@ -353,7 +386,7 @@ class SyslogHandler(logging.handlers.SysLogHandler):
                     if remaining_message:
                         # If this is not the last message, we append the chunk to indicate continuation
                         chunk = chunk + b"... (cont'd)"
-                    parts.append(priority + prefix + start_of_message + chunk + suffix)
+                    parts.append(priority + prefix + start_of_message_bytes + chunk + suffix)
 
             self._send(parts)
         except Exception:
@@ -375,6 +408,7 @@ class SyslogHandler(logging.handlers.SysLogHandler):
 
     @staticmethod
     def _cleanly_slice_encoded_string(encoded_string, length_limit):
+        # type: (six.binary_type, int) -> Tuple[six.binary_type, six.binary_type]
         """
         Takes a byte string (a UTF-8 encoded string) and splits it into two pieces such that the first slice is no
         longer than argument `length_limit`, then returns a tuple containing the first slice and remainder of the
@@ -391,10 +425,13 @@ class SyslogHandler(logging.handlers.SysLogHandler):
         :param length_limit: The maximum length allowed for the first slice of the string
         :return: A tuple of (slice, remaining)
         """
-        sliced, remaining = encoded_string[:length_limit], encoded_string[length_limit:]
+        sliced = encoded_string[:length_limit]  # type: six.binary_type
+        remaining = encoded_string[length_limit:]  # type: six.binary_type
         try:
             sliced.decode('utf-8')
         except UnicodeDecodeError as e:
+            # This means that we sliced in the middle of a multi-byte character, which of course is bad. So we back up
+            # to the beginning of the multi-byte character and slice there, instead
             sliced, remaining = sliced[:e.start], sliced[e.start:] + remaining
 
         return sliced, remaining

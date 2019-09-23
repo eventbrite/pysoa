@@ -19,6 +19,7 @@ from typing import (  # noqa: F401 TODO Python 3
     List,
     Optional,
     Tuple,
+    Union,
     cast,
 )
 
@@ -87,6 +88,9 @@ def _valid_chunk_threshold(_, __, value):
         )
 
 
+_DEFAULT_METRICS_RECORDER = NoOpMetricsRecorder()  # type: MetricsRecorder
+
+
 @attr.s
 @six.add_metaclass(abc.ABCMeta)
 class RedisTransportCore(object):
@@ -106,7 +110,7 @@ class RedisTransportCore(object):
 
     backend_layer_kwargs = attr.ib(
         # Keyword args for the backend layer (Standard Redis and Sentinel Redis modes)
-        default={},
+        default=attr.Factory(dict),
         validator=attr.validators.instance_of(dict),
     )  # type: Dict[six.text_type, Any]
 
@@ -130,7 +134,7 @@ class RedisTransportCore(object):
     )  # type: int
 
     metrics = attr.ib(
-        default=NoOpMetricsRecorder(),
+        default=_DEFAULT_METRICS_RECORDER,
         validator=attr.validators.instance_of(MetricsRecorder),
     )  # type: MetricsRecorder
 
@@ -156,7 +160,6 @@ class RedisTransportCore(object):
     default_serializer_config = attr.ib(
         # Configuration for which serializer should be used by this transport
         default={'object': MsgpackSerializer, 'kwargs': {}},
-        converter=dict,
     )  # type: Dict[six.text_type, Any]
 
     service_name = attr.ib(
@@ -204,7 +207,7 @@ class RedisTransportCore(object):
     @property
     def backend_layer(self):  # type: () -> BaseRedisClient
         if self._backend_layer is None:
-            cache_key = (self.backend_type, dict_to_hashable(self.backend_layer_kwargs))
+            cache_key = (self.backend_type, dict_to_hashable(cast(Dict[Hashable, Any], self.backend_layer_kwargs)))
             if cache_key not in self._backend_layer_cache:
                 with self._get_timer('backend.initialize'):
                     backend_layer_kwargs = deepcopy(self.backend_layer_kwargs)
@@ -517,11 +520,17 @@ class RedisTransportCore(object):
         return self.metrics.timer(self._get_metric_name(name), resolution=TimerResolution.MICROSECONDS)
 
 
+def _convert_protocol_version(value):  # type: (Union[ProtocolVersion, int]) -> ProtocolVersion
+    if isinstance(value, ProtocolVersion):
+        return value
+    return ProtocolVersion(value)
+
+
 @attr.s
 class RedisTransportClientCore(RedisTransportCore):
     protocol_version = attr.ib(
         default=ProtocolVersion.VERSION_2,
-        converter=lambda v: v if isinstance(v, ProtocolVersion) else ProtocolVersion(v),
+        converter=_convert_protocol_version,
     )  # type: ProtocolVersion
 
     @property

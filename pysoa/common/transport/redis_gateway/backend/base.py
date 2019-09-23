@@ -123,9 +123,7 @@ class BaseRedisClient(object):
         :param value: The value for which to calculate a hash
         :return: The Redis server ring index from the calculated hash
         """
-        if isinstance(value, six.text_type):
-            value = value.encode('utf8')
-        big_value = binascii.crc32(value) & 0xfff
+        big_value = binascii.crc32(value.encode('utf8') if isinstance(value, six.text_type) else value) & 0xfff
         ring_divisor = 4096 / float(self._ring_size)
         return int(big_value / ring_divisor)
 

@@ -7,21 +7,59 @@ import abc
 import os
 import re
 import sys
+import traceback
+from types import TracebackType  # noqa: F401 TODO Python 3
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 import attr
 import six
 
+from pysoa.common.types import Body  # noqa: F401 TODO Python 3
+from pysoa.test.compatibility import mock  # noqa: F401 TODO Python 3
 from pysoa.test.plan import grammar
 from pysoa.test.plan.errors import (
     DirectiveError,
     FixtureLoadError,
     StatusError,
 )
-from pysoa.test.plan.grammar.directive import get_all_directives
+from pysoa.test.plan.grammar.directive import (  # noqa: F401 TODO Python 3
+    ActionCase,
+    ActionResults,
+    Directive,
+    TestCase,
+    TestFixture,
+    TestFixtureResults,
+    get_all_directives,
+)
 from pysoa.test.plan.grammar.tools import substitute_variables
 from pysoa.test.plan.parser import ServiceTestPlanFixtureParser
 from pysoa.test.server import ServerTestCase
 from pysoa.test.stub_service import stub_action
+
+
+try:
+    from typing import Protocol
+    try:
+        # Py3.8, Py2.7 backport
+        from typing import runtime_checkable
+    except ImportError:
+        # Some Py3.7
+        from typing import runtime as runtime_checkable  # type: ignore
+except ImportError:
+    # Some Py3.7, all Py3<3.7
+    from typing_extensions import (  # type: ignore
+        Protocol,
+        runtime_checkable,
+    )
 
 
 ##################################################
@@ -194,18 +232,27 @@ the following techniques:
 __test_plan_prune_traceback = True  # ensure code in this file is not included in failure stack traces
 
 
+@runtime_checkable
+class FixtureTestCaseFunction(Protocol):
+    # noinspection PyMethodParameters
+    def __call__(_, self, *args, **kwargs):  # type: (ServicePlanTestCase, *Any, **Any) -> None
+        """
+        Type-shed stub
+        """
+
+
 @attr.s
 class FixtureTestCaseData(object):
     """
     A plain-old Python object that holds fixture test case data.
     """
-    name = attr.ib()
-    description = attr.ib()
-    fixture_name = attr.ib()
-    fixture_file = attr.ib()
-    line_number = attr.ib()
-    skip = attr.ib()
-    callable = attr.ib()
+    name = attr.ib()  # type: six.text_type
+    description = attr.ib()  # type: six.text_type
+    fixture_name = attr.ib()  # type: six.text_type
+    fixture_file = attr.ib()  # type: six.text_type
+    line_number = attr.ib()  # type: int
+    skip = attr.ib()  # type: bool
+    callable = attr.ib()  # type: FixtureTestCaseFunction
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -219,15 +266,16 @@ class ServicePlanTestCase(ServerTestCase):
     names start with ``test_``, and they will be run normally like any other ``unittest` test methods.
     """
 
-    fixture_path = None
+    fixture_path = None  # type: Optional[six.text_type]
     fixture_regex = re.compile(r'^[^.].*?\.(:?pysoa)$')
-    custom_fixtures = ()
-    model_constants = {}
+    custom_fixtures = ()  # type: Tuple[six.text_type, ...]
+    model_constants = {}  # type: Dict[six.text_type, Union[Dict[six.text_type, Any], List[Dict[six.text_type, Any]]]]
 
-    _all_directives = None
+    _all_directives = None  # type: Optional[List[Type[Directive]]]
 
     @classmethod
     def setUpClass(cls):
+        # type: () -> None
         """
         This method is invoked one time before the test plan (all the fixtures defined in ``fixture_path``) or any of
         the normal tests in your test case are run.
@@ -238,14 +286,16 @@ class ServicePlanTestCase(ServerTestCase):
 
     @classmethod
     def tearDownClass(cls):
+        # type: () -> None
         """
         This method is invoked one time after the test plan (all the fixtures defined in ``fixture_path``) and any of
         the normal tests in your test case are run. If you override this, your call to `super` must be the very first
         line of code in the method.
         """
-        if getattr(cls, '_test_fixture_setup_called', None):
+        _test_fixture_setup_called = getattr(cls, '_test_fixture_setup_called', None)
+        if _test_fixture_setup_called:
             last_e = None
-            for fixture_name, tear_down_not_called in six.iteritems(cls._test_fixture_setup_called):
+            for fixture_name, tear_down_not_called in six.iteritems(_test_fixture_setup_called):
                 # If a -k or --pysoa-test-case filter was used to deselect most tests, the last test in a fixture may
                 # not run, in which case the fixture won't be properly torn down. The only way to solve this is to,
                 # on class tear-down, check for any not-torn-down fixtures and tear them down. However, this is not
@@ -264,22 +314,23 @@ class ServicePlanTestCase(ServerTestCase):
         super(ServicePlanTestCase, cls).tearDownClass()
 
     def set_up_test_fixture(self, test_fixture, **kwargs):
+        # type: (TestFixture, **Any) -> None
         """
         This method is invoked once for each fixture file, before any test cases in that fixture file are run.
 
         :param test_fixture: List of test cases in this fixture
-        :type test_fixture: list
         """
 
     def tear_down_test_fixture(self, test_fixture, **kwargs):
+        # type: (TestFixture, **Any) -> None
         """
         This method is invoked once for each fixture file, after all test cases in the fixture file have run.
 
         :param test_fixture: List of test cases in this fixture
-        :type test_fixture: list
         """
 
     def setUp(self):
+        # type: () -> None
         """
         This method is invoked once for each test case in a fixture file, before the test is run. It is also run once
         before each ``test_`` method in your test case, if you have any.
@@ -287,6 +338,7 @@ class ServicePlanTestCase(ServerTestCase):
         super(ServicePlanTestCase, self).setUp()
 
     def tearDown(self):
+        # type: () -> None
         """
         This method is invoked once for each test case in a fixture file, after the test is run. It is also run once
         after each ``test_`` method in your test case, if you have any.
@@ -294,55 +346,48 @@ class ServicePlanTestCase(ServerTestCase):
         super(ServicePlanTestCase, self).tearDown()
 
     def set_up_test_case(self, test_case, test_fixture, **kwargs):
+        # type: (TestCase, TestFixture, **Any) -> None
         """
         This method is invoked immediately after `setUp` and before the test case is run.
 
         :param test_case: The directive instructions to run and assert this specific test case
-        :type test_case: dict
         :param test_fixture: List of test cases in this fixture
-        :type test_fixture: list
         """
 
     def tear_down_test_case(self, test_case, test_fixture, **kwargs):
+        # type: (TestCase, TestFixture, **Any) -> None
         """
         This method is invoked immediately before `tearDown` and after the test case is run.
 
         :param test_case: The directive instructions to run and assert this specific test case
-        :type test_case: dict
         :param test_fixture: List of test cases in this fixture
-        :type test_fixture: list
         """
 
     def set_up_test_case_action(self, action_name, action_case, test_case, test_fixture, **kwargs):
+        # type: (six.text_type, ActionCase, TestCase, TestFixture, **Any) -> None
         """
         This method is invoked once fear each service action run within a test case, before the action is called.
 
         :param action_name: The name of the action being run (as described in the test case in the fixture)
-        :type action_name: union[str, unicode]
         :param action_case: The directive instructions for running and asserting this specific action
-        :type action_case: dict
         :param test_case: The directive instructions to run and assert this specific test case
-        :type test_case: dict
         :param test_fixture: List of test cases in this fixture
-        :type test_fixture: list
         """
 
     def tear_down_test_case_action(self, action_name, action_case, test_case, test_fixture, **kwargs):
+        # type: (six.text_type, ActionCase, TestCase, TestFixture, **Any) -> None
         """
         This method is invoked once fear each service action run within a test case, before the action is called.
 
         :param action_name: The name of the action being run (as described in the test case in the fixture)
-        :type action_name: union[str, unicode]
         :param action_case: The directive instructions for running and asserting this specific action
-        :type action_case: dict
         :param test_case: The directive instructions to run and assert this specific test case
-        :type test_case: dict
         :param test_fixture: List of test cases in this fixture
-        :type test_fixture: list
         """
 
     @classmethod
     def get_fixture_test_information(cls):
+        # type: () -> Generator[FixtureTestCaseData, None, None]
         """
         Generates fixture test case information used for executing fixture test cases. Acts as a generator that yields
         ``FixtureTestCaseData`` instances, which include the test name, description, fixture name, fixture file name,
@@ -353,14 +398,13 @@ class ServicePlanTestCase(ServerTestCase):
         in the fixture files.
 
         :return: a generator of fixture test case information.
-        :rtype: generator[FixtureTestCaseData]
         """
 
         for fixture_file_name in cls.get_fixture_file_names():
             fixture_name, _ = os.path.splitext(os.path.basename(fixture_file_name))
 
-            test_fixture_results = []
-            last_test_function = None
+            test_fixture_results = []  # type: TestFixtureResults
+            last_test_function = None  # type: Optional[FixtureTestCaseFunction]
 
             fixture_parser = ServiceTestPlanFixtureParser(fixture_file_name, fixture_name)
             test_fixture = fixture_parser.parse_test_fixture()
@@ -390,10 +434,11 @@ class ServicePlanTestCase(ServerTestCase):
                 )
 
             if last_test_function:
-                last_test_function._last_fixture_test = True
+                setattr(last_test_function, '_last_fixture_test', True)
 
     @classmethod
     def get_fixture_file_names(cls):
+        # type: () -> Union[List[six.text_type], Tuple[six.text_type, ...]]
         """
         Generate the list of fixture files to run. If ``cls.custom_fixtures`` has a value, its contents will be
         returned directly. Otherwise, all fixtures in ``cls.fixture_path`` will be loaded based on
@@ -401,8 +446,7 @@ class ServicePlanTestCase(ServerTestCase):
 
         Results will be returned as a list or tuple, e.g. ``['full_path_to_fixture_1', 'full_path_to_fixture_2']``.
 
-        :return: An alphabetically-sorted list of all fixture file names
-        :rtype: union(list, tuple)
+        :return: An alphabetically-sorted list of all fixture file names or the custom fixtures, if specified
         """
 
         if cls.custom_fixtures:
@@ -435,32 +479,32 @@ class ServicePlanTestCase(ServerTestCase):
         return sorted(fixture_files)
 
     @staticmethod
-    def _create_test_function(description, fixture_name, test_case, test_fixture, test_fixture_results):
+    def _create_test_function(
+        description,  # type: six.text_type
+        fixture_name,  # type: six.text_type
+        test_case,  # type: TestCase
+        test_fixture,  # type: TestFixture
+        test_fixture_results,  # type: TestFixtureResults
+    ):  # type: (...) -> FixtureTestCaseFunction
         """
         This method creates a test case function, which the PyTest plugin binds to the test case class to make it a
         method of the class, and which PyTest later invokes to run the test case.
 
         :param description: The test description, to which the created test function's ``__doc__`` will be set
-        :type description: union[str, unicode]
         :param fixture_name: The fixture name
-        :type fixture_name: union[str, unicode]
         :param test_case: The directive instructions to run and assert this specific test case
-        :type test_case: dict
         :param test_fixture: List of test cases in this fixture
-        :type test_fixture: list
         :param test_fixture_results: List of all action-call results in the entire fixture
-        :type test_fixture_results: list
         :return: The test function, whose first argument must be an instance of test class inheriting from
                  ``ServicePlanTestCase``, and which accepts other args and kwargs that are currently ignored but
                  reserved for future use.
-        :rtype: function
         """
         def test_function(self, *args, **kwargs):
+            # type: (ServicePlanTestCase, *Any, **Any) -> None
             """
             This guy does the actual work of running a test case, and is invoked by PyTest when the time comes.
 
             :param self: The test case instance
-            :type self: ServicePlanTestCase
             """
 
             # noinspection PyUnusedLocal
@@ -469,24 +513,26 @@ class ServicePlanTestCase(ServerTestCase):
             _test_function_frame = True  # noqa F841
 
             if not hasattr(self.__class__, '_test_fixture_setup_called'):
-                self.__class__._test_fixture_setup_called = {}
+                setattr(self.__class__, '_test_fixture_setup_called', {})
             if not hasattr(self.__class__, '_test_fixture_setup_succeeded'):
-                self.__class__._test_fixture_setup_succeeded = {}
+                setattr(self.__class__, '_test_fixture_setup_succeeded', {})
 
-            if not self._test_fixture_setup_called.get(fixture_name, False):
+            _test_fixture_setup_called = getattr(self.__class__, '_test_fixture_setup_called')
+            _test_fixture_setup_succeeded = getattr(self.__class__, '_test_fixture_setup_succeeded')
+            if not _test_fixture_setup_called.get(fixture_name, False):
                 # If this is the first test in the fixture, we need to set up the fixture
-                self._test_fixture_setup_called[fixture_name] = self, test_fixture
+                _test_fixture_setup_called[fixture_name] = self, test_fixture
                 self.set_up_test_fixture(test_fixture)
                 self._run_directive_hook('set_up_test_fixture', test_fixture)
                 # After the fixture has set up without error, we note this so that all fixture tests can run
-                self._test_fixture_setup_succeeded[fixture_name] = True
+                _test_fixture_setup_succeeded[fixture_name] = True
 
-            if not self._test_fixture_setup_succeeded.get(fixture_name, False):
+            if not _test_fixture_setup_succeeded.get(fixture_name, False):
                 # If the fixture was not successfully set up, then fixture setup must have failed on the first test, so
                 # all remaining tests in this fixture are also invalid.
                 raise StatusError('Test fixture {} not set up'.format(fixture_name))
 
-            outer_exception = False
+            outer_exception = None  # type: Optional[BaseException]
             try:  # LABEL: 1
                 # First, we call the standard TestCase setUp, which we have taken over
                 self.setUp()
@@ -516,7 +562,7 @@ class ServicePlanTestCase(ServerTestCase):
                     except BaseException:
                         if not outer_exception:
                             raise  # If an error did not happen in TRY 2, just raise the tear-down error
-                        self.addError(self, sys.exc_info())  # Otherwise, record the tear-down error so we don't mask
+                        self.add_error(*sys.exc_info())  # Otherwise, record the tear-down error so we don't mask
             except BaseException as e:
                 outer_exception = e
                 raise
@@ -533,9 +579,9 @@ class ServicePlanTestCase(ServerTestCase):
                     if not outer_exception:
                         outer_exception = e
                         raise  # If an error did not happen in TRY 1 - 3, just raise the tear-down error
-                    self.addError(self, sys.exc_info())  # Otherwise, record the tear-down error so we don't mask
+                    self.add_error(*sys.exc_info())  # Otherwise, record the tear-down error so we don't mask
                 finally:
-                    if test_function._last_fixture_test:
+                    if getattr(test_function, '_last_fixture_test'):
                         # If this is the last fixture test case, we need to assert and clean up the fixture
                         try:  # LABEL: 5
                             self._run_directive_hook('assert_test_fixture_results', test_fixture_results, test_fixture)
@@ -549,17 +595,17 @@ class ServicePlanTestCase(ServerTestCase):
                             if not outer_exception:
                                 outer_exception = e
                                 raise  # If an error did not happen in TRY 1 - 4, just raise the assertion error
-                            self.addFailure(self, sys.exc_info())  # Otherwise, record the assertion error so no mask
+                            self.add_error(*sys.exc_info())  # Otherwise, record the assertion error so no mask
                         except BaseException as e:
                             if not outer_exception:
                                 outer_exception = e
                                 raise  # If an error did not happen in TRY 1 - 4, just raise the on-assert error
-                            self.addError(self, sys.exc_info())  # Otherwise, record the tear-down error so no mask
+                            self.add_error(*sys.exc_info())  # Otherwise, record the tear-down error so no mask
                         finally:
                             # noinspection PyBroadException
                             try:  # LABEL: 6
-                                self._test_fixture_setup_succeeded[fixture_name] = False
-                                self._test_fixture_setup_called[fixture_name] = False
+                                _test_fixture_setup_succeeded[fixture_name] = False
+                                _test_fixture_setup_called[fixture_name] = False
                                 self._run_directive_hook('tear_down_test_fixture', test_fixture)
                                 self.tear_down_test_fixture(test_fixture)
                             except KeyboardInterrupt:
@@ -570,21 +616,24 @@ class ServicePlanTestCase(ServerTestCase):
                             except BaseException:
                                 if not outer_exception:
                                     raise  # If an error did not happen in TRY 1 - 5, just raise the tear-down error
-                                self.addError(self, sys.exc_info())  # Otherwise, record the tear-down error so no mask
+                                self.add_error(*sys.exc_info())  # Otherwise, record the tear-down error so no mask
 
         test_function.__doc__ = description
-        test_function._last_fixture_test = False
+        setattr(test_function, '_last_fixture_test', False)
 
         return test_function
 
     @classmethod
     def _run_directive_hook(cls, hook, *args, **kwargs):
+        # type: (six.text_type, *Any, **Any) -> None
         """
         Runs the named hook method on all registered directives using the given positional and keyword arguments.
 
         :param hook: The name of the hook
         :type hook: union[str, unicode]
         """
+        if not cls._all_directives:
+            raise DirectiveError('FATAL: No directives found!')
         for directive_class in cls._all_directives:
             directive = directive_class()
             if not hasattr(directive, hook):
@@ -593,6 +642,7 @@ class ServicePlanTestCase(ServerTestCase):
             getattr(directive, hook)(*args, **kwargs)
 
     def _run_test_case(self, test_case, test_fixture, test_fixture_results, *_, **__):
+        # type: (TestCase, TestFixture, TestFixtureResults, *Any, **Any) -> None
         """
         This does the actual work of running the test case.
 
@@ -609,9 +659,13 @@ class ServicePlanTestCase(ServerTestCase):
         # having it analyze the code path details to determine the frame location.
         _run_test_case_frame = True  # noqa F841
 
-        action_results = {}
-        action_response_bodies = {}
+        action_results = {}  # type: ActionResults
+        action_response_bodies = {}  # type: Dict[six.text_type, Optional[Body]]
         test_fixture_results.append(action_results)
+
+        assert self.server_class is not None
+        assert self.server_class.action_class_map is not None
+        assert self.server_class.service_name is not None
 
         for action_path in test_case['actions']:
             action_name, action_index = action_path.split('.')
@@ -683,17 +737,36 @@ class ServicePlanTestCase(ServerTestCase):
 
         self._run_directive_hook('assert_test_case_results', action_results, test_case, test_fixture)
 
+    @staticmethod
+    def add_error(exc_type, exc_value, traceback_value):
+        # type: (Optional[Type[BaseException]], Optional[BaseException], Optional[TracebackType]) -> None
+        if exc_type or exc_value:
+            sys.stderr.write('Additionally, {} error occurred: {}'.format(
+                'a `{}`'.format(exc_type.__name__) if exc_type else 'an unknown',
+                exc_value if exc_value else 'No details',
+            ))
+            sys.stderr.write('\n')
+            sys.stderr.flush()
+
+        if traceback_value:
+            traceback.print_tb(traceback_value, None, sys.stderr)
+            sys.stderr.flush()
+
     class _WrapperContextManager(object):
         def __init__(self, stub_action_context=None, mock_action_side_effect=None):
+            # type: (stub_action, Any) -> None
             self._stub_action_context = stub_action_context
             self._mock_action_side_effect = mock_action_side_effect
 
-        def __enter__(self):
+        def __enter__(self):  # type: () -> Optional[mock.MagicMock]
             if self._stub_action_context:
                 mock_action = self._stub_action_context.__enter__()
                 mock_action.side_effect = self._mock_action_side_effect
                 return mock_action
+            return None
 
-        def __exit__(self, *args):
+        def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+            # type: (Any, Any, Any) -> bool
             if self._stub_action_context:
-                self._stub_action_context.__exit__(*args)
+                return self._stub_action_context.__exit__(exc_type, exc_value, traceback)
+            return False

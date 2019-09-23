@@ -3,6 +3,12 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import (  # noqa: F401 TODO Python 3
+    Callable,
+    Optional,
+    SupportsInt,
+    cast,
+)
 import unittest
 
 from conformity import fields
@@ -18,6 +24,7 @@ from pysoa.server.internal.types import (
     get_switch,
     is_switch,
 )
+from pysoa.server.settings import ServerSettings
 from pysoa.server.types import EnrichedActionRequest
 
 
@@ -27,7 +34,7 @@ class SwitchTwelve(object):
 
 
 class ValueSwitch(object):
-    def __init__(self, value):
+    def __init__(self, value):  # type: (SupportsInt) -> None
         self.value = value
 
 
@@ -40,14 +47,14 @@ class ActionOne(Action):
         return {'planet_response': request.body['planet'], 'settings': self.settings}
 
 
-def action_two(settings):
-    def action_logic(request):
+def action_two(settings):  # type: (Optional[ServerSettings]) -> Callable[[EnrichedActionRequest], ActionResponse]
+    def action_logic(request):  # type: (EnrichedActionRequest) -> ActionResponse
         return ActionResponse(action='one', body={'animal_response': request.body['animal'], 'settings': settings})
     return action_logic
 
 
-def action_three(_):
-    def action_logic(request):
+def action_three(_):  # type: (Optional[ServerSettings]) -> Callable[[EnrichedActionRequest], ActionResponse]
+    def action_logic(request):  # type: (EnrichedActionRequest) -> ActionResponse
         return ActionResponse(action='one', body={'building_response': request.body['building']})
     return action_logic
 
@@ -71,7 +78,7 @@ class TestSwitchedAction(unittest.TestCase):
     def test_action_one_switch_twelve(self):
         settings = {'foo': 'bar'}
 
-        action = SwitchedActionOne(settings)
+        action = SwitchedActionOne(cast(ServerSettings, settings))
 
         response = action(EnrichedActionRequest(action='one', body={'planet': 'Mars'}, switches=[12]))
 
@@ -81,7 +88,7 @@ class TestSwitchedAction(unittest.TestCase):
     def test_action_one_switches_twelve_and_five(self):
         settings = {'baz': 'qux'}
 
-        action = SwitchedActionOne(settings)
+        action = SwitchedActionOne(cast(ServerSettings, settings))
 
         response = action(EnrichedActionRequest(action='one', body={'planet': 'Jupiter'}, switches=[12, 5]))
 
@@ -91,7 +98,7 @@ class TestSwitchedAction(unittest.TestCase):
     def test_action_one_switch_five(self):
         settings = {'foo': 'bar'}
 
-        action = SwitchedActionOne(settings)
+        action = SwitchedActionOne(cast(ServerSettings, settings))
 
         response = action(EnrichedActionRequest(action='one', body={'animal': 'cat'}, switches=[5]))
 
@@ -101,7 +108,7 @@ class TestSwitchedAction(unittest.TestCase):
     def test_action_no_switches(self):
         settings = {'foo': 'bar'}
 
-        action = SwitchedActionOne(settings)
+        action = SwitchedActionOne(cast(ServerSettings, settings))
 
         response = action(EnrichedActionRequest(action='one', body={'animal': 'cat'}, switches=[]))
 
@@ -111,7 +118,7 @@ class TestSwitchedAction(unittest.TestCase):
     def test_action_one_switch_twelve_with_errors(self):
         settings = {'foo': 'bar'}
 
-        action = SwitchedActionOne(settings)
+        action = SwitchedActionOne(cast(ServerSettings, settings))
 
         with self.assertRaises(ActionError) as error_context:
             action(EnrichedActionRequest(action='one', body={'animal': 'cat'}, switches=[12]))
@@ -123,7 +130,7 @@ class TestSwitchedAction(unittest.TestCase):
     def test_action_two_switch_seven(self):
         settings = {'baz': 'qux'}
 
-        action = SwitchedActionTwo(settings)
+        action = SwitchedActionTwo(cast(ServerSettings, settings))
 
         response = action(EnrichedActionRequest(action='one', body={'animal': 'dog'}, switches=[7]))
 
@@ -133,7 +140,7 @@ class TestSwitchedAction(unittest.TestCase):
     def test_action_two_switch_twelve(self):
         settings = {'foo': 'bar'}
 
-        action = SwitchedActionTwo(settings)
+        action = SwitchedActionTwo(cast(ServerSettings, settings))
 
         response = action(EnrichedActionRequest(action='one', body={'planet': 'Pluto'}, switches=[12]))
 
@@ -143,7 +150,7 @@ class TestSwitchedAction(unittest.TestCase):
     def test_action_two_no_switches(self):
         settings = {'foo': 'bar'}
 
-        action = SwitchedActionTwo(settings)
+        action = SwitchedActionTwo(cast(ServerSettings, settings))
 
         response = action(EnrichedActionRequest(
             action='one',
@@ -158,7 +165,7 @@ class TestSwitchedAction(unittest.TestCase):
 class TestSwitchedActionValidation(unittest.TestCase):
     def test_cannot_instantiate_base(self):
         with self.assertRaises(TypeError) as error_context:
-            SwitchedAction({})
+            SwitchedAction(cast(ServerSettings, {}))
 
         self.assertIn('instantiate', error_context.exception.args[0])
 
@@ -166,7 +173,7 @@ class TestSwitchedActionValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as error_context:
             # noinspection PyUnusedLocal
             class BadAction(SwitchedAction):
-                switch_to_action_map = None
+                switch_to_action_map = None  # type: ignore
 
         self.assertIn('switch_to_action_map', error_context.exception.args[0])
 
@@ -174,7 +181,7 @@ class TestSwitchedActionValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as error_context:
             # noinspection PyUnusedLocal
             class BadAction(SwitchedAction):
-                switch_to_action_map = 7
+                switch_to_action_map = 7  # type: ignore
 
         self.assertIn('switch_to_action_map', error_context.exception.args[0])
 
@@ -182,7 +189,7 @@ class TestSwitchedActionValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as error_context:
             # noinspection PyUnusedLocal
             class BadAction(SwitchedAction):
-                switch_to_action_map = (x for x in range(10))
+                switch_to_action_map = (x for x in range(10))  # type: ignore
 
         self.assertIn('switch_to_action_map', error_context.exception.args[0])
 
@@ -206,7 +213,7 @@ class TestSwitchedActionValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as error_context:
             # noinspection PyUnusedLocal
             class BadAction(SwitchedAction):
-                switch_to_action_map = (
+                switch_to_action_map = (  # type: ignore
                     (5, ActionOne),
                     (TestSwitchedActionValidation, action_two),
                 )
@@ -217,7 +224,7 @@ class TestSwitchedActionValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as error_context:
             # noinspection PyUnusedLocal
             class BadAction(SwitchedAction):
-                switch_to_action_map = (
+                switch_to_action_map = (  # type: ignore
                     (5, ActionOne),
                     (0, 7),
                 )
@@ -234,7 +241,7 @@ class TestSwitchHelpers(unittest.TestCase):
         self.assertTrue(is_switch(ValueSwitch(SwitchTwelve())))
         self.assertFalse(is_switch('hello'))
         self.assertFalse(is_switch(Exception()))
-        self.assertFalse(is_switch(ActionOne({})))
+        self.assertFalse(is_switch(ActionOne(cast(ServerSettings, {}))))
 
     def test_get_switch(self):
         self.assertEqual(5, get_switch(5))
@@ -247,10 +254,13 @@ class TestSwitchHelpers(unittest.TestCase):
         self.assertEqual(12, get_switch(ValueSwitch(SwitchTwelve())))
 
         with self.assertRaises(TypeError):
-            get_switch('hello')
+            # noinspection PyTypeChecker
+            get_switch('hello')  # type: ignore
 
         with self.assertRaises(TypeError):
-            get_switch(Exception())
+            # noinspection PyTypeChecker
+            get_switch(Exception())  # type: ignore
 
         with self.assertRaises(TypeError):
-            get_switch(ActionOne({}))
+            # noinspection PyTypeChecker
+            get_switch(ActionOne({}))  # type: ignore

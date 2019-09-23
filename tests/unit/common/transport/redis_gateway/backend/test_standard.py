@@ -56,7 +56,7 @@ def _execute_lua(self, keys, args, client):
 
 
 # noinspection PyDecorator
-@staticmethod
+@staticmethod  # type: ignore
 def _lua_to_python(lval, return_status=False):
     """
     Patch MockRedis+Lua for Python 3 compatibility
@@ -97,7 +97,7 @@ def _lua_to_python(lval, return_status=False):
 
 
 # noinspection PyDecorator
-@staticmethod
+@staticmethod  # type: ignore
 def _python_to_lua(pval):
     """
     Patch MockRedis+Lua for Python 3 compatibility
@@ -128,13 +128,13 @@ def _python_to_lua(pval):
             lua_table.insert(lua_dict, Script._python_to_lua(k))
             lua_table.insert(lua_dict, Script._python_to_lua(v))
         return lua_dict
-    elif isinstance(pval, tuple(set(six.string_types + (six.binary_type, )))):
+    elif isinstance(pval, tuple(set(six.string_types + (six.binary_type, )))):  # type: ignore
         # Python string --> Lua userdata
         return pval
     elif isinstance(pval, bool):
         # Python bool--> Lua boolean
         return lua.eval(str(pval).lower())
-    elif isinstance(pval, six.integer_types + (float, )):
+    elif isinstance(pval, six.integer_types + (float, )):  # type: ignore
         # Python int --> Lua number
         lua_globals = lua.globals()
         return lua_globals.tonumber(str(pval))

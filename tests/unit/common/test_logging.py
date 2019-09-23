@@ -12,6 +12,11 @@ from logging import (
 import logging.handlers
 import socket
 import threading
+from typing import (  # noqa: F401 TODO Python 3
+    Any,
+    Dict,
+    Optional,
+)
 import unittest
 
 import six
@@ -36,7 +41,7 @@ class TestPySOALogContextFilter(unittest.TestCase):
         PySOALogContextFilter.clear_logging_request_context()
 
     def test_threading(self):
-        thread_data = {}
+        thread_data = {}  # type: Dict[six.text_type, Any]
 
         def fn(*_, **__):
             thread_data['first_get'] = PySOALogContextFilter.get_logging_request_context()
@@ -146,7 +151,7 @@ class TestRecursivelyCensoredDictWrapper(unittest.TestCase):
     def test_non_dict(self):
         with self.assertRaises(ValueError):
             # noinspection PyTypeChecker
-            RecursivelyCensoredDictWrapper(['this', 'is', 'a', 'list'])
+            RecursivelyCensoredDictWrapper(['this', 'is', 'a', 'list'])  # type: ignore
 
     def test_simple_dict(self):
         original = {
@@ -323,42 +328,42 @@ class TestSyslogHandler(object):
 
     def test_constructor(self):
         handler = SyslogHandler()
-        assert handler.socktype == socket.SOCK_DGRAM
+        assert handler.socktype == socket.SOCK_DGRAM  # type: ignore
         if six.PY2:
-            assert not handler.unixsocket
+            assert not handler.unixsocket  # type: ignore
         else:
-            assert handler.unixsocket is False
+            assert handler.unixsocket is False  # type: ignore
         assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_FRAGMENT
         assert handler.maximum_length >= 1252  # (1280 - 28)
 
         handler = SyslogHandler(overflow=SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE)
-        assert handler.socktype == socket.SOCK_DGRAM
+        assert handler.socktype == socket.SOCK_DGRAM  # type: ignore
         if six.PY2:
-            assert not handler.unixsocket
+            assert not handler.unixsocket  # type: ignore
         else:
-            assert handler.unixsocket is False
+            assert handler.unixsocket is False  # type: ignore
         assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
         assert handler.maximum_length >= 1252  # (1280 - 28)
 
         with mock.patch.object(socket.socket, 'connect'):
             handler = SyslogHandler(socket_type=socket.SOCK_STREAM)
-            assert handler.socktype == socket.SOCK_STREAM
+            assert handler.socktype == socket.SOCK_STREAM  # type: ignore
             if six.PY2:
-                assert not handler.unixsocket
+                assert not handler.unixsocket  # type: ignore
             else:
-                assert handler.unixsocket is False
+                assert handler.unixsocket is False  # type: ignore
             assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
             assert handler.maximum_length == 1024 * 1024
 
             handler = SyslogHandler(address='/path/to/unix.socket')
-            assert handler.socktype == socket.SOCK_DGRAM
-            assert handler.unixsocket is True or handler.unixsocket == 1  # Python 2 compatibility
+            assert handler.socktype == socket.SOCK_DGRAM  # type: ignore
+            assert handler.unixsocket is True or handler.unixsocket == 1  # type: ignore # Python 2 compatibility
             assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
             assert handler.maximum_length == 1024 * 1024
 
             handler = SyslogHandler(address='/path/to/unix.socket', socket_type=socket.SOCK_STREAM)
-            assert handler.socktype == socket.SOCK_STREAM
-            assert handler.unixsocket is True or handler.unixsocket == 1  # Python 2 compatibility
+            assert handler.socktype == socket.SOCK_STREAM  # type: ignore
+            assert handler.unixsocket is True or handler.unixsocket == 1  # type: ignore # Python 2 compatibility
             assert handler.overflow == SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
             assert handler.maximum_length == 1024 * 1024
 
@@ -382,7 +387,7 @@ class TestSyslogHandler(object):
             handler.emit(record)
 
         priority = '<{:d}>'.format(
-            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),  # type: ignore
         ).encode('utf-8')
 
         mock_send.assert_called_once_with([
@@ -394,7 +399,7 @@ class TestSyslogHandler(object):
         handler.maximum_length = 100
         handler.overflow = SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
         handler.formatter = Formatter('foo_file: %(name)s %(levelname)s %(message)s')
-        handler.ident = '5678'
+        handler.ident = '5678'  # type: ignore
 
         record = LogRecord(
             name='bar_service',
@@ -410,7 +415,7 @@ class TestSyslogHandler(object):
             handler.emit(record)
 
         priority = '<{:d}>'.format(
-            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),  # type: ignore
         ).encode('utf-8')
 
         expected1 = (
@@ -429,7 +434,7 @@ class TestSyslogHandler(object):
         handler.maximum_length = 100
         handler.overflow = SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
         handler.formatter = Formatter('foo_file: %(name)s %(levelname)s %(message)s')
-        handler.ident = '5678'
+        handler.ident = '5678'  # type: ignore
 
         record = LogRecord(
             name='bar_service',
@@ -446,7 +451,7 @@ class TestSyslogHandler(object):
             handler.emit(record)
 
         priority = '<{:d}>'.format(
-            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),  # type: ignore
         ).encode('utf-8')
 
         expected1 = (
@@ -466,7 +471,7 @@ class TestSyslogHandler(object):
         handler.maximum_length = 100
         handler.overflow = SyslogHandler.OVERFLOW_BEHAVIOR_TRUNCATE
         handler.formatter = Formatter('foo_file: %(name)s %(levelname)s %(message)s')
-        handler.ident = '5678'
+        handler.ident = '5678'  # type: ignore
 
         record = LogRecord(
             name='bar_service',
@@ -483,7 +488,7 @@ class TestSyslogHandler(object):
             handler.emit(record)
 
         priority = '<{:d}>'.format(
-            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),  # type: ignore
         ).encode('utf-8')
 
         expected1 = (
@@ -516,7 +521,7 @@ class TestSyslogHandler(object):
             handler.emit(record)
 
         priority = '<{:d}>'.format(
-            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),  # type: ignore
         ).encode('utf-8')
 
         expected1 = (
@@ -563,7 +568,7 @@ class TestSyslogHandler(object):
             handler.emit(record)
 
         priority = '<{:d}>'.format(
-            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),  # type: ignore
         ).encode('utf-8')
 
         expected1 = (
@@ -611,7 +616,7 @@ class TestSyslogHandler(object):
             handler.emit(record)
 
         priority = '<{:d}>'.format(
-            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),
+            handler.encodePriority(handler.facility, handler.mapPriority(record.levelname)),  # type: ignore
         ).encode('utf-8')
 
         expected1 = (
@@ -698,20 +703,25 @@ class TestSyslogHandler(object):
         # connection method has to re-mock send so that we can capture the send retries. Yuck.
         first_mock_send_patch = mock.patch.object(socket.socket, 'send')
         second_mock_send_patch = mock.patch.object(socket.socket, 'send')
-        mock_sends = {'first_mock_send': None, 'second_mock_send': None}
+        mock_sends = {
+            'first_mock_send': None,
+            'second_mock_send': None,
+        }  # type: Dict[six.text_type, Optional[mock.MagicMock]]
 
         def close_side_effect(*_, **__):
             first_mock_send_patch.stop()
 
         def connect_side_effect(*_, **__):
-            mock_sends['second_mock_send'] = second_mock_send_patch.start()
-            mock_sends['second_mock_send'].side_effect = [True, True]
+            m = second_mock_send_patch.start()
+            m.side_effect = [True, True]
+            mock_sends['second_mock_send'] = m
 
         try:
             with mock.patch.object(socket.socket, 'close') as mock_close, \
                     mock.patch.object(socket.socket, 'connect') as mock_reconnect:
-                mock_sends['first_mock_send'] = first_mock_send_patch.start()
-                mock_sends['first_mock_send'].side_effect = [True, OSError()]
+                m = first_mock_send_patch.start()
+                m.side_effect = [True, OSError()]
+                mock_sends['first_mock_send'] = m
 
                 mock_close.side_effect = close_side_effect
                 mock_reconnect.side_effect = connect_side_effect
@@ -720,11 +730,15 @@ class TestSyslogHandler(object):
         finally:
             mock.patch.stopall()
 
-        mock_sends['first_mock_send'].assert_has_calls([
+        m = mock_sends['first_mock_send']
+        assert m is not None
+        m.assert_has_calls([
             mock.call('this is the first part'),
             mock.call('here is another part'),
         ])
-        mock_sends['second_mock_send'].assert_has_calls([
+        m = mock_sends['second_mock_send']
+        assert m is not None
+        m.assert_has_calls([
             mock.call('here is another part'),
             mock.call('one more part'),
         ])
