@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.69.1 (2019-09-23)
+-------------------
+- [PATCH] Be permissive about string types in assertions
+
 0.69.0 (2019-09-23)
 -------------------
 - [MAJOR] Add Python typing comments to type the API
