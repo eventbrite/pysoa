@@ -12,7 +12,6 @@ from typing import (  # noqa: F401 TODO Python 3
     TypeVar,
     cast,
 )
-import warnings
 
 import six  # noqa: F401 TODO Python 3
 
@@ -34,7 +33,7 @@ def set_running_loop(loop):  # noqa
     pass
 
 
-if (3, 4) < sys.version_info < (3, 7):
+if (3, 4) < sys.version_info < (3, 7):  # pragma: no cover
     # Some context is necessary here. ContextVars were added in Python 3.7, but we need them in Python 3.5+. The
     # contextvars PyPi library is an API-compatible backport, but it has two drawbacks: It uses thread locals under the
     # hood (not safe in asyncio contexts) and it doesn't copy the context when a new task is created (like Python 3.7
@@ -127,32 +126,45 @@ class ContextVar(Generic[VT]):
     """
     def __init__(self, name, default=cast(VT, _NO_DEFAULT)):  # type: (six.text_type, VT) -> None
         self.name = name
-        self.has_default = default is not _NO_DEFAULT
-        self.default = default
+        self._has_default = default is not _NO_DEFAULT
+        self._default = default
 
         self._cv_variable = None  # type: Optional[contextvars.ContextVar[VT]]
         self._tl_variable = None  # type: Optional[threading.local]
         if contextvars:
-            if self.has_default:
+            if self._has_default:
                 self._cv_variable = contextvars.ContextVar(name, default=default)
             else:
                 self._cv_variable = contextvars.ContextVar(name)
         elif threading:
             self._tl_variable = threading.local()
+        # else is not possible
 
-    @property
-    def variable(self):  # type: () -> Any
-        warnings.warn(
-            '`ContextVar.variable` has been deprecated and will be removed in PySOA 1.0.0',
-            DeprecationWarning,
-        )
-        return self._cv_variable if self._cv_variable is not None else self._tl_variable
-
-    def set(self, value):  # type: (VT) -> None
+    def set(self, value):  # type: (VT) -> Token
         if self._cv_variable is not None:
-            self._cv_variable.set(value)
+            token = self._cv_variable.set(value)
+            return _ContextVarToken(self, token)
         elif self._tl_variable is not None:
+            previous_value = getattr(self._tl_variable, 'value', _NO_DEFAULT)
             self._tl_variable.value = value
+            return _ThreadLocalToken(self, previous_value)
+        else:
+            raise TypeError('This context var has been internally messed with and is no longer valid.')
+
+    def reset(self, token):  # type: (Token) -> None
+        if token.context_var is not self:
+            raise ValueError('Token was created by a different ContextVar')
+        if self._cv_variable is not None:
+            if not isinstance(token, _ContextVarToken):
+                raise TypeError('Unexpected `{}` expecting `_ContextVarToken`'.format(token.__class__.__name__))
+            self._cv_variable.reset(token.token)
+        elif self._tl_variable is not None:
+            if not isinstance(token, _ThreadLocalToken):
+                raise TypeError('Unexpected `{}` expecting `_ThreadLocalToken`'.format(token.__class__.__name__))
+            if token.previous_value is _NO_DEFAULT:
+                delattr(self._tl_variable, 'value')
+            else:
+                self._tl_variable.value = token.previous_value
         else:
             raise TypeError('This context var has been internally messed with and is no longer valid.')
 
@@ -165,8 +177,8 @@ class ContextVar(Generic[VT]):
         if self._tl_variable is None:
             raise TypeError('This context var has been internally messed with and is no longer valid.')
 
-        if has_default or self.has_default:
-            return cast(VT, getattr(self._tl_variable, 'value', default if has_default else self.default))
+        if has_default or self._has_default:
+            return cast(VT, getattr(self._tl_variable, 'value', default if has_default else self._default))
 
         try:
             return cast(VT, self._tl_variable.value)
@@ -174,7 +186,24 @@ class ContextVar(Generic[VT]):
             raise LookupError(self)
 
     def __repr__(self):  # type: () -> six.text_type
-        return super(ContextVar, self).__repr__().replace(
-            'ContextVar object at',
-            "ContextVar name='{}' at".format(self.name),
-        )
+        r = "<ContextVar name='{}'".format(self.name)
+        if self._default is not _NO_DEFAULT:
+            r += ' default={!r}'.format(self._default)
+        return r + ' at {:0x}>'.format(id(self))
+
+
+class Token(object):
+    def __init__(self, context_var):  # type: (ContextVar) -> None
+        self.context_var = context_var
+
+
+class _ContextVarToken(Token):
+    def __init__(self, context_var, token):  # type: (ContextVar, contextvars.Token) -> None
+        super(_ContextVarToken, self).__init__(context_var)
+        self.token = token
+
+
+class _ThreadLocalToken(Token):
+    def __init__(self, context_var, previous_value):  # type: (ContextVar, Any) -> None
+        super(_ThreadLocalToken, self).__init__(context_var)
+        self.previous_value = previous_value

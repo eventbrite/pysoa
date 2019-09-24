@@ -111,11 +111,12 @@ class Action(ActionInterface):
                     code=error.code,
                     message=error.message,
                     field=error.pointer,
+                    is_caller_error=True,
                 )
                 for error in (self.request_schema.errors(action_request.body) or [])
             ]
             if errors:
-                raise ActionError(errors=errors)
+                raise ActionError(errors=errors, is_caller_error=None)
         # Run any custom validation
         self.validate(action_request)
         # Run the body of the action

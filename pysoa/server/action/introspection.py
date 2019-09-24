@@ -156,9 +156,15 @@ class IntrospectionAction(Action):
                 switch = int(match.group(str('switch')))
 
         if action_name not in self.server.action_class_map and action_name not in ('status', 'introspect'):
-            raise ActionError(errors=[
-                Error(code=ERROR_CODE_INVALID, message='Action not defined in service', field='action_name'),
-            ])
+            raise ActionError(
+                errors=[Error(
+                    code=ERROR_CODE_INVALID,
+                    message='Action not defined in service',
+                    field='action_name',
+                    is_caller_error=True,
+                )],
+                is_caller_error=None,
+            )
 
         if action_name in self.server.action_class_map:
             action_class = self.server.action_class_map[action_name]
