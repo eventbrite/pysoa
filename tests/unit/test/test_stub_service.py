@@ -8,7 +8,7 @@ import random
 from unittest import TestCase
 
 import attr
-from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
+from conformity.settings import SettingsData
 import six
 
 from pysoa.client.client import Client

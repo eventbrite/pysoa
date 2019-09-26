@@ -4,7 +4,7 @@ from __future__ import (
 )
 
 import abc
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Callable,
     Dict,
@@ -16,14 +16,14 @@ from typing import (  # noqa: F401 TODO Python 3
 )
 
 import attr
-import six  # noqa: F401 TODO Python 3
+import six
 
-from pysoa.client.client import Client  # noqa: F401 TODO Python 3
+from pysoa.client.client import Client
 from pysoa.common.constants import (
     ERROR_CODE_SERVER_ERROR,
     ERROR_CODE_UNKNOWN,
 )
-from pysoa.common.types import (  # noqa: F401 TODO Python 3
+from pysoa.common.types import (
     ActionRequest,
     ActionResponse,
     Context,
@@ -31,7 +31,7 @@ from pysoa.common.types import (  # noqa: F401 TODO Python 3
     Error,
 )
 from pysoa.server.errors import ActionError
-from pysoa.server.internal.types import (  # noqa: F401 TODO Python 3
+from pysoa.server.internal.types import (
     RequestSwitchSet,
     SupportsIntValue,
 )

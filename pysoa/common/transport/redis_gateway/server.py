@@ -3,19 +3,19 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
 )
 
 from conformity import fields
-import six  # noqa: F401 TODO Python 3
+import six
 
-from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
+from pysoa.common.metrics import (
     MetricsRecorder,
     TimerResolution,
 )
-from pysoa.common.transport.base import (  # noqa: F401 TODO Python 3
+from pysoa.common.transport.base import (
     ReceivedMessage,
     ServerTransport,
 )

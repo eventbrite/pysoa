@@ -11,7 +11,7 @@ import signal
 import sys
 import tempfile
 import time
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Dict,
     Optional,
 )

@@ -19,7 +19,7 @@ from __future__ import (
 
 import abc
 import threading
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     NamedTuple,

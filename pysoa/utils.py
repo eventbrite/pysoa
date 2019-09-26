@@ -6,7 +6,7 @@ from __future__ import (
 
 import ctypes
 import sys
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     FrozenSet,

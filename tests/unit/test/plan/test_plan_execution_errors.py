@@ -4,7 +4,7 @@ from __future__ import (
 )
 
 import os
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Dict,
     List,
     Optional,
@@ -13,9 +13,9 @@ from typing import (  # noqa: F401 TODO Python 3
 )
 import unittest
 
-import six  # noqa: F401 TODO Python 3
+import six
 
-from pysoa.common.types import ActionResponse  # noqa: F401 TODO Python 3
+from pysoa.common.types import ActionResponse
 from pysoa.test.compatibility import mock
 from pysoa.test.plan import ServicePlanTestCase
 from pysoa.test.plan.errors import (

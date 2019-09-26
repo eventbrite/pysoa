@@ -4,7 +4,7 @@ from __future__ import (
 )
 
 from collections import deque
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Deque,
     Dict,
@@ -18,7 +18,7 @@ from typing import (  # noqa: F401 TODO Python 3
 from conformity import fields
 import six
 
-from pysoa.common.metrics import MetricsRecorder  # noqa: F401 TODO Python 3
+from pysoa.common.metrics import MetricsRecorder
 from pysoa.common.transport.base import (
     ClientTransport,
     ReceivedMessage,

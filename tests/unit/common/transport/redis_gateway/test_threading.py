@@ -5,13 +5,13 @@ from __future__ import (
 
 import threading
 import time
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Dict,
     List,
 )
 import unittest
 
-import six  # noqa: F401 TODO Python 3
+import six
 
 from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.exceptions import MessageReceiveTimeout

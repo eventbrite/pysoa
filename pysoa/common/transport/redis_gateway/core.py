@@ -11,7 +11,7 @@ import math
 import random
 import re
 import time
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     FrozenSet,
@@ -28,7 +28,7 @@ import redis
 import six
 
 from pysoa.common.logging import RecursivelyCensoredDictWrapper
-from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
+from pysoa.common.metrics import (
     Counter,
     Histogram,
     MetricsRecorder,
@@ -46,7 +46,7 @@ from pysoa.common.transport.exceptions import (
     MessageSendError,
     MessageTooLarge,
 )
-from pysoa.common.transport.redis_gateway.backend.base import (  # noqa: F401 TODO Python 3
+from pysoa.common.transport.redis_gateway.backend.base import (
     BaseRedisClient,
     CannotGetConnectionError,
 )

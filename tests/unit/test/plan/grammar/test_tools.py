@@ -3,13 +3,13 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
 )
 import unittest
 
-import six  # noqa: F401 TODO Python 3
+import six
 
 from pysoa.test.plan.errors import StatusError
 from pysoa.test.plan.grammar.tools import (

@@ -4,9 +4,9 @@ from __future__ import (
 )
 
 import copy
-from typing import Dict  # noqa: F401 TODO Python 3
+from typing import Dict
 
-from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
+from conformity.settings import SettingsData
 import pytest
 
 from pysoa.client.client import Client

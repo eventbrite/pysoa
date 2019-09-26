@@ -4,7 +4,7 @@ from __future__ import (
 )
 
 import re
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     Generator,
@@ -26,7 +26,7 @@ from pysoa.server.action.switched import SwitchedAction
 from pysoa.server.errors import ActionError
 from pysoa.server.internal.types import get_switch
 from pysoa.server.server import Server
-from pysoa.server.types import (  # noqa: F401 TODO Python 3
+from pysoa.server.types import (
     ActionType,
     EnrichedActionRequest,
 )

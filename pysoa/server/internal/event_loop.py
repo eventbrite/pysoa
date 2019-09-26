@@ -14,7 +14,7 @@ from typing import (
 from conformity import fields
 
 from pysoa.common.compatibility import set_running_loop
-from pysoa.server.coroutine import (  # noqa: F401 TODO Python 3
+from pysoa.server.coroutine import (
     Coroutine,
     CoroutineMiddleware,
 )

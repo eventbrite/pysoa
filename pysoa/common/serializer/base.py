@@ -4,7 +4,7 @@ from __future__ import (
 )
 
 import abc
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Dict,
     FrozenSet,
     Type,

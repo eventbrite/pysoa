@@ -4,9 +4,9 @@ from __future__ import (
 )
 
 import sys
-from typing import List  # noqa: F401 TODO Python 3
+from typing import List
 
-import six  # noqa: F401 TODO Python 3
+import six
 
 
 # Skip event loop tests for Python versions less than 3.5

@@ -6,7 +6,7 @@ from __future__ import (
 import warnings
 
 from conformity import fields
-from conformity.settings import (  # noqa: F401 TODO Python 3
+from conformity.settings import (
     SettingsData,
     SettingsSchema,
 )

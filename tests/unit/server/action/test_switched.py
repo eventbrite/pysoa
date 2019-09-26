@@ -3,7 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Callable,
     Optional,
     SupportsInt,

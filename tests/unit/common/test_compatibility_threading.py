@@ -6,7 +6,7 @@ from __future__ import (
 import contextlib
 import threading
 import time
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Dict,
     Optional,
 )
