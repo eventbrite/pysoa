@@ -24,6 +24,7 @@ from typing import (  # noqa: F401 TODO Python 3
     Union,
     cast,
 )
+from typing_extensions import Literal
 
 from conformity import fields
 from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
@@ -609,7 +610,7 @@ class stub_action(object):
         self.enabled = True
         return self._current_mock_action
 
-    def __exit__(self, exc_type=None, exc_value=None, traceback=None):  # type: (Any, Any, Any) -> bool
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):  # type: (Any, Any, Any) -> Literal[False]
         if not self.enabled:
             return False
 

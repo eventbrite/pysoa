@@ -10,6 +10,7 @@ from typing import (  # noqa: F401 TODO Python 3
     Optional,
     Union,
 )
+from typing_extensions import Literal
 
 from conformity import fields
 import six
@@ -77,7 +78,7 @@ class Timer(Histogram):
         self.start()
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):  # type: (Any, Any, Any) -> bool
+    def __exit__(self, exc_type, exc_value, traceback):  # type: (Any, Any, Any) -> Literal[False]
         """
         Stops the timer at the end of the context manager. All parameters are ignored. Always returns ``False``.
 
