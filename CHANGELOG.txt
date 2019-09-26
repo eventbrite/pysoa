@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.70.1 (2019-09-26)
+-------------------
+- [PATCH] Fix tests broken by releasing 0.70.0
+
 0.70.0 (2019-09-26)
 -------------------
 - [MINOR] #204: Add is_caller_error attribute to Error objects
