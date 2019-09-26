@@ -840,6 +840,7 @@ class TestStubAction(ServerTestCase):
                 code='UNKNOWN',
                 message='The action "does_not_exist" was not found on this server.',
                 field='action',
+                is_caller_error=True,
             )],
             job_responses[3].actions[0].errors
         )

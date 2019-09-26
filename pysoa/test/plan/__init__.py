@@ -19,6 +19,7 @@ from typing import (  # noqa: F401 TODO Python 3
     Type,
     Union,
 )
+from typing_extensions import Literal
 
 import attr
 import six
@@ -766,7 +767,7 @@ class ServicePlanTestCase(ServerTestCase):
             return None
 
         def __exit__(self, exc_type=None, exc_value=None, traceback=None):
-            # type: (Any, Any, Any) -> bool
+            # type: (Any, Any, Any) -> Literal[False]
             if self._stub_action_context:
                 return self._stub_action_context.__exit__(exc_type, exc_value, traceback)
             return False
