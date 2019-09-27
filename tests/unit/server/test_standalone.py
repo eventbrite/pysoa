@@ -8,8 +8,8 @@ import os
 import signal
 import sys
 import time
-from types import ModuleType  # noqa: F401 TODO Python 3
-from typing import Optional  # noqa: F401 TODO Python 3
+from types import ModuleType
+from typing import Optional
 import unittest
 
 import freezegun

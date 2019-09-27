@@ -5,13 +5,13 @@ from __future__ import (
 
 import random
 import re
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
 )
 import unittest
 
-import six  # noqa: F401 TODO Python 3
+import six
 
 from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.base import get_hex_thread_id

@@ -5,9 +5,9 @@ from __future__ import (
 
 import enum
 import re
-from typing import Tuple  # noqa: F401 TODO Python 3
+from typing import Tuple
 
-import six  # noqa: F401 TODO Python 3
+import six
 
 
 __all__ = (

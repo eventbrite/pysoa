@@ -58,8 +58,8 @@ import subprocess
 import sys
 import threading
 import time
-from types import ModuleType  # noqa: F401 TODO Python 3
-from typing import (  # noqa: F401 TODO Python 3
+from types import ModuleType
+from typing import (
     Dict,
     List,
     Optional,

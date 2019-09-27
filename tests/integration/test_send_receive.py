@@ -6,7 +6,7 @@ from __future__ import (
 import sys
 import traceback
 import types
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     List,
@@ -15,7 +15,7 @@ from unittest import TestCase
 
 from conformity import fields
 import pytest
-import six  # noqa: F401 TODO Python 3
+import six
 
 from pysoa.client.client import Client
 from pysoa.client.middleware import ClientMiddleware

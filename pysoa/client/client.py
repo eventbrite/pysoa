@@ -7,7 +7,7 @@ import collections
 import random
 import sys
 from types import TracebackType
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     AbstractSet,
     Any,
     Callable,
@@ -29,11 +29,11 @@ from typing import (  # noqa: F401 TODO Python 3
 import uuid
 
 import attr
-from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
+from conformity.settings import SettingsData
 import six
 
 from pysoa.version import __version_info__
-from pysoa.client.expander import (  # noqa: F401 TODO Python 3
+from pysoa.client.expander import (
     ExpansionConverter,
     ExpansionNode,
     Expansions,
@@ -41,17 +41,17 @@ from pysoa.client.expander import (  # noqa: F401 TODO Python 3
     TypeExpansions,
     TypeRoutes,
 )
-from pysoa.client.middleware import (  # noqa: F401 TODO Python 3
+from pysoa.client.middleware import (
     ClientMiddleware,
     ClientRequestMiddlewareTask,
     ClientResponseMiddlewareTask,
 )
 from pysoa.client.settings import ClientSettings
-from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
+from pysoa.common.metrics import (
     MetricsRecorder,
     TimerResolution,
 )
-from pysoa.common.transport.base import ClientTransport  # noqa: F401 TODO Python 3
+from pysoa.common.transport.base import ClientTransport
 from pysoa.common.transport.exceptions import (
     ConnectionError,
     InvalidMessageError,
@@ -61,7 +61,7 @@ from pysoa.common.transport.exceptions import (
     MessageSendTimeout,
     MessageTooLarge,
 )
-from pysoa.common.types import (  # noqa: F401 TODO Python 3
+from pysoa.common.types import (
     ActionRequest,
     ActionResponse,
     Body,

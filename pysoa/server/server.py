@@ -15,8 +15,8 @@ import sys
 import threading
 import time
 import traceback
-from types import FrameType  # noqa: F401 TODO Python 3
-from typing import (  # noqa: F401 TODO Python 3
+from types import FrameType
+from typing import (
     Any,
     Callable,
     Dict,
@@ -44,19 +44,19 @@ from pysoa.common.logging import (
     PySOALogContextFilter,
     RecursivelyCensoredDictWrapper,
 )
-from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
+from pysoa.common.metrics import (
     MetricsRecorder,
     Timer,
     TimerResolution,
 )
 from pysoa.common.serializer.exceptions import InvalidField
-from pysoa.common.transport.base import ServerTransport  # noqa: F401 TODO Python 3
+from pysoa.common.transport.base import ServerTransport
 from pysoa.common.transport.exceptions import (
     MessageReceiveError,
     MessageReceiveTimeout,
     MessageTooLarge,
 )
-from pysoa.common.types import (  # noqa: F401 TODO Python 3
+from pysoa.common.types import (
     ActionResponse,
     Context,
     Error,
@@ -68,10 +68,10 @@ from pysoa.server.errors import (
     JobError,
 )
 from pysoa.server.internal.types import RequestSwitchSet
-from pysoa.server.middleware import ServerMiddleware  # noqa: F401 TODO Python 3
+from pysoa.server.middleware import ServerMiddleware
 from pysoa.server.schemas import JobRequestSchema
 from pysoa.server.settings import ServerSettings
-from pysoa.server.types import (  # noqa: F401 TODO Python 3
+from pysoa.server.types import (
     ActionType,
     EnrichedActionRequest,
 )

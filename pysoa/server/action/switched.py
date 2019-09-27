@@ -4,7 +4,7 @@ from __future__ import (
 )
 
 import abc
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Optional,
     Sequence,
@@ -15,13 +15,13 @@ from typing import (  # noqa: F401 TODO Python 3
 
 import six
 
-from pysoa.common.types import ActionResponse  # noqa: F401 TODO Python 3
-from pysoa.server.internal.types import (  # noqa: F401 TODO Python 3
+from pysoa.common.types import ActionResponse
+from pysoa.server.internal.types import (
     SupportsIntValue,
     is_switch,
 )
-from pysoa.server.settings import ServerSettings  # noqa: F401 TODO Python 3
-from pysoa.server.types import (  # noqa: F401 TODO Python 3
+from pysoa.server.settings import ServerSettings
+from pysoa.server.types import (
     ActionType,
     EnrichedActionRequest,
 )

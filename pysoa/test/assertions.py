@@ -4,7 +4,7 @@ from __future__ import (
 )
 
 import contextlib
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     Iterable,
@@ -21,7 +21,7 @@ import pytest
 import six
 
 from pysoa.client.client import Client
-from pysoa.common.types import Error  # noqa: F401 TODO Python 3
+from pysoa.common.types import Error
 
 
 __all__ = (

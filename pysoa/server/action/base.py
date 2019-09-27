@@ -4,14 +4,14 @@ from __future__ import (
 )
 
 import abc
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     Optional,
     Union,
 )
 
-from conformity import fields  # noqa: F401 TODO Python 3
+from conformity import fields
 import six
 
 from pysoa.common.types import (
@@ -22,8 +22,8 @@ from pysoa.server.errors import (
     ActionError,
     ResponseValidationError,
 )
-from pysoa.server.settings import ServerSettings  # noqa: F401 TODO Python 3
-from pysoa.server.types import (  # noqa: F401 TODO Python 3
+from pysoa.server.settings import ServerSettings
+from pysoa.server.types import (
     ActionInterface,
     EnrichedActionRequest,
 )

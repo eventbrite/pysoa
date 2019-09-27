@@ -5,7 +5,7 @@ from __future__ import (
 
 import sys
 import threading
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Generic,
     Optional,
@@ -13,7 +13,7 @@ from typing import (  # noqa: F401 TODO Python 3
     cast,
 )
 
-import six  # noqa: F401 TODO Python 3
+import six
 
 
 try:

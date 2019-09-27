@@ -7,18 +7,18 @@ import abc
 import binascii
 import itertools
 import random
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Callable,
     List,
     Optional,
 )
 
-import redis  # noqa: F401 TODO Python 3
-import redis.client  # noqa: F401 TODO Python 3
+import redis
+import redis.client
 import six
 
-from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
+from pysoa.common.metrics import (
     Counter,
     NoOpMetricsRecorder,
 )

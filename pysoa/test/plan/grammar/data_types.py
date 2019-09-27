@@ -7,7 +7,7 @@ import base64
 import datetime
 import decimal
 import re
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     List,
@@ -17,7 +17,7 @@ from typing import (  # noqa: F401 TODO Python 3
     cast,
 )
 
-from pyparsing import (  # noqa: F401 TODO Python 3
+from pyparsing import (
     ParseResults,
     oneOf,
 )

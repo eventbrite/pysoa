@@ -8,8 +8,8 @@ import os
 import re
 import sys
 import traceback
-from types import TracebackType  # noqa: F401 TODO Python 3
-from typing import (  # noqa: F401 TODO Python 3
+from types import TracebackType
+from typing import (
     Any,
     Dict,
     Generator,
@@ -24,15 +24,15 @@ from typing_extensions import Literal
 import attr
 import six
 
-from pysoa.common.types import Body  # noqa: F401 TODO Python 3
-from pysoa.test.compatibility import mock  # noqa: F401 TODO Python 3
+from pysoa.common.types import Body
+from pysoa.test.compatibility import mock
 from pysoa.test.plan import grammar
 from pysoa.test.plan.errors import (
     DirectiveError,
     FixtureLoadError,
     StatusError,
 )
-from pysoa.test.plan.grammar.directive import (  # noqa: F401 TODO Python 3
+from pysoa.test.plan.grammar.directive import (
     ActionCase,
     ActionResults,
     Directive,

@@ -3,17 +3,17 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Generator,
     Iterable,
     List,
     Optional,
 )
 
-from conformity.error import Error as ConformityError  # noqa: F401 TODO Python 3
-import six  # noqa: F401 TODO Python 3
+from conformity.error import Error as ConformityError
+import six
 
-from pysoa.common.types import Error  # noqa: F401 TODO Python 3
+from pysoa.common.types import Error
 
 
 def _replace_error_if_necessary(errors, is_caller_error):

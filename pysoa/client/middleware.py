@@ -3,7 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Callable,
     Dict,
@@ -12,9 +12,9 @@ from typing import (  # noqa: F401 TODO Python 3
 )
 
 from conformity import fields
-import six  # noqa: F401 TODO Python 3
+import six
 
-from pysoa.common.types import (  # noqa: F401 TODO Python 3
+from pysoa.common.types import (
     JobRequest,
     JobResponse,
 )

@@ -9,7 +9,7 @@ from collections import (
 )
 from functools import wraps
 import re
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Callable,
     Dict,
@@ -27,7 +27,7 @@ from typing import (  # noqa: F401 TODO Python 3
 from typing_extensions import Literal
 
 from conformity import fields
-from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
+from conformity.settings import SettingsData
 import six
 
 from pysoa.client.client import (
@@ -35,7 +35,7 @@ from pysoa.client.client import (
     ServiceHandler,
 )
 from pysoa.client.settings import ClientSettings
-from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
+from pysoa.common.metrics import (
     MetricsRecorder,
     NoOpMetricsRecorder,
 )
@@ -44,7 +44,7 @@ from pysoa.common.transport.exceptions import (
     MessageReceiveTimeout,
 )
 from pysoa.common.transport.local import LocalClientTransport
-from pysoa.common.types import (  # noqa: F401 TODO Python 3
+from pysoa.common.types import (
     ActionRequest,
     ActionResponse,
     Body,
@@ -57,7 +57,7 @@ from pysoa.server.errors import (
     JobError,
 )
 from pysoa.server.server import Server
-from pysoa.server.types import (  # noqa: F401 TODO Python 3
+from pysoa.server.types import (
     ActionType,
     EnrichedActionRequest,
 )

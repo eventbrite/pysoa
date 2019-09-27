@@ -4,7 +4,7 @@ from __future__ import (
 )
 
 import json
-from typing import Dict  # noqa: F401 TODO Python 3
+from typing import Dict
 
 from conformity import fields
 import six

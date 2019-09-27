@@ -3,15 +3,15 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import Mapping  # noqa: F401 TODO Python 3
+from typing import Mapping
 from unittest import TestCase
 
 from conformity import fields
-import six  # noqa: F401 TODO Python 3
+import six
 
 from pysoa.common.transport.base import ServerTransport
 from pysoa.server.server import Server
-from pysoa.server.types import ActionType  # noqa: F401 TODO Python 3
+from pysoa.server.types import ActionType
 from pysoa.test import factories
 
 

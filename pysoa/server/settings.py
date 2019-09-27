@@ -3,7 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
 )
@@ -14,11 +14,11 @@ from conformity.fields.logging import (
     PYTHON_LOGGING_CONFIG_SCHEMA,
     PythonLogLevel,
 )
-from conformity.settings import (  # noqa: F401 TODO Python 3
+from conformity.settings import (
     SettingsData,
     SettingsSchema,
 )
-import six  # noqa: F401 TODO Python 3
+import six
 
 from pysoa.common.logging import SyslogHandler
 from pysoa.common.settings import SOASettings

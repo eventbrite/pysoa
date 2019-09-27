@@ -6,7 +6,7 @@ from __future__ import (
 import itertools
 import random
 import time
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     Iterable,

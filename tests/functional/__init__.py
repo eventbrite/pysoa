@@ -4,9 +4,9 @@ from __future__ import (
 )
 
 import subprocess
-from typing import List  # noqa: F401 TODO Python 3
+from typing import List
 
-import six  # noqa: F401 TODO Python 3
+import six
 
 
 COMPOSE_FILE = 'tests/functional/docker/docker-compose.yaml'
