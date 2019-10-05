@@ -21,7 +21,7 @@ import pytest
 import six
 
 from pysoa.client.client import Client
-from pysoa.common.types import Error
+from pysoa.common.errors import Error
 
 
 __all__ = (

@@ -23,15 +23,15 @@ from pysoa.common.constants import (
     ERROR_CODE_INVALID,
     ERROR_CODE_SERVER_ERROR,
 )
+from pysoa.common.errors import Error
 from pysoa.common.transport.base import ClientTransport
-from pysoa.common.transport.exceptions import (
+from pysoa.common.transport.errors import (
     MessageReceiveError,
     MessageSendError,
 )
 from pysoa.common.types import (
     ActionRequest,
     ActionResponse,
-    Error,
     JobResponse,
 )
 from pysoa.server.errors import JobError

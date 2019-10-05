@@ -20,7 +20,7 @@ from pysoa.common.transport.base import (
     ReceivedMessage,
     get_hex_thread_id,
 )
-from pysoa.common.transport.exceptions import MessageReceiveTimeout
+from pysoa.common.transport.errors import MessageReceiveTimeout
 from pysoa.common.transport.redis_gateway.backend.base import BaseRedisClient
 from pysoa.common.transport.redis_gateway.constants import ProtocolVersion
 from pysoa.common.transport.redis_gateway.core import RedisTransportClientCore

@@ -14,7 +14,7 @@ import unittest
 from pymetrics.recorders.noop import noop_metrics
 import six
 
-from pysoa.common.transport.exceptions import MessageReceiveTimeout
+from pysoa.common.transport.errors import MessageReceiveTimeout
 from pysoa.common.transport.redis_gateway.client import RedisClientTransport
 from pysoa.common.transport.redis_gateway.constants import REDIS_BACKEND_TYPE_STANDARD
 from pysoa.common.transport.redis_gateway.server import RedisServerTransport

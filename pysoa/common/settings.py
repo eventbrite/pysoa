@@ -22,6 +22,7 @@ class Settings(ConformitySettings):
         warnings.warn(
             'pysoa.common.settings.Settings is deprecated. Use conformity.settings.ConformitySettings, instead.',
             DeprecationWarning,
+            stacklevel=2,
         )
         super(Settings, self).__init__(data)
 

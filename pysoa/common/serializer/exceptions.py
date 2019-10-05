@@ -3,16 +3,15 @@ from __future__ import (
     unicode_literals,
 )
 
+import warnings
 
-__all__ = (
-    'InvalidField',
-    'InvalidMessage',
+from pysoa.common.serializer.errors import (  # noqa: F401
+    InvalidField,
+    InvalidMessage,
 )
 
 
-class InvalidMessage(Exception):
-    pass
-
-
-class InvalidField(Exception):
-    pass
+warnings.warn(
+    '`pysoa.common.serializer.exceptions` is deprecated. Import from `pysoa.common.serializer.errors`, instead.',
+    DeprecationWarning,
+)

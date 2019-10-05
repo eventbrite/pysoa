@@ -16,7 +16,7 @@ from conformity.settings import SettingsData
 import pytest
 import six
 
-from pysoa.common.types import Error
+from pysoa.common.errors import Error
 from pysoa.server.action.base import Action
 from pysoa.server.errors import (
     ActionError,

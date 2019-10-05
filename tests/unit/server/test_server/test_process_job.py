@@ -6,7 +6,7 @@ from __future__ import (
 from unittest import TestCase
 
 from pysoa.common.constants import ERROR_CODE_INVALID
-from pysoa.common.types import Error
+from pysoa.common.errors import Error
 from pysoa.server.errors import ActionError
 from pysoa.server.middleware import ServerMiddleware
 from pysoa.server.server import Server

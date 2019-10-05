@@ -19,7 +19,7 @@ from conformity import fields
 import six
 
 from pysoa.common.constants import ERROR_CODE_INVALID
-from pysoa.common.types import Error
+from pysoa.common.errors import Error
 from pysoa.server.action.base import Action
 from pysoa.server.action.status import BaseStatusAction
 from pysoa.server.action.switched import SwitchedAction
@@ -163,7 +163,7 @@ class IntrospectionAction(Action):
                     field='action_name',
                     is_caller_error=True,
                 )],
-                is_caller_error=None,
+                set_is_caller_error_to=None,
             )
 
         if action_name in self.server.action_class_map:

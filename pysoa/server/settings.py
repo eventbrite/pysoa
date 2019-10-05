@@ -42,6 +42,7 @@ def log_level_schema(*args, **kwargs):
         '`pysoa.server.settings.log_level_schema` is deprecated. '
         'Use `conformity.fields.logging.PythonLogLevel`, instead.',
         DeprecationWarning,
+        stacklevel=2,
     )
     return PythonLogLevel(*args, **kwargs)
 
@@ -195,7 +196,7 @@ class RedisServerSettings(ServerSettings):
     def __init__(self, *args, **kwargs):
         super(RedisServerSettings, self).__init__(*args, **kwargs)
 
-        warnings.warn('RedisServerSettings is deprecated; use ServerSettings instead', DeprecationWarning)
+        warnings.warn('RedisServerSettings is deprecated; use ServerSettings instead', DeprecationWarning, stacklevel=2)
 
 
 class LocalServerSettings(ServerSettings):
@@ -212,7 +213,7 @@ class LocalServerSettings(ServerSettings):
     def __init__(self, *args, **kwargs):
         super(LocalServerSettings, self).__init__(*args, **kwargs)
 
-        warnings.warn('LocalServerSettings is deprecated; use ServerSettings instead', DeprecationWarning)
+        warnings.warn('LocalServerSettings is deprecated; use ServerSettings instead', DeprecationWarning, stacklevel=2)
 
 
 class PolymorphicServerSettings(ServerSettings):
@@ -223,4 +224,8 @@ class PolymorphicServerSettings(ServerSettings):
     def __init__(self, *args, **kwargs):
         super(PolymorphicServerSettings, self).__init__(*args, **kwargs)
 
-        warnings.warn('PolymorphicServerSettings is deprecated; use ServerSettings instead', DeprecationWarning)
+        warnings.warn(
+            'PolymorphicServerSettings is deprecated; use ServerSettings instead',
+            DeprecationWarning,
+            stacklevel=2,
+        )

@@ -20,7 +20,7 @@ import pytz
 import six
 
 from pysoa.common.serializer.base import Serializer as BaseSerializer
-from pysoa.common.serializer.exceptions import (
+from pysoa.common.serializer.errors import (
     InvalidField,
     InvalidMessage,
 )

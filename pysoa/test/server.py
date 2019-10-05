@@ -21,10 +21,10 @@ from conformity.settings import SettingsData
 import six
 
 from pysoa.client.client import Client
+from pysoa.common.errors import Error
 from pysoa.common.types import (
     ActionResponse,
     Body,
-    Error,
 )
 from pysoa.server.server import Server
 from pysoa.test.assertions import (
