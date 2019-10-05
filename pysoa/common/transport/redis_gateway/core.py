@@ -24,18 +24,18 @@ from typing import (
 )
 
 import attr
+from pymetrics.instruments import (
+    Counter,
+    Histogram,
+    Timer,
+    TimerResolution,
+)
+from pymetrics.recorders.base import MetricsRecorder
+from pymetrics.recorders.noop import noop_metrics
 import redis
 import six
 
 from pysoa.common.logging import RecursivelyCensoredDictWrapper
-from pysoa.common.metrics import (
-    Counter,
-    Histogram,
-    MetricsRecorder,
-    NoOpMetricsRecorder,
-    Timer,
-    TimerResolution,
-)
 from pysoa.common.serializer.base import Serializer
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
 from pysoa.common.transport.base import ReceivedMessage
@@ -88,7 +88,7 @@ def _valid_chunk_threshold(_, __, value):
         )
 
 
-_DEFAULT_METRICS_RECORDER = NoOpMetricsRecorder()  # type: MetricsRecorder
+_DEFAULT_METRICS_RECORDER = noop_metrics  # type: MetricsRecorder
 
 
 @attr.s
@@ -135,7 +135,7 @@ class RedisTransportCore(object):
 
     metrics = attr.ib(
         default=_DEFAULT_METRICS_RECORDER,
-        validator=attr.validators.instance_of(MetricsRecorder),
+        validator=attr.validators.instance_of(MetricsRecorder),  # type: ignore
     )  # type: MetricsRecorder
 
     queue_capacity = attr.ib(

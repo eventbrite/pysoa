@@ -6,7 +6,8 @@ from __future__ import (
 import random
 import unittest
 
-from pysoa.common.metrics import NoOpMetricsRecorder
+from pymetrics.recorders.noop import noop_metrics
+
 from pysoa.common.transport.exceptions import InvalidMessageError
 from pysoa.common.transport.redis_gateway.server import RedisServerTransport
 from pysoa.test.compatibility import mock
@@ -16,7 +17,7 @@ from pysoa.test.compatibility import mock
 class TestServerTransport(unittest.TestCase):
     @staticmethod
     def _get_transport(service='my_service', **kwargs):
-        return RedisServerTransport(service, NoOpMetricsRecorder(), **kwargs)
+        return RedisServerTransport(service, noop_metrics, **kwargs)
 
     def test_core_args(self, mock_core):
         transport = self._get_transport(hello='world', goodbye='earth')

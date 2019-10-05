@@ -4,6 +4,7 @@ from __future__ import (
 )
 
 import codecs
+
 from setuptools import (
     find_packages,
     setup,
@@ -23,6 +24,7 @@ install_requires = [
     'currint>=1.6,<3',
     'enum34;python_version<"3.4"',
     'msgpack-python~=0.5,>=0.5.2',
+    'pymetrics~=0.21',
     'pytz>=2019.1',
     'redis~=2.10',
     'six~=1.10',

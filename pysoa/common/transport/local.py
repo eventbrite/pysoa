@@ -16,9 +16,9 @@ from typing import (
 )
 
 from conformity import fields
+from pymetrics.recorders.base import MetricsRecorder
 import six
 
-from pysoa.common.metrics import MetricsRecorder
 from pysoa.common.transport.base import (
     ClientTransport,
     ReceivedMessage,

@@ -29,6 +29,11 @@ from typing import (
 )
 
 import attr
+from pymetrics.instruments import (
+    Timer,
+    TimerResolution,
+)
+from pymetrics.recorders.base import MetricsRecorder
 import six
 
 from pysoa.client.client import Client
@@ -43,11 +48,6 @@ from pysoa.common.constants import (
 from pysoa.common.logging import (
     PySOALogContextFilter,
     RecursivelyCensoredDictWrapper,
-)
-from pysoa.common.metrics import (
-    MetricsRecorder,
-    Timer,
-    TimerResolution,
 )
 from pysoa.common.serializer.exceptions import InvalidField
 from pysoa.common.transport.base import ServerTransport
@@ -238,9 +238,9 @@ class Server(object):
                 raise MessageReceiveTimeout()
         except MessageReceiveTimeout:
             # no new message, nothing to do
-            # self._idle_timer.stop()  TODO when timers are re-entrant
+            self._idle_timer.stop()
             self.perform_idle_actions()
-            # self._idle_timer.start()  TODO when timers are re-entrant
+            self._idle_timer.start()
             return
 
         # We are no longer idle, so stop the timer and reset for the next idle period
@@ -676,7 +676,7 @@ class Server(object):
 
                 try:
                     self.metrics.counter('server.error.harakiri', harakiri_level='emergency')
-                    self.metrics.commit()
+                    self.metrics.publish_all()
                 finally:
                     # We tried shutting down gracefully, but it didn't work. This probably means that we are CPU bound
                     # in lower-level C code that can't be easily interrupted. Because of this, we forcefully terminate
@@ -815,7 +815,7 @@ class Server(object):
         Be sure your purpose for overriding isn't better met with middleware. See the documentation for `Server.main`
         for full details on the chain of `Server` method calls.
         """
-        self.metrics.commit()
+        self.metrics.publish_all()
 
         if self.use_django:
             if getattr(django_settings, 'DATABASES'):
@@ -863,7 +863,7 @@ class Server(object):
         )
 
         self.setup()
-        self.metrics.commit()
+        self.metrics.publish_all()
 
         if self._async_event_loop_thread:
             self._async_event_loop_thread.start()
@@ -881,7 +881,7 @@ class Server(object):
                 signal.alarm(self.settings['harakiri']['timeout'])
                 # Get, process, and execute the next JobRequest
                 self.handle_next_request()
-                self.metrics.commit()
+                self.metrics.publish_all()
         except HarakiriInterrupt:
             self.metrics.counter('server.error.harakiri', harakiri_level='server')
             self.logger.error('Harakiri interrupt occurred outside of action or job handling')
@@ -892,7 +892,7 @@ class Server(object):
             self.logger.exception('Unhandled server error; shutting down')
         finally:
             self.teardown()
-            self.metrics.commit()
+            self.metrics.publish_all()
             self.logger.info('Server shutting down')
             if self._async_event_loop_thread:
                 self._async_event_loop_thread.join()

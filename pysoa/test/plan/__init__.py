@@ -19,10 +19,10 @@ from typing import (
     Type,
     Union,
 )
-from typing_extensions import Literal
 
 import attr
 import six
+from typing_extensions import Literal
 
 from pysoa.common.types import Body
 from pysoa.test.compatibility import mock
