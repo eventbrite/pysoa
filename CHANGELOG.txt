@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.71.0 (2019-10-09)
+-------------------
+- [PATCH] Fix incorrect type annotation on Error.variables
+- [MINOR] Refactor PySOA errors for easier and more concise usage
+- [MAJOR] Adopt PyMetrics and remove metrics shims
+- [PATCH] Remove noqa comments now that Flake8 3.7.8 is out
+
 0.70.1 (2019-09-26)
 -------------------
 - [PATCH] Fix tests broken by releasing 0.70.0
