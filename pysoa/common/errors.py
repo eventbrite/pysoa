@@ -46,7 +46,7 @@ class Error(object):
     message = attr.ib()  # type: six.text_type
     field = attr.ib(default=None)  # type: Optional[six.text_type]
     traceback = attr.ib(default=None)  # type: Optional[six.text_type]
-    variables = attr.ib(default=None)  # type: Dict[six.text_type, Any]
+    variables = attr.ib(default=None)  # type: Optional[Dict[six.text_type, Any]]
     denied_permissions = attr.ib(default=None)  # type: Optional[List[six.text_type]]
     is_caller_error = attr.ib(default=False, metadata={'added_in_version': (0, 70, 0)})  # type: bool
 
