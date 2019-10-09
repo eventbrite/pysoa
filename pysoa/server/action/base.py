@@ -14,10 +14,8 @@ from typing import (
 from conformity import fields
 import six
 
-from pysoa.common.types import (
-    ActionResponse,
-    Error,
-)
+from pysoa.common.errors import Error
+from pysoa.common.types import ActionResponse
 from pysoa.server.errors import (
     ActionError,
     ResponseValidationError,
@@ -116,7 +114,7 @@ class Action(ActionInterface):
                 for error in (self.request_schema.errors(action_request.body) or [])
             ]
             if errors:
-                raise ActionError(errors=errors, is_caller_error=None)
+                raise ActionError(errors=errors, set_is_caller_error_to=None)
         # Run any custom validation
         self.validate(action_request)
         # Run the body of the action

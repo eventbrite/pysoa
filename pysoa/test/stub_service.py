@@ -37,7 +37,8 @@ from pysoa.client.client import (
     ServiceHandler,
 )
 from pysoa.client.settings import ClientSettings
-from pysoa.common.transport.exceptions import (
+from pysoa.common.errors import Error
+from pysoa.common.transport.errors import (
     MessageReceiveError,
     MessageReceiveTimeout,
 )
@@ -46,7 +47,6 @@ from pysoa.common.types import (
     ActionRequest,
     ActionResponse,
     Body,
-    Error,
     JobResponse,
 )
 from pysoa.server.action import Action

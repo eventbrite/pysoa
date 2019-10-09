@@ -5,7 +5,7 @@ from __future__ import (
 
 import unittest
 
-from pysoa.common.types import Error
+from pysoa.common.errors import Error
 from pysoa.test.plan.grammar import assertions
 from pysoa.test.plan.grammar.data_types import AnyValue
 

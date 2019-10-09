@@ -8,7 +8,7 @@ import unittest
 
 from pymetrics.recorders.noop import noop_metrics
 
-from pysoa.common.transport.exceptions import InvalidMessageError
+from pysoa.common.transport.errors import InvalidMessageError
 from pysoa.common.transport.redis_gateway.server import RedisServerTransport
 from pysoa.test.compatibility import mock
 

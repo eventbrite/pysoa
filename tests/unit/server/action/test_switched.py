@@ -13,10 +13,8 @@ import unittest
 
 from conformity import fields
 
-from pysoa.common.types import (
-    ActionResponse,
-    Error,
-)
+from pysoa.common.errors import Error
+from pysoa.common.types import ActionResponse
 from pysoa.server.action.base import Action
 from pysoa.server.action.switched import SwitchedAction
 from pysoa.server.errors import ActionError

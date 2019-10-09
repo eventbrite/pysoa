@@ -14,7 +14,7 @@ from pysoa.common.serializer import (
     JSONSerializer,
     MsgpackSerializer,
 )
-from pysoa.common.serializer.exceptions import (
+from pysoa.common.serializer.errors import (
     InvalidField,
     InvalidMessage,
 )

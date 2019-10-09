@@ -45,13 +45,14 @@ from pysoa.common.constants import (
     ERROR_CODE_SERVER_ERROR,
     ERROR_CODE_UNKNOWN,
 )
+from pysoa.common.errors import Error
 from pysoa.common.logging import (
     PySOALogContextFilter,
     RecursivelyCensoredDictWrapper,
 )
-from pysoa.common.serializer.exceptions import InvalidField
+from pysoa.common.serializer.errors import InvalidField
 from pysoa.common.transport.base import ServerTransport
-from pysoa.common.transport.exceptions import (
+from pysoa.common.transport.errors import (
     MessageReceiveError,
     MessageReceiveTimeout,
     MessageTooLarge,
@@ -59,7 +60,6 @@ from pysoa.common.transport.exceptions import (
 from pysoa.common.types import (
     ActionResponse,
     Context,
-    Error,
     JobResponse,
     UnicodeKeysDict,
 )
@@ -379,7 +379,7 @@ class Server(object):
                 for error in (JobRequestSchema.errors(job_request) or [])
             ]
             if validation_errors:
-                raise JobError(errors=validation_errors, is_caller_error=None)
+                raise JobError(errors=validation_errors, set_is_caller_error_to=None)
 
             # Add the client object in case a middleware or action wishes to use it
             job_request['client'] = self.make_client(job_request['context'])

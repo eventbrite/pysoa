@@ -8,10 +8,8 @@ import logging
 import attr
 import pytest
 
-from pysoa.common.types import (
-    ActionResponse,
-    Error,
-)
+from pysoa.common.errors import Error
+from pysoa.common.types import ActionResponse
 from pysoa.server.errors import ActionError
 from pysoa.server.types import EnrichedActionRequest
 from pysoa.test.compatibility import mock

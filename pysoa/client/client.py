@@ -34,6 +34,12 @@ from pymetrics.instruments import TimerResolution
 from pymetrics.recorders.base import MetricsRecorder
 import six
 
+from pysoa.client.errors import (
+    CallActionError,
+    CallJobError,
+    ImproperlyConfigured,
+    InvalidExpansionKey,
+)
 from pysoa.client.expander import (
     ExpansionConverter,
     ExpansionNode,
@@ -48,15 +54,11 @@ from pysoa.client.middleware import (
     ClientResponseMiddlewareTask,
 )
 from pysoa.client.settings import ClientSettings
+from pysoa.common.errors import Error
 from pysoa.common.transport.base import ClientTransport
-from pysoa.common.transport.exceptions import (
-    ConnectionError,
-    InvalidMessageError,
-    MessageReceiveError,
+from pysoa.common.transport.errors import (
     MessageReceiveTimeout,
-    MessageSendError,
-    MessageSendTimeout,
-    MessageTooLarge,
+    PySOATransportError,
 )
 from pysoa.common.types import (
     ActionRequest,
@@ -64,7 +66,6 @@ from pysoa.common.types import (
     Body,
     Context,
     Control,
-    Error,
     JobRequest,
     JobResponse,
     UnicodeKeysDict,
@@ -142,8 +143,7 @@ class ServiceHandler(object):
 
         :return: The request ID
 
-        :raises: :class:`ConnectionError`, :class:`InvalidField`, :class:`MessageSendError`,
-                 :class:`MessageSendTimeout`, :class:`MessageTooLarge`
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`
         """
         request_id = self.request_counter
         self.request_counter += 1
@@ -181,8 +181,7 @@ class ServiceHandler(object):
 
         :return: A generator that yields a two-tuple of request ID, job response
 
-        :raises: :class:`ConnectionError`, :class:`MessageReceiveError`, :class:`MessageReceiveTimeout`,
-                 :class:`InvalidMessage`, :class:`StopIteration`
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`, :class:`StopIteration`
         """
 
         wrapper = self._make_middleware_stack(
@@ -262,6 +261,9 @@ class FutureSOAResponse(Generic[_FR]):
                         seconds) will be used.
 
         :return: The response
+
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
+                 :class:`CallActionError`, :class:`CallJobError`
         """
         if self._raise:
             if six.PY2:
@@ -378,51 +380,20 @@ class Client(object):
 
     # Exceptions
 
-    class ImproperlyConfigured(Exception):
-        """
-        Raised when this client is improperly configured to call the specified service.
-        """
+    ImproperlyConfigured = ImproperlyConfigured
+    """Convenience alias for :class:`pysoa.client.errors.ImproperlyConfigured`"""
 
-    class InvalidExpansionKey(Exception):
-        """
-        Raised when this client is improperly configured to perform the specified expansion.
-        """
+    InvalidExpansionKey = InvalidExpansionKey
+    """Convenience alias for :class:`pysoa.client.errors.InvalidExpansionKey`"""
 
-    class JobError(Exception):
-        """
-        Raised by `Client.call_***` methods when a job response contains one or more job errors. Stores a list of
-        :class:`Error` objects and has a string representation cleanly displaying the errors.
-        """
+    JobError = CallJobError
+    """Convenience alias for :class:`pysoa.client.errors.CallJobError`"""
 
-        def __init__(self, errors=None):  # type: (Optional[List[Error]]) -> None
-            """
-            :param errors: The list of all errors in this job, available as an `errors` property on the exception
-                           instance.
-            """
-            self.errors = errors or []  # type: List[Error]
+    CallJobError = CallJobError
+    """Convenience alias for :class:`pysoa.client.errors.CallJobError`"""
 
-        def __repr__(self):
-            return self.__str__()
-
-        def __str__(self):
-            errors_string = '\n'.join([str(e) for e in self.errors])
-            return 'Error executing job:\n{}'.format(errors_string)
-
-    class CallActionError(Exception):
-        """
-        Raised by `Client.call_***` methods when a job response contains one or more action errors. Stores a list of
-        :class:`ActionResponse` objects and has a string representation cleanly displaying the actions' errors.
-        """
-        def __init__(self, actions=None):  # type: (Optional[List[ActionResponse]]) -> None
-            """
-            :param actions: The list of all actions that have errors (not actions without errors), available as an
-                            `actions` property on the exception instance.
-            """
-            self.actions = actions or []  # type: List[ActionResponse]
-
-        def __str__(self):
-            errors_string = '\n'.join(['{a.action}: {a.errors}'.format(a=a) for a in self.actions])
-            return 'Error calling action(s):\n{}'.format(errors_string)
+    CallActionError = CallActionError
+    """Convenience alias for :class:`pysoa.client.errors.CallActionError`"""
 
     # Blocking methods that send a request and wait until a response is available
 
@@ -468,9 +439,8 @@ class Client(object):
 
         :return: The action response.
 
-        :raises: :class:`ConnectionError`, :class:`InvalidField`, :class:`MessageSendError`,
-                 :class:`MessageSendTimeout`, :class:`MessageTooLarge`, :class:`MessageReceiveError`,
-                 :class:`MessageReceiveTimeout`, :class:`InvalidMessage`, :class:`JobError`, :class:`CallActionError`
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
+                 :class:`CallActionError`, :class:`CallJobError`
         """
         return self.call_action_future(
             service_name=service_name,
@@ -530,9 +500,8 @@ class Client(object):
 
         :return: The job response.
 
-        :raises: :class:`ConnectionError`, :class:`InvalidField`, :class:`MessageSendError`,
-                 :class:`MessageSendTimeout`, :class:`MessageTooLarge`, :class:`MessageReceiveError`,
-                 :class:`MessageReceiveTimeout`, :class:`InvalidMessage`, :class:`JobError`, :class:`CallActionError`
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
+                 :class:`CallActionError`, :class:`CallJobError`
         """
         return self.call_actions_future(
             service_name=service_name,
@@ -582,14 +551,13 @@ class Client(object):
         :param raise_action_errors: Whether to raise a :class:`CallActionError` if any action responses contain errors
                                     (defaults to `True`).
         :param catch_transport_errors: Whether to catch transport errors and return them instead of letting them
-                                       propagate. By default (`False`), the errors :class:`ConnectionError`,
-                                       :class:`InvalidMessageError`, :class:`MessageReceiveError`,
-                                       :class:`MessageReceiveTimeout`, :class:`MessageSendError`,
-                                       :class:`MessageSendTimeout`, and :class:`MessageTooLarge`, when raised by the
-                                       transport, cause the entire process to terminate, potentially losing responses.
-                                       If this argument is set to `True`, those errors are, instead, caught, and they
-                                       are returned in place of their corresponding responses in the returned list of
-                                       job responses.
+                                       propagate. By default (`False`), all raised
+                                       :class:`pysoa.common.transport.errors.PySOATransportError` exceptions cause the
+                                       entire process to terminate, potentially losing responses. If this argument is
+                                       set to `True`, those errors are, instead, caught, and they are returned in place
+                                       of their corresponding responses in the returned list of job responses. You
+                                       should not do this in most cases, but it is helpful if you really need to get
+                                       the successful responses even if there are errors getting other responses.
         :param timeout: If provided, this will override the default transport timeout values to; requests will expire
                         after this number of seconds plus some buffer defined by the transport, and the client will not
                         block waiting for a response for longer than this amount of time.
@@ -600,9 +568,8 @@ class Client(object):
 
         :return: A generator of action responses
 
-        :raises: :class:`ConnectionError`, :class:`InvalidField`, :class:`MessageSendError`,
-                 :class:`MessageSendTimeout`, :class:`MessageTooLarge`, :class:`MessageReceiveError`,
-                 :class:`MessageReceiveTimeout`, :class:`InvalidMessage`, :class:`JobError`, :class:`CallActionError`
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
+                 :class:`CallActionError`, :class:`CallJobError`
         """
         return self.call_actions_parallel_future(
             service_name=service_name,
@@ -652,14 +619,13 @@ class Client(object):
         :param raise_action_errors: Whether to raise a :class:`CallActionError` if any action responses contain errors
                                     (defaults to `True`).
         :param catch_transport_errors: Whether to catch transport errors and return them instead of letting them
-                                       propagate. By default (`False`), the errors :class:`ConnectionError`,
-                                       :class:`InvalidMessageError`, :class:`MessageReceiveError`,
-                                       :class:`MessageReceiveTimeout`, :class:`MessageSendError`,
-                                       :class:`MessageSendTimeout`, and :class:`MessageTooLarge`, when raised by the
-                                       transport, cause the entire process to terminate, potentially losing responses.
-                                       If this argument is set to `True`, those errors are, instead, caught, and they
-                                       are returned in place of their corresponding responses in the returned list of
-                                       job responses.
+                                       propagate. By default (`False`), all raised
+                                       :class:`pysoa.common.transport.errors.PySOATransportError` exceptions cause the
+                                       entire process to terminate, potentially losing responses. If this argument is
+                                       set to `True`, those errors are, instead, caught, and they are returned in place
+                                       of their corresponding responses in the returned list of job responses. You
+                                       should not do this in most cases, but it is helpful if you really need to get
+                                       the successful responses even if there are errors getting other responses.
         :param timeout: If provided, this will override the default transport timeout values to; requests will expire
                         after this number of seconds plus some buffer defined by the transport, and the client will not
                         block waiting for a response for longer than this amount of time.
@@ -672,9 +638,8 @@ class Client(object):
 
         :return: The job response
 
-        :raises: :class:`ConnectionError`, :class:`InvalidField`, :class:`MessageSendError`,
-                 :class:`MessageSendTimeout`, :class:`MessageTooLarge`, :class:`MessageReceiveError`,
-                 :class:`MessageReceiveTimeout`, :class:`InvalidMessage`, :class:`JobError`, :class:`CallActionError`
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
+                 :class:`CallActionError`, :class:`CallJobError`
         """
         return self.call_jobs_parallel_future(
             jobs=jobs,
@@ -715,6 +680,8 @@ class Client(object):
         the future is used.
 
         :return: A future from which the action response can later be retrieved
+
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
         """
         action_request = ActionRequest(
             action=action,
@@ -766,6 +733,8 @@ class Client(object):
         the future is used.
 
         :return: A future from which the job response can later be retrieved
+
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
         """
         expected_request_id = self.send_request(
             service_name=service_name,
@@ -853,6 +822,8 @@ class Client(object):
         of `Exception` instead of individual :class:`ActionResponse`s. Be sure to check for that if used in this manner.
 
         :return: A generator of action responses that blocks waiting on responses once you begin iteration
+
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
         """
         job_responses = self.call_jobs_parallel_future(
             jobs=({'service_name': service_name, 'actions': [action]} for action in actions),
@@ -906,6 +877,8 @@ class Client(object):
         others may be raised when the future is used.
 
         :return: A future from which the list of job responses can later be retrieved
+
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
         """
         error_key = 0
         transport_errors = {}  # type: Dict[Tuple[six.text_type, int], Exception]
@@ -925,7 +898,7 @@ class Client(object):
                     message_expiry_in_seconds=timeout if timeout else None,
                 )
                 service_request_ids.setdefault(job['service_name'], set()).add(sent_request_id)
-            except (ConnectionError, InvalidMessageError, MessageSendError, MessageSendTimeout, MessageTooLarge) as e:
+            except PySOATransportError as e:
                 if not catch_transport_errors:
                     raise
                 sent_request_id = error_key = error_key - 1
@@ -949,7 +922,7 @@ class Client(object):
                         if catch_transport_errors:
                             # We don't need the set to be reduced unless we're catching errors
                             request_ids.remove(request_id)
-                except (ConnectionError, InvalidMessageError, MessageReceiveError, MessageReceiveTimeout) as e:
+                except PySOATransportError as e:
                     if not catch_transport_errors:
                         raise
                     for request_id in request_ids:
@@ -1038,8 +1011,7 @@ class Client(object):
 
         :return: The request ID
 
-        :raises: :class:`ConnectionError`, :class:`InvalidField`, :class:`MessageSendError`,
-                 :class:`MessageSendTimeout`, :class:`MessageTooLarge`
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`
         """
 
         control_extra = control_extra.copy() if control_extra else {}
@@ -1072,8 +1044,7 @@ class Client(object):
 
         :return: A generator that yields a two-tuple of request ID, job response
 
-        :raises: :class:`ConnectionError`, :class:`MessageReceiveError`, :class:`MessageReceiveTimeout`,
-                 :class:`InvalidMessage`
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`
         """
 
         handler = self._get_handler(service_name)

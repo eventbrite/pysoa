@@ -16,10 +16,10 @@ from pysoa.common.constants import (
     ERROR_CODE_INVALID,
     ERROR_CODE_NOT_AUTHORIZED,
 )
+from pysoa.common.errors import Error
 from pysoa.common.types import (
     ActionRequest,
     ActionResponse,
-    Error,
     JobResponse,
     UnicodeKeysDict,
 )

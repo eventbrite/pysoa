@@ -23,6 +23,7 @@ import six
 __all__ = (
     'ExpansionConverter',
     'ExpansionNode',
+    'Expansions',
     'ExpansionSettings',
     'TypeExpansions',
     'TypeNode',

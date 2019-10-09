@@ -23,12 +23,12 @@ from pysoa.common.constants import (
     ERROR_CODE_SERVER_ERROR,
     ERROR_CODE_UNKNOWN,
 )
+from pysoa.common.errors import Error
 from pysoa.common.types import (
     ActionRequest,
     ActionResponse,
     Context,
     Control,
-    Error,
 )
 from pysoa.server.errors import ActionError
 from pysoa.server.internal.types import (
@@ -135,7 +135,7 @@ class EnrichedActionRequest(ActionRequest):
                 is_caller_error=False,
             )]
             if raise_action_errors:
-                raise ActionError(errors, is_caller_error=None)
+                raise ActionError(errors, set_is_caller_error_to=None)
             return ActionResponse(action=action, errors=errors)
 
         if action not in server.action_class_map:
@@ -147,7 +147,7 @@ class EnrichedActionRequest(ActionRequest):
                 is_caller_error=False,
             )]
             if raise_action_errors:
-                raise ActionError(errors, is_caller_error=None)
+                raise ActionError(errors, set_is_caller_error_to=None)
             return ActionResponse(action=action, errors=errors)
 
         action_type = server.action_class_map[action]  # type: ActionType
@@ -173,7 +173,7 @@ class EnrichedActionRequest(ActionRequest):
             return ActionResponse(action=action, errors=e.errors)
 
         if raise_action_errors and response.errors:
-            raise ActionError(response.errors, is_caller_error=is_caller_error)
+            raise ActionError(response.errors, set_is_caller_error_to=is_caller_error)
 
         return response
 

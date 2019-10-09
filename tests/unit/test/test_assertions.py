@@ -6,10 +6,8 @@ from __future__ import (
 import pytest
 
 from pysoa.client.client import Client
-from pysoa.common.types import (
-    ActionResponse,
-    Error,
-)
+from pysoa.common.errors import Error
+from pysoa.common.types import ActionResponse
 from pysoa.test.assertions import (
     raises_call_action_error,
     raises_error_codes,

@@ -18,7 +18,7 @@ import six
 
 from pysoa.common.serializer.json_serializer import JSONSerializer
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
-from pysoa.common.transport.exceptions import (
+from pysoa.common.transport.errors import (
     InvalidMessageError,
     MessageReceiveError,
     MessageReceiveTimeout,

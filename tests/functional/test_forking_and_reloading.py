@@ -8,7 +8,7 @@ import time
 import pytest
 
 from pysoa.common.constants import ERROR_CODE_ACTION_TIMEOUT
-from pysoa.common.transport.exceptions import MessageReceiveTimeout
+from pysoa.common.transport.errors import MessageReceiveTimeout
 
 from tests.functional import (
     get_container_logs,

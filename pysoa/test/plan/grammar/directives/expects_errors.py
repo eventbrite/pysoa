@@ -15,7 +15,7 @@ from pyparsing import (
 )
 import six
 
-from pysoa.common.types import Error
+from pysoa.common.errors import Error
 from pysoa.test.plan.grammar.assertions import (
     assert_actual_list_not_subset,
     assert_expected_list_subset_of_actual,

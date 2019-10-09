@@ -39,7 +39,7 @@ from pysoa.common.logging import RecursivelyCensoredDictWrapper
 from pysoa.common.serializer.base import Serializer
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
 from pysoa.common.transport.base import ReceivedMessage
-from pysoa.common.transport.exceptions import (
+from pysoa.common.transport.errors import (
     InvalidMessageError,
     MessageReceiveError,
     MessageReceiveTimeout,

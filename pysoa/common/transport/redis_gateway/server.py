@@ -17,7 +17,7 @@ from pysoa.common.transport.base import (
     ReceivedMessage,
     ServerTransport,
 )
-from pysoa.common.transport.exceptions import (
+from pysoa.common.transport.errors import (
     InvalidMessageError,
     MessageReceiveTimeout,
 )
