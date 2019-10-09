@@ -284,6 +284,9 @@ _CT = TypeVar('_CT', Type[Any], Callable)
 _CT_T = TypeVar('_CT_T', bound=Type[Any])
 _CT_C = TypeVar('_CT_C', bound=Callable)
 
+_StubActionSideEffectSimple = Union[Body, Exception, Type[Exception], Callable[[Body], Body]]
+_StubActionSideEffect = Union[_StubActionSideEffectSimple, Iterable[_StubActionSideEffectSimple]]
+
 
 # noinspection PyProtectedMember
 class stub_action(object):
@@ -397,7 +400,7 @@ class stub_action(object):
         action,  # type: six.text_type
         body=None,  # type: Optional[Body]
         errors=None,  # type: Optional[Errors]
-        side_effect=None,  # type: Optional[Union[Body, Exception, Callable[[Body], Body]]]
+        side_effect=None,  # type: _StubActionSideEffect
     ):  # type: (...) -> None
         assert isinstance(service, six.text_type), 'Stubbed service name "{}" must be unicode'.format(service)
         assert isinstance(action, six.text_type), 'Stubbed action name "{}" must be unicode'.format(action)
