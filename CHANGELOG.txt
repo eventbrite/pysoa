@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.71.1 (2019-10-09)
+-------------------
+- [PATCH] Fix typing for stub_action's side_effect
+
 0.71.0 (2019-10-09)
 -------------------
 - [PATCH] Fix incorrect type annotation on Error.variables
