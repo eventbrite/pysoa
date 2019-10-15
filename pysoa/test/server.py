@@ -5,7 +5,7 @@ from __future__ import (
 
 import importlib
 import os
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     Iterable,
@@ -17,14 +17,14 @@ from typing import (  # noqa: F401 TODO Python 3
 )
 import unittest
 
-from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
-import six  # noqa: F401 TODO Python 3
+from conformity.settings import SettingsData
+import six
 
 from pysoa.client.client import Client
-from pysoa.common.types import (  # noqa: F401 TODO Python 3
+from pysoa.common.errors import Error
+from pysoa.common.types import (
     ActionResponse,
     Body,
-    Error,
 )
 from pysoa.server.server import Server
 from pysoa.test.assertions import (

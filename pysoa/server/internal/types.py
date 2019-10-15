@@ -3,12 +3,13 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Iterable,
     Optional,
     SupportsInt,
     Type,
+    TypeVar,
     Union,
 )
 
@@ -66,9 +67,9 @@ class SwitchSet(frozenset):
     """
 
     def __new__(
-        cls,
+        cls,  # type: Type[_S]
         switches=None,  # type: Optional[Iterable[Union[SupportsInt, SupportsIntValue]]]
-    ):  # type: (...) -> Type[SwitchSet]
+    ):  # type: (...) -> _S
         """
         Create a new uninitialized `SwitchSet` instance.
 
@@ -89,6 +90,9 @@ class SwitchSet(frozenset):
         :return: A boolean indicating whether the switch is active (in the set)
         """
         return super(SwitchSet, self).__contains__(get_switch(switch))  # type: ignore
+
+
+_S = TypeVar('_S', bound=SwitchSet)
 
 
 class RequestSwitchSet(SwitchSet):

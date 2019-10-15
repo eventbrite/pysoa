@@ -3,7 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
@@ -11,9 +11,9 @@ from typing import (  # noqa: F401 TODO Python 3
 )
 
 from conformity import fields
-import six  # noqa: F401 TODO Python 3
+import six
 
-from pysoa.common.types import (  # noqa: F401 TODO Python 3
+from pysoa.common.types import (
     ActionResponse,
     JobResponse,
 )
@@ -21,7 +21,7 @@ from pysoa.common.types import (  # noqa: F401 TODO Python 3
 
 if TYPE_CHECKING:
     # To prevent circular imports
-    from pysoa.server.types import EnrichedActionRequest  # noqa: F401 TODO Python 3
+    from pysoa.server.types import EnrichedActionRequest
 
 
 __all__ = (

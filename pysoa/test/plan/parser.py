@@ -7,7 +7,7 @@ import codecs
 import copy
 import functools
 import os
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     List,
@@ -15,7 +15,7 @@ from typing import (  # noqa: F401 TODO Python 3
     Type,
 )
 
-from pyparsing import (  # noqa: F401 TODO Python 3
+from pyparsing import (
     LineEnd,
     LineStart,
     MatchFirst,
@@ -29,14 +29,14 @@ from pyparsing import (  # noqa: F401 TODO Python 3
     line as get_parse_line,
     lineno as get_parse_line_number,
 )
-import six  # noqa: F401 TODO Python 3
+import six
 
 from pysoa.test.plan.errors import (
     FixtureLoadError,
     FixtureSyntaxError,
 )
 from pysoa.test.plan.grammar.data_types import DataTypeConversionError
-from pysoa.test.plan.grammar.directive import (  # noqa: F401 TODO Python 3
+from pysoa.test.plan.grammar.directive import (
     Directive,
     TestCase,
     TestFixture,

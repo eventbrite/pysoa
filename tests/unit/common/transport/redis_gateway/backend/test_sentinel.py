@@ -3,7 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
 )
@@ -11,7 +11,7 @@ import unittest
 
 import msgpack
 import redis.sentinel
-import six  # noqa: F401 TODO Python 3
+import six
 
 from pysoa.common.transport.redis_gateway.backend.base import CannotGetConnectionError
 from pysoa.common.transport.redis_gateway.backend.sentinel import SentinelRedisClient

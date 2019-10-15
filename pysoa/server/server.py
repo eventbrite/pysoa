@@ -15,8 +15,8 @@ import sys
 import threading
 import time
 import traceback
-from types import FrameType  # noqa: F401 TODO Python 3
-from typing import (  # noqa: F401 TODO Python 3
+from types import FrameType
+from typing import (
     Any,
     Callable,
     Dict,
@@ -29,6 +29,11 @@ from typing import (  # noqa: F401 TODO Python 3
 )
 
 import attr
+from pymetrics.instruments import (
+    Timer,
+    TimerResolution,
+)
+from pymetrics.recorders.base import MetricsRecorder
 import six
 
 from pysoa.client.client import Client
@@ -40,26 +45,21 @@ from pysoa.common.constants import (
     ERROR_CODE_SERVER_ERROR,
     ERROR_CODE_UNKNOWN,
 )
+from pysoa.common.errors import Error
 from pysoa.common.logging import (
     PySOALogContextFilter,
     RecursivelyCensoredDictWrapper,
 )
-from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
-    MetricsRecorder,
-    Timer,
-    TimerResolution,
-)
-from pysoa.common.serializer.exceptions import InvalidField
-from pysoa.common.transport.base import ServerTransport  # noqa: F401 TODO Python 3
-from pysoa.common.transport.exceptions import (
+from pysoa.common.serializer.errors import InvalidField
+from pysoa.common.transport.base import ServerTransport
+from pysoa.common.transport.errors import (
     MessageReceiveError,
     MessageReceiveTimeout,
     MessageTooLarge,
 )
-from pysoa.common.types import (  # noqa: F401 TODO Python 3
+from pysoa.common.types import (
     ActionResponse,
     Context,
-    Error,
     JobResponse,
     UnicodeKeysDict,
 )
@@ -68,10 +68,10 @@ from pysoa.server.errors import (
     JobError,
 )
 from pysoa.server.internal.types import RequestSwitchSet
-from pysoa.server.middleware import ServerMiddleware  # noqa: F401 TODO Python 3
+from pysoa.server.middleware import ServerMiddleware
 from pysoa.server.schemas import JobRequestSchema
 from pysoa.server.settings import ServerSettings
-from pysoa.server.types import (  # noqa: F401 TODO Python 3
+from pysoa.server.types import (
     ActionType,
     EnrichedActionRequest,
 )
@@ -114,6 +114,7 @@ __all__ = (
 ServerMiddlewareJobTask = Callable[[Dict[six.text_type, Any]], JobResponse]
 ServerMiddlewareActionTask = Callable[[EnrichedActionRequest], ActionResponse]
 _MT = TypeVar('_MT', ServerMiddlewareActionTask, ServerMiddlewareJobTask)
+_RT = TypeVar('_RT', JobResponse, ActionResponse)
 
 
 class HarakiriInterrupt(BaseException):
@@ -237,9 +238,9 @@ class Server(object):
                 raise MessageReceiveTimeout()
         except MessageReceiveTimeout:
             # no new message, nothing to do
-            # self._idle_timer.stop()  TODO when timers are re-entrant
+            self._idle_timer.stop()
             self.perform_idle_actions()
-            # self._idle_timer.start()  TODO when timers are re-entrant
+            self._idle_timer.start()
             return
 
         # We are no longer idle, so stop the timer and reset for the next idle period
@@ -259,6 +260,16 @@ class Server(object):
         request_for_logging = self.logging_dict_wrapper_class(job_request)
         self.job_logger.log(self.request_log_success_level, 'Job request: %s', request_for_logging)
 
+        client_version = tuple(meta['client_version']) if 'client_version' in meta else (0, 40, 0)
+
+        def attr_filter(attrib, _value):  # type: (attr.Attribute, Any) -> bool
+            # We don't want older clients to blow up trying to re-attr de-attr'd objects that have unexpected attrs
+            return (
+                not attrib.metadata or
+                'added_in_version' not in attrib.metadata or
+                client_version >= attrib.metadata['added_in_version']
+            )
+
         try:
             self.perform_pre_request_actions()
 
@@ -267,11 +278,11 @@ class Server(object):
 
             # Prepare the JobResponse for sending by converting it to a message dict
             try:
-                response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
+                response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict, filter=attr_filter)
             except Exception as e:
                 self.metrics.counter('server.error.response_conversion_failure').increment()
-                job_response = self.handle_job_exception(e, variables={'job_response': job_response})
-                response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict)
+                job_response = self.handle_unhandled_exception(e, JobResponse, variables={'job_response': job_response})
+                response_message = attr.asdict(job_response, dict_factory=UnicodeKeysDict, filter=attr_filter)
 
             response_for_logging = self.logging_dict_wrapper_class(response_message)
 
@@ -291,7 +302,7 @@ class Server(object):
                 self.transport.send_response_message(
                     request_id,
                     meta,
-                    attr.asdict(job_response, dict_factory=UnicodeKeysDict),
+                    attr.asdict(job_response, dict_factory=UnicodeKeysDict, filter=attr_filter),
                 )
             except InvalidField:
                 self.metrics.counter('server.error.response_not_serializable').increment()
@@ -304,7 +315,7 @@ class Server(object):
                 self.transport.send_response_message(
                     request_id,
                     meta,
-                    attr.asdict(job_response, dict_factory=UnicodeKeysDict),
+                    attr.asdict(job_response, dict_factory=UnicodeKeysDict, filter=attr_filter),
                 )
             finally:
                 if job_response.errors or any(a.errors for a in job_response.actions):
@@ -363,11 +374,12 @@ class Server(object):
                     code=error.code,
                     message=error.message,
                     field=error.pointer,
+                    is_caller_error=False,  # because this only happens if the client library code is buggy
                 )
                 for error in (JobRequestSchema.errors(job_request) or [])
             ]
             if validation_errors:
-                raise JobError(errors=validation_errors)
+                raise JobError(errors=validation_errors, set_is_caller_error_to=None)
 
             # Add the client object in case a middleware or action wishes to use it
             job_request['client'] = self.make_client(job_request['context'])
@@ -392,32 +404,35 @@ class Server(object):
                 errors=[Error(
                     code=ERROR_CODE_JOB_TIMEOUT,
                     message='The service job ran for too long and had to be interrupted (probably a middleware issue).',
+                    is_caller_error=False,
                 )],
             )
         except JobError as e:
             self.metrics.counter('server.error.job_error').increment()
             job_response = JobResponse(errors=e.errors)
         except Exception as e:
-            # Send an error response if no middleware caught this.
-            # Formatting the error might itself error, so try to catch that
+            # Send a job error response if no middleware caught this.
             self.metrics.counter('server.error.unhandled_error').increment()
-            return self.handle_job_exception(e)
+            return self.handle_unhandled_exception(e, JobResponse)
 
         return job_response
 
-    def handle_job_exception(self, exception, variables=None):
-        # type: (Exception, Optional[Dict[six.text_type, Any]]) -> JobResponse
+    def handle_unhandled_exception(self, exception, response_type, variables=None, **kwargs):
+        # type: (Exception, Type[_RT], Optional[Dict[six.text_type, Any]], **Any) -> _RT
         """
         Makes and returns a last-ditch error response based on an unknown, unexpected error.
 
-        :param exception: The exception that happened
-        :param variables: A dictionary of context-relevant variables to include in the error response
+        :param exception: The exception that happened.
+        :param response_type: The response type (:class:`JobResponse` or :class:`ActionResponse`) that should be
+                              created.
+        :param variables: An optional dictionary of context-relevant variables to include in the error response.
+        :param kwargs: Keyword arguments that will be passed to the response object created.
 
-        :return: A `JobResponse` object
+        :return: A `JobResponse` object or `ActionResponse` error based on the `response_type` argument.
         """
-        # Get the error and traceback if we can
         # noinspection PyBroadException
         try:
+            # Get the error and traceback if we can
             error_str, traceback_str = six.text_type(exception), traceback.format_exc()
         except Exception:
             self.metrics.counter('server.error.error_formatting_failure').increment()
@@ -435,6 +450,7 @@ class Server(object):
             'code': ERROR_CODE_SERVER_ERROR,
             'message': 'Internal server error: %s' % error_str,
             'traceback': traceback_str,
+            'is_caller_error': False,
         }  # type: Dict[six.text_type, Any]
 
         if variables is not None:
@@ -445,7 +461,7 @@ class Server(object):
                 self.metrics.counter('server.error.variable_formatting_failure').increment()
                 error_dict['variables'] = 'Error formatting variables'
 
-        return JobResponse(errors=[Error(**error_dict)])
+        return response_type(errors=[Error(**error_dict)], **kwargs)
 
     def handle_job_error_code(
         self,
@@ -460,13 +476,13 @@ class Server(object):
         Makes and returns a last-ditch error response based on a known, expected (though unwanted) error while
         logging details about it.
 
-        :param code: The error code
-        :param message: The error message
-        :param request_for_logging: The censor-wrapped request dictionary
-        :param response_for_logging: The censor-wrapped response dictionary
+        :param code: The error code.
+        :param message: The error message.
+        :param request_for_logging: The censor-wrapped request dictionary.
+        :param response_for_logging: The censor-wrapped response dictionary.
         :param extra: Any extra items to add to the logged error.
 
-        :return: A `JobResponse` object
+        :return: A `JobResponse` object.
         """
         log_extra = {'data': {'request': request_for_logging, 'response': response_for_logging}}
         if extra:
@@ -477,7 +493,7 @@ class Server(object):
             exc_info=True,
             extra=log_extra,
         )
-        return JobResponse(errors=[Error(code=code, message=message)])
+        return JobResponse(errors=[Error(code=code, message=message, is_caller_error=False)])
 
     def execute_job(self, job_request):  # type: (Dict[six.text_type, Any]) -> JobResponse
         """
@@ -523,6 +539,7 @@ class Server(object):
                     if not self._default_status_action_class:
                         from pysoa.server.action.status import make_default_status_action_class
                         self._default_status_action_class = make_default_status_action_class(self.__class__)
+                    # noinspection PyTypeChecker
                     action = self._default_status_action_class(self.settings)
 
                 # Wrap it in middleware
@@ -542,15 +559,25 @@ class Server(object):
                             message='The action "{}" ran for too long and had to be interrupted.'.format(
                                 action_request.action,
                             ),
+                            is_caller_error=False,
                         )],
                     )
                     harakiri = True
                 except ActionError as e:
-                    # Error: an error was thrown while running the Action (or Action middleware)
+                    # An action error was thrown while running the action (or its middleware)
                     action_response = ActionResponse(
                         action=action_request.action,
                         errors=e.errors,
                     )
+                except JobError:
+                    # It's unusual for an action or action middleware to raise a JobError, so when it happens it's
+                    # usually for testing purposes or a really important reason, so we re-raise instead of handling
+                    # like we handle all other exceptions below.
+                    raise
+                except Exception as e:
+                    # Send an action error response if no middleware caught this.
+                    self.metrics.counter('server.error.unhandled_error').increment()
+                    action_response = self.handle_unhandled_exception(e, ActionResponse, action=action_request.action)
             else:
                 # Error: Action not found.
                 action_response = ActionResponse(
@@ -559,6 +586,7 @@ class Server(object):
                         code=ERROR_CODE_UNKNOWN,
                         message='The action "{}" was not found on this server.'.format(action_request.action),
                         field='action',
+                        is_caller_error=True,
                     )],
                 )
 
@@ -648,7 +676,7 @@ class Server(object):
 
                 try:
                     self.metrics.counter('server.error.harakiri', harakiri_level='emergency')
-                    self.metrics.commit()
+                    self.metrics.publish_all()
                 finally:
                     # We tried shutting down gracefully, but it didn't work. This probably means that we are CPU bound
                     # in lower-level C code that can't be easily interrupted. Because of this, we forcefully terminate
@@ -664,6 +692,7 @@ class Server(object):
                             # we have no way to run exit functions, so at least give I/O two seconds to flush
                             time.sleep(2.0)
                     finally:
+                        # noinspection PyProtectedMember
                         os._exit(1)
             else:
                 self.logger.warning(
@@ -786,7 +815,7 @@ class Server(object):
         Be sure your purpose for overriding isn't better met with middleware. See the documentation for `Server.main`
         for full details on the chain of `Server` method calls.
         """
-        self.metrics.commit()
+        self.metrics.publish_all()
 
         if self.use_django:
             if getattr(django_settings, 'DATABASES'):
@@ -834,7 +863,7 @@ class Server(object):
         )
 
         self.setup()
-        self.metrics.commit()
+        self.metrics.publish_all()
 
         if self._async_event_loop_thread:
             self._async_event_loop_thread.start()
@@ -852,7 +881,7 @@ class Server(object):
                 signal.alarm(self.settings['harakiri']['timeout'])
                 # Get, process, and execute the next JobRequest
                 self.handle_next_request()
-                self.metrics.commit()
+                self.metrics.publish_all()
         except HarakiriInterrupt:
             self.metrics.counter('server.error.harakiri', harakiri_level='server')
             self.logger.error('Harakiri interrupt occurred outside of action or job handling')
@@ -863,7 +892,7 @@ class Server(object):
             self.logger.exception('Unhandled server error; shutting down')
         finally:
             self.teardown()
-            self.metrics.commit()
+            self.metrics.publish_all()
             self.logger.info('Server shutting down')
             if self._async_event_loop_thread:
                 self._async_event_loop_thread.join()

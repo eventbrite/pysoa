@@ -15,7 +15,7 @@ from pyparsing import (
 )
 import six
 
-from pysoa.common.types import Error
+from pysoa.common.errors import Error
 from pysoa.test.plan.grammar.assertions import (
     assert_actual_list_not_subset,
     assert_expected_list_subset_of_actual,
@@ -130,10 +130,12 @@ class ActionExpectsErrorsDirective(ActionDirective):
         # noinspection PyTypeChecker
         errors.append(Error(  # type: ignore
             code=parse_results.error_code,
-            message=getattr(parse_results, 'error_message', None) or AnyValue('str'),
-            field=getattr(parse_results, 'field_name', None) or AnyValue('str', permit_none=True),
-            traceback=AnyValue('str', permit_none=True),
-            variables=AnyValue('dict', permit_none=True),
+            message=getattr(parse_results, 'error_message', None) or AnyValue('str'),  # type: ignore
+            field=getattr(parse_results, 'field_name', None) or AnyValue('str', permit_none=True),  # type: ignore
+            traceback=AnyValue('str', permit_none=True),  # type: ignore
+            variables=AnyValue('dict', permit_none=True),  # type: ignore
+            denied_permissions=AnyValue('list', permit_none=True),  # type: ignore
+            is_caller_error=AnyValue('bool'),  # type: ignore
         ))
 
     def assert_test_case_action_results(

@@ -13,10 +13,10 @@ import six
 
 import pysoa
 from pysoa.client.client import Client
-from pysoa.common.transport.exceptions import MessageReceiveTimeout
+from pysoa.common.errors import Error
+from pysoa.common.transport.errors import MessageReceiveTimeout
 from pysoa.common.types import (
     ActionResponse,
-    Error,
     JobResponse,
 )
 from pysoa.server.action.status import (

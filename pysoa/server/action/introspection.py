@@ -4,7 +4,7 @@ from __future__ import (
 )
 
 import re
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     Generator,
@@ -19,14 +19,14 @@ from conformity import fields
 import six
 
 from pysoa.common.constants import ERROR_CODE_INVALID
-from pysoa.common.types import Error
+from pysoa.common.errors import Error
 from pysoa.server.action.base import Action
 from pysoa.server.action.status import BaseStatusAction
 from pysoa.server.action.switched import SwitchedAction
 from pysoa.server.errors import ActionError
 from pysoa.server.internal.types import get_switch
 from pysoa.server.server import Server
-from pysoa.server.types import (  # noqa: F401 TODO Python 3
+from pysoa.server.types import (
     ActionType,
     EnrichedActionRequest,
 )
@@ -156,9 +156,15 @@ class IntrospectionAction(Action):
                 switch = int(match.group(str('switch')))
 
         if action_name not in self.server.action_class_map and action_name not in ('status', 'introspect'):
-            raise ActionError(errors=[
-                Error(code=ERROR_CODE_INVALID, message='Action not defined in service', field='action_name'),
-            ])
+            raise ActionError(
+                errors=[Error(
+                    code=ERROR_CODE_INVALID,
+                    message='Action not defined in service',
+                    field='action_name',
+                    is_caller_error=True,
+                )],
+                set_is_caller_error_to=None,
+            )
 
         if action_name in self.server.action_class_map:
             action_class = self.server.action_class_map[action_name]

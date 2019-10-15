@@ -4,6 +4,7 @@ from __future__ import (
 )
 
 import codecs
+
 from setuptools import (
     find_packages,
     setup,
@@ -23,6 +24,7 @@ install_requires = [
     'currint>=1.6,<3',
     'enum34;python_version<"3.4"',
     'msgpack-python~=0.5,>=0.5.2',
+    'pymetrics~=0.21',
     'pytz>=2019.1',
     'redis~=2.10',
     'six~=1.10',
@@ -52,7 +54,7 @@ tests_require = [
     'freezegun~=0.3',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
-    'mypy;python_version>"3.4"',
+    'mypy~=0.730;python_version>"3.4"',
     'pytest-runner',
 ] + test_plan_requirements
 

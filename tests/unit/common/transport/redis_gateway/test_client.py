@@ -5,15 +5,15 @@ from __future__ import (
 
 import random
 import re
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
 )
 import unittest
 
-import six  # noqa: F401 TODO Python 3
+from pymetrics.recorders.noop import noop_metrics
+import six
 
-from pysoa.common.metrics import NoOpMetricsRecorder
 from pysoa.common.transport.base import get_hex_thread_id
 from pysoa.common.transport.redis_gateway.client import RedisClientTransport
 from pysoa.test.compatibility import mock
@@ -23,7 +23,7 @@ from pysoa.test.compatibility import mock
 class TestClientTransport(unittest.TestCase):
     @staticmethod
     def _get_transport(service='my_service', **kwargs):
-        return RedisClientTransport(service, NoOpMetricsRecorder(), **kwargs)
+        return RedisClientTransport(service, noop_metrics, **kwargs)
 
     # noinspection PyCompatibility
     def test_core_args(self, mock_core):

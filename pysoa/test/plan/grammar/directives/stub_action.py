@@ -18,7 +18,7 @@ from pyparsing import (
 )
 import six
 
-from pysoa.common.types import Error
+from pysoa.common.errors import Error
 from pysoa.test.compatibility import mock as unittest_mock
 from pysoa.test.plan.errors import FixtureSyntaxError
 from pysoa.test.plan.grammar.data_types import (

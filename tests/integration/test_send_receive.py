@@ -6,7 +6,7 @@ from __future__ import (
 import sys
 import traceback
 import types
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     List,
@@ -15,7 +15,7 @@ from unittest import TestCase
 
 from conformity import fields
 import pytest
-import six  # noqa: F401 TODO Python 3
+import six
 
 from pysoa.client.client import Client
 from pysoa.client.middleware import ClientMiddleware
@@ -23,15 +23,15 @@ from pysoa.common.constants import (
     ERROR_CODE_INVALID,
     ERROR_CODE_SERVER_ERROR,
 )
+from pysoa.common.errors import Error
 from pysoa.common.transport.base import ClientTransport
-from pysoa.common.transport.exceptions import (
+from pysoa.common.transport.errors import (
     MessageReceiveError,
     MessageSendError,
 )
 from pysoa.common.types import (
     ActionRequest,
     ActionResponse,
-    Error,
     JobResponse,
 )
 from pysoa.server.errors import JobError
@@ -338,7 +338,7 @@ class TestClientSendReceive(TestCase):
                 'body': {},
             },
         ]  # type: List[Dict[six.text_type, Any]]
-        error_expected = Error(code=ERROR_CODE_INVALID, message='Invalid input', field='foo')
+        error_expected = Error(code=ERROR_CODE_INVALID, message='Invalid input', field='foo', is_caller_error=True)
         self.client_settings[SERVICE_NAME]['transport']['kwargs']['action_map']['action_2'] = {
             'errors': [error_expected],
         }
@@ -493,7 +493,7 @@ class TestClientParallelSendReceive(TestCase):
         self.assertEqual({'cat': 'dog'}, action_responses[0].body)
         self.assertEqual({}, action_responses[1].body)
         self.assertEqual(
-            [Error(code=ERROR_CODE_INVALID, message='Invalid input', field='foo')],
+            [Error(code=ERROR_CODE_INVALID, message='Invalid input', field='foo', is_caller_error=True)],
             action_responses[1].errors,
         )
         self.assertEqual({'selected': True, 'count': 7}, action_responses[2].body)
@@ -565,7 +565,7 @@ class TestClientParallelSendReceive(TestCase):
             )
 
         self.assertEqual(
-            [Error(code=ERROR_CODE_INVALID, message='Invalid input', field='foo')],
+            [Error(code=ERROR_CODE_INVALID, message='Invalid input', field='foo', is_caller_error=True)],
             error_context.exception.actions[0].errors,
         )
 

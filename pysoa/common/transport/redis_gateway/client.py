@@ -3,7 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     Optional,
@@ -11,18 +11,16 @@ from typing import (  # noqa: F401 TODO Python 3
 import uuid
 
 from conformity import fields
-import six  # noqa: F401 TODO Python 3
+from pymetrics.instruments import TimerResolution
+from pymetrics.recorders.base import MetricsRecorder
+import six
 
-from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
-    MetricsRecorder,
-    TimerResolution,
-)
 from pysoa.common.transport.base import (
     ClientTransport,
     ReceivedMessage,
     get_hex_thread_id,
 )
-from pysoa.common.transport.exceptions import MessageReceiveTimeout
+from pysoa.common.transport.errors import MessageReceiveTimeout
 from pysoa.common.transport.redis_gateway.backend.base import BaseRedisClient
 from pysoa.common.transport.redis_gateway.constants import ProtocolVersion
 from pysoa.common.transport.redis_gateway.core import RedisTransportClientCore

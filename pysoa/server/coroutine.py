@@ -5,6 +5,7 @@ from __future__ import (
 )
 
 import logging
+from typing import TypeVar
 
 from conformity import fields
 
@@ -23,13 +24,26 @@ __all__ = (
     'Coroutine',
     'CoroutineMiddleware',
     'DefaultCoroutineMiddleware',
+    'MiddlewareCoroutine',
 )
 
 
 _logger = logging.getLogger(__name__)
 
 
+MiddlewareCoroutine = TypeVar('MiddlewareCoroutine', bound=Coroutine)
+"""
+A `TypeVar` for typing middleware `coroutine` methods to ensure the wrapped and wrapping coroutines have the same
+return value.
+"""
+
+
 class CoroutineMiddleware:
+    """
+    A special middleware that can be used to wrap the execution of coroutines invoked with
+    :class:`EnrichedActionRequest.run_coroutine`.
+    """
+
     def before_run_coroutine(self) -> None:  # noqa: E999
         """
         When `request.run_coroutine` is called, this method will be invoked, synchronously, in the calling context
@@ -42,11 +56,12 @@ class CoroutineMiddleware:
         coroutine call stack in the same order the middleware are configured).
         """
 
-    def coroutine(self, coroutine: Coroutine) -> Coroutine:
+    def coroutine(self, coroutine: MiddlewareCoroutine) -> MiddlewareCoroutine:
         """
         Returns a coroutine (`async def ...`) that wraps the given coroutine. This wrapping coroutine can be used to
         execute code before and after the target coroutine. The wrapping pattern is identical to server and client
-        middleware except that it deals with coroutines instead of callables.
+        middleware except that it deals with coroutines instead of callables. The wrapping coroutine should return the
+        value it awaits from the coroutine it wraps.
 
         Example:
 
@@ -55,13 +70,14 @@ class CoroutineMiddleware:
             class CustomCoroutineMiddleware:
                 ...
 
-                def coroutine(self, coroutine):
+                def coroutine(self, coroutine: MiddlewareCoroutine) -> MiddlewareCoroutine:
                     async def wrapper():
                         do_stuff_before_coroutine()
 
-                        await coroutine
-
-                        do_stuff_after_coroutine()
+                        try:
+                            return await coroutine
+                        finally:
+                            do_stuff_after_coroutine()
 
                     return wrapper()
 
@@ -86,12 +102,16 @@ class DefaultCoroutineMiddleware(CoroutineMiddleware):
     Your server should have this middleware configured as the very first coroutine middleware. All of your custom
     coroutine middleware should be configured after this.
     """
-    def coroutine(self, coroutine: Coroutine) -> Coroutine:
+
+    def coroutine(self, coroutine: MiddlewareCoroutine) -> MiddlewareCoroutine:
         # noinspection PyCompatibility
         async def handler():
             try:
-                await coroutine
+                return await coroutine
             except Exception:
+                # Log in case the caller is NOT awaiting the result of this coroutine, so that the exception isn't lost
                 _logger.exception('Error occurred while awaiting coroutine in request.run_coroutine')
+                # Re-raise in case the caller IS awaiting the result of this coroutine, so they know it failed
+                raise
 
         return handler()

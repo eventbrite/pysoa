@@ -4,26 +4,24 @@ from __future__ import (
 )
 
 import abc
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     Optional,
     Union,
 )
 
-from conformity import fields  # noqa: F401 TODO Python 3
+from conformity import fields
 import six
 
-from pysoa.common.types import (
-    ActionResponse,
-    Error,
-)
+from pysoa.common.errors import Error
+from pysoa.common.types import ActionResponse
 from pysoa.server.errors import (
     ActionError,
     ResponseValidationError,
 )
-from pysoa.server.settings import ServerSettings  # noqa: F401 TODO Python 3
-from pysoa.server.types import (  # noqa: F401 TODO Python 3
+from pysoa.server.settings import ServerSettings
+from pysoa.server.types import (
     ActionInterface,
     EnrichedActionRequest,
 )
@@ -111,11 +109,12 @@ class Action(ActionInterface):
                     code=error.code,
                     message=error.message,
                     field=error.pointer,
+                    is_caller_error=True,
                 )
                 for error in (self.request_schema.errors(action_request.body) or [])
             ]
             if errors:
-                raise ActionError(errors=errors)
+                raise ActionError(errors=errors, set_is_caller_error_to=None)
         # Run any custom validation
         self.validate(action_request)
         # Run the body of the action

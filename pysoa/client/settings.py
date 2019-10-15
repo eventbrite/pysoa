@@ -6,7 +6,7 @@ from __future__ import (
 import warnings
 
 from conformity import fields
-from conformity.settings import (  # noqa: F401 TODO Python 3
+from conformity.settings import (
     SettingsData,
     SettingsSchema,
 )
@@ -65,7 +65,7 @@ class RedisClientSettings(ClientSettings):
     def __init__(self, *args, **kwargs):
         super(RedisClientSettings, self).__init__(*args, **kwargs)
 
-        warnings.warn('RedisClientSettings is deprecated; use ClientSettings instead', DeprecationWarning)
+        warnings.warn('RedisClientSettings is deprecated; use ClientSettings instead', DeprecationWarning, stacklevel=2)
 
 
 class LocalClientSettings(ClientSettings):
@@ -82,7 +82,7 @@ class LocalClientSettings(ClientSettings):
     def __init__(self, *args, **kwargs):
         super(LocalClientSettings, self).__init__(*args, **kwargs)
 
-        warnings.warn('LocalClientSettings is deprecated; use ClientSettings instead', DeprecationWarning)
+        warnings.warn('LocalClientSettings is deprecated; use ClientSettings instead', DeprecationWarning, stacklevel=2)
 
 
 class PolymorphicClientSettings(ClientSettings):
@@ -93,4 +93,8 @@ class PolymorphicClientSettings(ClientSettings):
     def __init__(self, *args, **kwargs):
         super(PolymorphicClientSettings, self).__init__(*args, **kwargs)
 
-        warnings.warn('PolymorphicClientSettings is deprecated; use ClientSettings instead', DeprecationWarning)
+        warnings.warn(
+            'PolymorphicClientSettings is deprecated; use ClientSettings instead',
+            DeprecationWarning,
+            stacklevel=2,
+        )

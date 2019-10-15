@@ -3,30 +3,140 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import List  # noqa: F401 TODO Python 3
+from typing import (
+    Iterable,
+    List,
+    Optional,
+)
+import warnings
 
-from conformity.error import Error as ConformityError  # noqa: F401 TODO Python 3
-import six  # noqa: F401 TODO Python 3
+from conformity.error import Error as ConformityError
+import six
 
-from pysoa.common.types import Error  # noqa: F401 TODO Python 3
-
-
-class JobError(Exception):
-    def __init__(self, errors):  # type: (List[Error]) -> None
-        self.errors = errors
-
-
-class ActionError(Exception):
-    def __init__(self, errors):  # type: (List[Error]) -> None
-        self.errors = errors
+from pysoa.common.errors import (
+    Error,
+    PySOAError,
+)
 
 
-class ResponseValidationError(Exception):
+def _replace_errors_if_necessary(errors, is_caller_error):
+    # type: (Iterable[Error], bool) -> List[Error]
+    new_errors = []
+    for e in errors:
+        if e.is_caller_error == is_caller_error:
+            new_errors.append(e)
+        else:
+            # Error is immutable, so return a new one
+            new_errors.append(Error(
+                code=e.code,
+                message=e.message,
+                field=e.field,
+                traceback=e.traceback,
+                variables=e.variables,
+                denied_permissions=e.denied_permissions,
+                is_caller_error=is_caller_error,
+            ))
+    return new_errors
+
+
+class PySOAServerError(PySOAError):
     """
-    Raised by an Action when the response fails to validate. Not meant to
-    be caught and handled by the server other than going into the error logging
-    infrastructure.
+    Base exception for all server-side errors other than transport errors.
     """
+
+
+class JobError(PySOAServerError):
+    """
+    Raised by middleware or the server class as a flow control mechanism for returning a
+    :class:`pysoa.common.types.JobResponse` with at least one :class:`Error` in it.
+    """
+
+    def __init__(self, errors, set_is_caller_error_to=False, **kwargs):
+        # type: (List[Error], Optional[bool], **Optional[bool]) -> None
+        """
+        Constructs a new job error.
+
+        :param errors: The list of :class:`Error` objects associated with this job error.
+        :param set_is_caller_error_to: If non-`None`, all of the `Error` objects in `errors` will have their
+                                       `is_caller_error` attribute set to this value. Defaults to `False`, so you
+                                       should set this to `None` if you do not desire the input errors to be modified.
+        """
+        if 'is_caller_error' in kwargs:
+            warnings.warn(
+                '`JobError` argument `is_caller_error` is deprecated. Please use `set_is_caller_error_to`, instead.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            set_is_caller_error_to = kwargs.pop('is_caller_error')
+        if kwargs:
+            raise TypeError("TypeError: __init__() got an unexpected keyword argument '{}'".format(
+                next(iter(kwargs.keys())),
+            ))
+
+        self.errors = (
+            errors if set_is_caller_error_to is None else _replace_errors_if_necessary(errors, set_is_caller_error_to)
+        )
+        self._set_is_caller_error_to = set_is_caller_error_to
+
+    @property
+    def is_caller_error(self):
+        warnings.warn(
+            '`JobError` attribute `is_caller_error` is deprecated with no replacement.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._set_is_caller_error_to
+
+
+class ActionError(PySOAServerError):
+    """
+    Raised by action code, middleware, or the server class as a flow control mechanism for returning an
+    :class:`pysoa.common.types.ActionResponse` with at least one :class:`Error` in it.
+    """
+
+    def __init__(self, errors, set_is_caller_error_to=True, **kwargs):
+        # type: (List[Error], Optional[bool], **Optional[bool]) -> None
+        """
+        Constructs a new action error.
+
+        :param errors: The list of :class:`Error` objects associated with this action error.
+        :param set_is_caller_error_to: If non-`None`, all of the `Error` objects in `errors` will have their
+                                       `is_caller_error` attribute set to this value. Defaults to `True`, so you should
+                                       set this to `None` if you do not desire the input errors to be modified.
+        """
+        if 'is_caller_error' in kwargs:
+            warnings.warn(
+                '`ActionError` argument `is_caller_error` is deprecated. Please use `set_is_caller_error_to`, instead.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            set_is_caller_error_to = kwargs.pop('is_caller_error')
+        if kwargs:
+            raise TypeError("TypeError: __init__() got an unexpected keyword argument '{}'".format(
+                next(iter(kwargs.keys())),
+            ))
+
+        self.errors = (
+            errors if set_is_caller_error_to is None else _replace_errors_if_necessary(errors, set_is_caller_error_to)
+        )
+        self._set_is_caller_error_to = set_is_caller_error_to
+
+    @property
+    def is_caller_error(self):
+        warnings.warn(
+            '`ActionError` attribute `is_caller_error` is deprecated with no replacement.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._set_is_caller_error_to
+
+
+class ResponseValidationError(PySOAServerError):
+    """
+    Raised by an action when the response fails to validate against the defined response schema for that action.
+    Indicates a server-side programming error that must be corrected.
+    """
+
     def __init__(self, action, errors):  # type: (six.text_type, List[ConformityError]) -> None
         self.action = action
         self.errors = errors

@@ -11,7 +11,7 @@ import math
 import random
 import re
 import time
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     FrozenSet,
@@ -24,29 +24,29 @@ from typing import (  # noqa: F401 TODO Python 3
 )
 
 import attr
+from pymetrics.instruments import (
+    Counter,
+    Histogram,
+    Timer,
+    TimerResolution,
+)
+from pymetrics.recorders.base import MetricsRecorder
+from pymetrics.recorders.noop import noop_metrics
 import redis
 import six
 
 from pysoa.common.logging import RecursivelyCensoredDictWrapper
-from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
-    Counter,
-    Histogram,
-    MetricsRecorder,
-    NoOpMetricsRecorder,
-    Timer,
-    TimerResolution,
-)
 from pysoa.common.serializer.base import Serializer
 from pysoa.common.serializer.msgpack_serializer import MsgpackSerializer
 from pysoa.common.transport.base import ReceivedMessage
-from pysoa.common.transport.exceptions import (
+from pysoa.common.transport.errors import (
     InvalidMessageError,
     MessageReceiveError,
     MessageReceiveTimeout,
     MessageSendError,
     MessageTooLarge,
 )
-from pysoa.common.transport.redis_gateway.backend.base import (  # noqa: F401 TODO Python 3
+from pysoa.common.transport.redis_gateway.backend.base import (
     BaseRedisClient,
     CannotGetConnectionError,
 )
@@ -88,7 +88,7 @@ def _valid_chunk_threshold(_, __, value):
         )
 
 
-_DEFAULT_METRICS_RECORDER = NoOpMetricsRecorder()  # type: MetricsRecorder
+_DEFAULT_METRICS_RECORDER = noop_metrics  # type: MetricsRecorder
 
 
 @attr.s
@@ -135,7 +135,7 @@ class RedisTransportCore(object):
 
     metrics = attr.ib(
         default=_DEFAULT_METRICS_RECORDER,
-        validator=attr.validators.instance_of(MetricsRecorder),
+        validator=attr.validators.instance_of(MetricsRecorder),  # type: ignore
     )  # type: MetricsRecorder
 
     queue_capacity = attr.ib(

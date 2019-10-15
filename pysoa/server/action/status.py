@@ -6,7 +6,7 @@ from __future__ import (
 import abc
 import platform
 import sys
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Callable,
     Dict,
@@ -25,9 +25,9 @@ import six
 
 import pysoa
 from pysoa.server.action import Action
-from pysoa.server.server import Server  # noqa: F401 TODO Python 3
-from pysoa.server.settings import ServerSettings  # noqa: F401 TODO Python 3
-from pysoa.server.types import EnrichedActionRequest  # noqa: F401 TODO Python 3
+from pysoa.server.server import Server
+from pysoa.server.settings import ServerSettings
+from pysoa.server.types import EnrichedActionRequest
 
 
 __all__ = (

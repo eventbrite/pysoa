@@ -3,7 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Callable,
     Optional,
     SupportsInt,
@@ -13,10 +13,8 @@ import unittest
 
 from conformity import fields
 
-from pysoa.common.types import (
-    ActionResponse,
-    Error,
-)
+from pysoa.common.errors import Error
+from pysoa.common.types import ActionResponse
 from pysoa.server.action.base import Action
 from pysoa.server.action.switched import SwitchedAction
 from pysoa.server.errors import ActionError
@@ -124,8 +122,14 @@ class TestSwitchedAction(unittest.TestCase):
             action(EnrichedActionRequest(action='one', body={'animal': 'cat'}, switches=[12]))
 
         self.assertEqual(2, len(error_context.exception.errors))
-        self.assertIn(Error('MISSING', 'Missing key: planet', field='planet'), error_context.exception.errors)
-        self.assertIn(Error('UNKNOWN', 'Extra keys present: animal'), error_context.exception.errors)
+        self.assertIn(
+            Error('MISSING', 'Missing key: planet', field='planet', is_caller_error=True),
+            error_context.exception.errors,
+        )
+        self.assertIn(
+            Error('UNKNOWN', 'Extra keys present: animal', is_caller_error=True),
+            error_context.exception.errors,
+        )
 
     def test_action_two_switch_seven(self):
         settings = {'baz': 'qux'}

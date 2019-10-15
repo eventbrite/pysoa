@@ -9,7 +9,7 @@ from collections import (
 )
 from functools import wraps
 import re
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Callable,
     Dict,
@@ -26,28 +26,27 @@ from typing import (  # noqa: F401 TODO Python 3
 )
 
 from conformity import fields
-from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
+from conformity.settings import SettingsData
+from pymetrics.recorders.base import MetricsRecorder
+from pymetrics.recorders.noop import noop_metrics
 import six
+from typing_extensions import Literal
 
 from pysoa.client.client import (
     Client,
     ServiceHandler,
 )
 from pysoa.client.settings import ClientSettings
-from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
-    MetricsRecorder,
-    NoOpMetricsRecorder,
-)
-from pysoa.common.transport.exceptions import (
+from pysoa.common.errors import Error
+from pysoa.common.transport.errors import (
     MessageReceiveError,
     MessageReceiveTimeout,
 )
 from pysoa.common.transport.local import LocalClientTransport
-from pysoa.common.types import (  # noqa: F401 TODO Python 3
+from pysoa.common.types import (
     ActionRequest,
     ActionResponse,
     Body,
-    Error,
     JobResponse,
 )
 from pysoa.server.action import Action
@@ -56,7 +55,7 @@ from pysoa.server.errors import (
     JobError,
 )
 from pysoa.server.server import Server
-from pysoa.server.types import (  # noqa: F401 TODO Python 3
+from pysoa.server.types import (
     ActionType,
     EnrichedActionRequest,
 )
@@ -238,7 +237,7 @@ class StubClientTransport(LocalClientTransport):
             (StubServer,),
             dict(service_name=service_name, action_class_map=action_class_map),
         ))
-        super(StubClientTransport, self).__init__(service_name, metrics or NoOpMetricsRecorder(), server_class, {})
+        super(StubClientTransport, self).__init__(service_name, metrics or noop_metrics, server_class, {})
 
     def stub_action(self, action, body=None, errors=None):
         # type: (six.text_type, Optional[Body], Optional[Errors]) -> None
@@ -284,6 +283,9 @@ _global_stub_action_request_counter = _StubActionRequestCounter()
 _CT = TypeVar('_CT', Type[Any], Callable)
 _CT_T = TypeVar('_CT_T', bound=Type[Any])
 _CT_C = TypeVar('_CT_C', bound=Callable)
+
+_StubActionSideEffectSimple = Union[Body, Exception, Type[Exception], Callable[[Body], Body]]
+_StubActionSideEffect = Union[_StubActionSideEffectSimple, Iterable[_StubActionSideEffectSimple]]
 
 
 # noinspection PyProtectedMember
@@ -398,7 +400,7 @@ class stub_action(object):
         action,  # type: six.text_type
         body=None,  # type: Optional[Body]
         errors=None,  # type: Optional[Errors]
-        side_effect=None,  # type: Optional[Union[Body, Exception, Callable[[Body], Body]]]
+        side_effect=None,  # type: _StubActionSideEffect
     ):  # type: (...) -> None
         assert isinstance(service, six.text_type), 'Stubbed service name "{}" must be unicode'.format(service)
         assert isinstance(action, six.text_type), 'Stubbed action name "{}" must be unicode'.format(action)
@@ -609,7 +611,7 @@ class stub_action(object):
         self.enabled = True
         return self._current_mock_action
 
-    def __exit__(self, exc_type=None, exc_value=None, traceback=None):  # type: (Any, Any, Any) -> bool
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):  # type: (Any, Any, Any) -> Literal[False]
         if not self.enabled:
             return False
 

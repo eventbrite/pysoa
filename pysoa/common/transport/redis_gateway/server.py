@@ -2,25 +2,22 @@ from __future__ import (
     absolute_import,
     unicode_literals,
 )
-
 import os
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
 )
 
 from conformity import fields
-import six  # noqa: F401 TODO Python 3
+from pymetrics.instruments import TimerResolution
+from pymetrics.recorders.base import MetricsRecorder
+import six
 
-from pysoa.common.metrics import (  # noqa: F401 TODO Python 3
-    MetricsRecorder,
-    TimerResolution,
-)
-from pysoa.common.transport.base import (  # noqa: F401 TODO Python 3
+from pysoa.common.transport.base import (
     ReceivedMessage,
     ServerTransport,
 )
-from pysoa.common.transport.exceptions import (
+from pysoa.common.transport.errors import (
     InvalidMessageError,
     MessageReceiveTimeout,
 )

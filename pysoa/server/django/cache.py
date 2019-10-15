@@ -3,7 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import Any  # noqa: F401 TODO Python 3
+from typing import Any
 
 from django.core.cache.backends.locmem import LocMemCache
 from django.core.cache.backends.memcached import (

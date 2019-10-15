@@ -13,7 +13,7 @@ import signal
 import sys
 import threading
 import time
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Callable,
     Deque,
@@ -23,9 +23,9 @@ from typing import (  # noqa: F401 TODO Python 3
 )
 
 import attr
-import six  # noqa: F401 TODO Python 3
+import six
 
-from pysoa.server.server import Server  # noqa: F401 TODO Python 3
+from pysoa.server.server import Server
 import pysoa.utils
 
 

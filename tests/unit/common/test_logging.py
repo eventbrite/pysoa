@@ -12,7 +12,7 @@ from logging import (
 import logging.handlers
 import socket
 import threading
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     Optional,

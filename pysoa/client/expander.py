@@ -3,7 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
     List,
@@ -13,7 +13,7 @@ from typing import (  # noqa: F401 TODO Python 3
 )
 
 from conformity import fields
-from conformity.settings import (  # noqa: F401 TODO Python 3
+from conformity.settings import (
     Settings,
     SettingsSchema,
 )
@@ -23,6 +23,7 @@ import six
 __all__ = (
     'ExpansionConverter',
     'ExpansionNode',
+    'Expansions',
     'ExpansionSettings',
     'TypeExpansions',
     'TypeNode',

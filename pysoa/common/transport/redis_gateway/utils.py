@@ -5,9 +5,7 @@ from __future__ import (
 
 import json
 import time
-
 import redis
-import six  # noqa: F401 TODO Python 3
 
 
 def get_redis_client():

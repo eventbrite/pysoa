@@ -8,7 +8,7 @@ from __future__ import (
 import datetime
 import decimal
 import struct
-from typing import (  # noqa: F401 TODO Python 3
+from typing import (
     Any,
     Dict,
 )
@@ -20,7 +20,7 @@ import pytz
 import six
 
 from pysoa.common.serializer.base import Serializer as BaseSerializer
-from pysoa.common.serializer.exceptions import (
+from pysoa.common.serializer.errors import (
     InvalidField,
     InvalidMessage,
 )

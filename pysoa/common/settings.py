@@ -6,13 +6,12 @@ from __future__ import (
 import warnings
 
 from conformity import fields
-from conformity.settings import (  # noqa: F401 TODO Python 3
+from conformity.settings import (
     Settings as ConformitySettings,
     SettingsData,
     SettingsSchema,
 )
-
-from pysoa.common.metrics import MetricsSchema
+from pymetrics.recorders.base import MetricsRecorder
 
 
 class Settings(ConformitySettings):
@@ -23,6 +22,7 @@ class Settings(ConformitySettings):
         warnings.warn(
             'pysoa.common.settings.Settings is deprecated. Use conformity.settings.ConformitySettings, instead.',
             DeprecationWarning,
+            stacklevel=2,
         )
         super(Settings, self).__init__(data)
 
@@ -38,10 +38,13 @@ class SOASettings(ConformitySettings):
             fields.ClassConfigurationSchema(),
             description='The list of all middleware objects that should be applied to this server or client',
         ),
-        'metrics': MetricsSchema(),
+        'metrics': fields.ClassConfigurationSchema(
+            base_class=MetricsRecorder,
+            description='Configuration for defining a usage and performance metrics recorder.',
+        ),
     }  # type: SettingsSchema
 
     defaults = {
         'middleware': [],
-        'metrics': {'path': 'pysoa.common.metrics:NoOpMetricsRecorder'},
+        'metrics': {'path': 'pymetrics.recorders.noop:NonOperationalMetricsRecorder'},
     }  # type: SettingsData

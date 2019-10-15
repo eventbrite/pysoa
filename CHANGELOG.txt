@@ -1,6 +1,33 @@
 Changelog
 =========
 
+0.71.1 (2019-10-09)
+-------------------
+- [PATCH] Fix typing for stub_action's side_effect
+
+0.71.0 (2019-10-09)
+-------------------
+- [PATCH] Fix incorrect type annotation on Error.variables
+- [MINOR] Refactor PySOA errors for easier and more concise usage
+- [MAJOR] Adopt PyMetrics and remove metrics shims
+- [PATCH] Remove noqa comments now that Flake8 3.7.8 is out
+
+0.70.1 (2019-09-26)
+-------------------
+- [PATCH] Fix tests broken by releasing 0.70.0
+
+0.70.0 (2019-09-26)
+-------------------
+- [MINOR] #204: Add is_caller_error attribute to Error objects
+
+0.69.1 (2019-09-23)
+-------------------
+- [PATCH] Be permissive about string types in assertions
+
+0.69.0 (2019-09-23)
+-------------------
+- [MAJOR] Add Python typing comments to type the API
+
 0.68.0 (2019-09-19)
 -------------------
 - [PATCH] Make typing dependency more specific to fix missing types

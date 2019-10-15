@@ -95,7 +95,7 @@ stubbing_test_one_action.1: expect: error: code=BAD_ERROR, message=Well this is 
 # Not stubbing for call 3, so should result in error about unconfigured client
 stubbing_test_one_action.2: input float: amount: 5.7
 stubbing_test_one_action.2: input int: scope: 1
-stubbing_test_one_action.2: expect: job error: code=SERVER_ERROR
+stubbing_test_one_action.2: expect: error: code=SERVER_ERROR
 
 test name: multiple_stubs_one_call
 test description: Test that multiple stubs

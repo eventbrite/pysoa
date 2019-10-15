@@ -7,16 +7,16 @@ import datetime
 import os
 import random
 import sys
-from typing import List  # noqa: F401 TODO Python 3
+from typing import List
 import unittest
 import uuid
 
 from conformity import fields
-from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
+from conformity.settings import SettingsData
 import pytest
 import six
 
-from pysoa.common.types import Error
+from pysoa.common.errors import Error
 from pysoa.server.action.base import Action
 from pysoa.server.errors import (
     ActionError,

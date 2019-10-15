@@ -3,11 +3,12 @@ from __future__ import (
     unicode_literals,
 )
 
+import copy
 import random
 from unittest import TestCase
 
 import attr
-from conformity.settings import SettingsData  # noqa: F401 TODO Python 3
+from conformity.settings import SettingsData
 import six
 
 from pysoa.client.client import Client
@@ -15,10 +16,10 @@ from pysoa.common.constants import (
     ERROR_CODE_INVALID,
     ERROR_CODE_NOT_AUTHORIZED,
 )
+from pysoa.common.errors import Error
 from pysoa.common.types import (
     ActionRequest,
     ActionResponse,
-    Error,
     JobResponse,
     UnicodeKeysDict,
 )
@@ -153,6 +154,7 @@ class TestStubClient(TestCase):
             self.assertEqual(error_response[0].message, errors[0]['message'])
             self.assertEqual(error_response[0].field, errors[0]['field'])
 
+    @mock.patch('pysoa.client.client.ServiceHandler._client_version', new=[0, 68, 0])
     def test_multiple_requests(self):
         """
         Sending multiple requests with StubClient.send_request for different actions and then
@@ -171,6 +173,73 @@ class TestStubClient(TestCase):
                         'traceback': None,
                         'variables': None,
                         'denied_permissions': None,
+                        'is_caller_error': True,
+                    },
+                ],
+            },
+        }
+        self.client.stub_action(STUB_CLIENT_SERVICE_NAME, 'action_1', **responses['action_1'])
+        self.client.stub_action(STUB_CLIENT_SERVICE_NAME, 'action_2', **responses['action_2'])
+        self.client.stub_action(STUB_CLIENT_SERVICE_NAME, 'action_3', **responses['action_3'])
+
+        control = self.client._make_control_header()
+        context = self.client._make_context_header()
+        request_1 = dict(control_extra=control, context=context, actions=[
+            {'action': 'action_1'},
+            {'action': 'action_2'},
+        ])
+        request_2 = dict(control_extra=control, context=context, actions=[
+            {'action': 'action_2'},
+            {'action': 'action_1'},
+        ])
+        request_3 = dict(control_extra=control, context=context, actions=[{'action': 'action_3'}])
+
+        # Store requests by request ID for later verification, because order is not guaranteed
+        requests_by_id = {}
+        for request in (request_1, request_2, request_3):
+            request_id = self.client.send_request(STUB_CLIENT_SERVICE_NAME, **request)
+            requests_by_id[request_id] = request
+
+        # Because we've patched the client version to look old, we need to be sure that `is_caller_error` isn't
+        # coming through.
+        responses = copy.deepcopy(responses)
+        responses['action_3']['errors'][0]['is_caller_error'] = False  # type: ignore
+
+        for response_id, response in self.client.get_all_responses(STUB_CLIENT_SERVICE_NAME):
+            # The client returned the same number of actions as were requested
+            self.assertEqual(len(response.actions), len(requests_by_id[response_id]['actions']))
+            for i in range(len(response.actions)):
+                action_response = response.actions[i]
+                # The action name returned matches the action name in the request
+                self.assertEqual(action_response.action, requests_by_id[response_id]['actions'][i]['action'])
+                # The action response matches the expected response
+                # Errors are returned as the Error type, so convert them to dict first
+                self.assertEqual(action_response.body, responses[action_response.action]['body'])  # type: ignore
+                self.assertEqual(
+                    [attr.asdict(e, dict_factory=UnicodeKeysDict) for e in action_response.errors],
+                    responses[action_response.action]['errors'],  # type: ignore
+                )
+
+    @mock.patch('pysoa.client.client.ServiceHandler._client_version', new=[0, 70, 0])
+    def test_multiple_requests_with_is_caller_error(self):
+        """
+        Sending multiple requests with StubClient.send_request for different actions and then
+        calling get_all_responses returns responses for all the actions that were called.
+        """
+        responses = {
+            'action_1': {'body': {'foo': 'bar'}, 'errors': []},
+            'action_2': {'body': {'baz': 42}, 'errors': []},
+            'action_3': {
+                'body': {},
+                'errors': [
+                    {
+                        'code': ERROR_CODE_INVALID,
+                        'message': 'Invalid input',
+                        'field': 'quas.wex',
+                        'traceback': None,
+                        'variables': None,
+                        'denied_permissions': None,
+                        'is_caller_error': True,
                     },
                 ],
             },
@@ -771,6 +840,7 @@ class TestStubAction(ServerTestCase):
                 code='UNKNOWN',
                 message='The action "does_not_exist" was not found on this server.',
                 field='action',
+                is_caller_error=True,
             )],
             job_responses[3].actions[0].errors
         )
@@ -845,7 +915,7 @@ class TestStubAction(ServerTestCase):
             )
 
         self.assertEqual(
-            [Error(code='BAD_ACTION', message='You are a bad actor')],
+            [Error(code='BAD_ACTION', message='You are a bad actor', is_caller_error=True)],
             error_context.exception.actions[0].errors,
         )
 
@@ -889,7 +959,7 @@ class TestStubAction(ServerTestCase):
             )
 
         self.assertEqual(
-            [Error(code='BAD_ACTION', message='You are a bad actor')],
+            [Error(code='BAD_ACTION', message='You are a bad actor', is_caller_error=True)],
             error_context.exception.actions[0].errors,
         )
 
@@ -1062,7 +1132,10 @@ class TestStubAction(ServerTestCase):
         self.assertIsNotNone(response)
         self.assertEqual([], response.errors)
         self.assertEqual(1, len(response.actions))
-        self.assertEqual([Error(code='COOL', message='Another error')], response.actions[0].errors)
+        self.assertEqual(
+            [Error(code='COOL', message='Another error', is_caller_error=True)],
+            response.actions[0].errors,
+        )
 
         response = response_dict[request_id3]
         self.assertIsNotNone(response)
