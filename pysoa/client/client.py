@@ -92,6 +92,7 @@ class ServiceHandler(object):
         :param service_name: The name of the service which this handler calls
         :param settings: The client settings object for this service (and only this service)
         """
+        self.service_name = service_name
         self.metrics = settings['metrics']['object'](**settings['metrics'].get('kwargs', {}))  # type: MetricsRecorder
 
         with self.metrics.timer('client.transport.initialize', resolution=TimerResolution.MICROSECONDS):

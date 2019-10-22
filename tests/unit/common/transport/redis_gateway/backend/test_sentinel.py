@@ -26,6 +26,8 @@ class MockSentinelRedis(mockredis.MockRedis):
 
     def __init__(self):
         super(MockSentinelRedis, self).__init__(strict=True, load_lua_dependencies=False)
+        self.connection_pool = mock.MagicMock()
+        self.connection_pool.get_master_address.return_value = ('192.0.2.13', '6379')  # used official "example" address
 
     def sentinel_masters(self):
         return self.MASTERS

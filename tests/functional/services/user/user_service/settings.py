@@ -38,7 +38,11 @@ SOA_SERVER_SETTINGS = {
     'transport': {
         'path': 'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
         'kwargs': {
-            'backend_layer_kwargs': {'hosts': [('redis-sentinel.pysoa', 26379)]},
+            'backend_layer_kwargs': {'hosts': [
+                ('sentinel1.redis5.pysoa', 26379),
+                ('sentinel2.redis5.pysoa', 26379),
+                ('sentinel3.redis5.pysoa', 26379),
+            ]},
             'backend_type': REDIS_BACKEND_TYPE_SENTINEL,
         },
     },

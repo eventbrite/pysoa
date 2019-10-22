@@ -24,15 +24,18 @@ then\n\
     . /usr/local/bin/pysoa-startup-processes.sh\n\
 fi\n\
 \n\
-set -x\n\
-# Uncomment the first exec, comment the second exec to run without coverage\n\
-#exec "$@"\n\
-exec coverage run --concurrency=multiprocessing "$@"\n\
+if [ "${DISABLE_COVERAGE}" = "true" ]\n\
+then\n\
+    set -x\n\
+    exec "$@"\n\
+else\n\
+    set -x\n\
+    # For relaunches, we use --append so that it does not erase previous processes\' coverage data files\n\
+    export PYSOA_RELOADER_WRAPPER_BIN="coverage run --append --concurrency=multiprocessing"\n\
+    exec coverage run --concurrency=multiprocessing "$@"\n\
+fi\n\
 ' > /usr/local/bin/pysoa-entrypoint.sh
 RUN chmod +x /usr/local/bin/pysoa-entrypoint.sh
-
-# For relaunches, we use --append so that it doesn't erase previous PIDs' coverage data files
-ENV PYSOA_RELOADER_WRAPPER_BIN="coverage run --append --concurrency=multiprocessing"
 
 RUN echo '#!/bin/sh\n\
 set -ex\n\

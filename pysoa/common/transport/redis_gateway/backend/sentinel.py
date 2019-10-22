@@ -3,14 +3,13 @@ from __future__ import (
     unicode_literals,
 )
 
-import itertools
+import logging
 import random
 import time
 from typing import (
     Any,
     Dict,
     Iterable,
-    Iterator,
     List,
     Optional,
     Tuple,
@@ -24,6 +23,9 @@ from pysoa.common.transport.redis_gateway.backend.base import (
     BaseRedisClient,
     CannotGetConnectionError,
 )
+
+
+_logger = logging.getLogger(__name__)
 
 
 class SentinelRedisClient(BaseRedisClient):
@@ -59,14 +61,22 @@ class SentinelRedisClient(BaseRedisClient):
             raise ValueError('sentinel_failover_retries must be >= 0')
         self._sentinel_failover_retries = sentinel_failover_retries
 
-        self._sentinel = redis.sentinel.Sentinel(self._setup_hosts(hosts), **(connection_kwargs or {}))
+        connection_kwargs = dict(connection_kwargs) if connection_kwargs else {}
+        if 'socket_connect_timeout' not in connection_kwargs:
+            connection_kwargs['socket_connect_timeout'] = 5.0  # so that we don't wait indefinitely during failover
+        if 'socket_keepalive' not in connection_kwargs:
+            connection_kwargs['socket_keepalive'] = True
+
+        self._sentinel = redis.sentinel.Sentinel(
+            self._setup_hosts(hosts),
+            sentinel_kwargs={'socket_connect_timeout': 5.0, 'socket_timeout': 5.0, 'socket_keepalive': True},
+            **connection_kwargs
+        )
         if sentinel_services:
             self._validate_service_names(sentinel_services)
             self._services = list(sentinel_services)  # type: List[six.text_type]
         else:
             self._services = self._get_service_names()
-        self._ring_size = len(self._services)
-        self._connection_index_generator = itertools.cycle(range(self._ring_size))  # type: Iterator[int]
 
         super(SentinelRedisClient, self).__init__(ring_size=len(self._services))
 
@@ -132,13 +142,12 @@ class SentinelRedisClient(BaseRedisClient):
         if service_name not in self._master_clients:
             self._get_counter('backend.sentinel.populate_master_client').increment()
             self._master_clients[service_name] = self._sentinel.master_for(service_name)
+            master_address = self._master_clients[service_name].connection_pool.get_master_address()
+            _logger.info('Sentinel master address: {}'.format(master_address))
 
         return self._master_clients[service_name]
 
-    def _get_connection(self, index=None):  # type: (Optional[int]) -> redis.StrictRedis
-        if index is None:
-            index = self._get_random_index()
-
+    def _get_connection(self, index):  # type: (int) -> redis.StrictRedis
         if not 0 <= index < self._ring_size:
             raise ValueError(
                 'There are only {count} hosts, but you asked for connection {index}.'.format(
@@ -152,11 +161,9 @@ class SentinelRedisClient(BaseRedisClient):
                 return self._get_master_client_for(self._services[index])
             except redis.sentinel.MasterNotFoundError:
                 self.reset_clients()  # make sure we reach out to get master info again on next call
+                _logger.warning('Redis master not found, so resetting clients (failover?)')
                 if i != self._sentinel_failover_retries:
                     self._get_counter('backend.sentinel.master_not_found_retry').increment()
                     time.sleep((2 ** i + random.random()) / 4.0)
 
         raise CannotGetConnectionError('Master not found; gave up reloading master info after failover.')
-
-    def _get_random_index(self):  # type: () -> int
-        return random.randint(0, len(self._services) - 1)

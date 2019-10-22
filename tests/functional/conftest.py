@@ -17,33 +17,51 @@ from pysoa.common.transport.redis_gateway.constants import (
 )
 
 
-_standard = {
-    'backend_layer_kwargs': {'hosts': [('redis.pysoa', 6379)]},
-    'backend_type': REDIS_BACKEND_TYPE_STANDARD,
-}  # type: SettingsData
-
-_sentinel = {
-    'backend_layer_kwargs': {'hosts': [('redis-sentinel.pysoa', 26379)]},
-    'backend_type': REDIS_BACKEND_TYPE_SENTINEL,
-}  # type: SettingsData
-
 _base_config = {
     'echo': {
         'transport': {
             'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
-            'kwargs': _standard,
+            'kwargs': {
+                'backend_layer_kwargs': {
+                    'hosts': [
+                        ('standalone.redis4.pysoa', 6379),
+                        ('standalone.redis5.pysoa', 6379),
+                    ],
+                },
+                'backend_type': REDIS_BACKEND_TYPE_STANDARD,
+            },
         },
     },
     'meta': {
         'transport': {
             'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
-            'kwargs': _standard,
+            'kwargs': {
+                'backend_layer_kwargs': {
+                    'hosts': [
+                        ('sentinel1.redis4.pysoa', 26379),
+                        ('sentinel2.redis4.pysoa', 26379),
+                        ('sentinel3.redis4.pysoa', 26379),
+                    ],
+                    'sentinel_failover_retries': 7,
+                },
+                'backend_type': REDIS_BACKEND_TYPE_SENTINEL,
+            },
         },
     },
     'user': {
         'transport': {
             'path': 'pysoa.common.transport.redis_gateway.client:RedisClientTransport',
-            'kwargs': _sentinel,
+            'kwargs': {
+                'backend_layer_kwargs': {
+                    'hosts': [
+                        ('sentinel1.redis5.pysoa', 26379),
+                        ('sentinel2.redis5.pysoa', 26379),
+                        ('sentinel3.redis5.pysoa', 26379),
+                    ],
+                    'sentinel_failover_retries': 7,
+                },
+                'backend_type': REDIS_BACKEND_TYPE_SENTINEL,
+            },
         },
     },
 }  # type: Dict[str, SettingsData]

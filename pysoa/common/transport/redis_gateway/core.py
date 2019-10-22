@@ -363,11 +363,15 @@ class RedisTransportCore(object):
                     # The Lua script handles capacity checking and sends the "full" error back
                     if e.args[0] == 'queue full':
                         continue
+                    if isinstance(self.backend_layer, SentinelRedisClient):
+                        self.backend_layer.reset_clients()
                     self._get_counter('send.error.response').increment()
                     raise MessageSendError(
                         'Redis error sending message for service {}'.format(self.service_name), *e.args
                     )
                 except Exception as e:
+                    if isinstance(self.backend_layer, SentinelRedisClient):
+                        self.backend_layer.reset_clients()
                     self._get_counter('send.error.unknown').increment()
                     raise MessageSendError(
                         'Unknown error sending message for service {}'.format(self.service_name),
@@ -409,6 +413,8 @@ class RedisTransportCore(object):
             if result:
                 serialized_message = cast(six.binary_type, result[1])
         except Exception as e:
+            if isinstance(self.backend_layer, SentinelRedisClient):
+                self.backend_layer.reset_clients()
             self._get_counter('receive.error.unknown').increment()
             raise MessageReceiveError(
                 'Unknown error receiving message for service {}'.format(self.service_name),
