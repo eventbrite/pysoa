@@ -1,5 +1,6 @@
 from __future__ import (
     absolute_import,
+    division,
     unicode_literals,
 )
 
@@ -76,11 +77,17 @@ class BaseRedisClient(object):
     def __init__(self, ring_size):  # type: (int) -> None
         self.metrics_counter_getter = None  # type: Optional[Callable[[six.text_type], Counter]]
 
+        # These should not be overridden by subclasses. The standard or Sentinel base class determines the ring size
+        # and passes it in, and then we create a randomized cycle-iterator (which can be infinitely next-ed) of
+        # connection indexes to use for choosing a connection when posting to request queues (response queues use a
+        # consistent hashing algorithm).
         self._ring_size = ring_size
-        self._connection_index_generator = itertools.cycle(range(self._ring_size))  # may be overridden by subclasses
+        self._connection_index_generator = itertools.cycle(random.sample(range(self._ring_size), k=self._ring_size))
 
-        connection = self._get_connection()
-        self.send_message_to_queue = SendMessageToQueueCommand(connection)
+        # It doesn't matter which connection we use for this. The underlying socket connection isn't even used (or
+        # established, for that matter). But constructing a Script with the `redis` library requires passing it a
+        # "default" connection that will be used if we ever call that script without a connection (we won't).
+        self.send_message_to_queue = SendMessageToQueueCommand(self._get_connection(0))
 
     def get_connection(self, queue_key):  # type: (six.text_type) -> redis.StrictRedis
         """
@@ -97,23 +104,15 @@ class BaseRedisClient(object):
             return self._get_connection(next(self._connection_index_generator))
 
     @abc.abstractmethod
-    def _get_connection(self, index=None):  # type: (Optional[int]) -> redis.StrictRedis
+    def _get_connection(self, index):  # type: (int) -> redis.StrictRedis
         """
-        Returns the correct connection for the current thread. Pass `index` to use a server based on consistent hashing
-        of the key value; `pass` None to use a random server instead.
+        Returns the correct connection for the current thread. The `index` determines which server to use in a
+        multi-server (standalone Redis) or multi-master (Redis Cluster or Redis Sentinel) environment. It is provided
+        by the caller based on either a consistent hash or using the next index from the `_connection_index_generator`.
 
-        :param index: The optional index of a server to use
+        :param index: The index of the server to use
         :return: the connection to use.
         """
-        raise NotImplementedError()
-
-    def _get_random_index(self):  # type: () -> int
-        """
-        Get a random index from the ring of servers.
-
-        :return: the random index.
-        """
-        return random.randint(0, self._ring_size - 1)
 
     def _get_consistent_hash_index(self, value):  # type: (six.text_type) -> int
         """
@@ -123,7 +122,7 @@ class BaseRedisClient(object):
         :return: The Redis server ring index from the calculated hash
         """
         big_value = binascii.crc32(value.encode('utf8') if isinstance(value, six.text_type) else value) & 0xfff
-        ring_divisor = 4096 / float(self._ring_size)
+        ring_divisor = 4096.0 / self._ring_size
         return int(big_value / ring_divisor)
 
     def _get_counter(self, name):  # type: (six.text_type) -> Counter

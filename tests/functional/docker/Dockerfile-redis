@@ -1,4 +1,0 @@
-FROM redis:4.0-stretch
-
-HEALTHCHECK --start-period=2s --interval=5s --timeout=5s --retries=3 \
-    CMD ["redis-cli", "INFO", "server"]

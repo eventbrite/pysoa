@@ -54,7 +54,7 @@ tests_require = [
     'freezegun~=0.3',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
-    'mypy~=0.730;python_version>"3.4"',
+    'mypy==0.730;python_version>"3.4"',
     'pytest-runner',
 ] + test_plan_requirements
 

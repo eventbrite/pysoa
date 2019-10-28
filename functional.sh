@@ -5,11 +5,17 @@
 
 DCF=tests/functional/docker/docker-compose.yaml
 
-rm -f tests/functional/run/.coverage.* tests/functional/run/.coverage
+export DOCKER_BINARY_BIND_SOURCE=$(which docker)
+
+function cleanup() {
+    rm -rf tests/functional/run/.coverage.* tests/functional/run/.coverage tests/functional/run/redis
+}
+cleanup
 
 if [[ "$1" == "clean" ]]
 then
     docker-compose -f $DCF down
+    cleanup
     exit 0
 fi
 
@@ -20,11 +26,24 @@ then
     shift
 fi
 
-set -ex
+set -e
+
+mkdir -p tests/functional/run/redis
+for r in 4 5
+do
+    cp -f "tests/functional/docker/redis/redis${r}-master.conf" "tests/functional/run/redis/redis${r}-standalone.conf"
+    cp -f "tests/functional/docker/redis/redis${r}-master.conf" "tests/functional/run/redis/redis${r}-master.conf"
+    for i in 1 2 3
+    do
+        cp -f "tests/functional/docker/redis/redis${r}-replica.conf" "tests/functional/run/redis/redis${r}-replica${i}.conf"
+        cp -f "tests/functional/docker/redis/sentinel${r}.conf" "tests/functional/run/redis/sentinel${r}-${i}.conf"
+    done
+    chmod -v 0666 tests/functional/run/redis/*
+done
+
+set -x
 
 docker build --tag pysoa-test-mysql --file tests/functional/docker/Dockerfile-mysql .
-docker build --tag pysoa-test-redis --file tests/functional/docker/Dockerfile-redis .
-docker build --tag pysoa-test-redis-sentinel --file tests/functional/docker/Dockerfile-redis-sentinel .
 docker build --tag pysoa-test-service --file tests/functional/docker/Dockerfile-service .
 docker build --tag pysoa-test-service-echo --file tests/functional/services/echo/Dockerfile .
 docker build --tag pysoa-test-service-echo-double-import-trap \
@@ -35,8 +54,6 @@ docker build --tag pysoa-test-test --file tests/functional/docker/Dockerfile-tes
 
 set +ex
 
-export DOCKER_BINARY_BIND_SOURCE=$(which docker)
-
 docker-compose -f $DCF up -d
 RET=$?
 
@@ -45,11 +62,19 @@ then
     docker ps|grep pysoa-test
     docker-compose -f $DCF logs
     docker-compose -f $DCF down
-    rm tests/functional/run/.coverage.*
+    cleanup
     exit $RET
 fi
 
-docker ps|grep pysoa-test
+sleep 2
+
+docker ps|grep -E  "redis(4|5)-"
+docker ps|grep "pysoa-test"
+
+if [[ "$1" == "up-only" ]]
+then
+    exit 0
+fi
 
 echo  "Running functional tests..."
 #docker-compose -f $DCF exec -T test pytest tests/functional
@@ -100,5 +125,7 @@ fi
 docker-compose -f $DCF down
 
 unset DOCKER_BINARY_BIND_SOURCE
+
+cleanup
 
 exit $RET

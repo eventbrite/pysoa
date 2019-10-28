@@ -20,7 +20,10 @@ from pysoa.common.transport.base import (
     ReceivedMessage,
     get_hex_thread_id,
 )
-from pysoa.common.transport.errors import MessageReceiveTimeout
+from pysoa.common.transport.errors import (
+    MessageReceiveTimeout,
+    TransientPySOATransportError,
+)
 from pysoa.common.transport.redis_gateway.backend.base import BaseRedisClient
 from pysoa.common.transport.redis_gateway.constants import ProtocolVersion
 from pysoa.common.transport.redis_gateway.core import RedisTransportClientCore
@@ -68,6 +71,7 @@ class RedisClientTransport(ClientTransport):
             response_queue_specifier=BaseRedisClient.RESPONSE_QUEUE_SPECIFIER,
         )
         self._requests_outstanding = 0
+        self._previous_error_was_transport_problem = False
         # noinspection PyArgumentList
         self.core = RedisTransportClientCore(service_name=service_name, metrics=metrics, **kwargs)
 
@@ -82,14 +86,21 @@ class RedisClientTransport(ClientTransport):
 
     def send_request_message(self, request_id, meta, body, message_expiry_in_seconds=None):
         # type: (int, Dict[six.text_type, Any], Dict[six.text_type, Any], Optional[int]) -> None
-        self._requests_outstanding += 1
         meta['reply_to'] = '{receive_queue_name}{thread_id}'.format(
             receive_queue_name=self._receive_queue_name,
             thread_id=get_hex_thread_id(),
         )
 
         with self.metrics.timer('client.transport.redis_gateway.send', resolution=TimerResolution.MICROSECONDS):
-            self.core.send_message(self._send_queue_name, request_id, meta, body, message_expiry_in_seconds)
+            try:
+                self.core.send_message(self._send_queue_name, request_id, meta, body, message_expiry_in_seconds)
+                # If we increment this before sending and sending fails, the client will be broken forever, so only
+                # increment when sending succeeds.
+                self._requests_outstanding += 1
+            except TransientPySOATransportError:
+                self._previous_error_was_transport_problem = True
+                self.metrics.counter('client.transport.redis_gateway.send.error.transient').increment()
+                raise
 
     def receive_response_message(self, receive_timeout_in_seconds=None):
         # type: (Optional[int]) -> ReceivedMessage
@@ -104,10 +115,19 @@ class RedisClientTransport(ClientTransport):
                         receive_timeout_in_seconds,
                     )
                 except MessageReceiveTimeout:
+                    if self._previous_error_was_transport_problem:
+                        # We're almost certainly recovering from a failover
+                        self._requests_outstanding = 0
+                        self._previous_error_was_transport_problem = False
                     self.metrics.counter('client.transport.redis_gateway.receive.error.timeout').increment()
+                    raise
+                except TransientPySOATransportError:
+                    self._previous_error_was_transport_problem = True
+                    self.metrics.counter('client.transport.redis_gateway.receive.error.transient').increment()
                     raise
             self._requests_outstanding -= 1
             return received_message
         else:
+            self._previous_error_was_transport_problem = False
             # This tells Client.get_all_responses to stop waiting for more.
             return ReceivedMessage(None, None, None)

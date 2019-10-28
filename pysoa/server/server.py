@@ -10,6 +10,7 @@ import importlib
 import logging
 import logging.config
 import os
+import random
 import signal
 import sys
 import threading
@@ -53,9 +54,9 @@ from pysoa.common.logging import (
 from pysoa.common.serializer.errors import InvalidField
 from pysoa.common.transport.base import ServerTransport
 from pysoa.common.transport.errors import (
-    MessageReceiveError,
     MessageReceiveTimeout,
     MessageTooLarge,
+    TransientPySOATransportError,
 )
 from pysoa.common.types import (
     ActionResponse,
@@ -874,19 +875,38 @@ class Server(object):
         signal.signal(signal.SIGTERM, self.handle_shutdown_signal)
         signal.signal(signal.SIGALRM, self.harakiri)
 
+        transient_failures = 0
+
         # noinspection PyBroadException
         try:
             while not self.shutting_down:
                 # reset harakiri timeout
                 signal.alarm(self.settings['harakiri']['timeout'])
+
                 # Get, process, and execute the next JobRequest
-                self.handle_next_request()
-                self.metrics.publish_all()
+                try:
+                    self.handle_next_request()
+                    if transient_failures > 0:
+                        transient_failures -= 1
+                except TransientPySOATransportError:
+                    if transient_failures > 5:
+                        self.logger.exception('Too many errors receiving message from transport; shutting down!')
+                        break
+
+                    # This sleeps using an exponential back-off period in the hopes that the problem will recover
+                    sleep = (2 ** transient_failures + random.random()) / 4.0
+                    self.logger.info(
+                        'Transient error receiving message from transport, sleeping {} seconds and continuing.'.format(
+                            sleep,
+                        ),
+                    )
+                    time.sleep(sleep)
+                    transient_failures += 1
+                finally:
+                    self.metrics.publish_all()
         except HarakiriInterrupt:
             self.metrics.counter('server.error.harakiri', harakiri_level='server')
             self.logger.error('Harakiri interrupt occurred outside of action or job handling')
-        except MessageReceiveError:
-            self.logger.exception('Error receiving message from transport; shutting down')
         except Exception:
             self.metrics.counter('server.error.unknown').increment()
             self.logger.exception('Unhandled server error; shutting down')

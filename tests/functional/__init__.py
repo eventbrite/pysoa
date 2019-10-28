@@ -18,8 +18,9 @@ def run_docker_compose_command(command):  # type: (List[six.text_type]) -> six.t
     try:
         return subprocess.check_output(full_command, stderr=subprocess.STDOUT).strip().decode('utf-8')
     except subprocess.CalledProcessError as e:
+        output = e.output.decode('utf-8') if e.output else ''
         raise AssertionError(
-            'Call to docker-compose failed with exit code {}, stdout: {}'.format(e.returncode, e.output),
+            'Call to docker-compose failed with exit code {}, stdout: {}'.format(e.returncode, output),
         )
 
 

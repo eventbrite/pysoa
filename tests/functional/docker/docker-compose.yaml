@@ -10,23 +10,310 @@ services:
       pysoa:
         aliases:
           - mysql.pysoa
-  redis:
-    image: "pysoa-test-redis"
+
+  # Two standalone Redis servers
+  redis4-standalone:
+    image: "redis:4.0-stretch"
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "INFO", "server"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       pysoa:
         aliases:
-          - redis.pysoa
-  redis-sentinel:
-    image: "pysoa-test-redis-sentinel"
+          - standalone.redis4.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/redis4-standalone.conf
+        target: /usr/local/etc/redis/redis.conf
+    sysctls:
+      net.core.somaxconn: 1024
+  redis5-standalone:
+    image: "redis:5.0-buster"
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "INFO", "server"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       pysoa:
         aliases:
-          - redis-sentinel.pysoa
-    environment:
-      - REDIS_MASTER_HOST=redis.pysoa
+          - standalone.redis5.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/redis5-standalone.conf
+        target: /usr/local/etc/redis/redis.conf
+    sysctls:
+      net.core.somaxconn: 1024
+
+  # Two Redis clusters
+  redis4-master:
+    image: "redis:4.0-stretch"
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "INFO", "server"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      pysoa:
+        aliases:
+          - master.redis4.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/redis4-master.conf
+        target: /usr/local/etc/redis/redis.conf
+    sysctls:
+      net.core.somaxconn: 1024
+  redis4-replica1:
+    image: "redis:4.0-stretch"
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "INFO", "server"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      pysoa:
+        aliases:
+          - replica1.redis4.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/redis4-replica1.conf
+        target: /usr/local/etc/redis/redis.conf
+    sysctls:
+      net.core.somaxconn: 1024
     depends_on:
-      redis:
+      redis4-master:
         condition: service_healthy
+  redis4-replica2:
+    image: "redis:4.0-stretch"
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "INFO", "server"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      pysoa:
+        aliases:
+          - replica2.redis4.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/redis4-replica2.conf
+        target: /usr/local/etc/redis/redis.conf
+    sysctls:
+      net.core.somaxconn: 1024
+    depends_on:
+      redis4-master:
+        condition: service_healthy
+  redis5-master:
+    image: "redis:5.0-buster"
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "INFO", "server"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      pysoa:
+        aliases:
+          - master.redis5.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/redis5-master.conf
+        target: /usr/local/etc/redis/redis.conf
+    sysctls:
+      net.core.somaxconn: 1024
+  redis5-replica1:
+    image: "redis:5.0-buster"
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "INFO", "server"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      pysoa:
+        aliases:
+          - replica1.redis5.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/redis5-replica1.conf
+        target: /usr/local/etc/redis/redis.conf
+    sysctls:
+      net.core.somaxconn: 1024
+    depends_on:
+      redis5-master:
+        condition: service_healthy
+  redis5-replica2:
+    image: "redis:5.0-buster"
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "INFO", "server"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      pysoa:
+        aliases:
+          - replica2.redis5.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/redis5-replica2.conf
+        target: /usr/local/etc/redis/redis.conf
+    sysctls:
+      net.core.somaxconn: 1024
+    depends_on:
+      redis5-master:
+        condition: service_healthy
+
+  # Two Sentinel clusters
+  redis4-sentinel1:
+    image: "redis:4.0-stretch"
+    command: ["redis-server", "/usr/local/etc/redis/sentinel.conf", "--sentinel"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "SENTINEL", "MASTER", "functional_tests"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      pysoa:
+        aliases:
+          - sentinel1.redis4.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/sentinel4-1.conf
+        target: /usr/local/etc/redis/sentinel.conf
+    sysctls:
+      net.core.somaxconn: 1024
+    depends_on:
+      redis4-master:
+        condition: service_healthy
+  redis4-sentinel2:
+    image: "redis:4.0-stretch"
+    command: ["redis-server", "/usr/local/etc/redis/sentinel.conf", "--sentinel"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "SENTINEL", "SLAVES", "functional_tests"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      pysoa:
+        aliases:
+          - sentinel2.redis4.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/sentinel4-2.conf
+        target: /usr/local/etc/redis/sentinel.conf
+    sysctls:
+      net.core.somaxconn: 1024
+    depends_on:
+      redis4-master:
+        condition: service_healthy
+  redis4-sentinel3:
+    image: "redis:4.0-stretch"
+    command: ["redis-server", "/usr/local/etc/redis/sentinel.conf", "--sentinel"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "SENTINEL", "SENTINELS", "functional_tests"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      pysoa:
+        aliases:
+          - sentinel3.redis4.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/sentinel4-3.conf
+        target: /usr/local/etc/redis/sentinel.conf
+    sysctls:
+      net.core.somaxconn: 1024
+    depends_on:
+      redis4-master:
+        condition: service_healthy
+  redis5-sentinel1:
+    image: "redis:5.0-buster"
+    command: ["redis-server", "/usr/local/etc/redis/sentinel.conf", "--sentinel"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "SENTINEL", "MASTER", "functional_tests"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      pysoa:
+        aliases:
+          - sentinel1.redis5.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/sentinel5-1.conf
+        target: /usr/local/etc/redis/sentinel.conf
+    sysctls:
+      net.core.somaxconn: 1024
+    depends_on:
+      redis4-master:
+        condition: service_healthy
+  redis5-sentinel2:
+    image: "redis:5.0-buster"
+    command: ["redis-server", "/usr/local/etc/redis/sentinel.conf", "--sentinel"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "SENTINEL", "SLAVES", "functional_tests"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      pysoa:
+        aliases:
+          - sentinel2.redis5.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/sentinel5-2.conf
+        target: /usr/local/etc/redis/sentinel.conf
+    sysctls:
+      net.core.somaxconn: 1024
+    depends_on:
+      redis4-master:
+        condition: service_healthy
+  redis5-sentinel3:
+    image: "redis:5.0-buster"
+    command: ["redis-server", "/usr/local/etc/redis/sentinel.conf", "--sentinel"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "SENTINEL", "SENTINELS", "functional_tests"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      pysoa:
+        aliases:
+          - sentinel3.redis5.pysoa
+    volumes:
+      - type: bind
+        source: ../run/redis/sentinel5-3.conf
+        target: /usr/local/etc/redis/sentinel.conf
+    sysctls:
+      net.core.somaxconn: 1024
+    depends_on:
+      redis4-master:
+        condition: service_healthy
+
+  # Services and test container
   echo_service:
     image: "pysoa-test-service-echo"
     init: true
@@ -38,7 +325,9 @@ services:
         source: ../run
         target: /srv/run
     depends_on:
-      redis:
+      redis4-master:
+        condition: service_healthy
+      redis5-master:
         condition: service_healthy
   echo_service_double_import_trap:
     image: "pysoa-test-service-echo-double-import-trap"
@@ -51,7 +340,9 @@ services:
         source: ../run
         target: /srv/run
     depends_on:
-      redis:
+      redis4-master:
+        condition: service_healthy
+      redis5-master:
         condition: service_healthy
   meta_service:
     image: "pysoa-test-service-meta"
@@ -64,7 +355,7 @@ services:
         source: ../run
         target: /srv/run
     depends_on:
-      redis:
+      redis4-sentinel1:
         condition: service_healthy
   user_service:
     image: "pysoa-test-service-user"
@@ -77,9 +368,7 @@ services:
         source: ../run
         target: /srv/run
     depends_on:
-      redis:
-        condition: service_healthy
-      redis-sentinel:
+      redis5-sentinel1:
         condition: service_healthy
       mysql:
         condition: service_healthy

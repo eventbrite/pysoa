@@ -26,9 +26,15 @@ class StandardRedisClient(BaseRedisClient):
         connection_kwargs=None,  # type: Dict[six.text_type, Any]
     ):
         # type: (...) -> None
+        connection_kwargs = dict(connection_kwargs) if connection_kwargs else {}
+        if 'socket_connect_timeout' not in connection_kwargs:
+            connection_kwargs['socket_connect_timeout'] = 5.0  # so that we don't wait indefinitely during failover
+        if 'socket_keepalive' not in connection_kwargs:
+            connection_kwargs['socket_keepalive'] = True
+
         self._hosts = self._setup_hosts(hosts)
         self._connection_list = [
-            redis.Redis.from_url(host, **(connection_kwargs or {})) for host in self._hosts
+            redis.Redis.from_url(host, **connection_kwargs) for host in self._hosts
         ]  # type: List[redis.Redis]
 
         super(StandardRedisClient, self).__init__(ring_size=len(self._hosts))
@@ -52,10 +58,7 @@ class StandardRedisClient(BaseRedisClient):
                 final_hosts.append('redis://{name}:{port:d}/0'.format(name=entry[0], port=entry[1]))
         return final_hosts
 
-    def _get_connection(self, index=None):  # type: (Optional[int]) -> redis.StrictRedis
-        # If index is explicitly None, pick a random server
-        if index is None:
-            index = self._get_random_index()
+    def _get_connection(self, index):  # type: (int) -> redis.StrictRedis
         # Catch bad indexes
         if not 0 <= index < self._ring_size:
             raise ValueError(
