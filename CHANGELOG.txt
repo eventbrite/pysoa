@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.72.0 (2019-10-30)
+-------------------
+- [PATCH] Expand functional test system with more Redis
+
 0.71.1 (2019-10-09)
 -------------------
 - [PATCH] Fix typing for stub_action's side_effect
