@@ -335,13 +335,27 @@ class Server(object):
             PySOALogContextFilter.clear_logging_request_context()
             self.perform_post_request_actions()
 
-    def make_client(self, context):  # type: (Context) -> Client
+    def make_client(self, context, extra_context=None, **kwargs):
+        # type: (Context, Optional[Context], **Any) -> Client
         """
         Gets a `Client` that will propagate the passed `context` in order to to pass it down to middleware or Actions.
+        The server code will call this method only with the `context` argument and no other arguments. Subclasses can
+        override this method and replace its behavior completely or call `super` to pass `extra_context` data or
+        keyword arguments that will be passed to the client. The supplied `context` argument will not be modified in
+        any way (it will be copied); the same promise is not made for the `extra_context` argument.
 
-        :return: A client configured with this server's `client_routing` settings
+        :param context: The context parameter, supplied by the server code when making a client
+        :param extra_context: Extra context information supplied by subclasses as they see fit
+        :param kwargs: Keyword arguments that will be passed as-is to the `Client` constructor
+
+        :return: A `Client` configured with this server's `client_routing` settings and the supplied context, extra
+                 context, and keyword arguments.
         """
-        return self.client_class(self.settings['client_routing'], context=context)
+        context = context.copy()
+        if extra_context:
+            context.update(extra_context)
+        context['calling_service'] = self.service_name
+        return self.client_class(self.settings['client_routing'], context=context, **kwargs)
 
     @staticmethod
     def make_middleware_stack(middleware, base):  # type: (List[Callable[[_MT], _MT]], _MT) -> _MT
