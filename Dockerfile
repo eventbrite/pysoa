@@ -18,10 +18,13 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
 		python3.6 \
 		python3.6-dev \
 		python3.7 \
-		python3.7-dev
+		python3.7-dev \
+		python3.8 \
+		python3.8-distutils \
+		python3.8-dev
 RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py && \
 	python3.7 /tmp/get-pip.py && \
-	pip install tox
+	python3.7 -m pip install tox
 
 WORKDIR /test/pysoa
 
