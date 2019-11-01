@@ -118,6 +118,14 @@ _MT = TypeVar('_MT', ServerMiddlewareActionTask, ServerMiddlewareJobTask)
 _RT = TypeVar('_RT', JobResponse, ActionResponse)
 
 
+def _replace_fid(d, fid):  # type: (Dict[Any, Any], six.text_type) -> None
+    for k, v in six.iteritems(d):
+        if isinstance(v, six.text_type):
+            d[k] = v.replace('{{fid}}', fid).replace('[[fid]]', fid).replace('%%fid%%', fid)
+        elif isinstance(v, dict):
+            _replace_fid(v, fid)
+
+
 class HarakiriInterrupt(BaseException):
     """
     Raised internally to notify the server code about interrupts due to harakiri. You should never, ever, ever, ever
@@ -165,8 +173,18 @@ class Server(object):
         if not self.service_name:
             raise AttributeError('Server subclass must set service_name')
 
-        # Store settings and extract transport
+        # Store settings and tweak if necessary based on the forked process ID
         self.settings = settings
+        if self.settings['metrics'].get('kwargs', {}).get('config', {}).get('publishers', {}):
+            # Check if the metrics publisher config needs the FID anywhere and, if it does, replace it with the FID
+            fid = 'main' if forked_process_id is None else six.text_type(forked_process_id)
+            for publisher in self.settings['metrics']['kwargs']['config']['publishers']:
+                if self.settings['metrics']['kwargs']['config']['version'] == 1:
+                    _replace_fid(publisher, fid)
+                elif publisher.get('kwargs', {}):
+                    _replace_fid(publisher['kwargs'], fid)
+
+        # Create the metrics recorder and transport
         self.metrics = self.settings['metrics']['object'](
             **self.settings['metrics'].get('kwargs', {})
         )  # type: MetricsRecorder
@@ -241,12 +259,15 @@ class Server(object):
             # no new message, nothing to do
             self._idle_timer.stop()
             self.perform_idle_actions()
+            self._set_busy_metrics(False)
             self._idle_timer.start()
             return
 
-        # We are no longer idle, so stop the timer and reset for the next idle period
+        # We are no longer idle, so stop the timer, reset for the next idle period, and indicate busy in the gauges
         self._idle_timer.stop()
         self._idle_timer = None
+        self._set_busy_metrics(True)
+        self.metrics.publish_all()
 
         try:
             PySOALogContextFilter.set_logging_request_context(request_id=request_id, **job_request.get('context', {}))
@@ -334,6 +355,7 @@ class Server(object):
         finally:
             PySOALogContextFilter.clear_logging_request_context()
             self.perform_post_request_actions()
+            self._set_busy_metrics(False)
 
     def make_client(self, context, extra_context=None, **kwargs):
         # type: (Context, Optional[Context], **Any) -> Client
@@ -862,6 +884,10 @@ class Server(object):
 
         self._update_heartbeat_file()
 
+    def _set_busy_metrics(self, busy, running=True):  # type: (bool, bool) -> None
+        self.metrics.gauge('server.worker.running').set(1 if running else 0)
+        self.metrics.gauge('server.worker.busy').set(1 if busy else 0)
+
     def run(self):  # type: () -> None
         """
         Starts the server run loop and returns after the server shuts down due to a shutdown-request, Harakiri signal,
@@ -878,6 +904,8 @@ class Server(object):
         )
 
         self.setup()
+        self.metrics.counter('server.worker.startup').increment()
+        self._set_busy_metrics(False)
         self.metrics.publish_all()
 
         if self._async_event_loop_thread:
@@ -926,6 +954,8 @@ class Server(object):
             self.logger.exception('Unhandled server error; shutting down')
         finally:
             self.teardown()
+            self.metrics.counter('server.worker.shutdown').increment()
+            self._set_busy_metrics(False, False)
             self.metrics.publish_all()
             self.logger.info('Server shutting down')
             if self._async_event_loop_thread:
