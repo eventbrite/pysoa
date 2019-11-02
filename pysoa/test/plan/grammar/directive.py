@@ -211,7 +211,7 @@ class Directive(object):
     def name(cls):
         # type: () -> six.text_type
         """
-        Return a [a-z_]+ name for this directive
+        Return a `[a-z_]+` name for this directive
         """
 
     @classmethod
@@ -347,10 +347,10 @@ class Directive(object):
         NOTE: Do not assume that all actions were called!  An assertion (or other failure) in an action call may
         short circuit the rest of the test!
 
-        :param test_action_results_dict: Dict of all `action_response`s for the test, keyed by action name.
+        :param test_action_results_dict: Dict of all `action_response` values for the test, keyed by action name.
         :param test_case: The directive instructions to run and assert this specific test case
         :param test_fixture: List of test cases in this fixture
-        :param msg: Error message to include in the thrown AssertionError
+        :param msg: Error message to include in the thrown `AssertionError`
 
         :raise: AssertionError
         """
@@ -399,7 +399,7 @@ class Directive(object):
 @six.add_metaclass(abc.ABCMeta)
 class ActionDirective(Directive):
     """
-    Superclass for `action: ` directives
+    Superclass for `action:` directives
     """
 
     @classmethod

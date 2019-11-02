@@ -57,9 +57,7 @@ class RedisClientTransport(ClientTransport):
 
         :param service_name: The name of the service to which this transport will send requests (and from which it will
                              receive responses)
-        :type service_name: union[str, unicode]
         :param metrics: The optional metrics recorder
-        :type metrics: MetricsRecorder
         """
         super(RedisClientTransport, self).__init__(service_name, metrics)
 

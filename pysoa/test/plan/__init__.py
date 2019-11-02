@@ -63,26 +63,14 @@ except ImportError:
     )
 
 
-##################################################
-# IMPORTANT NOTE
-#
-# If you alter or add to any of the documentation below, or if you add more grammar directives, you must run
-# `docs/update_test_plan_docs.sh` from the root of this project first, to ensure that the latest generated
-# documentation makes its way into the `testing.rst` documentation file.
-##################################################
-
-
-__doc__ = """PySOA Test Plans
-++++++++++++++++
-
-Another option for testing PySOA services is to use its test plan system. Test plans extend
-``pysoa.test.plan:ServicePlanTestCase`` and define a collection of plain text fixture files (with extension ``.pysoa``)
-that use a specialized syntax for describing test cases that call actions on your service.
+__doc__ = """Another option for testing PySOA services is to use its test plan system. Test plans extend
+:class:`pysoa.test.plan.ServicePlanTestCase` and define a collection of plain text fixture files (with extension
+``.pysoa``) that use a specialized syntax for describing test cases that call actions on your service.
 
 To best understand PySOA test plans and this documentation, you'll need to understand a little bit of nomenclature:
 
-- **Test Plan**: A class that extends ``pysoa.test.plan:ServicePlanTestCase`` and declares a directory in which test
-  fixtures can be discovered for that test plan. If you want, you can have a single test plan for all of the test
+- **Test Plan**: A class that extends :class:`pysoa.test.plan.ServicePlanTestCase` and declares a directory in which
+  test fixtures can be discovered for that test plan. If you want, you can have a single test plan for all of the test
   fixtures in your service. You can also have multiple test plans, each with one or more fixtures. The advantage of
   using multiple test plans is that each test plan class can have unique setup activities.
 - **Test Fixture**: A ``.pysoa`` file containing one or more test cases defined using the PySOA Test Plan syntax. A
@@ -134,10 +122,11 @@ Creating a Test Plan with ``ServicePlanTestCase``
 *************************************************
 
 In order to create test plans, the first thing you need to do is create a test case class that extends
-``pysoa.test.plan:ServicePlanTestCase``. This class extends ``ServerTestCase`` (see `Using the ServerTestCase`_),
-so you need to define the same ``server_class`` and ``server_settings`` attributes. Additionally, you need to define
-either ``fixture_path`` or ``custom_fixtures``. You can also optionally specify ``model_constants``, which is used to
-provide stock values for variable substitution (more on that later). Here are two possible examples:
+:class:`pysoa.test.plan.ServicePlanTestCase`. This class extends :class:`pysoa.test.server.ServerTestCase` (see
+`Using the ServerTestCase`_), so you need to define the same ``server_class`` and ``server_settings`` attributes.
+Additionally, you need to define either ``fixture_path`` or ``custom_fixtures``. You can also optionally specify
+``model_constants``, which is used to provide stock values for variable substitution (more on that later). Here are two
+possible examples:
 
 .. code-block:: python
 
@@ -193,16 +182,17 @@ __doc__ += """Extending Test Plans
 ********************
 
 You can extend test plan syntax to create your own directives, allowing you to add even more features to your test
-plans. The base for all directive behavior is contained in the class ``pysoa.test.plan.grammar.directive:Directive``.
-Your directives must extend that class directly or indirectly. Extending the base class directly gives you the ability
-to manipulate test case-level and global test case-level behavior. In most cases, you'll want to extend
-``pysoa.test.plan.grammar.directive:ActionDirective``, which is the base class for all action case behavior. For more
-information about how to use and extend these classes, read their extensive docstrings.
+plans. The base for all directive behavior is contained in the class
+:class:`pysoa.test.plan.grammar.directive.Directive`. Your directives must extend that class directly or indirectly.
+Extending the base class directly gives you the ability to manipulate test case-level and global test case-level
+behavior. In most cases, you'll want to extend :class:`pysoa.test.plan.grammar.directive.ActionDirective`, which is
+the base class for all action case behavior. For more information about how to use and extend these classes, read their
+extensive docstrings.
 
 Once you have created one or more new directives, you can register them with the PySOA Test Plan system using one of
 the following techniques:
 
-- Call ``pysoa.test.plan.grammar.directive:register_directive`` to register your directive with the test plan system
+- Call :func:`pysoa.test.plan.grammar.directive.register_directive` to register your directive with the test plan system
   manually. However, this requires your code that calls that function to be loaded before the PyTest process starts,
   which can be tricky to achieve.
 - Use the Python entry point named ``pysoa.test.plan.grammar.directives`` in your ``setup.py`` file. This is a more
@@ -231,6 +221,12 @@ the following techniques:
 
 
 __test_plan_prune_traceback = True  # ensure code in this file is not included in failure stack traces
+
+
+__all__ = (
+    'FixtureTestCaseData',
+    'ServicePlanTestCase',
+)
 
 
 @runtime_checkable
@@ -264,7 +260,7 @@ class ServicePlanTestCase(ServerTestCase):
     teardown methods in order to bootstrap and clean up dependencies that your tests have.
 
     Your test case class is not limited to running fixture tests. It may also include normal test case methods whose
-    names start with ``test_``, and they will be run normally like any other ``unittest` test methods.
+    names start with `test_`, and they will be run normally like any other `unittest` test methods.
     """
 
     fixture_path = None  # type: Optional[six.text_type]
@@ -631,7 +627,6 @@ class ServicePlanTestCase(ServerTestCase):
         Runs the named hook method on all registered directives using the given positional and keyword arguments.
 
         :param hook: The name of the hook
-        :type hook: union[str, unicode]
         """
         if not cls._all_directives:
             raise DirectiveError('FATAL: No directives found!')
@@ -648,11 +643,8 @@ class ServicePlanTestCase(ServerTestCase):
         This does the actual work of running the test case.
 
         :param test_case: The directive instructions to run and assert this specific test case
-        :type test_case: dict
         :param test_fixture: List of test cases in this fixture
-        :type test_fixture: list
         :param test_fixture_results: List of all action-call results in the entire fixture
-        :type test_fixture_results: list
         """
 
         # noinspection PyUnusedLocal

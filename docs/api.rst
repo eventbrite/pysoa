@@ -240,6 +240,8 @@ argument. This must be the absolute name of a module, which PySOA will import. P
 on that module named ``SOA_SERVER_SETTINGS`` or ``settings``, in that order of preference.
 
 
+.. _api-versioning-using-switches:
+
 Versioning using switches
 *************************
 
@@ -663,6 +665,7 @@ MessagePack Serializer
 - Types supported: ``bool``, ``int``, ``str`` (``unicode``/2 or ``str``/3), ``dict``, ``list``, ``tuple``, ``bytes``
   (``str``/2 or ``bytes``/3), ``date``, ``time``, ``datetime``, ``decimal.Decimal``, and ``currint.Amount``
 - Other notes:
+
   - Makes no distinction between ``list`` and ``tuple`` types—both types will be deserialized as lists
 
 
@@ -672,6 +675,7 @@ JSON Serializer
 - Backend: `json <https://docs.python.org/3/library/json.html>`_
 - Types supported: ``bool``, ``int``, ``str`` (``unicode``/2 or ``str``/3), ``dict``, ``list``, ``tuple``
 - Other notes:
+
   - Makes no distinction between ``list`` and ``tuple`` types—both types will be deserialized as lists
   - Fairly incomplete at the moment, relative to the MessagePack serializer, and may or may not be improved to support
     additional types in the future (would require departing from the JSON specification)

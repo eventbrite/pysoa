@@ -73,16 +73,21 @@ Changelog
 0.64.0 (2019-07-18)
 -------------------
 - [MINOR] Respawn crashed workers when running in forking mode
+
   - By default, when running in forking mode, PySOA will respawn crashed workers.
   - If a worker crashes 3 times in 15 seconds or 8 times in 60 seconds, PySOA will give up and stop respawning that worker.
   - The new `--no-respawn` argument can disable this behavior if necessary.
   - If all workers crash too many times and PySOA runs out of workers, it exits (this is basically the existing behavior, except for the above-described respawning).
+
 - [MINOR] Add first functional tests and fix some bugs
+
   - Create a functional test environment using Docker/Docker Compose and a simple shell script.
   - Add an initial set of functional tests.
   - Fix several bugs regarding signal handling in the `Server`, server process forking, and file-watching auto-reloader:
+
     - If the server received several simultaneous signals (for example, if Ctrl+C is used), the signal handler could be invoked in parallel two or more times, resulting in, at best, forcefully-terminating the server and, at worst, that plus a bunch of concurrency errors. This is now fixed.
     - If server process forking was enabled or the file-watching auto-reloader was enabled, non-Ctrl+C signals (such as those from Docker when running within a container) were suppressed, meaning the server would not stop.
+
 - [PATCH] Re-organize all tests into `unit`, `integration`, and `functional` test modules
 
 0.63.0 (2019-07-05)

@@ -4,6 +4,7 @@ from __future__ import (
 )
 
 import codecs
+import sys
 
 from setuptools import (
     find_packages,
@@ -75,8 +76,14 @@ setup(
     include_package_data=True,
     install_requires=install_requires,
     tests_require=tests_require,
+    setup_requires=['pytest-runner'] if {'pytest', 'test', 'ptr'}.intersection(sys.argv) else [],
     test_suite='tests',
     extras_require={
+        'docs': [
+            'conformity[docs]~=1.26,>=1.26.4',
+            'django~=1.11',
+            'sphinx~=2.2;python_version>="3.6"',
+        ] + test_plan_requirements,
         'testing': tests_require,
         'test_helpers': test_helper_requirements,
         'test_plans': test_plan_requirements,
@@ -100,6 +107,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
         'Topic :: Software Development',
     ],
     project_urls={

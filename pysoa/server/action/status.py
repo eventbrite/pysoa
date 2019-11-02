@@ -33,6 +33,7 @@ from pysoa.server.types import EnrichedActionRequest
 __all__ = (
     'BaseStatusAction',
     'CheckMethodReturn',
+    'CheckMethodStatus',
     'StatusActionFactory',
     'make_default_status_action_class',
 )
@@ -46,9 +47,11 @@ CheckMethodStatus = NamedTuple(
         ('description', six.text_type),
     ),
 )
+"""A tuple used to internally represent errors or warnings within a status action."""
 
 
 CheckMethodReturn = Optional[Iterable[CheckMethodStatus]]
+"""The return type for all status action `check_` methods."""
 
 
 class BaseStatusAction(Action):

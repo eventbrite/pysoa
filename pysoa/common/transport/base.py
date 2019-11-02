@@ -52,6 +52,7 @@ ReceivedMessage = NamedTuple(
         ('body', Optional[Dict[six.text_type, Any]]),
     ),
 )
+"""The representation of a message received through a transport."""
 
 
 @six.add_metaclass(abc.ABCMeta)
