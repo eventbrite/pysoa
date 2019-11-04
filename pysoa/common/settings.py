@@ -14,6 +14,11 @@ from conformity.settings import (
 from pymetrics.recorders.base import MetricsRecorder
 
 
+__all__ = (
+    'SOASettings',
+)
+
+
 class Settings(ConformitySettings):
     """
     Deprecated. Use `conformity.settings.Settings`, instead.

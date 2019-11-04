@@ -3,7 +3,8 @@ The PySOA Protocol
 
 While PySOA was written for a Python environment, there's no reason it has to be restricted to that. Both the source
 code and the protocol are open and free, and the protocol is compatible with any platform. With the proper tools,
-you could implement the PySOA protocol with Java, PHP, Perl, or even JavaScript. This document describes the PySOA
+you could implement the PySOA protocol with Java, PHP, Perl, or even JavaScript (and, indeed, there is already a
+`Javascript client for Node.JS <https://github.com/eventbrite/pysoa-node>`_). This document describes the PySOA
 protocol in detail.
 
 PySOA actually has three, independent protocols. This document is divided into sections for each protocol and makes use
@@ -32,6 +33,8 @@ A PySOA request message is called a Job Request. Job Requests take the following
     {
         "actions": <list<Action Request>>,
         "context": {
+            [optional: "caller": <unicode>,]
+            [optional: "calling_service": <unicode>,]
             "correlation_id": <unicode>,
             "request_id": <integer>,
             "switches": <list<integer>>,
@@ -52,17 +55,9 @@ Action Requests take the following format::
         },
     }
 
-Some of these items require explanation:
-
-* Correlation IDs can be used at your own discretion, but are generally shared across multiple service requests, even
-  across multiple services, to correlate requests that are logically linked together (example: such as all PySOA
-  requests that occur within the scope of a single HTTP request in a client application).
-* Request ID: An ID unique to the ``Client`` instance (but permitted to duplicate across multiple clients).
-* Switches: See `Versioning using switches <api.rst#versioning-using-switches>`_.
-* ``continue_on_error``: A Boolean control header indicating whether subsequent Action Requests should continue being
-  processed even if previous Action Requests in the same Job Request encountered errors.
-* ``suppress_response``: A Boolean control header indicating whether the client has invoked send-and-forget and does not
-  require the server to send a response.
+You can learn more about these objects and their contents in the reference documentation for dataclasses
+:class:`pysoa.common.types.JobRequest` and :class:`pysoa.common.types.ActionRequest` and Conformity schema
+`pysoa.server.schemas.JobResponseSchema <reference.html#module-pysoa.server.schemas>`_, respectively.
 
 The PySOA Response Format
 *************************
@@ -93,10 +88,15 @@ Errors take the following format::
         "code": <unicode>,
         [optional: "denied_permissions": <list<unicode>>,]
         [optional: "field": <unicode>,]
+        "is_caller_error": <boolean: default false>,
         "message": <unicode>,
         [optional: "traceback": <unicode>,]
         [optional: "variables": <dictionary<unicode, unicode>>,]
     }
+
+You can learn more about these objects and their contents in the reference documentation for dataclasses
+:class:`pysoa.common.types.JobResponse`, :class:`pysoa.common.types.ActionResponse`, and
+:class:`pysoa.common.errors.Error`, respectively.
 
 Serialization Protocol
 ++++++++++++++++++++++

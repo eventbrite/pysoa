@@ -178,7 +178,6 @@ class RecursivelyCensoredDictWrapper(object):
         the cache.
 
         :param wrapped_dict: The `dict` that should be censored
-        :type wrapped_dict: dict
         """
         if not isinstance(wrapped_dict, dict):
             raise ValueError('wrapped_dict must be a dict')

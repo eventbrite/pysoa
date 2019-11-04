@@ -16,14 +16,6 @@ from pysoa.test.plan.grammar.directive import get_all_directives
 import pysoa.test.plan.grammar.directives  # noqa F401
 
 
-##################################################
-# IMPORTANT NOTE
-#
-# If you alter or add to any of the documentation below, or if you add more grammar directives, you must run
-# `docs/update_test_plan_docs.sh` from the root of this project first, to ensure that the latest generated
-# documentation makes its way into the `testing.rst` documentation file.
-##################################################
-
 __SINGLE_BACKTICK_RE = re.compile(r'([^`]+|^)`([^`\n]+)`([^_`]+?|$)')
 
 

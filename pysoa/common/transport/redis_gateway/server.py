@@ -48,9 +48,7 @@ class RedisServerTransport(ServerTransport):
         Redis transport settings schema.
 
         :param service_name: The name of the service for which this transport will receive requests and send responses
-        :type service_name: union[str, unicode]
         :param metrics: The optional metrics recorder
-        :type metrics: MetricsRecorder
         """
         super(RedisServerTransport, self).__init__(service_name, metrics)
 

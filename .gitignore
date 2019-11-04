@@ -5,6 +5,7 @@
 .eggs
 *.egg-info
 build/
+docs/_build
 dist/
 
 # Swap files

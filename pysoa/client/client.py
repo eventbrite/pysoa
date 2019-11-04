@@ -177,8 +177,8 @@ class ServiceHandler(object):
         Receive all available responses from the transport as a generator.
 
         :param receive_timeout_in_seconds: How long to block without receiving a message before raising
-                                           :class:`MessageReceiveTimeout` (defaults to five seconds unless the settings
-                                           are otherwise).
+                                           :class:`pysoa.common.transport.errors.MessageReceiveTimeout` (defaults to
+                                           five seconds unless the settings are otherwise).
 
         :return: A generator that yields a two-tuple of request ID, job response
 
@@ -247,9 +247,10 @@ class FutureSOAResponse(Generic[_FR]):
         The first time you call this method on a given future response, it will block for a response and then
         either return the response or raise any errors raised by the response. You can specify an optional timeout,
         which will override any timeout specified in the client settings or when calling the request method. If a
-        timeout occurs, :class:`MessageReceiveTimeout` will be raised. It will not be cached, and you can attempt
-        to call this again, and those subsequent calls to :method:`result` (or :method:`exception`) will be treated
-        like first-time calls until a response is returned or non-timeout error is raised.
+        timeout occurs, :class:`pysoa.common.transport.errors.MessageReceiveTimeout` will be raised. It will not be
+        cached, and you can attempt to call this again, and those subsequent calls to :meth:`result`
+        (or :meth:`exception`) will be treated like first-time calls until a response is returned or non-timeout error
+        is raised.
 
         The subsequent times you call this method on a given future response after obtaining a non-timeout response,
         any specified timeout will be ignored, and the cached response will be returned (or the cached exception
@@ -264,7 +265,7 @@ class FutureSOAResponse(Generic[_FR]):
         :return: The response
 
         :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
-                 :class:`CallActionError`, :class:`CallJobError`
+                 :class:`pysoa.client.errors.CallActionError`, :class:`pysoa.client.errors.CallJobError`
         """
         if self._raise:
             if six.PY2:
@@ -289,8 +290,8 @@ class FutureSOAResponse(Generic[_FR]):
     def exception(self, timeout=None):  # type: (int) -> Optional[BaseException]
         """
         Obtain the exception raised by the call, blocking if necessary, per the rules specified in the
-        documentation for :method:`result`. If the call completed without raising an exception, `None` is returned.
-        If a timeout occurs, :class:`MessageReceiveTimeout` will be raised (not returned).
+        documentation for :meth:`result`. If the call completed without raising an exception, `None` is returned.
+        If a timeout occurs, :class:`pysoa.common.transport.errors.MessageReceiveTimeout` will be raised (not returned).
 
         :param timeout: If specified, the client will block for at most this many seconds waiting for a response.
                         If not specified, but a timeout was specified when calling the request method, the client
@@ -353,11 +354,11 @@ class Client(object):
         # type: (...) -> None
         """
         :param config: The entire client configuration dict, whose keys are service names and values are settings dicts
-                       abiding by the :class:`ClientSettings` schema
+                       abiding by the :class:`pysoa.client.settings.ClientSettings` schema
         :param expansion_config: The optional expansion configuration dict, if this client supports expansions, which
-                                 is a dict abiding by the :class:`ExpansionSettings` schema
+                                 is a dict abiding by the :class:`pysoa.client.expander.ExpansionSettings` schema
         :param settings_class: An optional settings schema enforcement class to use, which overrides the default of
-                               :class:`ClientSettings`
+                               :class:`pysoa.client.settings.ClientSettings`
         :param context: An optional base request context that will be used for all requests this client instance sends
                         (individual calls can add to and override the values supplied in this context dict)
         """
@@ -426,10 +427,10 @@ class Client(object):
         :param action: The name of the action to call.
         :param body: The action request body.
         :param expansions: A dictionary representing the expansions to perform.
-        :param raise_job_errors: Whether to raise a :class:`JobError` if the job response contains errors (defaults to
-                                 `True`).
-        :param raise_action_errors: Whether to raise a :class:`CallActionError` if any action responses contain errors
-                                    (defaults to `True`).
+        :param raise_job_errors: Whether to raise a :class:`pysoa.client.errors.CallJobError` if the job response
+                                 contains errors (defaults to `True`).
+        :param raise_action_errors: Whether to raise a :class:`pysoa.client.errors.CallActionError` if any action
+                                    responses contain errors (defaults to `True`).
         :param timeout: If provided, this will override the default transport timeout values to; requests will expire
                         after this number of seconds plus some buffer defined by the transport, and the client will not
                         block waiting for a response for longer than this amount of time.
@@ -441,7 +442,7 @@ class Client(object):
         :return: The action response.
 
         :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
-                 :class:`CallActionError`, :class:`CallJobError`
+                 :class:`pysoa.client.errors.CallActionError`, :class:`pysoa.client.errors.CallJobError`
         """
         return self.call_action_future(
             service_name=service_name,
@@ -482,13 +483,13 @@ class Client(object):
         This method performs expansions if the `Client` is configured with an expansion converter.
 
         :param service_name: The name of the service to call.
-        :param actions: A list of :class:`ActionRequest` objects and/or dicts that can be converted to `ActionRequest`
-                        objects.
+        :param actions: A list of :class:`pysoa.common.types.ActionRequest` objects and/or dicts that can be converted
+                        to `ActionRequest` objects.
         :param expansions: A dictionary representing the expansions to perform.
-        :param raise_job_errors: Whether to raise a :class:`JobError` if the job response contains errors (defaults to
-                                 `True`).
-        :param raise_action_errors: Whether to raise a :class:`CallActionError` if any action responses contain errors
-                                    (defaults to `True`).
+        :param raise_job_errors: Whether to raise a :class:`pysoa.client.errors.CallJobError` if the job response
+                                 contains errors (defaults to `True`).
+        :param raise_action_errors: Whether to raise a :class:`pysoa.client.errors.CallActionError` if any action
+                                    responses contain errors (defaults to `True`).
         :param timeout: If provided, this will override the default transport timeout values to; requests will expire
                         after this number of seconds plus some buffer defined by the transport, and the client will not
                         block waiting for a response for longer than this amount of time.
@@ -502,7 +503,7 @@ class Client(object):
         :return: The job response.
 
         :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
-                 :class:`CallActionError`, :class:`CallJobError`
+                 :class:`pysoa.client.errors.CallActionError`, :class:`pysoa.client.errors.CallJobError`
         """
         return self.call_actions_future(
             service_name=service_name,
@@ -544,13 +545,13 @@ class Client(object):
         This method performs expansions if the `Client` is configured with an expansion converter.
 
         :param service_name: The name of the service to call.
-        :param actions: A list of :class:`ActionRequest` objects and/or dicts that can be converted to `ActionRequest`
-                        objects.
+        :param actions: A list of :class:`pysoa.common.types.ActionRequest` objects and/or dicts that can be converted
+                        to `ActionRequest` objects.
         :param expansions: A dictionary representing the expansions to perform.
-        :param raise_job_errors: Whether to raise a :class:`JobError` if the job response contains errors (defaults to
-                                 `True`).
-        :param raise_action_errors: Whether to raise a :class:`CallActionError` if any action responses contain errors
-                                    (defaults to `True`).
+        :param raise_job_errors: Whether to raise a :class:`pysoa.client.errors.CallJobError` if the job response
+                                 contains errors (defaults to `True`).
+        :param raise_action_errors: Whether to raise a :class:`pysoa.client.errors.CallActionError` if any action
+                                    responses contain errors (defaults to `True`).
         :param catch_transport_errors: Whether to catch transport errors and return them instead of letting them
                                        propagate. By default (`False`), all raised
                                        :class:`pysoa.common.transport.errors.PySOATransportError` exceptions cause the
@@ -570,7 +571,7 @@ class Client(object):
         :return: A generator of action responses
 
         :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
-                 :class:`CallActionError`, :class:`CallJobError`
+                 :class:`pysoa.client.errors.CallActionError`, :class:`pysoa.client.errors.CallJobError`
         """
         return self.call_actions_parallel_future(
             service_name=service_name,
@@ -612,13 +613,13 @@ class Client(object):
         This method performs expansions if the `Client` is configured with an expansion converter.
 
         :param jobs: A list of job request dicts, each containing `service_name` and `actions`, where `actions` is a
-                     list of :class:`ActionRequest` objects and/or dicts that can be converted to `ActionRequest`
-                     objects.
+                     list of :class:`pysoa.common.types.ActionRequest` objects and/or dicts that can be converted to
+                     `ActionRequest` objects.
         :param expansions: A dictionary representing the expansions to perform.
-        :param raise_job_errors: Whether to raise a :class:`JobError` if the job response contains errors (defaults to
-                                 `True`).
-        :param raise_action_errors: Whether to raise a :class:`CallActionError` if any action responses contain errors
-                                    (defaults to `True`).
+        :param raise_job_errors: Whether to raise a :class:`pysoa.client.errors.CallJobError` if the job response
+                                 contains errors (defaults to `True`).
+        :param raise_action_errors: Whether to raise a :class:`pysoa.client.errors.CallActionError` if any action
+                                    responses contain errors (defaults to `True`).
         :param catch_transport_errors: Whether to catch transport errors and return them instead of letting them
                                        propagate. By default (`False`), all raised
                                        :class:`pysoa.common.transport.errors.PySOATransportError` exceptions cause the
@@ -640,7 +641,7 @@ class Client(object):
         :return: The job response
 
         :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
-                 :class:`CallActionError`, :class:`CallJobError`
+                 :class:`pysoa.client.errors.CallActionError`, :class:`pysoa.client.errors.CallJobError`
         """
         return self.call_jobs_parallel_future(
             jobs=jobs,
@@ -674,15 +675,15 @@ class Client(object):
     ):
         # type: (...) -> FutureSOAResponse[ActionResponse]
         """
-        This method is identical in signature and behavior to :method:`call_action`, except that it sends the request
+        This method is identical in signature and behavior to :meth:`call_action`, except that it sends the request
         and then immediately returns a :class:`FutureResponse` instead of blocking waiting on a response and returning
-        an :class:`ActionResponse`. Just call `result(timeout=None)` on the future response to block for an available
-        response. Some of the possible exceptions may be raised when this method is called; others may be raised when
-        the future is used.
+        an :class:`pysoa.common.types.ActionResponse`. Just call `result(timeout=None)` on the future response to block
+        for an available response. Some of the possible exceptions may be raised when this method is called; others may
+        be raised when the future is used.
 
         :return: A future from which the action response can later be retrieved
 
-        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`
         """
         action_request = ActionRequest(
             action=action,
@@ -727,11 +728,11 @@ class Client(object):
     ):
         # type: (...) -> FutureSOAResponse[JobResponse]
         """
-        This method is identical in signature and behavior to :method:`call_actions`, except that it sends the request
+        This method is identical in signature and behavior to :meth:`call_actions`, except that it sends the request
         and then immediately returns a :class:`FutureResponse` instead of blocking waiting on a response and returning a
-        :class:`JobResponse`. Just call `result(timeout=None)` on the future response to block for an available
-        response. Some of the possible exceptions may be raised when this method is called; others may be raised when
-        the future is used.
+        :class:`pysoa.common.types.JobResponse`. Just call `result(timeout=None)` on the future response to block for
+        an available response. Some of the possible exceptions may be raised when this method is called; others may be
+        raised when the future is used.
 
         :return: A future from which the job response can later be retrieved
 
@@ -810,17 +811,19 @@ class Client(object):
     ):
         # type: (...) -> FutureSOAResponse[Generator[ActionResponse, None, None]]
         """
-        This method is identical in signature and behavior to :method:`call_actions_parallel`, except that it sends the
+        This method is identical in signature and behavior to :meth:`call_actions_parallel`, except that it sends the
         requests and then immediately returns a :class:`FutureResponse` instead of blocking waiting on responses and
         returning a generator. Just call `result(timeout=None)` on the future response to block for an available
         response (which will be a generator). Some of the possible exceptions may be raised when this method is called;
         others may be raised when the future is used.
 
         If argument `raise_job_errors` is supplied and is `False`, some items in the result list might be lists of job
-        errors instead of individual :class:`ActionResponse`s. Be sure to check for that if used in this manner.
+        errors instead of individual :class:`pysoa.common.types.ActionResponse` objects. Be sure to check for that if
+        used in this manner.
 
         If argument `catch_transport_errors` is supplied and is `True`, some items in the result list might be instances
-        of `Exception` instead of individual :class:`ActionResponse`s. Be sure to check for that if used in this manner.
+        of `Exception` instead of individual :class:`pysoa.common.types.ActionResponse` objects. Be sure to check for
+        that if used in this manner.
 
         :return: A generator of action responses that blocks waiting on responses once you begin iteration
 
@@ -871,15 +874,15 @@ class Client(object):
     ):
         # type: (...) -> FutureSOAResponse[List[JobResponse]]
         """
-        This method is identical in signature and behavior to :method:`call_jobs_parallel`, except that it sends the
+        This method is identical in signature and behavior to :meth:`call_jobs_parallel`, except that it sends the
         requests and then immediately returns a :class:`FutureResponse` instead of blocking waiting on all responses and
-        returning a `list` of :class:`JobResponse` objects. Just call `result(timeout=None)` on the future response to
-        block for an available response. Some of the possible exceptions may be raised when this method is called;
-        others may be raised when the future is used.
+        returning a `list` of :class:`pysoa.common.types.JobResponse` objects. Just call `result(timeout=None)` on the
+        future response to block for an available response. Some of the possible exceptions may be raised when this
+        method is called; others may be raised when the future is used.
 
         :return: A future from which the list of job responses can later be retrieved
 
-        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`,
+        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`
         """
         error_key = 0
         transport_errors = {}  # type: Dict[Tuple[six.text_type, int], Exception]
@@ -1040,8 +1043,8 @@ class Client(object):
 
         :param service_name: The name of the service from which to receive responses
         :param receive_timeout_in_seconds: How long to block without receiving a message before raising
-                                           :class:`MessageReceiveTimeout` (defaults to five seconds unless the settings
-                                           are otherwise).
+                                           :class:`pysoa.common.transport.errors.MessageReceiveTimeout` (defaults to
+                                           five seconds unless the settings are otherwise).
 
         :return: A generator that yields a two-tuple of request ID, job response
 

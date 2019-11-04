@@ -64,12 +64,12 @@ from pysoa.common.types import (
     JobResponse,
     UnicodeKeysDict,
 )
+from pysoa.server import middleware
 from pysoa.server.errors import (
     ActionError,
     JobError,
 )
 from pysoa.server.internal.types import RequestSwitchSet
-from pysoa.server.middleware import ServerMiddleware
 from pysoa.server.schemas import JobRequestSchema
 from pysoa.server.settings import ServerSettings
 from pysoa.server.types import (
@@ -111,6 +111,8 @@ __all__ = (
     'ServerMiddlewareJobTask',
 )
 
+# A hack to make documentation generation work properly, otherwise there are errors (see `if TYPE_CHECKING`)
+middleware.EnrichedActionRequest = EnrichedActionRequest  # type: ignore
 
 ServerMiddlewareJobTask = Callable[[Dict[six.text_type, Any]], JobResponse]
 ServerMiddlewareActionTask = Callable[[EnrichedActionRequest], ActionResponse]
@@ -161,13 +163,11 @@ class Server(object):
         # type: (ServerSettings, Optional[int]) -> None
         """
         :param settings: The settings object, which must be an instance of `ServerSettings` or one of its subclasses
-        :type settings: ServerSettings
         :param forked_process_id: If multiple processes are forked by the same parent process, this will be set to a
                                   unique, deterministic (incremental) ID which can be used in logging, the heartbeat
                                   file, etc. For example, if the `--fork` argument is used with the value 5 (creating
                                   five child processes), this argument will have the values 1, 2, 3, 4, and 5 across
                                   the five respective child processes.
-        :type forked_process_id: int
         """
         # Check subclassing setup
         if not self.service_name:
@@ -211,7 +211,7 @@ class Server(object):
         self.middleware = [
             m['object'](**m.get('kwargs', {}))
             for m in self.settings['middleware']
-        ]  # type: List[ServerMiddleware]
+        ]  # type: List[middleware.ServerMiddleware]
 
         # Set up logger
         # noinspection PyTypeChecker
@@ -984,7 +984,6 @@ class Server(object):
         of `Server` method calls.
 
         :return: The server class or a new/modified server class
-        :rtype: type
         """
         return cls
 

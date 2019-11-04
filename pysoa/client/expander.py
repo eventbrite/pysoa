@@ -365,9 +365,7 @@ class ExpansionConverter(object):
                 the expansion object will be placed.
 
         :param type_routes: A type route configuration dictionary
-        :type type_routes: dict
         :param type_expansions: A type expansions configuration dictionary
-        :type type_expansions: dict
         """
         self.type_routes = type_routes
         self.type_expansions = type_expansions

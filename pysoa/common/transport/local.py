@@ -84,13 +84,9 @@ class LocalClientTransport(ClientTransport, ServerTransport):
         # type: (...) -> None
         """
         :param service_name: The service name
-        :type service_name: union[str, unicode]
         :param metrics: The metrics recorder
-        :type metrics: MetricsRecorder
         :param server_class: The server class for which this transport will serve as a client
-        :type server_class: class
         :param server_settings: The server settings that will be passed to the server class on instantiation
-        :type server_settings: dict
         """
         super(LocalClientTransport, self).__init__(service_name, metrics)
 

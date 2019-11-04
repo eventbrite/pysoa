@@ -120,7 +120,6 @@ class IntrospectionAction(Action):
         this action has special handling to address this requirement.
 
         :param server: A PySOA server instance
-        :type server: Server
         """
         if not isinstance(server, Server):
             raise TypeError('First argument (server) must be a Server instance')
@@ -134,7 +133,6 @@ class IntrospectionAction(Action):
         Introspects all of the actions on the server and returns their documentation.
 
         :param request: The request object
-        :type request: EnrichedActionRequest
 
         :return: The response
         """
