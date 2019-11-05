@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.74.0 (2019-11-05)
+-------------------
+- [MINOR] Publish documentation on ReadTheDocs.io
+
 0.73.0 (2019-11-01)
 -------------------
 - [PATCH] Add support for Python 3.8
