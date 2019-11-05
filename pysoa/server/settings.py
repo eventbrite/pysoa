@@ -7,7 +7,6 @@ from typing import (
     Any,
     Dict,
 )
-import warnings
 
 from conformity import fields
 from conformity.fields.logging import (
@@ -35,16 +34,6 @@ try:
     from pysoa.server.internal.event_loop import coroutine_middleware_config
 except (ImportError, SyntaxError):
     coroutine_middleware_config = None  # type: ignore
-
-
-def log_level_schema(*args, **kwargs):
-    warnings.warn(
-        '`pysoa.server.settings.log_level_schema` is deprecated. '
-        'Use `conformity.fields.logging.PythonLogLevel`, instead.',
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return PythonLogLevel(*args, **kwargs)
 
 
 extra_schema = {}  # type: Dict[six.text_type, fields.Base]
@@ -180,52 +169,3 @@ class ServerSettings(SOASettings):
         },
         **extra_defaults
     )  # type: SettingsData
-
-
-class RedisServerSettings(ServerSettings):
-    """
-    DEPRECATED. Use `ServerSettings`, whose settings are polymorphic.
-    """
-
-    defaults = {
-        'transport': {
-            'path': 'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
-        }
-    }  # type: SettingsData
-
-    def __init__(self, *args, **kwargs):
-        super(RedisServerSettings, self).__init__(*args, **kwargs)
-
-        warnings.warn('RedisServerSettings is deprecated; use ServerSettings instead', DeprecationWarning, stacklevel=2)
-
-
-class LocalServerSettings(ServerSettings):
-    """
-    DEPRECATED. Use `ServerSettings`, whose settings are polymorphic.
-    """
-
-    defaults = {
-        'transport': {
-            'path': 'pysoa.common.transport.local:LocalServerTransport',
-        }
-    }  # type: SettingsData
-
-    def __init__(self, *args, **kwargs):
-        super(LocalServerSettings, self).__init__(*args, **kwargs)
-
-        warnings.warn('LocalServerSettings is deprecated; use ServerSettings instead', DeprecationWarning, stacklevel=2)
-
-
-class PolymorphicServerSettings(ServerSettings):
-    """
-    DEPRECATED. Use `ServerSettings`, whose settings are polymorphic already.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super(PolymorphicServerSettings, self).__init__(*args, **kwargs)
-
-        warnings.warn(
-            'PolymorphicServerSettings is deprecated; use ServerSettings instead',
-            DeprecationWarning,
-            stacklevel=2,
-        )
