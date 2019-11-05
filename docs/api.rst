@@ -235,7 +235,7 @@ enabled, mimicking the behavior of the following Django features:
 Settings without Django
 ***********************
 
-If ``user_django`` is ``False`` (the default), the ``main`` method will require a command line ``-s`` or ``--settings``
+If ``use_django`` is ``False`` (the default), the ``main`` method will require a command line ``-s`` or ``--settings``
 argument. This must be the absolute name of a module, which PySOA will import. PySOA will then look for an attribute
 on that module named ``SOA_SERVER_SETTINGS`` or ``settings``, in that order of preference.
 
@@ -354,7 +354,6 @@ The ``Client`` class takes configuration in the form of a dict with the followin
     {
         <service name>: {
             "transport": <transport config>,
-            "transport_cache_time_in_seconds": <transport cache time>,
             "middleware": [<middleware config>, ...],
         },
         ...
@@ -885,35 +884,22 @@ this metrics recording in your server settings and/or in your client settings an
 to record these metrics.
 
 
-``MetricsRecorder``
-*******************
+PyMetrics
+*********
 
-Metrics in PySOA are recorded with an implementation of the ``MetricsRecorder`` abstract class. By default, PySOA ships
-with and uses a ``NoOpMetricsRecorder`` that does nothing when metrics are recorded. In order to record metrics in your
-application, you will need to supply an implementation that knows about your metrics backend (such as Graphite or
-DataDog) and understands how to record counters and timers. See the reference documentations for `Counter
-<reference.rst#abstract-class-counter>`_, `Timer <reference.rst#abstract-class-timer>`_, `TimerResolution
-<reference.rst#enum-timerresolution>`_, and `MetricsRecorder <reference.rst#abstract-class-metricsrecorder>`_ to learn
-how to implement a recorder for your metrics soultion.
+PySOA uses `PyMetrics <https://pymetrics.readthedocs.io/en/stable/>`_ to record metrics about the behavior and
+performance of servers, clients, and transports. You can read more about how to use and configure PyMetrics in its
+documentation.
 
-
-Metrics configuration
-*********************
-
-Metrics are configured using the standard PySOA plugin schema, though your metrics recorders will likely provide an
-extended schema with more strict ``kwargs`` values.
-
-.. code-block:: python
-
-    {
-        "path": <path to class implementing MetricsRecorder>,
-        "kwargs": <optional dict of keyword args passed to your MetricsRecorder class when instantiated>,
-    }
-
-PySOA does not automatically append any sort of library- or service-distinguishing prefix to the metrics it records
-(see `Which metrics are recorded`_ below). We recommend your ``MetricsRecorder`` append some type of prefix to all
-metrics names passed to it (or uses tagging if your metrics backend understands that) so that you can group all PySOA
+PySOA does not automatically include any sort of library- or service-distinguishing prefix or tags to the metrics it
+records (see `Which metrics are recorded`_ below). We recommend your configuration append some type of prefix to all
+all metrics names passed to it (or uses tagging if your metrics backend understands that) so that you can group all PySOA
 metrics together.
+
+When a PySOA server starts up, however, it will look through your metrics settings for the replacement strings
+``{{fid}}``, ``[[fid]]``, or ``%%fid%%`` and, if those exist and PySOA forking is in use, those replacement strings
+will be replaced with the server instance's deterministic fork ID. This is helpful for including the fork ID in tags
+for distributed gauges. For more information about tags and distributed gauges, see the linked PyMetrics documentation.
 
 
 Which metrics are recorded
@@ -930,6 +916,8 @@ These are all the metrics recorded in PySOA:
   ``sentinel_failover_retries`` is enabled)
 - ``server.transport.redis_gateway.send``: A timer indicating how long it takes the Redis Gateway server transport to
   send a response
+- ``server.transport.redis_gateway.send.message_size``: A histogram indicating the total size of the response sent
+  back to the client.
 - ``server.transport.redis_gateway.send.error.missing_reply_queue``: A counter incremented each time the Redis Gateway
   server transport is unable to send a response because the message metadata is missing the required ``reply_to``
   attribute
@@ -983,6 +971,12 @@ These are all the metrics recorded in PySOA:
   next response (this is a good gauge of how burdened your servers are, such that a high number means your servers are
   idling a lot and not receiving many requests, and a very low number means your servers are doing a lot of work and
   you might need to add more servers)
+- ``server.worker.running``: A distributed gauge whose value is set to 1 when the server starts up and renewed to 1 at
+  least every 5 seconds and set to 0 when the server shuts down.
+- ``server.worker.busy``: A distributed gauge whose value is set to 1 when the server receives and begins processing a
+  request and set to 0 when the server completes sending a response back to a client. Combined with the
+  ``server.worker.running`` metric, this is particularly useful for calculating the busyness of your service,
+  determining how many workers are running at a given moment.
 - ``client.middleware.initialize``: A timer indicating how long it took to initialize all middleware when creating a
   new client handler
 - ``client.transport.initialize``: A timer indicating how long it took to initialize the transport when creating a new
@@ -994,6 +988,8 @@ These are all the metrics recorded in PySOA:
   metric
 - ``client.transport.redis_gateway.send``: A timer indicating how long it took the Redis Gateway client transport to
   send a request
+- ``client.transport.redis_gateway.send.message_size``: A histogram indicating the total size of the request sent to
+  the server.
 - ``client.transport.redis_gateway.send.serialize``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.send.error.message_too_large``: Client metric has same meaning as server metric
 - ``client.transport.redis_gateway.send.queue_full_retry``: Client metric has same meaning as server metric
@@ -1031,101 +1027,24 @@ These are all the metrics recorded in PySOA:
 Customizing configuration
 +++++++++++++++++++++++++
 
-The ``pysoa.common.settings`` module provides classes that contain and validate common settings for Clients and Servers,
-while ``pysoa.client.settings`` and ``pysoa.server.settings`` have Client- and Server-specific settings, respectively,
-and various transports and middleware may also define their own settings schemas. The PySOA settings feature has three
-primary functions: schema validation, defaults, and import resolution.
-
-- Schema validation: Settings performs validation on input values using
-  `Conformity <https://github.com/eventbrite/conformity>`_. Subclasses merge their schema with that of their parents,
-  to a depth of 1, such that a settings class's schema will be the sum total of its defined schema and that of all of
-  its parents' and parents' parents' schemas, and so forth. You cannot use multiple inheritance with settings classes.
-
-- Defaults: Subclasses may define defaults as a dictionary. Defaults defined on a subclass will be merged with the
-  defaults of its parent, to a depth of 1, just like the schema, *before validation occurs*. For example:
-
-  .. code-block:: python
-
-      class BaseSettings(Settings):
-          schema = {
-              "foo": conformity.fields.Integer(),
-              "bar": conformity.fields.SchemalessDictionary(key_type=conformity.fields.UnicodeString()),
-          }
-          defaults = {
-              "foo": 1,
-              "bar": {"qux": 2},
-          }
-
-      class MySettings(BaseSettings):
-          defaults = {
-              "bar": {"qux": 3}
-          }
-
-  The class ``MySettings`` in this example will have the defaults ``{"foo": 1, "bar": {"qux": 3}}``. This provides a
-  measure of convenience while discouraging deep inheritance structures.
-
-  When a ``Settings`` instance is created, the provided dictionary of values is merged recursively with the class's
-  defaults:
-
-  .. code-block:: python
-
-      my_settings = MySettings({"bar": {"some_setting": 42}})
-
-      In [1]: my_settings["foo"]
-      Out[1]: 1
-
-      In [2]: my_settings["bar"]["qux"]
-      Out[2]: 3
-
-      In [3]: my_settings["bar"]["some_setting"]
-      Out[3]: 42
-
-- Some settings specified by ``Settings`` subclasses might be instances of Conformity's ``ClassConfigurationSchema``. In
-  these cases, the value is expected to be a dict with keys ``path`` (though this may have a default) and optionally
-  ``kwargs``. ``path`` is the valid Python import path to the item, such as ``foo.bar.ExampleClass`` or
-  ``baz.qux:ExampleClass``. ``kwargs`` is the keyword arguments necessary to instantiate that class, if applicable. The
-  schema may also specify a required base class, and the schema will validate that the imported class is a subclass of
-  that class. During validation, the schema will augment the dictionary containing ``path`` to also contain an
-  ``object`` key whose value is the resolved Python type. For example:
-
-  .. code-block:: python
-
-      class FooSettings(Settings):
-            schema = {
-                'turboencabulator': fields.ClassConfigurationSchema(base_class=AbstractTurboEncabulator),
-            }
-
-      my_settings = FooSettings({
-          'turboencabulator': {
-              'path': 'turbo.encabulator.Widget',
-              'kwargs': {'address': '2604:a880:a82:fe8::ce:d003'},
-          }
-      })
-
-      In [1]: repr(my_settings['turboencabulator']['object'])
-      Out[1]: "<class 'turbo.encabulator.Widget'>"
-
-  You can then instantiate the class with the provided settings as follows:
-
-  .. code-block:: python
-
-      widget = my_settings['turboencabulator']['object'](**my_settings['turboencabulator'].get('kwargs', {}))
-
-
-  This feature is what powers the "PySOA plugin schema" referred to throughout this document.
+PySOA is configured using `Conformity's Settings feature <https://conformity.readthedocs.io/en/stable/settings.html>`_,
+which helps define complex application settings schemas that are carefully and strictly validated. You can read more
+about settings and how they work there. PySOA includes subclasses of Conformity's base ``Settings`` class to validate
+general, client, and server settings.
 
 
 Included ``Settings`` subclasses
 ********************************
 
 There are several ``Settings`` subclasses provided throughout PySOA, and you can view more about them in the
-`reference documentation <reference.rst>`_. This is a summary of the most common classes:
+`reference documentation <reference.rst>`_. This is a summary of them:
 
 ``pysoa.common.settings.SOASettings``
   Provides a schema that is shared by both Servers and Clients. It's schema:
 
   - ``transport``: Import path and keyword args for a ``Transport`` class.
-  - ``metrics``: Import path and keyword args for a ``MetricsRecorder`` class (defaults to a no-op/null recorder).
+  - ``metrics``: Import path and keyword args for a `PyMetrics <https://pymetrics.readthedocs.io/en/stable/>`_
+    ``MetricsRecorder`` class (defaults to a no-op/null recorder).
   - ``middleware``: List of dicts containing import path and keyword args for a ``ClientMiddleware`` or
     ``ServerMiddleware`` class.
 
@@ -1134,52 +1053,36 @@ There are several ``Settings`` subclasses provided throughout PySOA, and you can
   order to alter or extend the settings.
 
 Client Settings
-  Several classes provide schemas specifically for PySOA Clients:
-
-  - ``pysoa.client.settings.ClientSettings`` extends ``SOASettings`` to provide a client-specific schema. It enforces
-    that ``middleware`` is only Client middleware and that the ``transport`` is only a Client transport.
-  - ``pysoa.client.settings.RedisClientSettings`` extends ``ClientSettings`` to enforce the ``RedisClientTransport``
-    settings schema on the ``transport`` setting
-  - ``pysoa.client.settings.LocalClientSettings`` extends ``ClientSettings`` to enforce the ``LocalClientTransport``
-    settings schema on the ``transport`` setting
-  - ``pysoa.client.settings.PolymorphicClientSettings`` extends ``ClientSettings`` and is deprecated. ``ClientSettings``
-    is polymorphic already and should be used, instead.
+  ``pysoa.client.settings.ClientSettings`` extends ``SOASettings`` to provide a client-specific schema. It enforces
+  that ``middleware`` is only Client middleware and that the ``transport`` is only a Client transport.
 
 Server Settings
-  Several classes provide schemas specifically for PySOA Servers:
+  ``pysoa.server.settings.ServerSettings`` extends ``SOASettings`` to provide a server-specific schema. It enforces
+  that ``middleware`` is only Server middleware and that the ``transport`` is only a Server transport and also adds:
 
-  - ``pysoa.server.settings.ServerSettings`` extends ``SOASettings`` to provide a server-specific schema. It adds:
+  - ``client_routing``: Client settings for any PySOA clients that the server or its middleware will need to create
+    to call other services; if provided, the server adds a ``Client`` instance as key ``client`` to the
+    ``action_request`` dict before passing it to the middleware and as attribute ``client`` to the ``action_request``
+    object before passing it to the action; each key must be a unicode string service name and each value the
+    corresponding ``ClientSettings``-enforced client settings dict
+  - ``logging``: Settings for configuring Python logging in the standard Python logging configuration format:
 
-    - ``client_routing``: Client settings for any PySOA clients that the server or its middleware will need to create
-      to call other services; if provided, the server adds a ``Client`` instance as key ``client`` to the
-      ``action_request`` dict before passing it to the middleware and as attribute ``client`` to the ``action_request``
-      objcet before passing it to the action; each key must be a unicode string service name and each value the
-      corresponding ``ClientSettings``-enforced client settings dict
-    - ``logging``: Settings for configuring Python logging in the standard Python logging configuration format:
+    - ``version``: Must be the value 1 until Python supports something different
+    - ``formatters``: A dict of formatter IDs to dicts of formatter configs
+    - ``filters``: A dict of filter IDs to dicts of filter configs
+    - ``handlers``: A dict of handler IDs to dicts of handler configs
+    - ``loggers``: A dict of logger names to dicts of logger configs
+    - ``root``: The root logger config dict
+    - ``incremental``: A Boolean for whether the configuration is to be interpreted as incremental to the existing
+      configuration (Python defaults this to ``False``, and so does PySOA)
+    - ``disable_existing_loggers``: A Boolean for whether existing loggers are to be disabled (Python defaults this
+      to ``True`` for legacy reasons and ignores its value if ``incremental`` is ``True``; PySOA defaults this value
+      to ``False`` to allow module-level ``getLogger`` calls, and you almost never want to change it to ``True``)
 
-      - ``version``: Must be the value 1 until Python supports something different
-      - ``formatters``: A dict of formatter IDs to dicts of formatter configs
-      - ``filters``: A dict of filter IDs to dicts of filter configs
-      - ``handlers``: A dict of handler IDs to dicts of handler configs
-      - ``loggers``: A dict of logger names to dicts of logger configs
-      - ``root``: The root logger config dict
-      - ``incremental``: A Boolean for whether the configuration is to be interpreted as incremental to the existing
-        configuration (Python defaults this to ``False``, and so does PySOA)
-      - ``disable_existing_loggers``: A Boolean for whether existing loggers are to be disabled (Python defaults this
-        to ``True`` for legacy reasons and ignores its value if ``incremental`` is ``True``; PySOA defaults this value
-        to ``False`` to allow module-level ``getLogger`` calls, and you almost never want to change it to ``True``)
+  - ``harakiri``: Settings for killing long-running jobs that may have run away or frozen or blocked transport
+    processes that may be in a bind, unable to become unblocked; a dict with the following format:
 
-    - ``harakiri``: Settings for killing long-running jobs that may have run away or frozen or blocked transport
-      processes that may be in a bind, unable to become unblocked; a dict with the following format:
-
-      - ``timeout``: After this many seconds without finishing processing a request or receiving a transport timeout,
-        the server will attempt to gracefully shut down (the value 0 disables this feature, defaults to 300 seconds)
-      - ``shutdown_grace``: If a graceful shutdown does not succeed, the server will forcefully shut down after this
-        many additional seconds (must be greater than 0, defaults to 30 seconds)
-
-  - ``pysoa.server.settings.RedisServerSettings`` extends ``ServerSettings`` to enforce the ``RedisServerTransport``
-    settings schema on the ``transport`` setting
-  - ``pysoa.server.settings.LocalServerSettings`` extends ``ServerSettings`` to enforce the ``LocalServerTransport``
-    settings schema on the ``transport`` setting
-  - ``pysoa.server.settings.PolymorphicServerSettings`` extends ``ServerSettings`` and is deprecated. ``ServerSettings``
-    is polymorphic already and should be used, instead.
+    - ``timeout``: After this many seconds without finishing processing a request or receiving a transport timeout,
+      the server will attempt to gracefully shut down (the value 0 disables this feature, defaults to 300 seconds)
+    - ``shutdown_grace``: If a graceful shutdown does not succeed, the server will forcefully shut down after this
+      many additional seconds (must be greater than 0, defaults to 30 seconds)

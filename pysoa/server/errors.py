@@ -8,7 +8,6 @@ from typing import (
     List,
     Optional,
 )
-import warnings
 
 from conformity.error import Error as ConformityError
 import six
@@ -51,8 +50,8 @@ class JobError(PySOAServerError):
     :class:`pysoa.common.types.JobResponse` with at least one :class:`Error` in it.
     """
 
-    def __init__(self, errors, set_is_caller_error_to=False, **kwargs):
-        # type: (List[Error], Optional[bool], **Optional[bool]) -> None
+    def __init__(self, errors, set_is_caller_error_to=False):
+        # type: (List[Error], Optional[bool]) -> None
         """
         Constructs a new job error.
 
@@ -61,31 +60,10 @@ class JobError(PySOAServerError):
                                        `is_caller_error` attribute set to this value. Defaults to `False`, so you
                                        should set this to `None` if you do not desire the input errors to be modified.
         """
-        if 'is_caller_error' in kwargs:
-            warnings.warn(
-                '`JobError` argument `is_caller_error` is deprecated. Please use `set_is_caller_error_to`, instead.',
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            set_is_caller_error_to = kwargs.pop('is_caller_error')
-        if kwargs:
-            raise TypeError("TypeError: __init__() got an unexpected keyword argument '{}'".format(
-                next(iter(kwargs.keys())),
-            ))
-
         self.errors = (
             errors if set_is_caller_error_to is None else _replace_errors_if_necessary(errors, set_is_caller_error_to)
         )
         self._set_is_caller_error_to = set_is_caller_error_to
-
-    @property
-    def is_caller_error(self):
-        warnings.warn(
-            '`JobError` attribute `is_caller_error` is deprecated with no replacement.',
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._set_is_caller_error_to
 
 
 class ActionError(PySOAServerError):
@@ -94,8 +72,8 @@ class ActionError(PySOAServerError):
     :class:`pysoa.common.types.ActionResponse` with at least one :class:`Error` in it.
     """
 
-    def __init__(self, errors, set_is_caller_error_to=True, **kwargs):
-        # type: (List[Error], Optional[bool], **Optional[bool]) -> None
+    def __init__(self, errors, set_is_caller_error_to=True):
+        # type: (List[Error], Optional[bool]) -> None
         """
         Constructs a new action error.
 
@@ -104,31 +82,10 @@ class ActionError(PySOAServerError):
                                        `is_caller_error` attribute set to this value. Defaults to `True`, so you should
                                        set this to `None` if you do not desire the input errors to be modified.
         """
-        if 'is_caller_error' in kwargs:
-            warnings.warn(
-                '`ActionError` argument `is_caller_error` is deprecated. Please use `set_is_caller_error_to`, instead.',
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            set_is_caller_error_to = kwargs.pop('is_caller_error')
-        if kwargs:
-            raise TypeError("TypeError: __init__() got an unexpected keyword argument '{}'".format(
-                next(iter(kwargs.keys())),
-            ))
-
         self.errors = (
             errors if set_is_caller_error_to is None else _replace_errors_if_necessary(errors, set_is_caller_error_to)
         )
         self._set_is_caller_error_to = set_is_caller_error_to
-
-    @property
-    def is_caller_error(self):
-        warnings.warn(
-            '`ActionError` attribute `is_caller_error` is deprecated with no replacement.',
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._set_is_caller_error_to
 
 
 class ResponseValidationError(PySOAServerError):

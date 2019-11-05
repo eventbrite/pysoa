@@ -3,8 +3,6 @@ from __future__ import (
     unicode_literals,
 )
 
-import warnings
-
 from conformity import fields
 from conformity.settings import (
     Settings as ConformitySettings,
@@ -17,19 +15,6 @@ from pymetrics.recorders.base import MetricsRecorder
 __all__ = (
     'SOASettings',
 )
-
-
-class Settings(ConformitySettings):
-    """
-    Deprecated. Use `conformity.settings.Settings`, instead.
-    """
-    def __init__(self, data):
-        warnings.warn(
-            'pysoa.common.settings.Settings is deprecated. Use conformity.settings.ConformitySettings, instead.',
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        super(Settings, self).__init__(data)
 
 
 class SOASettings(ConformitySettings):
