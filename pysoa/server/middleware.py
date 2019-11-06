@@ -5,13 +5,10 @@ from __future__ import (
 
 from typing import (
     TYPE_CHECKING,
-    Any,
     Callable,
-    Dict,
 )
 
 from conformity import fields
-import six
 
 from pysoa.common.types import (
     ActionResponse,
@@ -21,7 +18,10 @@ from pysoa.common.types import (
 
 if TYPE_CHECKING:
     # To prevent circular imports
-    from pysoa.server.types import EnrichedActionRequest
+    from pysoa.server.types import (
+        EnrichedActionRequest,
+        EnrichedJobRequest,
+    )
 
 
 __all__ = (
@@ -45,25 +45,19 @@ class ServerMiddleware(object):
 
     def job(
         self,
-        process_job,  # type: Callable[[Dict[six.text_type, Any]], JobResponse]
+        process_job,  # type: Callable[[EnrichedJobRequest], JobResponse]
     ):
-        # type: (...) -> Callable[[Dict[six.text_type, Any]], JobResponse]
+        # type: (...) -> Callable[[EnrichedJobRequest], JobResponse]
         """
         In sub-classes, used for creating a wrapper around `process_job`. In this simple implementation, just returns
         'process_job`.
 
-        .. caution::
-           `This bug <https://github.com/eventbrite/pysoa/issues/197>`_ details a flaw in this method. Unlike all other
-           middleware tasks, which accept and return proper objects, this one accepts a dictionary and returns a proper
-           object. This is inconsistent and will be fixed prior to the release of PySOA 1.0.0, at which point the
-           callable argument and returned callable must accept a :class:`JobRequest` object instead of a job request
-           `dict`. TODO: Change this.
+        :param process_job: A callable that accepts a :class:`pysoa.server.types.EnrichedJobRequest` and returns a
+                            :class:`pysoa.common.types.JobResponse` object, or raises an exception.
 
-        :param process_job: A callable that accepts a job request `dict` and returns a :class:`JobResponse` object, or
-                            errors
-
-        :return: A callable that accepts a job request `dict` and returns a a :class:`JobResponse` object, or errors,
-                 by calling the provided `process_job` and possibly doing other things.
+        :return: A callable that accepts a :class:`pysoa.server.types.EnrichedJobRequest` and returns a
+                 :class:`pysoa.common.types.JobResponse` object, or raises an exception, by calling the provided
+                 `process_job` argument and possibly doing other things.
         """
 
         # Remove ourselves from the stack
@@ -78,11 +72,12 @@ class ServerMiddleware(object):
         In sub-classes, used for creating a wrapper around `process_action`. In this simple implementation, just
         returns `process_action`.
 
-        :param process_action: A callable that accepts an :class:`ActionRequest` object and returns an
-                               :class:`ActionResponse` object, or errors
+        :param process_action: A callable that accepts a :class:`pysoa.server.types.EnrichedActionRequest` object and
+                               returns a :class:`pysoa.common.types.ActionResponse` object, or raises an exception.
 
-        :return: A callable that accepts an :class:`ActionRequest` object and returns an :class:`ActionResponse`
-                 object, or errors, by calling the provided `process_action` and possibly doing other things.
+        :return: A callable that accepts a :class:`pysoa.server.types.EnrichedActionRequest` object and returns a
+                 :class:`pysoa.common.types.ActionResponse` object, or raises an exception, by calling the provided
+                 `process_action` argument and possibly doing other things.
         """
 
         # Remove ourselves from the stack
