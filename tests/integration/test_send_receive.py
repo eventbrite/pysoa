@@ -319,13 +319,13 @@ class TestClientSendReceive(TestCase):
         for actions in (action_request, [ActionRequest(**a) for a in action_request]):
             with self.assertRaises(Client.CallActionError) as e:
                 client.call_actions(SERVICE_NAME, actions)  # type: ignore
-                self.assertEqual(len(e.value.actions), 1)
-                self.assertEqual(e.value.actions[0].action, 'action_1')
-                error_response = e.value.actions[0].errors
-                self.assertEqual(len(error_response), 1)
-                self.assertEqual(error_response[0].code, error_expected.code)
-                self.assertEqual(error_response[0].message, error_expected.message)
-                self.assertEqual(error_response[0].field, error_expected.field)
+            self.assertEqual(len(e.exception.actions), 1)
+            self.assertEqual(e.exception.actions[0].action, 'action_1')
+            error_response = e.exception.actions[0].errors
+            self.assertEqual(len(error_response), 1)
+            self.assertEqual(error_response[0].code, error_expected.code)
+            self.assertEqual(error_response[0].message, error_expected.message)
+            self.assertEqual(error_response[0].field, error_expected.field)
 
     def test_call_actions_no_raise_action_errors(self):
         action_request = [
@@ -351,16 +351,15 @@ class TestClientSendReceive(TestCase):
 
     def test_call_actions_raises_exception_on_job_error(self):
         """Client.call_actions raises Client.JobError when a JobError occurs on the server."""
-        client = Client(self.client_settings)
         errors = [Error(code=ERROR_CODE_SERVER_ERROR, message='Something went wrong!')]
-        with mock.patch.object(
-            client._get_handler(SERVICE_NAME).transport.server,  # type: ignore
-            'execute_job',
+        with mock.patch(
+            'pysoa.server.server.Server.execute_job',
             new=mock.Mock(side_effect=JobError(errors)),
         ):
+            client = Client(self.client_settings)
             with self.assertRaises(Client.JobError) as e:
                 client.call_action(SERVICE_NAME, 'action_1')
-                self.assertEqual(e.errors, errors)
+            self.assertEqual(e.exception.errors, errors)
 
     def test_call_action(self):
         """Client.call_action sends a valid request and returns a valid response without errors."""
@@ -1077,11 +1076,13 @@ class TestFutureSendReceive(TestCase):
         assert future.result()[1].actions[0].body == {'when': 'past'}
 
 
-class TestClientMiddleware(TestCase):
+# noinspection PyProtectedMember
+class TestClientMiddleware(object):
     """Test that the client calls its middleware correctly."""
 
-    def setUp(self):
-        self.client = Client({
+    @staticmethod
+    def create_client(*middleware):
+        return Client({
             SERVICE_NAME: {
                 'transport': {
                     'path': 'pysoa.test.stub_service:StubClientTransport',
@@ -1090,67 +1091,60 @@ class TestClientMiddleware(TestCase):
                             'action_1': {'body': {}},
                         },
                     },
-                }
+                },
+                'middleware': [
+                    {'path': 'tests.integration.test_send_receive:{}'.format(m)} for m in middleware
+                ],
             }
         })
 
     def test_request_single_middleware(self):
         # Need to manually set the middleware on the handler, since the middleware is defined in this file
         # and cannot be
-        self.client._get_handler(SERVICE_NAME).middleware.append(RaiseExceptionOnRequestMiddleware())
-        with self.assertRaises(RaiseExceptionOnRequestMiddleware.MiddlewareProcessedRequest):
-            self.client.call_action(SERVICE_NAME, 'action_1', body={'middleware_was_here': True})
+        client = self.create_client('RaiseExceptionOnRequestMiddleware')
+        with pytest.raises(RaiseExceptionOnRequestMiddleware.MiddlewareProcessedRequest):
+            client.call_action(SERVICE_NAME, 'action_1', body={'middleware_was_here': True})
 
     def test_request_multiple_middleware_order(self):
         # The first middleware mutates the response so that the second raises an exception
-        self.client._get_handler(SERVICE_NAME).middleware = [
-            MutateRequestMiddleware(),
-            RaiseExceptionOnRequestMiddleware(),
-        ]
-        with self.assertRaises(RaiseExceptionOnRequestMiddleware.MiddlewareProcessedRequest):
-            self.client.call_action(SERVICE_NAME, 'action_1', control_extra={'test_request_middleware': True})
+        client = self.create_client('MutateRequestMiddleware', 'RaiseExceptionOnRequestMiddleware')
+        with pytest.raises(RaiseExceptionOnRequestMiddleware.MiddlewareProcessedRequest):
+            client.call_action(SERVICE_NAME, 'action_1', control_extra={'test_request_middleware': True})
 
         # If the order is reversed, no exception is raised
-        self.client._get_handler(SERVICE_NAME).middleware = [
-            RaiseExceptionOnRequestMiddleware(),
-            MutateRequestMiddleware(),
-        ]
-        self.client.call_action(SERVICE_NAME, 'action_1', control_extra={'test_request_middleware': True})
+        client = self.create_client('RaiseExceptionOnRequestMiddleware', 'MutateRequestMiddleware')
+        client.call_action(SERVICE_NAME, 'action_1', control_extra={'test_request_middleware': True})
 
     def test_request_middleware_handle_exception(self):
         # the exception handler must be on the outer layer of the onion
-        self.client._get_handler(SERVICE_NAME).middleware = [
-            CatchExceptionOnRequestMiddleware(),
-            MutateRequestMiddleware(),
-            RaiseExceptionOnRequestMiddleware(),
-        ]
-        with self.assertRaises(RaiseExceptionOnRequestMiddleware.MiddlewareProcessedRequest):
-            self.client.call_action(SERVICE_NAME, 'action_1', control_extra={'test_request_middleware': True})
-        self.assertEqual(self.client.handlers[SERVICE_NAME].middleware[0].request_count, 1)
-        self.assertEqual(self.client.handlers[SERVICE_NAME].middleware[0].error_count, 1)
+        client = self.create_client(
+            'CatchExceptionOnRequestMiddleware',
+            'MutateRequestMiddleware',
+            'RaiseExceptionOnRequestMiddleware',
+        )
+        with pytest.raises(RaiseExceptionOnRequestMiddleware.MiddlewareProcessedRequest):
+            client.call_action(SERVICE_NAME, 'action_1', control_extra={'test_request_middleware': True})
+        assert client.handlers[SERVICE_NAME]._middleware[0].request_count == 1
+        assert client.handlers[SERVICE_NAME]._middleware[0].error_count == 1
 
     def test_response_single_middleware(self):
-        handler = self.client._get_handler(SERVICE_NAME)
-        handler.middleware = [RaiseExceptionOnResponseMiddleware()]
-        handler.transport.stub_action('action_1', body={'middleware_was_here': True})
-        with self.assertRaises(RaiseExceptionOnResponseMiddleware.MiddlewareProcessedResponse):
-            self.client.call_action(SERVICE_NAME, 'action_1')
+        client = self.create_client('RaiseExceptionOnResponseMiddleware')
+        client._get_handler(SERVICE_NAME).transport.stub_action('action_1', body={'middleware_was_here': True})
+        with pytest.raises(RaiseExceptionOnResponseMiddleware.MiddlewareProcessedResponse):
+            client.call_action(SERVICE_NAME, 'action_1')
 
     def test_response_multiple_middleware_order(self):
-        self.client._get_handler(SERVICE_NAME).middleware = [
-            RaiseExceptionOnResponseMiddleware(),
-            MutateResponseMiddleware(),
-        ]
-        with self.assertRaises(RaiseExceptionOnResponseMiddleware.MiddlewareProcessedResponse):
-            self.client.call_action(SERVICE_NAME, 'action_1')
+        client = self.create_client('RaiseExceptionOnResponseMiddleware', 'MutateResponseMiddleware')
+        with pytest.raises(RaiseExceptionOnResponseMiddleware.MiddlewareProcessedResponse):
+            client.call_action(SERVICE_NAME, 'action_1')
 
     def test_response_middleware_handle_exception(self):
-        self.client._get_handler(SERVICE_NAME).middleware = [
-            CatchExceptionOnResponseMiddleware(),
-            RaiseExceptionOnResponseMiddleware(),
-            MutateResponseMiddleware(),
-        ]
-        with self.assertRaises(RaiseExceptionOnResponseMiddleware.MiddlewareProcessedResponse):
-            self.client.call_action(SERVICE_NAME, 'action_1')
-        self.assertEqual(self.client.handlers[SERVICE_NAME].middleware[0].request_count, 1)
-        self.assertEqual(self.client.handlers[SERVICE_NAME].middleware[0].error_count, 1)
+        client = self.create_client(
+            'CatchExceptionOnResponseMiddleware',
+            'RaiseExceptionOnResponseMiddleware',
+            'MutateResponseMiddleware',
+        )
+        with pytest.raises(RaiseExceptionOnResponseMiddleware.MiddlewareProcessedResponse):
+            client.call_action(SERVICE_NAME, 'action_1')
+        assert client.handlers[SERVICE_NAME]._middleware[0].request_count == 1
+        assert client.handlers[SERVICE_NAME]._middleware[0].error_count == 1

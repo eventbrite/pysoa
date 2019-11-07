@@ -38,7 +38,7 @@ class ProcessJobMiddleware(ServerMiddleware):
 
     def job(self, process):
         def handler(request):
-            if request['control'].get('test_job_middleware'):
+            if request.control.get('test_job_middleware'):
                 result = process(request)
                 result.actions[0].body['middleware'] = True
                 return result

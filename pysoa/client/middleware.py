@@ -50,11 +50,11 @@ class ClientMiddleware(object):
         In sub-classes, used for creating a wrapper around `send_request`. In this simple implementation, just
         returns `send_request`.
 
-        :param send_request: A callable that accepts a request ID int, meta `dict`, :class:`JobRequest` object, and
-                             message expiry int and returns nothing
+        :param send_request: A callable that accepts a request ID int, meta `dict`,
+                             :class:`pysoa.common.types.JobRequest` object, and message expiry int and returns nothing.
 
-        :return: A callable that accepts a request ID int, meta `dict`, :class:`JobRequest` object, and message expiry
-                 int and returns nothing.
+        :return: A callable that accepts a request ID int, meta `dict`, :class:`pysoa.common.types.JobRequest` object,
+                 and message expiry int and returns nothing.
         """
 
         # Remove ourselves from the stack
@@ -66,10 +66,10 @@ class ClientMiddleware(object):
         returns `get_response`.
 
         :param get_response: A callable that accepts a timeout int and returns tuple of request ID int and
-                             :class:`JobResponse` object
+                             :class:`pysoa.common.types.JobResponse` object.
 
-        :return: A callable that accepts a timeout int and returns tuple of request ID int and :class:`JobResponse`
-                 object.
+        :return: A callable that accepts a timeout int and returns tuple of request ID int and
+                 :class:`pysoa.common.types.JobResponse` object.
         """
 
         # Remove ourselves from the stack

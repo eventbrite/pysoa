@@ -103,10 +103,18 @@ class ServiceHandler(object):
             )  # type: ClientTransport
 
         with self.metrics.timer('client.middleware.initialize', resolution=TimerResolution.MICROSECONDS):
-            self.middleware = [
+            self._middleware = [
                 m['object'](**m.get('kwargs', {}))
                 for m in settings['middleware']
             ]  # type: List[ClientMiddleware]
+            self._middleware_send_request_wrapper = self._make_middleware_stack(
+                [m.request for m in self._middleware],
+                self._base_send_request,
+            )
+            self._middleware_get_response_wrapper = self._make_middleware_stack(
+                [m.response for m in self._middleware],
+                self._base_get_response,
+            )
 
         # Make sure the request counter starts at a random location to avoid clashing with other clients
         # sharing the same connection
@@ -134,7 +142,7 @@ class ServiceHandler(object):
             )
 
     def send_request(self, job_request, message_expiry_in_seconds=None):
-        # type: (JobRequest, int) -> int
+        # type: (JobRequest, Optional[int]) -> int
         """
         Send a JobRequest, and return a request ID.
 
@@ -151,13 +159,9 @@ class ServiceHandler(object):
         meta = {
             'client_version': self._client_version,
         }  # type: Dict[six.text_type, Any]
-        wrapper = self._make_middleware_stack(
-            [m.request for m in self.middleware],
-            self._base_send_request,
-        )
         try:
             with self.metrics.timer('client.send.including_middleware', resolution=TimerResolution.MICROSECONDS):
-                wrapper(request_id, meta, job_request, message_expiry_in_seconds)
+                self._middleware_send_request_wrapper(request_id, meta, job_request, message_expiry_in_seconds)
             return request_id
         finally:
             self.metrics.publish_all()
@@ -184,15 +188,10 @@ class ServiceHandler(object):
 
         :raises: :class:`pysoa.common.transport.errors.PySOATransportError`, :class:`StopIteration`
         """
-
-        wrapper = self._make_middleware_stack(
-            [m.response for m in self.middleware],
-            self._base_get_response,
-        )
         try:
             while True:
                 with self.metrics.timer('client.receive.including_middleware', resolution=TimerResolution.MICROSECONDS):
-                    request_id, response = wrapper(receive_timeout_in_seconds)
+                    request_id, response = self._middleware_get_response_wrapper(receive_timeout_in_seconds)
                 if request_id is None or response is None:
                     break
                 yield request_id, response

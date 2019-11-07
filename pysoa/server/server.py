@@ -75,6 +75,7 @@ from pysoa.server.settings import ServerSettings
 from pysoa.server.types import (
     ActionType,
     EnrichedActionRequest,
+    EnrichedJobRequest,
 )
 import pysoa.version
 
@@ -113,8 +114,9 @@ __all__ = (
 
 # A hack to make documentation generation work properly, otherwise there are errors (see `if TYPE_CHECKING`)
 middleware.EnrichedActionRequest = EnrichedActionRequest  # type: ignore
+middleware.EnrichedJobRequest = EnrichedJobRequest  # type: ignore
 
-ServerMiddlewareJobTask = Callable[[Dict[six.text_type, Any]], JobResponse]
+ServerMiddlewareJobTask = Callable[[EnrichedJobRequest], JobResponse]
 ServerMiddlewareActionTask = Callable[[EnrichedActionRequest], ActionResponse]
 _MT = TypeVar('_MT', ServerMiddlewareActionTask, ServerMiddlewareJobTask)
 _RT = TypeVar('_RT', JobResponse, ActionResponse)
@@ -208,10 +210,11 @@ class Server(object):
         self._last_signal_received = 0.0
 
         # Instantiate middleware
-        self.middleware = [
+        self._middleware = [
             m['object'](**m.get('kwargs', {}))
             for m in self.settings['middleware']
         ]  # type: List[middleware.ServerMiddleware]
+        self._middleware_job_wrapper = self.make_middleware_stack([m.job for m in self._middleware], self.execute_job)
 
         # Set up logger
         # noinspection PyTypeChecker
@@ -379,6 +382,7 @@ class Server(object):
         context['calling_service'] = self.service_name
         return self.client_class(self.settings['client_routing'], context=context, **kwargs)
 
+    # noinspection PyShadowingNames
     @staticmethod
     def make_middleware_stack(middleware, base):  # type: (List[Callable[[_MT], _MT]], _MT) -> _MT
         """
@@ -427,12 +431,8 @@ class Server(object):
             else:
                 job_request['run_coroutine'] = None
 
-            # Build set of middleware + job handler, then run job
-            wrapper = self.make_middleware_stack(
-                [m.job for m in self.middleware],
-                self.execute_job,
-            )
-            job_response = wrapper(job_request)
+            job_response = self._middleware_job_wrapper(EnrichedJobRequest(**job_request))
+
             if 'correlation_id' in job_request['context']:
                 job_response.context['correlation_id'] = job_request['context']['correlation_id']
         except HarakiriInterrupt:
@@ -532,16 +532,9 @@ class Server(object):
         )
         return JobResponse(errors=[Error(code=code, message=message, is_caller_error=False)])
 
-    def execute_job(self, job_request):  # type: (Dict[six.text_type, Any]) -> JobResponse
+    def execute_job(self, job_request):  # type: (EnrichedJobRequest) -> JobResponse
         """
         Processes and runs the action requests contained in the job and returns a `JobResponse`.
-
-        .. caution::
-           `This bug <https://github.com/eventbrite/pysoa/issues/197>`_ details a flaw in this method. Unlike all other
-           middleware tasks, which accept and return proper objects, this server method and its middleware task accept
-           a dictionary and return a proper object. This is inconsistent and will be fixed prior to the release of
-           PySOA 1.0.0, at which point the argument will be a :class:`JobRequest` object instead of a job request
-           `dict`. TODO: Change this.
 
         :param job_request: The job request
 
@@ -550,17 +543,17 @@ class Server(object):
         # Run the Job's Actions
         harakiri = False
         job_response = JobResponse()
-        job_switches = RequestSwitchSet(job_request['context']['switches'])
-        for i, raw_action_request in enumerate(job_request['actions']):
+        job_switches = RequestSwitchSet(job_request.context['switches'])
+        for i, simple_action_request in enumerate(job_request.actions):
             # noinspection PyArgumentList
             action_request = self.request_class(
-                action=raw_action_request['action'],
-                body=raw_action_request.get('body', None),
+                action=simple_action_request.action,
+                body=simple_action_request.body,
                 switches=job_switches,
-                context=job_request['context'],
-                control=job_request['control'],
-                client=job_request['client'],
-                run_coroutine=job_request['run_coroutine'],
+                context=job_request.context,
+                control=job_request.control,
+                client=job_request.client,
+                run_coroutine=job_request.run_coroutine,
             )
             action_request._server = self
 
@@ -581,7 +574,7 @@ class Server(object):
 
                 # Wrap it in middleware
                 wrapper = self.make_middleware_stack(
-                    [m.action for m in self.middleware],
+                    [m.action for m in self._middleware],
                     action,
                 )
                 # Execute the middleware stack
@@ -630,7 +623,7 @@ class Server(object):
             job_response.actions.append(action_response)
             if harakiri or (
                 action_response.errors and
-                not job_request['control'].get('continue_on_error', False)
+                not job_request.control.get('continue_on_error', False)
             ):
                 # Quit running Actions if harakiri occurred or an error occurred and continue_on_error is False
                 break

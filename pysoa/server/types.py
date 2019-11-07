@@ -29,6 +29,7 @@ from pysoa.common.types import (
     ActionResponse,
     Context,
     Control,
+    JobRequest,
 )
 from pysoa.server.errors import ActionError
 from pysoa.server.internal.types import (
@@ -52,6 +53,7 @@ __all__ = (
     'ActionInterface',
     'ActionType',
     'EnrichedActionRequest',
+    'EnrichedJobRequest',
 )
 
 
@@ -60,6 +62,12 @@ def _convert_request_switch_set(value):
     if isinstance(value, RequestSwitchSet):
         return value
     return RequestSwitchSet(value)
+
+
+@attr.s
+class EnrichedJobRequest(JobRequest):
+    client = attr.ib(default=None)  # type: Client
+    run_coroutine = attr.ib(default=None)  # type: RunCoroutineType
 
 
 @attr.s
