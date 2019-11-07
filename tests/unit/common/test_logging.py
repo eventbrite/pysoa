@@ -39,30 +39,45 @@ class TestPySOALogContextFilter(unittest.TestCase):
         PySOALogContextFilter.clear_logging_request_context()
         PySOALogContextFilter.clear_logging_request_context()
         PySOALogContextFilter.clear_logging_request_context()
+        PySOALogContextFilter.clear_logging_action_name()
+        PySOALogContextFilter.clear_logging_action_name()
+        PySOALogContextFilter.clear_logging_action_name()
+        PySOALogContextFilter.clear_logging_action_name()
+        PySOALogContextFilter.clear_logging_action_name()
+        PySOALogContextFilter.clear_logging_action_name()
+        PySOALogContextFilter.clear_logging_action_name()
 
     def test_threading(self):
         thread_data = {}  # type: Dict[six.text_type, Any]
 
         def fn(*_, **__):
             thread_data['first_get'] = PySOALogContextFilter.get_logging_request_context()
+            thread_data['first_action'] = PySOALogContextFilter.get_logging_action_name()
 
             PySOALogContextFilter.set_logging_request_context(foo='bar', **{'baz': 'qux'})
+            PySOALogContextFilter.set_logging_action_name('status')
 
             thread_data['second_get'] = PySOALogContextFilter.get_logging_request_context()
+            thread_data['second_action'] = PySOALogContextFilter.get_logging_action_name()
 
             if thread_data.get('do_clear'):
                 PySOALogContextFilter.clear_logging_request_context()
+                PySOALogContextFilter.clear_logging_action_name()
 
             thread_data['third_get'] = PySOALogContextFilter.get_logging_request_context()
+            thread_data['third_action'] = PySOALogContextFilter.get_logging_action_name()
 
         self.assertIsNone(PySOALogContextFilter.get_logging_request_context())
+        self.assertIsNone(PySOALogContextFilter.get_logging_action_name())
 
         PySOALogContextFilter.set_logging_request_context(request_id=1234, **{'correlation_id': 'abc'})
+        PySOALogContextFilter.set_logging_action_name('introspect')
 
         self.assertEqual(
             {'request_id': 1234, 'correlation_id': 'abc'},
             PySOALogContextFilter.get_logging_request_context()
         )
+        self.assertEqual('introspect', PySOALogContextFilter.get_logging_action_name())
 
         thread = threading.Thread(target=fn)
         thread.start()
@@ -72,10 +87,14 @@ class TestPySOALogContextFilter(unittest.TestCase):
             {'request_id': 1234, 'correlation_id': 'abc'},
             PySOALogContextFilter.get_logging_request_context()
         )
+        self.assertEqual('introspect', PySOALogContextFilter.get_logging_action_name())
 
         self.assertIsNone(thread_data['first_get'])
         self.assertEqual({'foo': 'bar', 'baz': 'qux'}, thread_data['second_get'])
         self.assertEqual({'foo': 'bar', 'baz': 'qux'}, thread_data['third_get'])
+        self.assertIsNone(thread_data['first_action'])
+        self.assertEqual('status', thread_data['second_action'])
+        self.assertEqual('status', thread_data['third_action'])
 
         thread_data['do_clear'] = True
 
@@ -87,10 +106,14 @@ class TestPySOALogContextFilter(unittest.TestCase):
             {'request_id': 1234, 'correlation_id': 'abc'},
             PySOALogContextFilter.get_logging_request_context()
         )
+        self.assertEqual('introspect', PySOALogContextFilter.get_logging_action_name())
 
         self.assertIsNone(thread_data['first_get'])
         self.assertEqual({'foo': 'bar', 'baz': 'qux'}, thread_data['second_get'])
         self.assertIsNone(thread_data['third_get'])
+        self.assertIsNone(thread_data['first_action'])
+        self.assertEqual('status', thread_data['second_action'])
+        self.assertIsNone(thread_data['third_action'])
 
     def test_filter(self):
         record = mock.MagicMock()
@@ -112,8 +135,10 @@ class TestPySOALogContextFilter(unittest.TestCase):
         self.assertEqual('--', record.correlation_id)
         self.assertEqual('--', record.request_id)
         self.assertEqual('foo_qux', record.service_name)
+        self.assertEqual('(n/a)', record.action_name)
 
         PySOALogContextFilter.set_logging_request_context(request_id=4321, **{'correlation_id': 'abc1234'})
+        PySOALogContextFilter.set_logging_action_name('status')
         self.assertEqual(
             {'request_id': 4321, 'correlation_id': 'abc1234'},
             PySOALogContextFilter.get_logging_request_context()
@@ -125,8 +150,10 @@ class TestPySOALogContextFilter(unittest.TestCase):
         self.assertEqual('abc1234', record.correlation_id)
         self.assertEqual(4321, record.request_id)
         self.assertEqual('foo_qux', record.service_name)
+        self.assertEqual('status', record.action_name)
 
         PySOALogContextFilter.clear_logging_request_context()
+        PySOALogContextFilter.set_logging_action_name('introspect')
         self.assertEqual({'filter': 'mine', 'logger': 'yours'}, PySOALogContextFilter.get_logging_request_context())
 
         record.reset_mock()
@@ -135,8 +162,10 @@ class TestPySOALogContextFilter(unittest.TestCase):
         self.assertEqual('--', record.correlation_id)
         self.assertEqual('--', record.request_id)
         self.assertEqual('foo_qux', record.service_name)
+        self.assertEqual('introspect', record.action_name)
 
         PySOALogContextFilter.clear_logging_request_context()
+        PySOALogContextFilter.clear_logging_action_name()
         self.assertIsNone(PySOALogContextFilter.get_logging_request_context())
 
         record.reset_mock()
@@ -145,6 +174,7 @@ class TestPySOALogContextFilter(unittest.TestCase):
         self.assertEqual('--', record.correlation_id)
         self.assertEqual('--', record.request_id)
         self.assertEqual('foo_qux', record.service_name)
+        self.assertEqual('status', record.action_name)
 
 
 class TestRecursivelyCensoredDictWrapper(unittest.TestCase):
