@@ -53,7 +53,7 @@ class AsyncEventLoopThreadTests(unittest.TestCase):
             await asyncio.sleep(1)
             return 1
 
-        def callback():
+        def callback(_):
             assert future.done()
             assert future.result() == 1
 

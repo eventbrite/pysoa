@@ -18,6 +18,8 @@ from _pytest.unittest import (
 import py
 import six
 
+from pysoa.test.compatibility import mock
+
 
 try:
     import pyparsing
@@ -419,9 +421,6 @@ class ServicePlanFixtureTestTracebackEntry(TracebackEntry):
     A special traceback entry for displaying the relevant test fixture file contents instead of Python code when a
     fixture test case fails.
     """
-    class Faker(object):
-        pass
-
     def __init__(
         self,
         name,
@@ -441,13 +440,13 @@ class ServicePlanFixtureTestTracebackEntry(TracebackEntry):
         self._fixture_source = Source(fixture_source)
         self._test_source = test_source
 
-        self._frame = self.Faker()
+        self._frame = mock.Mock(spec=object)
         self._frame.statement = self.statement
         self._frame.getargs = lambda *_, **__: list(six.iteritems(local_variables))
         self._frame.f_locals = local_variables
-        self._frame.code = self.Faker()
+        self._frame.code = mock.Mock(spec=object)
         self._frame.code.path = path
-        self._frame.code.raw = self.Faker()
+        self._frame.code.raw = mock.Mock(spec=object)
         self._frame.code.raw.co_filename = str(path)
 
     @property

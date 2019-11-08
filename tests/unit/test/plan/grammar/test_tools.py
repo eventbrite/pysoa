@@ -178,7 +178,7 @@ class TestSubstituteValues(unittest.TestCase):
             'flub': {'flux': 'flare', 'flex': 'flue'},
         }
 
-        substitute_variables(data, *self.sources)
+        substitute_variables(data, *self.sources)  # type: ignore
 
         self.assertEqual(
             {
@@ -209,7 +209,7 @@ class TestSubstituteValues(unittest.TestCase):
             },
         }
 
-        substitute_variables(data, *self.sources)
+        substitute_variables(data, *self.sources)  # type: ignore
 
         self.assertEqual(
             {

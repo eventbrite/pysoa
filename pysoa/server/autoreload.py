@@ -430,7 +430,7 @@ class _PollingReloader(AbstractReloader):
     is_windows = sys.platform == 'win32'
 
     def __init__(self, main_module_name, watch_modules, signal_forks=False):
-        self.modified_times = {}  # type: Dict[six.text_type, int]
+        self.modified_times = {}  # type: Dict[six.text_type, float]
         super(_PollingReloader, self).__init__(main_module_name, watch_modules, signal_forks)
 
     def code_changed(self):

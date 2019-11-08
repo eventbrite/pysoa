@@ -8,7 +8,7 @@ if (3, 5) <= sys.version_info < (3, 5, 3):
     CT_co = typing.TypeVar('CT_co', covariant=True, bound=type)
 
     # noinspection PyCompatibility
-    class PatchedType(typing.Generic[CT_co], extra=type):  # noqa: E999
+    class PatchedType(typing.Generic[CT_co], extra=type):  # type: ignore # noqa: E999
         """
         Python 3.5.0-3.5.2 contain a bug whereby Type is defined as follows:
 
@@ -27,7 +27,7 @@ if (3, 5) <= sys.version_info < (3, 5, 4) or (3, 6) <= sys.version_info < (3, 6,
     T = typing.TypeVar('T')
 
     # noinspection PyCompatibility
-    class Deque(collections.deque, typing.MutableSequence[T], extra=collections.deque):  # noqa: E999
+    class Deque(collections.deque, typing.MutableSequence[T], extra=collections.deque):  # type: ignore # noqa: E999
         """
         Python 3.5.4 and 3.6.1 added typing.Deque, but some Python in the wild is still 3.5.3 or less or 3.6.0, so this
         patch backports Deque to 3.5.0-3.5.3 and 3.6.0. This code was copied from

@@ -217,9 +217,9 @@ class TestSwitchedActionValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as error_context:
             # noinspection PyUnusedLocal
             class BadAction(SwitchedAction):
-                switch_to_action_map = (  # type: ignore
-                    (5, ActionOne),
-                    (TestSwitchedActionValidation, action_two),
+                switch_to_action_map = (
+                    (5, ActionOne),  # type: ignore
+                    (TestSwitchedActionValidation, action_two),  # type: ignore
                 )
 
         self.assertIn('switch_to_action_map', error_context.exception.args[0])
@@ -228,9 +228,9 @@ class TestSwitchedActionValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as error_context:
             # noinspection PyUnusedLocal
             class BadAction(SwitchedAction):
-                switch_to_action_map = (  # type: ignore
-                    (5, ActionOne),
-                    (0, 7),
+                switch_to_action_map = (
+                    (5, ActionOne),  # type: ignore
+                    (0, 7),  # type: ignore
                 )
 
         self.assertIn('switch_to_action_map', error_context.exception.args[0])
