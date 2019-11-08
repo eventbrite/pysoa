@@ -9,6 +9,8 @@ from collections import (
 )
 from functools import wraps
 import re
+import sys
+from types import TracebackType
 from typing import (
     Any,
     Callable,
@@ -284,6 +286,7 @@ _CT = TypeVar('_CT', Type[Any], Callable)
 _CT_T = TypeVar('_CT_T', bound=Type[Any])
 _CT_C = TypeVar('_CT_C', bound=Callable)
 
+_ExcInfo = Union[Tuple[Type[BaseException], BaseException, TracebackType], Tuple[None, None, None]]
 _StubActionSideEffectSimple = Union[Body, Exception, Type[Exception], Callable[[Body], Body]]
 _StubActionSideEffect = Union[_StubActionSideEffectSimple, Iterable[_StubActionSideEffectSimple]]
 
@@ -629,7 +632,7 @@ class stub_action(object):
         return self.decorate_callable(func)
 
     def decorate_class(self, _class):  # type: (_CT_T) -> _CT_T
-        # This code inspired by mock.patch
+        # This code copied almost verbatim from unittest.mock.patch in Python 3.7
         for attr in dir(_class):
             # noinspection PyUnresolvedReferences
             if not attr.startswith(mock.patch.TEST_PREFIX):
@@ -639,22 +642,47 @@ class stub_action(object):
             if not hasattr(attr_value, '__call__'):
                 continue
 
-            stubber = self.__class__(self.service, self.action, self.body, self.errors)
+            stubber = self.__class__(self.service, self.action, self.body, self.errors, self.side_effect)
             setattr(_class, attr, stubber(attr_value))
         return _class
 
     def decorate_callable(self, func):  # type: (_CT_C) -> _CT_C
-        # This code inspired by mock.patch
+        # This code copied almost verbatim from unittest.mock.patch in Python 3.7
         if hasattr(func, 'patchings'):
             getattr(func, 'patchings').append(self)
             return func
 
         @wraps(func)
         def wrapped(*args, **kwargs):
-            with self as mock_arg:
-                args = args[:1] + (mock_arg, ) + args[1:]
-                return func(*args, **kwargs)
+            patching = None
+            extra_args = []
+            entered_patchers = []
+            exc_info = ()  # type: Union[Tuple[()], _ExcInfo]
+            try:
+                for patching in getattr(wrapped, 'patchings'):
+                    arg = patching.__enter__()
+                    entered_patchers.append(patching)
+                    if patching.attribute_name is not None:
+                        kwargs.update(arg)
+                    elif patching.new is mock.DEFAULT:
+                        extra_args.append(arg)
 
+                args += tuple(extra_args)
+                return func(*args, **kwargs)
+            except:  # noqa: E722
+                if patching not in entered_patchers:
+                    # the patcher may have been started, but an exception
+                    # raised whilst entering one of its additional_patchers
+                    entered_patchers.append(patching)
+                # Pass the exception to __exit__
+                exc_info = sys.exc_info()
+                # re-raise the exception
+                raise
+            finally:
+                for patching in reversed(entered_patchers):
+                    patching.__exit__(*exc_info)
+
+        setattr(wrapped, 'patchings', [self])
         return cast(_CT_C, wrapped)
 
     @property
