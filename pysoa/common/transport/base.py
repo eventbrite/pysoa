@@ -41,7 +41,8 @@ __all__ = (
 
 
 def get_hex_thread_id():  # type: () -> six.text_type
-    return '{:012x}'.format(threading.current_thread().ident)
+    thread_id = threading.current_thread().ident
+    return '{:012x}'.format(thread_id if thread_id is not None else 0)
 
 
 ReceivedMessage = NamedTuple(

@@ -14,6 +14,7 @@ from typing import (
 from unittest import TestCase
 
 from conformity import fields
+from conformity.settings import SettingsData
 import pytest
 import six
 
@@ -184,7 +185,7 @@ class TestClientSendReceive(TestCase):
                     },
                 },
             },
-        }
+        }  # type: Dict[six.text_type, SettingsData]
 
     def test_send_request_get_response(self):
         """
@@ -451,11 +452,11 @@ class TestClientParallelSendReceive(TestCase):
         self.assertIsNotNone(action_responses)
         self.assertIsInstance(action_responses, types.GeneratorType)
 
-        action_responses = list(action_responses)
-        self.assertEqual(3, len(action_responses))
-        self.assertEqual({'foo': 'bar'}, action_responses[0].body)
-        self.assertEqual({'baz': 3}, action_responses[1].body)
-        self.assertEqual({'foo': 'bar'}, action_responses[2].body)
+        action_responses_list = list(action_responses)
+        self.assertEqual(3, len(action_responses_list))
+        self.assertEqual({'foo': 'bar'}, action_responses_list[0].body)
+        self.assertEqual({'baz': 3}, action_responses_list[1].body)
+        self.assertEqual({'foo': 'bar'}, action_responses_list[2].body)
 
     def test_call_actions_parallel_suppress_response_is_prohibited(self):
         """
@@ -487,15 +488,15 @@ class TestClientParallelSendReceive(TestCase):
 
         self.assertIsNotNone(action_responses)
 
-        action_responses = list(action_responses)
-        self.assertEqual(3, len(action_responses))
-        self.assertEqual({'cat': 'dog'}, action_responses[0].body)
-        self.assertEqual({}, action_responses[1].body)
+        action_responses_list = list(action_responses)
+        self.assertEqual(3, len(action_responses_list))
+        self.assertEqual({'cat': 'dog'}, action_responses_list[0].body)
+        self.assertEqual({}, action_responses_list[1].body)
         self.assertEqual(
             [Error(code=ERROR_CODE_INVALID, message='Invalid input', field='foo', is_caller_error=True)],
-            action_responses[1].errors,
+            action_responses_list[1].errors,
         )
-        self.assertEqual({'selected': True, 'count': 7}, action_responses[2].body)
+        self.assertEqual({'selected': True, 'count': 7}, action_responses_list[2].body)
 
     def test_call_actions_parallel_with_job_errors_not_raised(self):
         action_responses = self.client.call_actions_parallel(
@@ -511,11 +512,11 @@ class TestClientParallelSendReceive(TestCase):
 
         self.assertIsNotNone(action_responses)
 
-        action_responses = list(action_responses)
-        self.assertEqual(3, len(action_responses))
-        self.assertEqual({'no_error': True}, action_responses[0].body)
-        self.assertEqual([Error(code='BAD_JOB', message='You are a bad job')], action_responses[1])
-        self.assertEqual({'no_error': True}, action_responses[2].body)
+        action_responses_list = list(action_responses)
+        self.assertEqual(3, len(action_responses_list))
+        self.assertEqual({'no_error': True}, action_responses_list[0].body)
+        self.assertEqual([Error(code='BAD_JOB', message='You are a bad job')], action_responses_list[1])
+        self.assertEqual({'no_error': True}, action_responses_list[2].body)
 
     def test_call_actions_parallel_with_transport_errors_caught(self):
         original_send = self.client.send_request
@@ -544,11 +545,11 @@ class TestClientParallelSendReceive(TestCase):
 
         self.assertIsNotNone(action_responses)
 
-        action_responses = list(action_responses)
-        self.assertEqual(3, len(action_responses))
-        self.assertEqual({'no_error': True}, action_responses[0].body)
-        self.assertIs(error, action_responses[1])
-        self.assertEqual({'no_error': True}, action_responses[2].body)
+        action_responses_list = list(action_responses)
+        self.assertEqual(3, len(action_responses_list))
+        self.assertEqual({'no_error': True}, action_responses_list[0].body)
+        self.assertIs(error, action_responses_list[1])
+        self.assertEqual({'no_error': True}, action_responses_list[2].body)
 
     def test_call_actions_parallel_action_errors_raised(self):
         """
@@ -665,8 +666,11 @@ class TestClientParallelSendReceive(TestCase):
         self.assertEqual(2, len(job_responses[0].actions))
         self.assertEqual({'foo': 'bar'}, job_responses[0].actions[0].body)
         self.assertEqual({'baz': 3}, job_responses[0].actions[1].body)
-        self.assertIsInstance(job_responses[1], MessageSendError)
-        self.assertEqual('The message failed to send', job_responses[1].args[0])
+
+        r1 = job_responses[1]
+        assert isinstance(r1, MessageSendError)
+        self.assertEqual('The message failed to send', r1.args[0])
+
         self.assertEqual(1, len(job_responses[2].actions))
         self.assertEqual({'cat': 'dog'}, job_responses[2].actions[0].body)
         self.assertEqual(1, len(job_responses[3].actions))
@@ -692,8 +696,11 @@ class TestClientParallelSendReceive(TestCase):
         self.assertEqual(2, len(job_responses[0].actions))
         self.assertEqual({'foo': 'bar'}, job_responses[0].actions[0].body)
         self.assertEqual({'baz': 3}, job_responses[0].actions[1].body)
-        self.assertIsInstance(job_responses[1], MessageReceiveError)
-        self.assertEqual('Could not receive a message', job_responses[1].args[0])
+
+        r1 = job_responses[1]
+        assert isinstance(r1, MessageReceiveError)
+        self.assertEqual('Could not receive a message', r1.args[0])
+
         self.assertEqual(1, len(job_responses[2].actions))
         self.assertEqual({'cat': 'dog'}, job_responses[2].actions[0].body)
         self.assertEqual(1, len(job_responses[3].actions))
@@ -724,20 +731,32 @@ class TestClientParallelSendReceive(TestCase):
         self.assertEqual(2, len(job_responses[0].actions))
         self.assertEqual({'foo': 'bar'}, job_responses[0].actions[0].body)
         self.assertEqual({'baz': 3}, job_responses[0].actions[1].body)
-        self.assertIsInstance(job_responses[1], MessageSendError)
-        self.assertEqual('The message failed to send', job_responses[1].args[0])
+
+        r1 = job_responses[1]
+        assert isinstance(r1, MessageSendError)
+        self.assertEqual('The message failed to send', r1.args[0])
+
         self.assertEqual(1, len(job_responses[2].actions))
         self.assertEqual({'cat': 'dog'}, job_responses[2].actions[0].body)
-        self.assertIsInstance(job_responses[3], MessageSendError)
-        self.assertEqual('The message failed to send', job_responses[3].args[0])
-        self.assertIsInstance(job_responses[4], MessageReceiveError)
-        self.assertEqual('Could not receive a message', job_responses[4].args[0])
+
+        r3 = job_responses[3]
+        assert isinstance(r3, MessageSendError)
+        self.assertEqual('The message failed to send', r3.args[0])
+
+        r4 = job_responses[4]
+        assert isinstance(r4, MessageReceiveError)
+        self.assertEqual('Could not receive a message', r4.args[0])
+
         self.assertEqual(1, len(job_responses[5].actions))
         self.assertEqual({'selected': True, 'count': 7}, job_responses[5].actions[0].body)
-        self.assertIsInstance(job_responses[6], MessageReceiveError)
-        self.assertEqual('Could not receive a message', job_responses[6].args[0])
-        self.assertIsInstance(job_responses[7], MessageReceiveError)
-        self.assertEqual('Could not receive a message', job_responses[7].args[0])
+
+        r6 = job_responses[6]
+        assert isinstance(r6, MessageReceiveError)
+        self.assertEqual('Could not receive a message', r6.args[0])
+
+        r7 = job_responses[7]
+        assert isinstance(r7, MessageReceiveError)
+        self.assertEqual('Could not receive a message', r7.args[0])
 
 
 class TestFutureSendReceive(TestCase):

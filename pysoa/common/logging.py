@@ -311,7 +311,13 @@ class SyslogHandler(logging.handlers.SysLogHandler):
     ):
         super(SyslogHandler, self).__init__(address, facility, socket_type)  # type: ignore
 
-        if not self.unixsocket and self.socktype == socket.SOCK_DGRAM:  # type: ignore
+        # This is a hack, but necessary due to https://github.com/python/typeshed/issues/3244, which is causing errors
+        self.address = getattr(self, 'address')  # type: Tuple[six.text_type, int]
+        self.socket = getattr(self, 'socket')  # type: socket.socket
+        self.socktype = getattr(self, 'socktype')  # type: int
+        self.unixsocket = getattr(self, 'unixsocket')  # type: bool
+
+        if not self.unixsocket and self.socktype == socket.SOCK_DGRAM:
             if address[0] not in self._MINIMUM_MTU_CACHE:
                 # The MTU is unlikely to change while the process is running, and checking it is expensive
                 self._MINIMUM_MTU_CACHE[address[0]] = _discover_minimum_mtu_to_target(address[0], 9999)
@@ -421,7 +427,7 @@ class SyslogHandler(logging.handlers.SysLogHandler):
                     self.socket.send(message)
                 except OSError:
                     self.socket.close()
-                    self._connect_unixsocket(self.address)
+                    self._connect_unixsocket(self.address)  # type: ignore
                     self.socket.send(message)
             elif self.socktype == socket.SOCK_DGRAM:
                 self.socket.sendto(message, self.address)

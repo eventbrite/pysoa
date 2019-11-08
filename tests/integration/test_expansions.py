@@ -3,11 +3,15 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import cast
 from unittest import TestCase
 
 from pysoa.client.client import Client
 from pysoa.test.compatibility import mock
-from pysoa.test.stub_service import stub_action
+from pysoa.test.stub_service import (
+    StubClientTransport,
+    stub_action,
+)
 
 
 class TestClientWithExpansions(TestCase):
@@ -532,10 +536,10 @@ class TestClientWithExpansions(TestCase):
             },
         )
 
-        actions = list(actions)
-        self.assertEqual(2, len(actions))
-        self.assertEqual(expected_book_response, actions[0].body)
-        self.assertEqual(expected_car_response, actions[1].body)
+        actions_list = list(actions)
+        self.assertEqual(2, len(actions_list))
+        self.assertEqual(expected_book_response, actions_list[0].body)
+        self.assertEqual(expected_car_response, actions_list[1].body)
 
     def test_call_jobs_parallel_with_expansions(self):
         expected_book_response = {
@@ -633,7 +637,10 @@ class TestClientWithExpansions(TestCase):
             'field': 'id',
             'message': 'Invalid author ID',
         }]
-        self.client._get_handler('author_info_service').transport.stub_action('get_authors_by_ids', errors=errors)
+        cast(
+            StubClientTransport,
+            self.client._get_handler('author_info_service').transport,
+        ).stub_action('get_authors_by_ids', errors=errors)
         expected_response = {
             'book_obj': {
                 '_type': 'book_type',
@@ -660,7 +667,10 @@ class TestClientWithExpansions(TestCase):
             'field': 'id',
             'message': 'Invalid publisher ID',
         }]
-        self.client._get_handler('publisher_info_service').transport.stub_action('get_publishers_by_ids', errors=errors)
+        cast(
+            StubClientTransport,
+            self.client._get_handler('publisher_info_service').transport,
+        ).stub_action('get_publishers_by_ids', errors=errors)
 
         with self.assertRaises(self.client.CallActionError) as e:
             self.client.call_action(
@@ -684,7 +694,10 @@ class TestClientWithExpansions(TestCase):
             'field': 'id',
             'message': 'Invalid author ID',
         }]
-        self.client._get_handler('author_info_service').transport.stub_action('get_authors_by_ids', errors=errors)
+        cast(
+            StubClientTransport,
+            self.client._get_handler('author_info_service').transport,
+        ).stub_action('get_authors_by_ids', errors=errors)
 
         with self.assertRaises(self.client.InvalidExpansionKey) as err:
             self.client.call_action(

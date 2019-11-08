@@ -5,6 +5,11 @@ from __future__ import (
 
 import copy
 import random
+from typing import (
+    Any,
+    Dict,
+    List,
+)
 from unittest import TestCase
 
 import attr
@@ -74,11 +79,11 @@ class TestStubClient(TestCase):
         self.assertEqual(foo_rsp.body, get_foo_body)
         with self.assertRaises(client.CallActionError) as e:
             client.call_action('bar_service', 'get_bar')
-            error_response = e.value.actions[0].errors
-            self.assertEqual(len(error_response), 1)
-            self.assertEqual(error_response['code'], get_bar_error['code'])
-            self.assertEqual(error_response['message'], get_bar_error['message'])
-            self.assertEqual(error_response['code'], get_bar_error['code'])
+
+        error_response = e.exception.actions[0].errors
+        self.assertEqual(len(error_response), 1)
+        self.assertEqual(error_response[0].code, get_bar_error['code'])
+        self.assertEqual(error_response[0].message, get_bar_error['message'])
 
     def test_stub_action_body_only(self):
         """
@@ -105,11 +110,12 @@ class TestStubClient(TestCase):
         self.client.stub_action(STUB_CLIENT_SERVICE_NAME, 'test_action', errors=errors)
         with self.assertRaises(StubClient.CallActionError) as e:
             self.client.call_action(STUB_CLIENT_SERVICE_NAME, 'test_action')
-            error_response = e.value.actions[0].errors
-            self.assertEqual(len(error_response), 1)
-            self.assertEqual(error_response[0].code, errors[0]['code'])
-            self.assertEqual(error_response[0].message, errors[0]['message'])
-            self.assertEqual(error_response[0].field, errors[0]['field'])
+
+        error_response = e.exception.actions[0].errors
+        self.assertEqual(len(error_response), 1)
+        self.assertEqual(error_response[0].code, errors[0]['code'])
+        self.assertEqual(error_response[0].message, errors[0]['message'])
+        self.assertEqual(error_response[0].field, errors[0]['field'])
 
     def test_stub_action_permissions_errors(self):
         """
@@ -126,11 +132,12 @@ class TestStubClient(TestCase):
         self.client.stub_action(STUB_CLIENT_SERVICE_NAME, 'test_action', errors=errors)
         with self.assertRaises(StubClient.CallActionError) as e:
             self.client.call_action(STUB_CLIENT_SERVICE_NAME, 'test_action')
-            error_response = e.value.actions[0].errors
-            self.assertEqual(len(error_response), 1)
-            self.assertEqual(error_response[0].code, errors[0]['code'])
-            self.assertEqual(error_response[0].message, errors[0]['message'])
-            self.assertEqual(error_response[0].denied_permissions, errors[0]['denied_permissions'])
+
+        error_response = e.exception.actions[0].errors
+        self.assertEqual(len(error_response), 1)
+        self.assertEqual(error_response[0].code, errors[0]['code'])
+        self.assertEqual(error_response[0].message, errors[0]['message'])
+        self.assertEqual(error_response[0].denied_permissions, errors[0]['denied_permissions'])
 
     def test_stub_action_errors_and_body(self):
         """
@@ -148,11 +155,12 @@ class TestStubClient(TestCase):
         self.client.stub_action(STUB_CLIENT_SERVICE_NAME, 'test_action', errors=errors, body=response_body)
         with self.assertRaises(StubClient.CallActionError) as e:
             self.client.call_action(STUB_CLIENT_SERVICE_NAME, 'test_action')
-            error_response = e.value.actions[0].errors
-            self.assertEqual(len(error_response), 1)
-            self.assertEqual(error_response[0].code, errors[0]['code'])
-            self.assertEqual(error_response[0].message, errors[0]['message'])
-            self.assertEqual(error_response[0].field, errors[0]['field'])
+
+        error_response = e.exception.actions[0].errors
+        self.assertEqual(len(error_response), 1)
+        self.assertEqual(error_response[0].code, errors[0]['code'])
+        self.assertEqual(error_response[0].message, errors[0]['message'])
+        self.assertEqual(error_response[0].field, errors[0]['field'])
 
     @mock.patch('pysoa.client.client.ServiceHandler._client_version', new=[0, 68, 0])
     def test_multiple_requests(self):
@@ -177,7 +185,7 @@ class TestStubClient(TestCase):
                     },
                 ],
             },
-        }
+        }  # type: Dict[six.text_type, Dict[six.text_type, Any]]
         self.client.stub_action(STUB_CLIENT_SERVICE_NAME, 'action_1', **responses['action_1'])
         self.client.stub_action(STUB_CLIENT_SERVICE_NAME, 'action_2', **responses['action_2'])
         self.client.stub_action(STUB_CLIENT_SERVICE_NAME, 'action_3', **responses['action_3'])
@@ -187,12 +195,14 @@ class TestStubClient(TestCase):
         request_1 = dict(control_extra=control, context=context, actions=[
             {'action': 'action_1'},
             {'action': 'action_2'},
-        ])
+        ])  # type: Dict[six.text_type, Any]
         request_2 = dict(control_extra=control, context=context, actions=[
             {'action': 'action_2'},
             {'action': 'action_1'},
-        ])
-        request_3 = dict(control_extra=control, context=context, actions=[{'action': 'action_3'}])
+        ])  # type: Dict[six.text_type, Any]
+        request_3 = dict(control_extra=control, context=context, actions=[
+            {'action': 'action_3'},
+        ])  # type: Dict[six.text_type, Any]
 
         # Store requests by request ID for later verification, because order is not guaranteed
         requests_by_id = {}
@@ -243,7 +253,7 @@ class TestStubClient(TestCase):
                     },
                 ],
             },
-        }
+        }  # type: Dict[six.text_type, Dict[six.text_type, Any]]
         self.client.stub_action(STUB_CLIENT_SERVICE_NAME, 'action_1', **responses['action_1'])
         self.client.stub_action(STUB_CLIENT_SERVICE_NAME, 'action_2', **responses['action_2'])
         self.client.stub_action(STUB_CLIENT_SERVICE_NAME, 'action_3', **responses['action_3'])
@@ -253,12 +263,14 @@ class TestStubClient(TestCase):
         request_1 = dict(control_extra=control, context=context, actions=[
             {'action': 'action_1'},
             {'action': 'action_2'},
-        ])
+        ])  # type: Dict[six.text_type, Any]
         request_2 = dict(control_extra=control, context=context, actions=[
             {'action': 'action_2'},
             {'action': 'action_1'},
-        ])
-        request_3 = dict(control_extra=control, context=context, actions=[{'action': 'action_3'}])
+        ])  # type: Dict[six.text_type, Any]
+        request_3 = dict(control_extra=control, context=context, actions=[
+            {'action': 'action_3'},
+        ])  # type: Dict[six.text_type, Any]
 
         # Store requests by request ID for later verification, because order is not guaranteed
         requests_by_id = {}
@@ -1075,17 +1087,15 @@ class TestStubAction(ServerTestCase):
             ActionError(errors=[Error(code='COOL', message='Another error')]),
         )
 
-        request_id1 = self.client.send_request(
-            'test_service',
-            [
-                {'action': 'test_action_1', 'body': {'menu': 'look'}},
-                {'action': 'test_action_2'},
-                {'action': 'test_action_1', 'body': {'pizza': 'pepperoni'}},
-                {'action': 'test_action_2'},
-                {'action': 'test_action_2'},
-            ],
-            continue_on_error=True,
-        )
+        actions = [
+            {'action': 'test_action_1', 'body': {'menu': 'look'}},
+            {'action': 'test_action_2'},
+            {'action': 'test_action_1', 'body': {'pizza': 'pepperoni'}},
+            {'action': 'test_action_2'},
+            {'action': 'test_action_2'},
+        ]  # type: List[Dict[six.text_type, Any]]
+
+        request_id1 = self.client.send_request('test_service', actions, continue_on_error=True)
         request_id2 = self.client.send_request(
             'test_service',
             [

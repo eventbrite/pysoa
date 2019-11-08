@@ -71,9 +71,9 @@ class MockedTestCase(ServicePlanTestCase):
     def reset(cls, include_setup=True):
         if include_setup:
             if hasattr(cls, '_test_fixture_setup_called'):
-                del cls._test_fixture_setup_called
+                del cls._test_fixture_setup_called  # type: ignore
             if hasattr(cls, '_test_fixture_setup_succeeded'):
-                del cls._test_fixture_setup_succeeded
+                del cls._test_fixture_setup_succeeded  # type: ignore
 
         cls.add_error = mock.MagicMock()
         cls.set_up_test_fixture = mock.MagicMock()
@@ -88,7 +88,7 @@ class MockedTestCase(ServicePlanTestCase):
 
         cls._all_directives = [cast(Type[Directive], mock.MagicMock()), ]
         # Mock doesn't automatically mock methods that start with `assert`, so we have to do this
-        cls._all_directives[0].return_value.assert_test_fixture_results = mock.MagicMock()
+        cls._all_directives[0].return_value.assert_test_fixture_results = mock.MagicMock()  # type: ignore
 
 
 class TestInvalidFixturePaths(unittest.TestCase):

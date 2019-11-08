@@ -3,9 +3,15 @@ from __future__ import (
     unicode_literals,
 )
 
+from typing import (
+    Any,
+    Dict,
+    Optional,
+)
 import unittest
 
 from conformity import fields
+import six
 
 from pysoa.common.types import ActionResponse
 from pysoa.server.action import Action
@@ -21,13 +27,13 @@ class TestAction(Action):
 
     request_schema = fields.Dictionary({
         'string_field': fields.UnicodeString(),
-    })
+    })  # type: Optional[fields.Dictionary]
 
     response_schema = fields.Dictionary({
         'boolean_field': fields.Boolean(),
-    })
+    })  # type: Optional[fields.Dictionary]
 
-    _return = None
+    _return = None  # type: Optional[Dict[six.text_type, Any]]
 
     def run(self, request):
         return self._return
