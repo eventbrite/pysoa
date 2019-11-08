@@ -5,20 +5,29 @@ from __future__ import (
 
 from functools import wraps
 import re
-import sys
-from unittest import SkipTest
+from typing import List
 
+from _pytest import fixtures
 from _pytest._code.code import TracebackEntry
 from _pytest._code.source import Source
 from _pytest.mark import MARK_GEN
-from _pytest.unittest import (
-    TestCaseFunction,
-    UnitTestCase,
+from _pytest.python import (
+    Class,
+    Function,
+    Instance,
+    PyCollector,
 )
+from _pytest.warning_types import PytestCollectionWarning
 import py
+import pytest
 import six
 
 from pysoa.test.compatibility import mock
+from pysoa.test.plan import (
+    FixtureTestCaseData,
+    ServicePlanTestCase,
+)
+from pysoa.test.plan.errors import StatusError
 
 
 try:
@@ -135,22 +144,36 @@ def pytest_pycollect_makeitem(collector, name, obj):
     if not isinstance(obj, type):
         return
 
-    # Lazy importing ensures that pytest-cov loads up coverage before this plugin loads other classes in PySOA
-    from pysoa.test.plan import ServicePlanTestCase
-
     try:
         if not issubclass(obj, ServicePlanTestCase):
             return
         if obj == ServicePlanTestCase:
             # Don't collect the parent class
-            return
+            return IgnoreBaseServicePlanTestCaseClassCollector()
     except TypeError:
         return
 
-    return ServicePlanTestCaseCollector(name, parent=collector)
+    return ServicePlanTestClassCollector(name, parent=collector)
 
 
-class ServicePlanTestCaseCollector(UnitTestCase):
+class IgnoreBaseServicePlanTestCaseClassCollector(PyCollector):
+    def collect(self):
+        return []
+
+
+def has_init(obj):
+    init = getattr(obj, '__init__', None)
+    if init:
+        return init != object.__init__
+
+
+def has_new(obj):
+    new = getattr(obj, '__new__', None)
+    if new:
+        return new != object.__new__
+
+
+class ServicePlanTestClassCollector(Class):
     """
     A specialized collector for collecting PySOA test plans and all of their fixtures and test cases. It yields all of
     the test cases that its parent collects (normal ``test_`` methods in ``unittest`` fashion), and then yields all of
@@ -159,26 +182,66 @@ class ServicePlanTestCaseCollector(UnitTestCase):
     def collect(self):
         """
         Responsible for collecting all the items (tests, in this case traditional test methods and fixture test cases)
-        in this item (a ``ServicePlanTestCase`` class).
-        :return:
+        in this item (a ``ServicePlanTestCase`` class). Copied from (but adapted to use the extended instance
+        collector) https://github.com/pytest-dev/pytest/blob/5.2.2/src/_pytest/python.py#L687-L712.
         """
         if not getattr(self.obj, '__test__', True):
-            # Super performs this check, too, but if we yield that return, things get screwy, so we have to duplicate
-            # the check first to be sure.
             return
 
-        for item in super(ServicePlanTestCaseCollector, self).collect():
-            # We let super collect normal (``unittest``) test methods, and yield each of those as it collects them,
-            # just as super does. After this, we can collect the fixtures and fixture tests.
-            yield item
+        if has_init(self.obj):
+            self.warn(
+                PytestCollectionWarning(
+                    "cannot collect test class %r because it has a "
+                    "__init__ constructor (from: %s)"
+                    % (self.obj.__name__, self.parent.nodeid)
+                )
+            )
+            return []
+        elif has_new(self.obj):
+            self.warn(
+                PytestCollectionWarning(
+                    "cannot collect test class %r because it has a "
+                    "__new__ constructor (from: %s)"
+                    % (self.obj.__name__, self.parent.nodeid)
+                )
+            )
+            return []
+
+        self._inject_setup_class_fixture()
+        self._inject_setup_method_fixture()
+
+        return [ServicePlanTestInstanceCollector(name="()", parent=self)]
+
+
+class ServicePlanTestInstanceCollector(Instance):
+    def collect(self):
+        collected = super(ServicePlanTestInstanceCollector, self).collect() or []  # type: List[Function]
 
         for test_data in self.obj.get_fixture_test_information():
             # Now we collect and field the fixture tests.
-            yield ServicePlanTestCaseTestFunction(parent=self, fixture_test_case_data=test_data)
+            collected.append(ServicePlanTestCaseTestFunction(parent=self, fixture_test_case_data=test_data))
             PLUGIN_STATISTICS['fixture_tests_collected'] += 1
 
+        unittest_skip = getattr(self.parent.obj, '__unittest_skip__', False)
+        unittest_skip_why = getattr(self.parent.obj, '__unittest_skip_why__', '@unittest.skip')
+        for item in collected:
+            skipped = False
+            if any(
+                m.name == 'skip' or (m.name == 'skipif' and m.args and m.args[0])
+                for m in item.own_markers or []
+            ):
+                skipped = True
+            elif unittest_skip:
+                item.add_marker(pytest.mark.skip(reason=unittest_skip_why))
+                skipped = True
 
-class ServicePlanTestCaseTestFunction(TestCaseFunction):
+            if skipped and isinstance(item, ServicePlanTestCaseTestFunction):
+                PLUGIN_STATISTICS['fixture_tests_skipped'] += 1
+
+        return collected
+
+
+class ServicePlanTestCaseTestFunction(Function):
     """
     A test item that PyTest executes. Largely behaves like a traditional ``unittest` test method, but overrides some
     behavior to ensure the following:
@@ -190,38 +253,32 @@ class ServicePlanTestCaseTestFunction(TestCaseFunction):
     """
 
     def __init__(self, parent, fixture_test_case_data):
+        # type: (ServicePlanTestInstanceCollector, FixtureTestCaseData) -> None
         """
         Construct a test item.
 
         :param parent: The parent collector
-        :type parent: ServicePlanTestCaseCollector
         :param fixture_test_case_data: The test case data
-        :type fixture_test_case_data: FixtureTestCaseData
         """
-        test_name = 'test__{fixture}__{test}'.format(
+        cls = parent.parent.obj
+
+        # First we construct the test method and attach it to the test class
+        test_name = 'plan__{fixture}__{test}'.format(
             fixture=fixture_test_case_data.fixture_name,
             test=fixture_test_case_data.name,
         )
-
-        # First, we have to give the test plan test case class a method with this name, otherwise the TestCase class
-        # cannot be instantiated. However, this should never be called, because the plugin overrides it.
-        def fake_test(*_, **__):
-            raise TypeError('The incorrect test method was called')
-
-        fake_test.__doc__ = fixture_test_case_data.description
-        if hasattr(parent.obj, test_name):
-            # Lazy importing ensures that pytest-cov loads up coverage before this plugin loads other classes in PySOA
-            from pysoa.test.plan.errors import StatusError
+        if hasattr(cls, test_name):
             raise StatusError('Duplicate test name "{name}" in fixture "{fixture}"'.format(
                 name=fixture_test_case_data.name,
                 fixture=fixture_test_case_data.fixture_file),
             )
-        setattr(parent.obj, test_name, fake_test)
+        fixture_test_case_data.callable.__doc__ = fixture_test_case_data.description
+        setattr(cls, test_name, fixture_test_case_data.callable)
 
         # Next we call super
         super(ServicePlanTestCaseTestFunction, self).__init__(name=test_name, parent=parent)
 
-        # Finally, we do some magic to trick PyTest into accepting and displaying the actual location of the test (the
+        # Thirdly, we do some magic to trick PyTest into accepting and displaying the actual location of the test (the
         # fixture file and the line in that file) instead of the PySOA test plan parsing code.
         self._location = (
             self.session.fspath.bestrelpath(py.path.local(fixture_test_case_data.fixture_file)),
@@ -235,131 +292,37 @@ class ServicePlanTestCaseTestFunction(TestCaseFunction):
 
         self.fixture_test_case_data = fixture_test_case_data
 
-        # Copy any class-level PyTest markers from the ServicePlanTestCase class to each fixture test case
+        # Finally, copy any class-level PyTest markers from the ServicePlanTestCase class to each fixture test case
         # This allows things like pytest.mark.skip[if], pytest.mark.django_db, etc. to work
-        for mark in _get_unpacked_marks(parent.obj):
+        skipped = False
+        for mark in _get_unpacked_marks(cls):
             mark_copy = getattr(MARK_GEN, mark.name)(*mark.args, **mark.kwargs)
             self.add_marker(mark_copy)
 
             if mark.name == 'skip' or (mark.name == 'skipif' and mark.args and mark.args[0]):
-                PLUGIN_STATISTICS['fixture_tests_skipped'] += 1
+                skipped = True
+
+        if not skipped and fixture_test_case_data.skip:
+            self.add_marker(pytest.mark.skip(reason=fixture_test_case_data.skip))
+
+    def setup(self):
+        super(Function, self).setup()
+
+        if self.fixture_test_case_data.is_first_fixture_case:
+            setattr(self.parent.obj, '_pytest_first_fixture_case', self.fixture_test_case_data)
+
+        if self.fixture_test_case_data.is_last_fixture_case:
+            setattr(self.parent.obj, '_pytest_last_fixture_case', self.fixture_test_case_data)
+
+        fixtures.fillfixtures(self)
 
     # noinspection SpellCheckingInspection
     def runtest(self):
         """
         PyTest calls this to actually run the test.
         """
-        if self.config.pluginmanager.get_plugin('pdbinvoke') is None:
-            self._run(result=self)
-        else:
-            self._debug()
-
-    def _handle_skip(self):
-        """
-        Implements the skipping machinery (see super). It's a modified version of super and ``unittest:TestCase.run``
-        that makes the following changes:
-        - Handles test fixture skip directives
-        - Properly handles class-level ``pytest.mark.skip[if]`` markers to make them apply to all fixture test cases
-        - Properly handles the changing signature of ``_addSkip`` (super incorrectly analyzes the Python version)
-
-        :return: ``True`` if this test is to be skipped, ``False`` if it is to be run.
-        :rtype: bool
-        """
-        # implements the skipping machinery (see super); analog to pythons Lib/unittest/case.py:run
-        cls = self._testcase.__class__
-
-        skipped = False
-        skipped_why = 'unknown'
-        if getattr(cls, '__unittest_skip__', False):
-            skipped = True
-            skipped_why = getattr(cls, '__unittest_skip_why__', '')
-        elif self.fixture_test_case_data.skip:
-            skipped = True
-            skipped_why = self.fixture_test_case_data.skip
-
-        if skipped:
-            # If the class or fixture or fixture test case was skipped
-            try:
-                # noinspection PyProtectedMember
-                # This is the signature on Python 3.4+ or unittest2 on Python 3.3-
-                self._testcase._addSkip(self, self._testcase, skipped_why)
-            except TypeError:
-                if sys.version_info >= (3, 4):
-                    # If we got this error >= Python 3.4, something is wrong, so re-raise it
-                    raise
-                # noinspection PyProtectedMember
-                self._testcase._addSkip(self, skipped_why)
-
-            PLUGIN_STATISTICS['fixture_tests_skipped'] += 1
-
-            return True
-
-        return False
-
-    # noinspection PyProtectedMember
-    def _debug(self):
-        """
-        Runs the test in debug mode, which starts a debugger as soon as an error happens. Does not run ``setUp`` or
-        ``tearDown`` since the code in ``ServicePlanTestCase`` takes care of this. See ``unittest:TestCase.debug``.
-        """
-        # see unittest.TestCase.debug
-        if self._handle_skip():
-            return
-
-        self.fixture_test_case_data.callable(self._testcase)
-        while self._testcase._cleanups:
-            func, args, kwargs = self._testcase._cleanups.pop(-1)
-            func(*args, **kwargs)
-
-    # noinspection PyProtectedMember
-    def _run(self, result=None):
-        """
-        Runs the test in normal mode, which adds failures and errors to the result. Does not run ``setUp`` or
-        ``tearDown`` since the code in ``ServicePlanTestCase`` takes care of this. See ``unittest:TestCase.run``.
-
-        :param result: The test result so far
-        """
-        orig_result = result
-        if result is None:
-            result = self._testcase.defaultTestResult()
-            start_test_run = getattr(result, 'startTestRun', None)
-            if start_test_run is not None:
-                start_test_run()
-
-        self._testcase._resultForDoCleanups = result
-        result.startTest(self._testcase)
-
-        if self._handle_skip():
-            result.stopTest(self._testcase)
-            return
-
         PLUGIN_STATISTICS['fixture_tests_executed'] += 1
-
-        try:
-            success = False
-            # noinspection PyBroadException
-            try:
-                self.fixture_test_case_data.callable(self._testcase)
-            except KeyboardInterrupt:
-                raise
-            except self._testcase.failureException:
-                result.addFailure(self._testcase, sys.exc_info())
-            except SkipTest as e:
-                self._testcase._addSkip(result, str(e))
-            except:  # noqa E722
-                result.addError(self._testcase, sys.exc_info())
-            else:
-                success = True
-
-            success = success and self._testcase.doCleanups()
-            if success:
-                result.addSuccess(self._testcase)
-        finally:
-            result.stopTest(self._testcase)
-            if orig_result is None:
-                stop_test_run = getattr(result, 'stopTestRun', None)
-                if stop_test_run is not None:
-                    stop_test_run()
+        super(ServicePlanTestCaseTestFunction, self).runtest()
 
     # noinspection SpellCheckingInspection
     def _prunetraceback(self, exception_info):

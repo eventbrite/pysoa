@@ -43,7 +43,7 @@ from pysoa.test.plan.grammar.directive import (
 )
 from pysoa.test.plan.grammar.tools import substitute_variables
 from pysoa.test.plan.parser import ServiceTestPlanFixtureParser
-from pysoa.test.server import ServerTestCase
+from pysoa.test.server import PyTestServerTestCase
 from pysoa.test.stub_service import stub_action
 
 
@@ -122,10 +122,11 @@ Creating a Test Plan with ``ServicePlanTestCase``
 *************************************************
 
 In order to create test plans, the first thing you need to do is create a test case class that extends
-:class:`pysoa.test.plan.ServicePlanTestCase`. This class extends :class:`pysoa.test.server.ServerTestCase` (see
-`Using the ServerTestCase`_), so you need to define the same ``server_class`` and ``server_settings`` attributes.
-Additionally, you need to define either ``fixture_path`` or ``custom_fixtures``. You can also optionally specify
-``model_constants``, which is used to provide stock values for variable substitution (more on that later). Here are two
+:class:`pysoa.test.plan.ServicePlanTestCase`. This class extends :class:`pysoa.test.server.PyTestServerTestCase` (see
+`Using PyTestServerTestCase and UnitTestServerTestCase`_), so you need to define the same ``server_class`` and
+``server_settings`` attributes. Additionally, you need to define either ``fixture_path`` or ``custom_fixtures``. You
+can also optionally specify ``model_constants``, which is used to provide stock values for variable substitution (more
+on that later). Here are two
 possible examples:
 
 .. code-block:: python
@@ -162,16 +163,16 @@ possible examples:
 cases, and action cases. To learn more about these hooks, see the docstrings in ``ServicePlanTestCase`` for the
 following methods. In each case, if you override the hook, you must call ``super`` as the first line in your hook.
 
-- ``setUpClass``
+- ``setup_class``
 - ``set_up_test_fixture``
-- ``setUp``
+- ``setup_method``
 - ``set_up_test_case``
 - ``set_up_test_case_action``
 - ``tear_down_test_case_action``
 - ``tear_don_test_case``
-- ``tearDown``
+- ``teardown_method``
 - ``tear_down_test_fixture``
-- ``tearDownClass``
+- ``teardown_class``
 
 
 """
@@ -248,19 +249,22 @@ class FixtureTestCaseData(object):
     fixture_name = attr.ib()  # type: six.text_type
     fixture_file = attr.ib()  # type: six.text_type
     line_number = attr.ib()  # type: int
-    skip = attr.ib()  # type: bool
+    skip = attr.ib()  # type: Optional[six.text_type]
     callable = attr.ib()  # type: FixtureTestCaseFunction
+    test_fixture = attr.ib()  # type: TestFixture
+    is_first_fixture_case = attr.ib()  # type: bool
+    is_last_fixture_case = attr.ib()  # type: bool
 
 
 @six.add_metaclass(abc.ABCMeta)
-class ServicePlanTestCase(ServerTestCase):
+class ServicePlanTestCase(PyTestServerTestCase):
     """
     Serves as the base class for all test plans. Your test plans must extend this class, and may override any of its
-    methods, though, in most cases, you should not need to do this. Most commonly, you may override one of the setup or
-    teardown methods in order to bootstrap and clean up dependencies that your tests have.
+    methods, although, in most cases, you should not need to do this. Most commonly, you may override one of the setup
+    or teardown methods in order to bootstrap and clean up dependencies that your tests have.
 
     Your test case class is not limited to running fixture tests. It may also include normal test case methods whose
-    names start with `test_`, and they will be run normally like any other `unittest` test methods.
+    names start with `test_`, and they will be run normally like any other PyTest test methods.
     """
 
     fixture_path = None  # type: Optional[six.text_type]
@@ -268,10 +272,10 @@ class ServicePlanTestCase(ServerTestCase):
     custom_fixtures = ()  # type: Tuple[six.text_type, ...]
     model_constants = {}  # type: Dict[six.text_type, Union[Dict[six.text_type, Any], List[Dict[six.text_type, Any]]]]
 
-    _all_directives = None  # type: Optional[List[Type[Directive]]]
+    _all_directives = []  # type: List[Type[Directive]]
 
     @classmethod
-    def setUpClass(cls):
+    def setup_class(cls):
         # type: () -> None
         """
         This method is invoked one time before the test plan (all the fixtures defined in ``fixture_path``) or any of
@@ -279,10 +283,15 @@ class ServicePlanTestCase(ServerTestCase):
         """
         cls._all_directives = get_all_directives()
 
-        super(ServicePlanTestCase, cls).setUpClass()
+        super(ServicePlanTestCase, cls).setup_class()
+
+        if not hasattr(cls, '_test_fixture_setup_called'):
+            setattr(cls, '_test_fixture_setup_called', {})
+        if not hasattr(cls, '_test_fixture_setup_succeeded'):
+            setattr(cls, '_test_fixture_setup_succeeded', {})
 
     @classmethod
-    def tearDownClass(cls):
+    def teardown_class(cls):
         # type: () -> None
         """
         This method is invoked one time after the test plan (all the fixtures defined in ``fixture_path``) and any of
@@ -308,7 +317,7 @@ class ServicePlanTestCase(ServerTestCase):
             if last_e:
                 raise last_e
 
-        super(ServicePlanTestCase, cls).tearDownClass()
+        super(ServicePlanTestCase, cls).teardown_class()
 
     def set_up_test_fixture(self, test_fixture, **kwargs):
         # type: (TestFixture, **Any) -> None
@@ -326,26 +335,55 @@ class ServicePlanTestCase(ServerTestCase):
         :param test_fixture: List of test cases in this fixture
         """
 
-    def setUp(self):
+    def setup_method(self):
         # type: () -> None
         """
         This method is invoked once for each test case in a fixture file, before the test is run. It is also run once
         before each ``test_`` method in your test case, if you have any.
         """
-        super(ServicePlanTestCase, self).setUp()
+        case_data = getattr(self, '_pytest_first_fixture_case', None)  # type: Optional[FixtureTestCaseData]
+        if case_data:
+            getattr(self.__class__, '_test_fixture_setup_called')[case_data.fixture_name] = self, case_data.test_fixture
+            self.set_up_test_fixture(case_data.test_fixture)
+            self._run_directive_hook('set_up_test_fixture', case_data.test_fixture)
+            getattr(self.__class__, '_test_fixture_setup_succeeded')[case_data.fixture_name] = True
 
-    def tearDown(self):
+        super(ServicePlanTestCase, self).setup_method()
+
+    def teardown_method(self):
         # type: () -> None
         """
         This method is invoked once for each test case in a fixture file, after the test is run. It is also run once
         after each ``test_`` method in your test case, if you have any.
         """
-        super(ServicePlanTestCase, self).tearDown()
+        outer_exception = None  # type: Optional[BaseException]
+        try:
+            super(ServicePlanTestCase, self).teardown_method()
+        except BaseException as e:
+            outer_exception = e
+            raise
+        finally:
+            case_data = getattr(self, '_pytest_last_fixture_case', None)  # type: Optional[FixtureTestCaseData]
+            if case_data:
+                try:
+                    getattr(self.__class__, '_test_fixture_setup_succeeded')[case_data.fixture_name] = False
+                    getattr(self.__class__, '_test_fixture_setup_called')[case_data.fixture_name] = False
+                    self._run_directive_hook('tear_down_test_fixture', case_data.test_fixture)
+                    self.tear_down_test_fixture(case_data.test_fixture)
+                except KeyboardInterrupt:
+                    if outer_exception:
+                        # If an error happened in TRY 1, raise it instead of the interrupt so no mask
+                        raise outer_exception
+                    raise
+                except BaseException:
+                    if not outer_exception:
+                        raise  # If an error did not happen in TRY 1, just raise the tear-down error
+                    self.add_error(*sys.exc_info())  # Otherwise, record the tear-down error so no mask
 
     def set_up_test_case(self, test_case, test_fixture, **kwargs):
         # type: (TestCase, TestFixture, **Any) -> None
         """
-        This method is invoked immediately after `setUp` and before the test case is run.
+        This method is invoked immediately after `setup_method` and before the test case is run.
 
         :param test_case: The directive instructions to run and assert this specific test case
         :param test_fixture: List of test cases in this fixture
@@ -354,7 +392,7 @@ class ServicePlanTestCase(ServerTestCase):
     def tear_down_test_case(self, test_case, test_fixture, **kwargs):
         # type: (TestCase, TestFixture, **Any) -> None
         """
-        This method is invoked immediately before `tearDown` and after the test case is run.
+        This method is invoked immediately before `teardown_method` and after the test case is run.
 
         :param test_case: The directive instructions to run and assert this specific test case
         :param test_fixture: List of test cases in this fixture
@@ -401,7 +439,7 @@ class ServicePlanTestCase(ServerTestCase):
             fixture_name, _ = os.path.splitext(os.path.basename(fixture_file_name))
 
             test_fixture_results = []  # type: TestFixtureResults
-            last_test_function = None  # type: Optional[FixtureTestCaseFunction]
+            last_case_data = None  # type: Optional[FixtureTestCaseData]
 
             fixture_parser = ServiceTestPlanFixtureParser(fixture_file_name, fixture_name)
             test_fixture = fixture_parser.parse_test_fixture()
@@ -415,12 +453,9 @@ class ServicePlanTestCase(ServerTestCase):
                     test_fixture_results=test_fixture_results,
                 )
 
-                skip = test_case.get('skip', None)
+                skip = test_case.get('skip', None)  # type: Optional[six.text_type]
 
-                if not skip:
-                    last_test_function = test_function
-
-                yield FixtureTestCaseData(
+                case_data = FixtureTestCaseData(
                     name=test_case['name'],
                     description=test_case['description'],
                     fixture_name=fixture_name,
@@ -428,10 +463,19 @@ class ServicePlanTestCase(ServerTestCase):
                     line_number=test_case['line_number'],
                     skip=skip,
                     callable=test_function,
+                    test_fixture=test_fixture,
+                    is_first_fixture_case=last_case_data is None,
+                    is_last_fixture_case=False,
                 )
 
-            if last_test_function:
-                setattr(last_test_function, '_last_fixture_test', True)
+                if not skip:
+                    last_case_data = case_data
+
+                yield case_data
+
+            if last_case_data:
+                setattr(last_case_data.callable, '_last_fixture_test', True)
+                last_case_data.is_last_fixture_case = True
 
     @classmethod
     def get_fixture_file_names(cls):
@@ -509,21 +553,10 @@ class ServicePlanTestCase(ServerTestCase):
             # having it analyze the code path details to determine the frame location.
             _test_function_frame = True  # noqa F841
 
-            if not hasattr(self.__class__, '_test_fixture_setup_called'):
-                setattr(self.__class__, '_test_fixture_setup_called', {})
             if not hasattr(self.__class__, '_test_fixture_setup_succeeded'):
                 setattr(self.__class__, '_test_fixture_setup_succeeded', {})
 
-            _test_fixture_setup_called = getattr(self.__class__, '_test_fixture_setup_called')
             _test_fixture_setup_succeeded = getattr(self.__class__, '_test_fixture_setup_succeeded')
-            if not _test_fixture_setup_called.get(fixture_name, False):
-                # If this is the first test in the fixture, we need to set up the fixture
-                _test_fixture_setup_called[fixture_name] = self, test_fixture
-                self.set_up_test_fixture(test_fixture)
-                self._run_directive_hook('set_up_test_fixture', test_fixture)
-                # After the fixture has set up without error, we note this so that all fixture tests can run
-                _test_fixture_setup_succeeded[fixture_name] = True
-
             if not _test_fixture_setup_succeeded.get(fixture_name, False):
                 # If the fixture was not successfully set up, then fixture setup must have failed on the first test, so
                 # all remaining tests in this fixture are also invalid.
@@ -531,10 +564,7 @@ class ServicePlanTestCase(ServerTestCase):
 
             outer_exception = None  # type: Optional[BaseException]
             try:  # LABEL: 1
-                # First, we call the standard TestCase setUp, which we have taken over
-                self.setUp()
-
-                # Next, we call the fixture test case setup on the class and on all directives
+                # First, we call the fixture test case setup on the class and on all directives
                 self.set_up_test_case(test_case, test_fixture)
                 self._run_directive_hook('set_up_test_case', test_case, test_fixture)
 
@@ -564,56 +594,25 @@ class ServicePlanTestCase(ServerTestCase):
                 outer_exception = e
                 raise
             finally:
-                try:  # LABEL: 4
-                    # Almost done, we call the standard TestCase tearDown, which we have taken over
-                    self.tearDown()
-                except KeyboardInterrupt:
-                    if outer_exception:
-                        # If an error happened in TRY 1 - 3, raise it instead of the interrupt so we don't mask it
-                        raise outer_exception
-                    raise
-                except BaseException as e:
-                    if not outer_exception:
-                        outer_exception = e
-                        raise  # If an error did not happen in TRY 1 - 3, just raise the tear-down error
-                    self.add_error(*sys.exc_info())  # Otherwise, record the tear-down error so we don't mask
-                finally:
-                    if getattr(test_function, '_last_fixture_test'):
-                        # If this is the last fixture test case, we need to assert and clean up the fixture
-                        try:  # LABEL: 5
-                            self._run_directive_hook('assert_test_fixture_results', test_fixture_results, test_fixture)
-                        except KeyboardInterrupt:
-                            if outer_exception:
-                                # If an error happened in TRY 1 - 4, raise it instead of the interrupt so we don't mask
-                                raise outer_exception
-                            raise
-                        except self.failureException as e:
-                            # If the tear-down asserts raised an assertion error
-                            if not outer_exception:
-                                outer_exception = e
-                                raise  # If an error did not happen in TRY 1 - 4, just raise the assertion error
-                            self.add_error(*sys.exc_info())  # Otherwise, record the assertion error so no mask
-                        except BaseException as e:
-                            if not outer_exception:
-                                outer_exception = e
-                                raise  # If an error did not happen in TRY 1 - 4, just raise the on-assert error
-                            self.add_error(*sys.exc_info())  # Otherwise, record the tear-down error so no mask
-                        finally:
-                            # noinspection PyBroadException
-                            try:  # LABEL: 6
-                                _test_fixture_setup_succeeded[fixture_name] = False
-                                _test_fixture_setup_called[fixture_name] = False
-                                self._run_directive_hook('tear_down_test_fixture', test_fixture)
-                                self.tear_down_test_fixture(test_fixture)
-                            except KeyboardInterrupt:
-                                if outer_exception:
-                                    # If an error happened in TRY 1 - 5, raise it instead of the interrupt so no mask
-                                    raise outer_exception
-                                raise
-                            except BaseException:
-                                if not outer_exception:
-                                    raise  # If an error did not happen in TRY 1 - 5, just raise the tear-down error
-                                self.add_error(*sys.exc_info())  # Otherwise, record the tear-down error so no mask
+                if getattr(test_function, '_last_fixture_test'):
+                    # If this is the last fixture test case, we need to assert and clean up the fixture
+                    # noinspection PyBroadException
+                    try:  # LABEL: 4
+                        self._run_directive_hook('assert_test_fixture_results', test_fixture_results, test_fixture)
+                    except KeyboardInterrupt:
+                        if outer_exception:
+                            # If an error happened in TRY 1 - 3, raise it instead of the interrupt so we don't mask
+                            raise outer_exception
+                        raise
+                    except AssertionError:
+                        # If the tear-down asserts raised an assertion error
+                        if not outer_exception:
+                            raise  # If an error did not happen in TRY 1 - 3, just raise the assertion error
+                        self.add_error(*sys.exc_info())  # Otherwise, record the assertion error so we don't mask
+                    except BaseException:
+                        if not outer_exception:
+                            raise  # If an error did not happen in TRY 1 - 3, just raise the on-assert error
+                        self.add_error(*sys.exc_info())  # Otherwise, record the tear-down error so we don't mask
 
         test_function.__doc__ = description
         setattr(test_function, '_last_fixture_test', False)

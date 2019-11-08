@@ -248,14 +248,14 @@ class PluginTestingOrderOfOperationsTestCase(ServicePlanTestCase):
         return getattr(cls, '_order_of_operations')
 
     @classmethod
-    def setUpClass(cls):
-        super(PluginTestingOrderOfOperationsTestCase, cls).setUpClass()
-        cls.get_order_of_operations().append('setUpClass')
+    def setup_class(cls):
+        super(PluginTestingOrderOfOperationsTestCase, cls).setup_class()
+        cls.get_order_of_operations().append('setup_class')
 
     @classmethod
-    def tearDownClass(cls):
-        super(PluginTestingOrderOfOperationsTestCase, cls).tearDownClass()
-        cls.get_order_of_operations().append('tearDownClass')
+    def teardown_class(cls):
+        super(PluginTestingOrderOfOperationsTestCase, cls).teardown_class()
+        cls.get_order_of_operations().append('teardown_class')
 
     def set_up_test_fixture(self, test_fixture, **kwargs):
         super(PluginTestingOrderOfOperationsTestCase, self).set_up_test_fixture(test_fixture, **kwargs)
@@ -265,13 +265,13 @@ class PluginTestingOrderOfOperationsTestCase(ServicePlanTestCase):
         super(PluginTestingOrderOfOperationsTestCase, self).tear_down_test_fixture(test_fixture, **kwargs)
         self.get_order_of_operations().append('tear_down_test_fixture')
 
-    def setUp(self):
-        super(PluginTestingOrderOfOperationsTestCase, self).setUp()
-        self.get_order_of_operations().append('setUp')
+    def setup_method(self):
+        super(PluginTestingOrderOfOperationsTestCase, self).setup_method()
+        self.get_order_of_operations().append('setup_method')
 
-    def tearDown(self):
-        super(PluginTestingOrderOfOperationsTestCase, self).tearDown()
-        self.get_order_of_operations().append('tearDown')
+    def teardown_method(self):
+        self.get_order_of_operations().append('teardown_method')
+        super(PluginTestingOrderOfOperationsTestCase, self).teardown_method()
 
     def set_up_test_case(self, test_case, test_fixture, **kwargs):
         super(PluginTestingOrderOfOperationsTestCase, self).set_up_test_case(test_case, test_fixture, **kwargs)
