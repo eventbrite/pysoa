@@ -579,6 +579,7 @@ class Server(object):
                 )
                 # Execute the middleware stack
                 try:
+                    PySOALogContextFilter.set_logging_action_name(action_request.action)
                     action_response = wrapper(action_request)
                 except HarakiriInterrupt:
                     self.metrics.counter('server.error.harakiri', harakiri_level='action')
@@ -608,6 +609,8 @@ class Server(object):
                     # Send an action error response if no middleware caught this.
                     self.metrics.counter('server.error.unhandled_error').increment()
                     action_response = self.handle_unhandled_exception(e, ActionResponse, action=action_request.action)
+                finally:
+                    PySOALogContextFilter.clear_logging_action_name()
             else:
                 # Error: Action not found.
                 action_response = ActionResponse(

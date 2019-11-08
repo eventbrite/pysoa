@@ -46,9 +46,11 @@ class PySOALogContextFilter(logging.Filter):
             setattr(record, 'correlation_id', '--')
             setattr(record, 'request_id', '--')
         setattr(record, 'service_name', self._service_name or 'unknown')
+        setattr(record, 'action_name', self.get_logging_action_name() or '(n/a)')
         return True
 
     _context_stack = ContextVar('logging_context_stack', default=None)  # type: ContextVar[Optional[List[Context]]]
+    _action_stack = ContextVar('logging_action_stack', default=None)  # type: ContextVar[Optional[List[six.text_type]]]
 
     _service_name = None
 
@@ -69,6 +71,27 @@ class PySOALogContextFilter(logging.Filter):
     @classmethod
     def get_logging_request_context(cls):  # type: () -> Optional[Context]
         value = cls._context_stack.get()
+        if value:
+            return value[-1]
+        return None
+
+    @classmethod
+    def set_logging_action_name(cls, action_name):  # type: (six.text_type) -> None
+        value = cls._action_stack.get()
+        if not value:
+            value = []
+            cls._action_stack.set(value)
+        value.append(action_name)
+
+    @classmethod
+    def clear_logging_action_name(cls):  # type: () -> None
+        value = cls._action_stack.get()
+        if value:
+            value.pop()
+
+    @classmethod
+    def get_logging_action_name(cls):  # type: () -> Optional[six.text_type]
+        value = cls._action_stack.get()
         if value:
             return value[-1]
         return None
