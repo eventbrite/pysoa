@@ -185,8 +185,9 @@ Testing
 -------
 
 Services can be tested using standard unit tests either by calling the actions directly (after all, they are just
-callable objects), or, if a run through the server machinery is desired, using the ``ServerTestCase`` base class, which
-takes care of setting up local transports for you.
+callable objects), or, if a run through the server machinery is desired, using the
+:class:`pysoa.test.server.PyTestServerTestCase` or :class:`pysoa.test.server.UnitTestServerTestCase` base classes, which
+take care of setting up local transports for you.
 
 For entire-system functional tests, you will need to spin up a copy of each desired service individually and point
 them at an functional-test-specific channel layer to ensure isolation from the rest of the system.

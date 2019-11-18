@@ -20,7 +20,7 @@ def readme():
 
 
 install_requires = [
-    'attrs>=17.4,<20',
+    'attrs>=18.2,<20',
     'conformity~=1.26',
     'currint>=1.6,<3',
     'enum34;python_version<"3.4"',
@@ -45,7 +45,7 @@ test_helper_requirements = [
 
 test_plan_requirements = test_helper_requirements + [
     'pyparsing~=2.2',
-    'pytest>=3.1,<6,!=4.2.0',  # 4.2.0 has a regression breaking our test plans, fixed in 4.2.1
+    'pytest>4.2,<6',
     'pytest-asyncio;python_version>"3.4"',
 ]
 
@@ -56,7 +56,6 @@ tests_require = [
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
     'mypy~=0.740;python_version>"3.4"',
-    'pytest-runner',
 ] + test_plan_requirements
 
 

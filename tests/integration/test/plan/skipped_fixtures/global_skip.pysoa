@@ -4,9 +4,11 @@ test skip global: All tests in this fixture should be skipped (global_skip.*)
 test name: first
 test description: First
 walk: input int: value: 10
-walk: expect: no errors
+walk: expect: exact job error: code = CAT_ERROR
+# The above expectation should fail if this test doesn't get skipped
 
 test name: second
 test description: Second
 run: input int: value: 10
-run: expect: no errors
+run: expect: exact job error: code = CAT_ERROR
+# The above expectation should fail if this test doesn't get skipped

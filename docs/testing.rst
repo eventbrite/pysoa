@@ -10,14 +10,24 @@ are unicode strings (the default in Python 3; use ``from __future__ import unico
    :backlinks: none
 
 
-Using the ``ServerTestCase``
-++++++++++++++++++++++++++++
+Using ``PyTestServerTestCase`` and ``UnitTestServerTestCase``
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-The ``ServerTestCase`` is an extension of ``unittest.TestCase`` that has built-in tools for easily testing PySOA service
-calls. When writing a PySOA service, there are likely many things for which you will want to write automated tests. If
-you are strict about unit tests, you may simply instantiate your action classes and test the individual methods as pure
-units of code. If you are less strict about this, or if you want to write integration tests for your service, the
-``ServerTestCase`` makes it easy to locally configure your service and make service calls to it with minimal effort.
+:class:`pysoa.test.server.PyTestServerTestCase` and :class:`pysoa.test.server.UnitTestServerTestCase` are test class
+helpers that provide built-in tools for easily testing PySOA service calls. ``PyTestServerTestCase`` is optimized for
+PyTest-style tests and supports all the normal PyTest features—fixtures, parametrization, and more.
+``UnitTestServerTestCase`` is geared for the fans of ``unittest``-style tests who wish to use the features offered by
+``unittest``. It's important to note that many PyTest features (fixtures, parametrization) do not work with test
+classes that extend ``UnitTestServerTestCase``. Finally, there is a ``ServerTestCase`` alias of ``PyTestServerTestCase``
+if you prefer to use that for brevity.
+
+When writing a PySOA service, there are likely many things for which you will want to write automated tests. If you are
+strict about unit tests, you may simply instantiate your action classes and test the individual methods as pure units
+of code. If you are less strict about this, or if you want to write integration tests for your service, these two
+helper classes make it easy to locally configure your service and make service calls to it with minimal effort.
+
+The examples in this documentation demonstrate using ``PyTestServerTestCase``. The use of ``UnitTestServerTestCase`` is
+nearly identical, and you can learn more about it in the linked reference documentation above.
 
 
 Setting Up a Test Case Class
@@ -46,11 +56,11 @@ If your service has special settings that need to be configured, you can set the
 not specify ``server_settings``, it will look for Django ``settings.SOA_SERVER_SETTINGS`` if you have
 ``ExampleServer.use_django`` set to ``True``, otherwise it will look for the environmental variable
 ``PYSOA_SETTINGS_MODULE`` and import and use the ``SOA_SERVER_SETTINGS`` constant in that module. If it can't find any
-of these, every test in the test case will fail in ``setUp``. Whatever your settings source, the transport will be
-overridden by the local transport for the purposes of the tests.
+of these, every test in the test case will fail in ``setup_method``. Whatever your settings source, the transport will
+be overridden by the local transport for the purposes of the tests.
 
-If you override the ``setUp`` method in your test case class, be sure to call ``super``; otherwise, your test class
-will not set up properly.
+If you override ``setup_method`` in your test case class, be sure to call ``super().setup_method()``; otherwise, your
+test class will not set up properly.
 
 
 Using Test Helper Methods
@@ -93,9 +103,9 @@ Here is a full example using all the asserts:
         def test_one(self):
             errors = self.assertActionRunsWithAndReturnErrors('get_object', {})
 
-            self.assertEqual(1, len(errors))
-            self.assertEqual(FIELD_MISSING, errors[0].code)
-            self.assertEqual('object_id', errors[0].field)
+            assert len(errors) == 1
+            assert errors[0].code == FIELD_MISSING
+            assert errors[0].field == 'object_id'
 
         def test_two(self):
             self.assertActionRunsWithFieldErrors('get_object', {}, {'object_id': FIELD_MISSING})
