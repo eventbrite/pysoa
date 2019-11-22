@@ -1,6 +1,15 @@
 Changelog
 =========
 
+1.0.0-beta1 (2019-11-22)
+------------------------
+- [MAJOR] Bump PyMetrics to 1.0.x
+- [MAJOR] Refactor ServerTestCase to not inherit from unittest.TestCase
+- [PATCH] Fix new typing issues in MyPy 0.740
+- [MINOR] Improve logging filter to add action name to record
+- [MAJOR] Implement #197: Refactor ServerMiddleware job with EnrichedJobRequest
+- [MAJOR] #196: Remove all deprecated features before release 1.0.0
+
 0.74.0 (2019-11-05)
 -------------------
 - [MINOR] Publish documentation on ReadTheDocs.io
