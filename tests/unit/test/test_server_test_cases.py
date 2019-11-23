@@ -3,6 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
+import logging
 import os
 import re
 import sys
@@ -344,14 +345,6 @@ class TestPyTestServerTestCase(PyTestServerTestCase):
         with pytest.raises(AssertionError):
             self.assertDictEqual({'foo': 'bar', 'baz': 'qux'}, {'foo': 'qux', 'baz': 'bar'})
 
-    def test_assert_count_equal(self):
-        self.assertCountEqual('hello', 'olleh')
-        self.assertCountEqual(['foo', 'foo', 'bar', 'baz'], ['baz', 'foo', 'bar', 'foo'])
-        with pytest.raises(AssertionError):
-            self.assertCountEqual('hello', 'abc12')
-        with pytest.raises(AssertionError):
-            self.assertCountEqual(['foo', 'foo', 'bar', 'baz'], ['baz', 'qux', 'bar', 'foo'])
-
     def test_assert_almost_equal(self):
         self.assertAlmostEqual(1, 1)
         self.assertAlmostEqual(1, 1.000000001)
@@ -637,7 +630,62 @@ class TestPyTestServerTestCase(PyTestServerTestCase):
             self.assertWarnsRegex(DeprecationWarning, '[a-z]+', raise_value, False)
         assert flags.raise_value == ((False, ), {})
 
+    def test_assert_logs(self):
+        with self.assertLogs('foo.bar') as context:
+            logging.getLogger('foo.bar').debug('Ignored')
+            logging.getLogger('foo.bar').info('Hello world')
+            logging.getLogger('foo.bar.baz').warning('Danger, Will Robinson!')
+
+        assert context.output == ['INFO:foo.bar:Hello world', 'WARNING:foo.bar.baz:Danger, Will Robinson!']
+
+        with self.assertLogs(logging.getLogger('baz.qux'), 'WARN') as context:
+            logging.getLogger('baz.qux').info('Hello world')
+            logging.getLogger('baz.qux.lorem').warning('Caution ahead')
+
+        assert context.output == ['WARNING:baz.qux.lorem:Caution ahead']
+
+        with pytest.raises(AssertionError):
+            with self.assertLogs('foo.bar', logging.ERROR) as context:
+                logging.getLogger('foo.bar').info('Hello world')
+                logging.getLogger('foo.bar.baz').warning('Danger, Will Robinson!')
+
+        assert context.output == []
+
+        with pytest.raises(ValueError):
+            with self.assertLogs('foo.bar', logging.ERROR) as context:
+                raise ValueError()
+
+        assert context.output == []
+
     # ##### Deprecated methods ##### #
+
+    # noinspection PyDeprecation
+    def test_assert_count_equal(self):
+        with warnings.catch_warnings(record=True) as w:
+            self.assertCountEqual('hello', 'olleh')
+            self.assertCountEqual(['foo', 'foo', 'bar', 'baz'], ['baz', 'foo', 'bar', 'foo'])
+            self.assertCountEqual(
+                [{'foo': 'bar', 'baz': 'qux'}, {'lorem': 'ipsum'}],
+                [{'lorem': 'ipsum'}, {'foo': 'bar', 'baz': 'qux'}],
+            )
+            with pytest.raises(AssertionError):
+                self.assertCountEqual('hello', 'abc12')
+            with pytest.raises(AssertionError):
+                self.assertCountEqual(['foo', 'foo', 'bar', 'baz'], ['baz', 'qux', 'bar', 'foo'])
+            with pytest.raises(AssertionError):
+                self.assertCountEqual(
+                    [{'foo': 'bar', 'baz': 'qux'}, {'ipsum': 'lorem'}],
+                    [{'lorem': 'ipsum'}, {'foo': 'bar', 'baz': 'qux'}],
+                )
+
+        assert w is not None
+        assert len(w) == 6
+        assert issubclass(w[0].category, DeprecationWarning)
+        assert issubclass(w[1].category, DeprecationWarning)
+        assert issubclass(w[2].category, DeprecationWarning)
+        assert issubclass(w[3].category, DeprecationWarning)
+        assert issubclass(w[4].category, DeprecationWarning)
+        assert issubclass(w[5].category, DeprecationWarning)
 
     def test_deprecated_assert_equals(self):
         with warnings.catch_warnings(record=True) as w:

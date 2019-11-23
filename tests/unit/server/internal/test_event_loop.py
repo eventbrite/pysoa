@@ -32,9 +32,9 @@ from pysoa.test.compatibility import mock
 
 
 # noinspection PyCompatibility
-class AsyncEventLoopThreadTests(unittest.TestCase):
+class TestAsyncEventLoopThread(unittest.TestCase):
     def setUp(self):
-        super(AsyncEventLoopThreadTests, self).setUp()
+        super(TestAsyncEventLoopThread, self).setUp()
         self.thread = AsyncEventLoopThread([])
         self.thread.start()
 

@@ -501,10 +501,10 @@ class stub_action(object):
             for i, action_request_obj in actions_to_send_to_mock.items():
                 mock_response = None
                 try:
-                    # noinspection PyCallingNonCallable
                     assert self._current_mock_action is not None, (
                         'Enabled stub_action with no current mock is in an inconsistent state'
                     )
+                    # noinspection PyCallingNonCallable
                     mock_response = self._current_mock_action(action_request_obj.body or {})
                     if isinstance(mock_response, JobResponse):
                         job_response.errors.extend(mock_response.errors)
@@ -616,6 +616,7 @@ class stub_action(object):
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):  # type: (Any, Any, Any) -> Literal[False]
         if not self.enabled:
+            # noinspection PyTypeChecker
             return False
 
         # Unwrap Client.send_request and Client.get_all_responses to their previous versions (which might themselves be
@@ -623,6 +624,7 @@ class stub_action(object):
         Client.send_request = self._wrapped_client_send_request  # type: ignore
         Client.get_all_responses = self._wrapped_client_get_all_responses  # type: ignore
         self.enabled = False
+        # noinspection PyTypeChecker
         return False
 
     def __call__(self, func):  # type: (_CT) -> _CT

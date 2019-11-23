@@ -5,6 +5,7 @@ from __future__ import (
 
 import collections
 import importlib
+import logging
 import os
 import re
 import traceback
@@ -17,10 +18,10 @@ from typing import (
     Dict,
     Iterable,
     List,
+    NamedTuple,
     Optional,
     Pattern,
     Sequence,
-    Sized,
     Tuple,
     Type,
     TypeVar,
@@ -28,6 +29,11 @@ from typing import (
     cast,
 )
 import unittest
+# noinspection PyProtectedMember
+from unittest.util import (
+    _count_diff_all_purpose,
+    _count_diff_hashable,
+)
 import warnings
 
 from _pytest._code.code import ExceptionInfo
@@ -36,6 +42,7 @@ from _pytest.recwarn import WarningsChecker
 from conformity.settings import SettingsData
 import pytest
 import six
+from typing_extensions import Literal
 
 from pysoa.client.client import Client
 from pysoa.common.errors import Error
@@ -447,13 +454,21 @@ class PyTestServerTestCase(BaseServerTestCase):
         assert first == second, msg or ''
 
     def assertCountEqual(self, first, second, msg=None):
-        # type: (Union[Sized, Iterable], Union[Sized, Iterable], Optional[object]) -> None
-        if isinstance(first, Iterable) and isinstance(second, Iterable):
-            first_counter = collections.Counter(first)
-            second_counter = collections.Counter(second)
-            assert first_counter == second_counter, msg or ''
+        # type: (Union[Iterable], Union[Iterable], Optional[object]) -> None
+        warnings.warn(
+            'PyTestServerTestCase.assertCountEqual is deprecated, because it cannot be implemented practicably. '
+            'There is no replacement. It will be removed in PySOA 2.0',
+            DeprecationWarning,
+        )
+        first_list, second_list = list(first), list(second)
+        try:
+            first_counter = collections.Counter(first_list)
+            second_counter = collections.Counter(second_list)
+        except TypeError:
+            assert _count_diff_all_purpose(first_list, second_list) == []
         else:
-            assert len(first) == len(second), msg or ''  # type: ignore
+            assert first_counter == second_counter, msg or ''
+            assert _count_diff_hashable(first_list, second_list) == []
 
     def assertAlmostEqual(self, first, second, places=None, msg=None, delta=None):
         # type: (float, float, Optional[int], Optional[object], Optional[float]) -> None
@@ -652,6 +667,93 @@ class PyTestServerTestCase(BaseServerTestCase):
 
         kwargs['match'] = regex
         return pytest.warns(exception, **kwargs)
+
+    def assertLogs(
+        self,
+        logger=None,  # type: Union[six.text_type, six.binary_type, logging.Logger, None]
+        level=None,  # type: Union[six.text_type, six.binary_type, int, None]
+    ):
+        # type: (...) -> _AssertLogsContext
+        return _AssertLogsContext(logger, level)
+
+
+_LoggingWatcher = NamedTuple('_LoggingWatcher', (
+    ('records', List[logging.LogRecord]),
+    ('output', List[six.text_type]),
+))
+
+
+class _CapturingHandler(logging.Handler):
+    def __init__(self):
+        super(_CapturingHandler, self).__init__()
+        self.watcher = _LoggingWatcher([], [])
+
+    def flush(self):
+        """Does nothing"""
+
+    def emit(self, record):
+        self.watcher.records.append(record)
+        self.watcher.output.append(self.format(record))
+
+
+class _AssertLogsContext(object):
+    LOGGING_FORMAT = '%(levelname)s:%(name)s:%(message)s'
+
+    def __init__(
+        self,
+        logger,  # type: Union[six.text_type, six.binary_type, logging.Logger, None]
+        level,  # type: Union[six.text_type, six.binary_type, int, None]
+    ):
+        if isinstance(logger, logging.Logger):
+            self.logger = logger
+            self.logger_name = logger.name  # type: Union[six.text_type, six.binary_type, None]
+        else:
+            # noinspection PyTypeChecker
+            self.logger = logging.getLogger(logger)  # type: ignore
+            self.logger_name = logger
+
+        if level:
+            if isinstance(level, int):
+                self.level = level
+            else:
+                if six.PY2:
+                    # noinspection PyProtectedMember,PyUnresolvedReferences
+                    self.level = logging._levelNames[level]  # type: ignore
+                else:
+                    # noinspection PyProtectedMember
+                    self.level = logging._nameToLevel[level]  # type: ignore
+        else:
+            self.level = logging.INFO
+
+    def __enter__(self):  # type: () -> _LoggingWatcher
+        formatter = logging.Formatter(self.LOGGING_FORMAT)
+        handler = _CapturingHandler()
+        handler.setFormatter(formatter)
+        self.watcher = handler.watcher
+
+        self._old_handlers = self.logger.handlers[:]
+        self._old_level = self.logger.level
+        self._old_propagate = self.logger.propagate
+        self.logger.handlers = [handler]
+        self.logger.setLevel(self.level)
+        self.logger.propagate = False
+
+        return handler.watcher
+
+    def __exit__(self, exc_type, exc_value, tb):  # type: (Any, Any, Any) -> Literal[False]
+        self.logger.handlers = self._old_handlers
+        self.logger.setLevel(self._old_level)
+        self.logger.propagate = self._old_propagate
+
+        if exc_type is not None or len(self.watcher.records) > 0:
+            # let unexpected exceptions pass through
+            # noinspection PyTypeChecker
+            return False
+
+        raise AssertionError('No logs of level {} or higher triggered on {}'.format(  # type: ignore
+            logging.getLevelName(self.level),
+            self.logger_name,
+        ))
 
 
 ServerTestCase = PyTestServerTestCase
