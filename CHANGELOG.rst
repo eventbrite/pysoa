@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.0.0-beta2 (2019-11-23)
+------------------------
+- [PATCH] Add missing assertLogs, fix assertCountEqual, rename some tests
+
 1.0.0-beta1 (2019-11-22)
 ------------------------
 - [MAJOR] Bump PyMetrics to 1.0.x
