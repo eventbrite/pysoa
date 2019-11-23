@@ -14,7 +14,7 @@ class BaseTestServiceServer(Server):
     service_name = 'test_service'
 
 
-class ServerInitializationTests(TestCase):
+class TestServerInitialization(TestCase):
 
     def setUp(self):
         self.settings = factories.ServerSettingsFactory()

@@ -12,7 +12,7 @@ from pysoa.client.expander import (
 )
 
 
-class TypeNodeTests(TestCase):
+class TestTypeNode(TestCase):
     def setUp(self):
         self.type_node = TypeNode(node_type='foo')
 
@@ -223,7 +223,7 @@ class TypeNodeTests(TestCase):
         self.assertEqual(set(type_node_dict['foo']), {'bar.qux', 'bar.baz'})
 
 
-class ExpansionNodeTests(TestCase):
+class TestExpansionNode(TestCase):
     def setUp(self):
         self.expansion_node = ExpansionNode(
             node_type='foo',
@@ -272,7 +272,7 @@ class ExpansionNodeTests(TestCase):
         )
 
 
-class ExpansionConverterTests(TestCase):
+class TestExpansionConverter(TestCase):
     def setUp(self):
         self.converter = ExpansionConverter(
             type_routes={

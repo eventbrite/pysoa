@@ -57,7 +57,7 @@ class ProcessJobMiddleware(ServerMiddleware):
         return handler
 
 
-class ProcessJobTests(TestCase):
+class TestProcessJob(TestCase):
     """
     Main process_job test suite.
     """

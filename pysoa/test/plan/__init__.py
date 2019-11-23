@@ -761,4 +761,5 @@ class ServicePlanTestCase(PyTestServerTestCase):
             # type: (Any, Any, Any) -> Literal[False]
             if self._stub_action_context:
                 return self._stub_action_context.__exit__(exc_type, exc_value, traceback)
+            # noinspection PyTypeChecker
             return False

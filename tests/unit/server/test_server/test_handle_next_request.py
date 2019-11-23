@@ -38,7 +38,7 @@ class SimplePassthroughServerTransport(ServerTransport):
         return self._response
 
 
-class ProcessNextRequestsTests(TestCase):
+class TestProcessNextRequests(TestCase):
     def test_emtpy_request_returns_job_response_error(self):
         """
         Test that server can handle an emtpy job missing top level elements without throwing exceptions
