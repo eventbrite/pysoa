@@ -82,11 +82,11 @@ def pysoa_client():  # type: () -> Client
 
 
 @pytest.fixture(scope='package')
-def pysoa_client_protocol_v3():  # type: () -> Client
+def pysoa_client_protocol_v2():  # type: () -> Client
     config = copy.deepcopy(_base_config)
-    config['echo']['transport']['kwargs']['protocol_version'] = ProtocolVersion.VERSION_3
-    config['meta']['transport']['kwargs']['protocol_version'] = ProtocolVersion.VERSION_3
-    config['user']['transport']['kwargs']['protocol_version'] = ProtocolVersion.VERSION_3
+    config['echo']['transport']['kwargs']['protocol_version'] = ProtocolVersion.VERSION_2
+    config['meta']['transport']['kwargs']['protocol_version'] = ProtocolVersion.VERSION_2
+    config['user']['transport']['kwargs']['protocol_version'] = ProtocolVersion.VERSION_2
 
     return Client(
         config=config,
@@ -98,11 +98,8 @@ def pysoa_client_protocol_v3():  # type: () -> Client
 def pysoa_client_json():  # type: () -> Client
     config = copy.deepcopy(_base_config)
     config['echo']['transport']['kwargs']['default_serializer_config'] = _json_serializer
-    config['echo']['transport']['kwargs']['protocol_version'] = ProtocolVersion.VERSION_3
     config['meta']['transport']['kwargs']['default_serializer_config'] = _json_serializer
-    config['meta']['transport']['kwargs']['protocol_version'] = ProtocolVersion.VERSION_3
     config['user']['transport']['kwargs']['default_serializer_config'] = _json_serializer
-    config['user']['transport']['kwargs']['protocol_version'] = ProtocolVersion.VERSION_3
 
     return Client(
         config=config,
