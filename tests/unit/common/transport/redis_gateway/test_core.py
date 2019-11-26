@@ -975,7 +975,6 @@ class TestRedisTransportCore(object):
         (
             (ProtocolVersion.VERSION_1, ),
             (ProtocolVersion.VERSION_2, ),
-            (None, ),
         ),
     )
     @mock.patch('pysoa.common.transport.redis_gateway.core.StandardRedisClient')
@@ -1224,5 +1223,5 @@ class TestRedisTransportCore(object):
 
         assert request_id == 91
         assert 'protocol_version' in meta
-        assert meta['protocol_version'] == version if version else ProtocolVersion.VERSION_2  # 2 is the default
+        assert meta['protocol_version'] == (version if version else ProtocolVersion.VERSION_3)  # 3 is the default
         assert received_body == body

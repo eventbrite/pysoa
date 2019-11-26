@@ -168,7 +168,7 @@ class RedisTransportCore(object):
         validator=attr.validators.instance_of(six.text_type),
     )  # type: six.text_type
 
-    protocol_version = ProtocolVersion.VERSION_2
+    protocol_version = ProtocolVersion.VERSION_3
 
     EXPONENTIAL_BACK_OFF_FACTOR = 4.0
     QUEUE_NAME_PREFIX = 'pysoa:'
@@ -535,7 +535,7 @@ def _convert_protocol_version(value):  # type: (Union[ProtocolVersion, int]) -> 
 @attr.s
 class RedisTransportClientCore(RedisTransportCore):
     protocol_version = attr.ib(
-        default=ProtocolVersion.VERSION_2,
+        default=ProtocolVersion.VERSION_3,
         converter=_convert_protocol_version,
     )  # type: ProtocolVersion
 
