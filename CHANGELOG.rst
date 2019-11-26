@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.0.0-rc1 (2019-11-25)
+----------------------
+- [MAJOR] Make Version 3 the default Redis gateway protocol version
+
 1.0.0-beta2 (2019-11-23)
 ------------------------
 - [PATCH] Add missing assertLogs, fix assertCountEqual, rename some tests
