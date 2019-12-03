@@ -1,6 +1,35 @@
 Changelog
 =========
 
+1.0.0 (2019-12-02)
+------------------
+- [MAJOR] Removed deprecated class ``RedisClientSettings``; use ``ClientSettings``, instead.
+- [MAJOR] Removed deprecated class ``LocalClientSettings``; use ``ClientSettings``, instead.
+- [MAJOR] Removed deprecated class ``PolymorphicClientSettings``; use ``ClientSettings``, instead.
+- [MAJOR] Removed deprecated class ``RedisServerSettings``; use ``ServerSettings``, instead.
+- [MAJOR] Removed deprecated class ``LocalServerSettings``; use ``ServerSettings``, instead.
+- [MAJOR] Removed deprecated class ``PolymorphicServerSettings``; use ``ServerSettings``, instead.
+- [MAJOR] Removed deprecated class ``Settings``; use `Conformity Settings <https://conformity.readthedocs.io/en/stable/settings.html>`_, instead.
+- [MAJOR] Removed deprecated module ``pysoa.common.metrics``; use `PyMetrics <https://pymetrics.readthedocs.io/en/stable/>`_, instead.
+- [MAJOR] Removed deprecated module ``pysoa.common.serializer.exceptions``; use ``pysoa.common.serializer.errors``, instead.
+- [MAJOR] Removed deprecated module ``pysoa.common.transport.exceptions``, use ``pysoa.common.transport.errors``, instead.
+- [MAJOR] Removed deprecated ``is_caller_error`` argument to and attribute of the ``ActionError`` and ``JobError`` classes; use argument ``set_is_caller_error_to``, instead (and it is now a private attribute). This was removed to eliminate confusion with the ``is_caller_error`` attribute of the ``Error`` class, which has not changed and will not change.
+- [MAJOR] Removed deprecated function ``log_level_schema``; use the `Conformity logging helpers <https://conformity.readthedocs.io/en/stable/fields.html#logging-helpers>`_, instead.
+- [MAJOR] Removed deprecated client setting ``transport_cache_time_in_seconds``, which has no replacement because transports work differently now than they did when that setting was originally created.
+- [MINOR] Add a new server-side ``EnrichedJobRequest`` class to correspond to the server-side ``EnrichedActionRequest``.
+- [MAJOR] Refactor the ``ServerMiddleware.job`` interface to accept the ``EnrichedJobRequest`` class instead of a dictionary.
+- [MAJOR] Refactor the way middleware and middleware wrapper stacks are constructed to improve performance.
+- [MINOR] Improve logging filter to add action name to record
+- [MINOR] New class ``BaseServerTestCase`` contains helper methods for setting up the test service, calling actions on the service, and asserting actions runs with and without errors, all of which previously resided directly in ``ServerTestCase``.
+- [MINOR] New class ``UnitTestServerTestCase`` extends both ``unittest.TestCase`` and ``BaseServerTestCase`` for when you really want to use ``unittest``-style tests. Its ``setUp`` method calls the helper method for setting up the test service.
+- [MINOR] New class ``PyTestServerTestCase`` extends ``BaseServerTestCase``. Its ``setup_class`` method will issue a warning and call ``setUpClass`` if your class has that method. Its ``teardown_class`` method will issue a warning and call ``tearDownClass`` if your class has that method. Its ``setup_method`` method calls the helper method for setting up the test service and will issue a warning and call ``setUp`` if your class has that method. Its ``teardown_method`` method will issue a warning and call ``tearDown`` if your class has that method. If you currently use ``addCleanup``, it will still work but will issue a warning. All the standard ``self.assert*`` and ``self.fail*`` methods are polyfilled and should work similar to the way they previously worked, but you should endeavor to swich over to simple uses of the ``assert`` keyword, which provides better diffs in PyTest failure messages.
+- [MAJOR] ``ServerTestCase`` is now an alias for ``PyTestServerTestCase`` instead of a class. If you have existing test classes that extend ``ServerTestCase``, and those tests classes do not start with the word ``Test``, **PyTest will not run them anymore**! You need to rename them to start with ``Test``.
+- [MAJOR] The test plan class ``ServicePlanTestCase`` now inherits from ``PyTestServerTestCase`` instead of ``UnitTestServerTestCase`` like it previously did. Test plans behave slightly differently now. Your fixture files should all work the same way they always have, but if you have any advanced uses of setup or teardown methods, they may break.
+- [PATCH] Fixes a bug in ``stub_action`` preventing it from working as a decorator in PyTest-style unit test methods (it already worked properly in ``unittest``-style unit test methods).
+- [MAJOR] Bump PyMetrics to 1.0.x
+- [MAJOR] Make Version 3 the default Redis gateway protocol version
+- [PATCH] Add documentation about release roadmap
+
 1.0.0-rc1 (2019-11-25)
 ----------------------
 - [MAJOR] Make Version 3 the default Redis gateway protocol version
