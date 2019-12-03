@@ -213,6 +213,7 @@ Table of Contents
    protocol
    reference
    contributing
+   roadmap
    history
 
 
