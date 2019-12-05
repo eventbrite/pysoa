@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.0.1 (2019-12-05)
+------------------
+- [PATCH] Account for potential missing PytestCollectionWarning
+
 1.0.0 (2019-12-02)
 ------------------
 - [MAJOR] Removed deprecated class ``RedisClientSettings``; use ``ClientSettings``, instead.
