@@ -14,6 +14,8 @@ from unittest import TestCase
 
 import attr
 from conformity.settings import SettingsData
+from parameterized import parameterized
+import pytest
 import six
 
 from pysoa.client.client import Client
@@ -373,6 +375,65 @@ class TestStubAction(PyTestServerTestCase):
         self.assertEqual({}, stub_test_action_1.call_body)
         stub_test_action_1.assert_called_once_with({})
 
+    if not six.PY2:
+        # In Python 2, PyTest's parametrize cannot be used with patchings like mock.patch and stub_action
+        @pytest.mark.parametrize(('input_arg', ), (('foo', ), ('bar', )))
+        @stub_action('test_service', 'test_action_1')
+        def test_one_stub_as_decorator_with_pytest_parametrize_before(self, stub_test_action_1, input_arg):
+            stub_test_action_1.return_value = {'value': 1}
+
+            response = self.client.call_action('test_service', 'test_action_1')
+            self.assertEqual({'value': 1}, response.body)
+
+            self.assertEqual(1, stub_test_action_1.call_count)
+            self.assertEqual({}, stub_test_action_1.call_body)
+            stub_test_action_1.assert_called_once_with({})
+
+            assert input_arg in ('foo', 'bar')
+
+        @stub_action('test_service', 'test_action_1')
+        @pytest.mark.parametrize(('input_arg',), (('foo',), ('bar',)))
+        def test_one_stub_as_decorator_with_pytest_parametrize_after(self, stub_test_action_1, input_arg):
+            stub_test_action_1.return_value = {'value': 1}
+
+            response = self.client.call_action('test_service', 'test_action_1')
+            self.assertEqual({'value': 1}, response.body)
+
+            self.assertEqual(1, stub_test_action_1.call_count)
+            self.assertEqual({}, stub_test_action_1.call_body)
+            stub_test_action_1.assert_called_once_with({})
+
+            assert input_arg in ('foo', 'bar')
+
+    @parameterized.expand((('foo', ), ('bar', )))
+    @stub_action('test_service', 'test_action_1')
+    def test_one_stub_as_decorator_with_3rd_party_parametrize(self, input_arg, stub_test_action_1):
+        stub_test_action_1.return_value = {'value': 1}
+
+        response = self.client.call_action('test_service', 'test_action_1')
+        self.assertEqual({'value': 1}, response.body)
+
+        self.assertEqual(1, stub_test_action_1.call_count)
+        self.assertEqual({}, stub_test_action_1.call_body)
+        stub_test_action_1.assert_called_once_with({})
+
+        assert input_arg in ('foo', 'bar')
+
+    @stub_action('test_service', 'test_action_1')
+    def _external_method_get_response(self, stub_test_action_1):
+        stub_test_action_1.return_value = {'value': -5}
+
+        try:
+            return self.client.call_action('test_service', 'test_action_1')
+        finally:
+            self.assertEqual(1, stub_test_action_1.call_count)
+            self.assertEqual({}, stub_test_action_1.call_body)
+            stub_test_action_1.assert_called_once_with({})
+
+    def test_one_stub_as_decorated_external_method(self):
+        response = self._external_method_get_response()
+        self.assertEqual({'value': -5}, response.body)
+
     def test_one_stub_as_context_manager(self):
         with stub_action('test_service', 'test_action_1') as stub_test_action_1:
             stub_test_action_1.return_value = {'value': 1}
@@ -447,6 +508,114 @@ class TestStubAction(PyTestServerTestCase):
         self.assertEqual({'input_attribute': True}, stub_test_action_2.call_body)
         stub_test_action_1.assert_called_once_with({})
         stub_test_action_2.assert_called_once_with({'input_attribute': True})
+
+    if not six.PY2:
+        # In Python 2, PyTest's parametrize cannot be used with patchings like mock.patch and stub_action
+        @pytest.mark.parametrize(('input_arg',), (('foo',), ('bar',)))
+        @stub_action('test_service', 'test_action_2')
+        @stub_action('test_service', 'test_action_1')
+        def test_two_stubs_same_service_as_decorator_with_pytest_parametrize_before(
+            self,
+            stub_test_action_1,
+            stub_test_action_2,
+            input_arg,
+        ):
+            stub_test_action_1.return_value = {'value': 1}
+            stub_test_action_2.return_value = {'another_value': 2}
+
+            response = self.client.call_action('test_service', 'test_action_1')
+            self.assertEqual({'value': 1}, response.body)
+
+            response = self.client.call_action('test_service', 'test_action_2', {'input_attribute': True})
+            self.assertEqual({'another_value': 2}, response.body)
+
+            self.assertEqual(1, stub_test_action_1.call_count)
+            self.assertEqual({}, stub_test_action_1.call_body)
+            self.assertEqual(1, stub_test_action_2.call_count)
+            self.assertEqual({'input_attribute': True}, stub_test_action_2.call_body)
+            stub_test_action_1.assert_called_once_with({})
+            stub_test_action_2.assert_called_once_with({'input_attribute': True})
+
+            assert input_arg in ('foo', 'bar')
+
+        @stub_action('test_service', 'test_action_2')
+        @stub_action('test_service', 'test_action_1')
+        @pytest.mark.parametrize(('input_arg',), (('foo',), ('bar',)))
+        def test_two_stubs_same_service_as_decorator_with_pytest_parametrize_after(
+            self,
+            stub_test_action_1,
+            stub_test_action_2,
+            input_arg,
+        ):
+            stub_test_action_1.return_value = {'value': 1}
+            stub_test_action_2.return_value = {'another_value': 2}
+
+            response = self.client.call_action('test_service', 'test_action_1')
+            self.assertEqual({'value': 1}, response.body)
+
+            response = self.client.call_action('test_service', 'test_action_2', {'input_attribute': True})
+            self.assertEqual({'another_value': 2}, response.body)
+
+            self.assertEqual(1, stub_test_action_1.call_count)
+            self.assertEqual({}, stub_test_action_1.call_body)
+            self.assertEqual(1, stub_test_action_2.call_count)
+            self.assertEqual({'input_attribute': True}, stub_test_action_2.call_body)
+            stub_test_action_1.assert_called_once_with({})
+            stub_test_action_2.assert_called_once_with({'input_attribute': True})
+
+            assert input_arg in ('foo', 'bar')
+
+    @parameterized.expand((('foo',), ('bar',)))
+    @stub_action('test_service', 'test_action_2')
+    @stub_action('test_service', 'test_action_1')
+    def test_two_stubs_same_service_as_decorator_with_3rd_party_parametrize(
+        self,
+        input_arg,
+        stub_test_action_1,
+        stub_test_action_2,
+    ):
+        stub_test_action_1.return_value = {'value': 1}
+        stub_test_action_2.return_value = {'another_value': 2}
+
+        response = self.client.call_action('test_service', 'test_action_1')
+        self.assertEqual({'value': 1}, response.body)
+
+        response = self.client.call_action('test_service', 'test_action_2', {'input_attribute': True})
+        self.assertEqual({'another_value': 2}, response.body)
+
+        self.assertEqual(1, stub_test_action_1.call_count)
+        self.assertEqual({}, stub_test_action_1.call_body)
+        self.assertEqual(1, stub_test_action_2.call_count)
+        self.assertEqual({'input_attribute': True}, stub_test_action_2.call_body)
+        stub_test_action_1.assert_called_once_with({})
+        stub_test_action_2.assert_called_once_with({'input_attribute': True})
+
+        assert input_arg in ('foo', 'bar')
+
+    @stub_action('test_service', 'test_action_2')
+    @stub_action('test_service', 'test_action_1')
+    def _two_stubs_external_method_get_response(self, another_value, stub_test_action_1, stub_test_action_2):
+        stub_test_action_1.return_value = {'value': -10}
+        stub_test_action_2.return_value = {'another_value': another_value}
+
+        try:
+            return (
+                self.client.call_action('test_service', 'test_action_1'),
+                self.client.call_action('test_service', 'test_action_2', {'input_attribute': False})
+            )
+        finally:
+            self.assertEqual(1, stub_test_action_1.call_count)
+            self.assertEqual({}, stub_test_action_1.call_body)
+            self.assertEqual(1, stub_test_action_2.call_count)
+            self.assertEqual({'input_attribute': False}, stub_test_action_2.call_body)
+            stub_test_action_1.assert_called_once_with({})
+            stub_test_action_2.assert_called_once_with({'input_attribute': False})
+
+    @pytest.mark.parametrize(('value2', ), ((-15, ), (-20, )))
+    def test_two_stubs_same_service_as_decorated_external_method(self, value2):
+        response1, response2 = self._two_stubs_external_method_get_response(value2)
+        self.assertEqual({'value': -10}, response1.body)
+        self.assertEqual({'another_value': value2}, response2.body)
 
     @stub_action('test_service', 'test_action_2')
     @stub_action('test_service', 'test_action_1')
@@ -1187,6 +1356,35 @@ class TestStubActionUnitTestCase(UnitTestServerTestCase):
         self.assertEqual({}, stub_test_action_1.call_body)
         stub_test_action_1.assert_called_once_with({})
 
+    @parameterized.expand((('foo', ), ('bar', )))
+    @stub_action('test_service', 'test_action_1')
+    def test_one_stub_as_decorator_with_3rd_party_parametrize(self, input_arg, stub_test_action_1):
+        stub_test_action_1.return_value = {'value': 1}
+
+        response = self.client.call_action('test_service', 'test_action_1')
+        self.assertEqual({'value': 1}, response.body)
+
+        self.assertEqual(1, stub_test_action_1.call_count)
+        self.assertEqual({}, stub_test_action_1.call_body)
+        stub_test_action_1.assert_called_once_with({})
+
+        assert input_arg in ('foo', 'bar')
+
+    @stub_action('test_service', 'test_action_1')
+    def _external_method_get_response(self, stub_test_action_1):
+        stub_test_action_1.return_value = {'value': -5}
+
+        try:
+            return self.client.call_action('test_service', 'test_action_1')
+        finally:
+            self.assertEqual(1, stub_test_action_1.call_count)
+            self.assertEqual({}, stub_test_action_1.call_body)
+            stub_test_action_1.assert_called_once_with({})
+
+    def test_one_stub_as_decorated_external_method(self):
+        response = self._external_method_get_response()
+        self.assertEqual({'value': -5}, response.body)
+
     def test_one_stub_as_context_manager(self):
         with stub_action('test_service', 'test_action_1') as stub_test_action_1:
             stub_test_action_1.return_value = {'value': 1}
@@ -1261,6 +1459,58 @@ class TestStubActionUnitTestCase(UnitTestServerTestCase):
         self.assertEqual({'input_attribute': True}, stub_test_action_2.call_body)
         stub_test_action_1.assert_called_once_with({})
         stub_test_action_2.assert_called_once_with({'input_attribute': True})
+
+    @parameterized.expand((('foo',), ('bar',)))
+    @stub_action('test_service', 'test_action_2')
+    @stub_action('test_service', 'test_action_1')
+    def test_two_stubs_same_service_as_decorator_with_3rd_party_parametrize(
+        self,
+        input_arg,
+        stub_test_action_1,
+        stub_test_action_2,
+    ):
+        stub_test_action_1.return_value = {'value': 1}
+        stub_test_action_2.return_value = {'another_value': 2}
+
+        response = self.client.call_action('test_service', 'test_action_1')
+        self.assertEqual({'value': 1}, response.body)
+
+        response = self.client.call_action('test_service', 'test_action_2', {'input_attribute': True})
+        self.assertEqual({'another_value': 2}, response.body)
+
+        self.assertEqual(1, stub_test_action_1.call_count)
+        self.assertEqual({}, stub_test_action_1.call_body)
+        self.assertEqual(1, stub_test_action_2.call_count)
+        self.assertEqual({'input_attribute': True}, stub_test_action_2.call_body)
+        stub_test_action_1.assert_called_once_with({})
+        stub_test_action_2.assert_called_once_with({'input_attribute': True})
+
+        assert input_arg in ('foo', 'bar')
+
+    @stub_action('test_service', 'test_action_2')
+    @stub_action('test_service', 'test_action_1')
+    def _two_stubs_external_method_get_response(self, another_value, stub_test_action_1, stub_test_action_2):
+        stub_test_action_1.return_value = {'value': -10}
+        stub_test_action_2.return_value = {'another_value': another_value}
+
+        try:
+            return (
+                self.client.call_action('test_service', 'test_action_1'),
+                self.client.call_action('test_service', 'test_action_2', {'input_attribute': False})
+            )
+        finally:
+            self.assertEqual(1, stub_test_action_1.call_count)
+            self.assertEqual({}, stub_test_action_1.call_body)
+            self.assertEqual(1, stub_test_action_2.call_count)
+            self.assertEqual({'input_attribute': False}, stub_test_action_2.call_body)
+            stub_test_action_1.assert_called_once_with({})
+            stub_test_action_2.assert_called_once_with({'input_attribute': False})
+
+    @parameterized.expand(((-15,), (-20,)))
+    def test_two_stubs_same_service_as_decorated_external_method(self, value2):
+        response1, response2 = self._two_stubs_external_method_get_response(value2)
+        self.assertEqual({'value': -10}, response1.body)
+        self.assertEqual({'another_value': value2}, response2.body)
 
     @stub_action('test_service', 'test_action_2')
     @stub_action('test_service', 'test_action_1')
