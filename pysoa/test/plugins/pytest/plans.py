@@ -6,6 +6,7 @@ from __future__ import (
 from functools import wraps
 import re
 from typing import List
+import warnings
 
 from _pytest import fixtures
 from _pytest._code.code import TracebackEntry
@@ -17,7 +18,6 @@ from _pytest.python import (
     Instance,
     PyCollector,
 )
-from _pytest.warning_types import PytestCollectionWarning
 import py
 import pytest
 import six
@@ -31,10 +31,15 @@ from pysoa.test.plan.errors import StatusError
 
 
 try:
+    from _pytest.warning_types import PytestCollectionWarning
+except ImportError:
+    PytestCollectionWarning = None  # type: ignore
+
+try:
     import pyparsing
     TEST_PLANS_ENABLED = True
 except ImportError:
-    pyparsing = None
+    pyparsing = None  # type: ignore
     TEST_PLANS_ENABLED = False
 
 
@@ -189,22 +194,24 @@ class ServicePlanTestClassCollector(Class):
             return
 
         if has_init(self.obj):
-            self.warn(
-                PytestCollectionWarning(
-                    "cannot collect test class %r because it has a "
-                    "__init__ constructor (from: %s)"
-                    % (self.obj.__name__, self.parent.nodeid)
-                )
+            warning = (
+                'Cannot collect test class %r because it has a __init__ constructor (from: %s)' %
+                (self.obj.__name__, self.parent.nodeid)
             )
+            if PytestCollectionWarning:
+                self.warn(PytestCollectionWarning(warning))
+            else:
+                warnings.warn(UserWarning(warning))
             return []
         elif has_new(self.obj):
-            self.warn(
-                PytestCollectionWarning(
-                    "cannot collect test class %r because it has a "
-                    "__new__ constructor (from: %s)"
-                    % (self.obj.__name__, self.parent.nodeid)
-                )
+            warning = (
+                'Cannot collect test class %r because it has a __new__ constructor (from: %s)' %
+                (self.obj.__name__, self.parent.nodeid)
             )
+            if PytestCollectionWarning:
+                self.warn(PytestCollectionWarning(warning))
+            else:
+                warnings.warn(UserWarning(warning))
             return []
 
         self._inject_setup_class_fixture()
