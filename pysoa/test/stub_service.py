@@ -32,7 +32,6 @@ from conformity.settings import SettingsData
 from pymetrics.recorders.base import MetricsRecorder
 from pymetrics.recorders.noop import noop_metrics
 import six
-from typing_extensions import Literal
 
 from pysoa.client.client import (
     Client,
@@ -62,6 +61,12 @@ from pysoa.server.types import (
     EnrichedActionRequest,
 )
 from pysoa.test.compatibility import mock
+
+
+try:
+    from typing import Literal  # type: ignore
+except ImportError:
+    from typing_extensions import Literal  # type: ignore
 
 
 __all__ = (

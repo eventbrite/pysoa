@@ -42,7 +42,6 @@ from _pytest.recwarn import WarningsChecker
 from conformity.settings import SettingsData
 import pytest
 import six
-from typing_extensions import Literal
 
 from pysoa.client.client import Client
 from pysoa.common.errors import Error
@@ -59,9 +58,14 @@ from pysoa.test.assertions import (
 
 
 try:
-    from typing import NoReturn
+    from typing import Literal  # type: ignore
 except ImportError:
-    from typing_extensions import NoReturn
+    from typing_extensions import Literal  # type: ignore
+
+try:
+    from typing import NoReturn  # type: ignore
+except ImportError:
+    from typing_extensions import NoReturn  # type: ignore
 
 
 __all__ = (
