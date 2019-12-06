@@ -22,7 +22,6 @@ from typing import (
 
 import attr
 import six
-from typing_extensions import Literal
 
 from pysoa.common.types import Body
 from pysoa.test.compatibility import mock
@@ -46,6 +45,11 @@ from pysoa.test.plan.parser import ServiceTestPlanFixtureParser
 from pysoa.test.server import PyTestServerTestCase
 from pysoa.test.stub_service import stub_action
 
+
+try:
+    from typing import Literal  # type: ignore
+except ImportError:
+    from typing_extensions import Literal  # type: ignore
 
 try:
     from typing import Protocol
