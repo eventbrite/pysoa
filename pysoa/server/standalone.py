@@ -46,10 +46,7 @@ def is_double_import():  # type: () -> bool
     if not sys.path[0] or sys.path[0].endswith('/bin') or sys.path[0].endswith('/sbin'):
         return False
 
-    if sys.version_info >= (3, 7):
-        return '-m' not in pysoa.utils.get_python_interpreter_arguments()
-
-    return True
+    return '-m' not in pysoa.utils.get_python_interpreter_arguments()
 
 
 if is_double_import():
