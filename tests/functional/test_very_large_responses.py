@@ -3,9 +3,9 @@ from __future__ import (
     unicode_literals,
 )
 
-from pysoa.client.client import Client
 import pytest
 
+from pysoa.client.client import Client
 from pysoa.common.constants import ERROR_CODE_RESPONSE_TOO_LARGE
 
 
