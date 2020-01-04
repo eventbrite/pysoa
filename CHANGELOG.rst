@@ -1,6 +1,12 @@
 Changelog
 =========
 
+1.0.2 (2020-01-03)
+------------------
+- [PATCH] Skip Django database connection cleanup in unit tests
+- [PATCH] Try importing from typing before typing_extensions
+- [PATCH] Add some more tests to verify stub_action functionality
+
 1.0.1 (2019-12-05)
 ------------------
 - [PATCH] Account for potential missing PytestCollectionWarning
