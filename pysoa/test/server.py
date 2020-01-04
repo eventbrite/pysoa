@@ -45,6 +45,7 @@ import six
 
 from pysoa.client.client import Client
 from pysoa.common.errors import Error
+from pysoa.common.transport.local import LocalClientTransport
 from pysoa.common.types import (
     ActionResponse,
     Body,
@@ -138,6 +139,11 @@ class BaseServerTestCase(object):
                 },
             },
         )
+        # noinspection PyProtectedMember
+        cast(
+            LocalClientTransport,
+            self.client._get_handler(self.service_name).transport,
+        ).server._skip_django_database_cleanup = True
 
     def call_action(self, action, body=None, service_name=None, **kwargs):
         # type: (six.text_type, Body, Optional[six.text_type], **Any) -> ActionResponse

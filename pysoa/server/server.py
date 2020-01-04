@@ -241,6 +241,8 @@ class Server(object):
         self._heartbeat_file_last_update = 0.0
         self._forked_process_id = forked_process_id
 
+        self._skip_django_database_cleanup = False
+
     def handle_next_request(self):  # type: () -> None
         """
         Retrieves the next request from the transport, or returns if it times out (no request has been made), and then
@@ -763,7 +765,7 @@ class Server(object):
         """
 
     def _close_old_django_connections(self):  # type: () -> None
-        if self.use_django:
+        if self.use_django and not self._skip_django_database_cleanup:
             if not getattr(django_settings, 'DATABASES'):
                 # No database connections are configured, so we have nothing to do
                 return
