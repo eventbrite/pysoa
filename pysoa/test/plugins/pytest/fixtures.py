@@ -21,6 +21,7 @@ import pytest
 import six
 
 from pysoa.client.client import Client
+from pysoa.common.transport.local import LocalClientTransport
 from pysoa.common.types import (
     ActionResponse,
     Body,
@@ -105,13 +106,21 @@ def service_client_class(server_class):
 
 
 @pytest.fixture(scope='module')
-def service_client(service_client_class, service_client_settings):
-    # type: (Type[Client], Dict[six.text_type, SettingsData]) -> Client
+def service_client(server_class, service_client_class, service_client_settings):
+    # type: (Type[Server], Type[Client], Dict[six.text_type, SettingsData]) -> Client
     """
     Instantiate the service client class with the requisite config. Service doing the testing should define
     the server_class fixture.
     """
-    return service_client_class(service_client_settings)
+    assert server_class.service_name
+
+    client = service_client_class(service_client_settings)
+    # noinspection PyProtectedMember
+    cast(
+        LocalClientTransport,
+        client._get_handler(server_class.service_name).transport,
+    ).server._skip_django_database_cleanup = True
+    return client
 
 
 _StubActionSignature = Callable[
