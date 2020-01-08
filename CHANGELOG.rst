@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.0.3 (2020-01-08)
+------------------
+- [PATCH] Skip Django database connection cleanup in PyTest fixtures
+
 1.0.2 (2020-01-03)
 ------------------
 - [PATCH] Skip Django database connection cleanup in unit tests
