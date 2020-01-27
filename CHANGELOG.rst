@@ -1,6 +1,11 @@
 Changelog
 =========
 
+1.1.0 (2020-01-27)
+------------------
+- [PATCH] Explicitly test for `-m` invocation in all Python versions
+- [MINOR] Add ability to extend context in request.call_local_action
+
 1.0.3 (2020-01-08)
 ------------------
 - [PATCH] Skip Django database connection cleanup in PyTest fixtures
