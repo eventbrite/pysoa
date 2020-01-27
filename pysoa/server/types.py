@@ -4,10 +4,9 @@ from __future__ import (
 )
 
 import abc
+import copy
 from typing import (
-    Any,
     Callable,
-    Dict,
     Iterable,
     Optional,
     SupportsInt,
@@ -27,6 +26,7 @@ from pysoa.common.errors import Error
 from pysoa.common.types import (
     ActionRequest,
     ActionResponse,
+    Body,
     Context,
     Control,
     JobRequest,
@@ -107,8 +107,8 @@ class EnrichedActionRequest(ActionRequest):
 
     _server = None
 
-    def call_local_action(self, action, body, raise_action_errors=True, is_caller_error=False):
-        # type: (six.text_type, Dict[six.text_type, Any], bool, bool) -> ActionResponse
+    def call_local_action(self, action, body, raise_action_errors=True, is_caller_error=False, context=None):
+        # type: (six.text_type, Body, bool, bool, Optional[Context]) -> ActionResponse
         """
         This helper calls another action, locally, that resides on the same service, using the provided action name
         and body. The called action will receive a copy of this request object with different action and body details.
@@ -129,6 +129,8 @@ class EnrichedActionRequest(ActionRequest):
                                 responsibility of the caller. Action errors are usually the responsibility of the
                                 caller, but the default here is the opposite since the responsibility usually lies in
                                 the service that is calling itself and should know better.
+        :param context: If specified, any values in this dictionary will override conflicting values in the cloned
+                        context.
 
         :return: the action response.
 
@@ -161,14 +163,19 @@ class EnrichedActionRequest(ActionRequest):
         action_type = server.action_class_map[action]  # type: ActionType
         action_callable = action_type(server.settings)
 
+        new_context = copy.copy(self.context)
+        if context:
+            new_context.update(context)
+
         request = self.__class__(
             action=action,
             body=body,
+            context=new_context,
             # Dynamically copy all Attrs attributes so that subclasses introducing other Attrs can still work properly
             **{
                 a.name: getattr(self, a.name)
                 for a in getattr(self, '__attrs_attrs__')
-                if a.name not in ('action', 'body')
+                if a.name not in ('action', 'body', 'context')
             }
         )
         request._server = server

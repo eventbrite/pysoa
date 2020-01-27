@@ -161,14 +161,14 @@ class TestEnrichedActionRequest(object):
         r = SuperEnrichedActionRequest(
             action='foo',
             body={'bar': 'baz'},
-            context={'auth_token': 'def456'},
+            context={'auth_token': 'def456', 'auth': 'original'},
             control={'repeat': True},
             metrics='A custom object',
             analytics_logger=logger,
         )
         r._server = server
 
-        response = r.call_local_action('another_foo', {'entity_id': '1a8t27oh'})
+        response = r.call_local_action('another_foo', {'entity_id': '1a8t27oh'}, context={'auth': 'new', 'foo': 'bar'})
         assert response.action == 'another_foo'
         assert response.body == {'sweet': 'success'}
 
@@ -181,7 +181,7 @@ class TestEnrichedActionRequest(object):
         assert other_r != r
         assert other_r.action == 'another_foo'
         assert other_r.body == {'entity_id': '1a8t27oh'}
-        assert other_r.context == {'auth_token': 'def456'}
+        assert other_r.context == {'auth_token': 'def456', 'auth': 'new', 'foo': 'bar'}
         assert other_r.control == {'repeat': True}
         assert other_r.metrics == 'A custom object'
         assert other_r.analytics_logger is logger
