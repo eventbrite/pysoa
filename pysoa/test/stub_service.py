@@ -594,7 +594,8 @@ class stub_action(object):
             if self._stub_action_responses_to_merge[service_name]:
                 raise Exception('Something very bad happened, and there are still stubbed responses to merge!')
 
-            for request_id, response_or_e in six.iteritems(self._stub_action_responses_outstanding[service_name]):
+            for request_id in list(self._stub_action_responses_outstanding[service_name].keys()):
+                response_or_e = self._stub_action_responses_outstanding[service_name].pop(request_id)
                 if isinstance(response_or_e, Exception):
                     raise response_or_e
                 yield request_id, response_or_e

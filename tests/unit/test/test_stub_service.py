@@ -24,6 +24,7 @@ from pysoa.common.constants import (
     ERROR_CODE_NOT_AUTHORIZED,
 )
 from pysoa.common.errors import Error
+from pysoa.common.transport.errors import MessageReceiveTimeout
 from pysoa.common.types import (
     ActionRequest,
     ActionResponse,
@@ -642,6 +643,23 @@ class TestStubAction(PyTestServerTestCase):
             mock.call({'input_attribute': True}),
             mock.call({'another_attribute': False}),
         ])
+
+    def test_stub_action_with_side_effect_mixed_exceptions_and_bodies_as_context_manager(self):
+        with stub_action('foo', 'bar', side_effect=[MessageReceiveTimeout('No message received'), {'good': 'yes'}]):
+            with pytest.raises(MessageReceiveTimeout):
+                self.client.call_action('foo', 'bar')
+
+            response = self.client.call_action('foo', 'bar')
+            assert response.body == {'good': 'yes'}
+
+    @stub_action('foo', 'bar')
+    def test_stub_action_with_side_effect_mixed_exceptions_and_bodies_as_decorator(self, stub_foo_bar):
+        stub_foo_bar.side_effect = [MessageReceiveTimeout('No message received'), {'good': 'yes'}]
+        with pytest.raises(MessageReceiveTimeout):
+            self.client.call_action('foo', 'bar')
+
+        response = self.client.call_action('foo', 'bar')
+        assert response.body == {'good': 'yes'}
 
     @stub_action('test_service', 'test_action_1')
     def test_two_stubs_same_service_split(self, stub_test_action_1):
@@ -1537,6 +1555,23 @@ class TestStubActionUnitTestCase(UnitTestServerTestCase):
             mock.call({'input_attribute': True}),
             mock.call({'another_attribute': False}),
         ])
+
+    def test_stub_action_with_side_effect_mixed_exceptions_and_bodies_as_context_manager(self):
+        with stub_action('foo', 'bar', side_effect=[MessageReceiveTimeout('No message received'), {'good': 'yes'}]):
+            with pytest.raises(MessageReceiveTimeout):
+                self.client.call_action('foo', 'bar')
+
+            response = self.client.call_action('foo', 'bar')
+            assert response.body == {'good': 'yes'}
+
+    @stub_action('foo', 'bar')
+    def test_stub_action_with_side_effect_mixed_exceptions_and_bodies_as_decorator(self, stub_foo_bar):
+        stub_foo_bar.side_effect = [MessageReceiveTimeout('No message received'), {'good': 'yes'}]
+        with pytest.raises(MessageReceiveTimeout):
+            self.client.call_action('foo', 'bar')
+
+        response = self.client.call_action('foo', 'bar')
+        assert response.body == {'good': 'yes'}
 
     @stub_action('test_service', 'test_action_1')
     def test_two_stubs_same_service_split(self, stub_test_action_1):
