@@ -22,9 +22,20 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
         python3.8 \
         python3.8-distutils \
         python3.8-dev
-RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py && \
-    python3.7 /tmp/get-pip.py && \
-    python3.7 -m pip install tox
+
+RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
+RUN python2.7 /tmp/get-pip.py --disable-pip-version-check --disable-pip-version-check "pip==19.3.1" && \
+    mv -v "$(which pip)" "$(which pip)2.7"
+RUN python3.5 /tmp/get-pip.py --disable-pip-version-check --disable-pip-version-check "pip==19.3.1" && \
+    mv -v "$(which pip)" "$(which pip)3.5"
+RUN python3.6 /tmp/get-pip.py --disable-pip-version-check --disable-pip-version-check "pip==19.3.1" && \
+    mv -v "$(which pip)" "$(which pip)3.6"
+RUN python3.7 /tmp/get-pip.py --disable-pip-version-check --disable-pip-version-check "pip==19.3.1" && \
+    mv -v "$(which pip)" "$(which pip)3.7"
+RUN python3.8 /tmp/get-pip.py --disable-pip-version-check --disable-pip-version-check "pip==19.3.1" && \
+    mv -v "$(which pip)" "$(which pip)3.8"
+
+RUN pip3.7 install tox
 
 WORKDIR /test/pysoa
 
