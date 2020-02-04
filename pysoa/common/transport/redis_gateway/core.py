@@ -103,7 +103,7 @@ class RedisTransportCore(object):
     _backend_layer_cache = {}  # type: Dict[Tuple[six.text_type, FrozenSet[Tuple[Hashable, ...]]], BaseRedisClient]
 
     SUPPORTED_HEADERS_RE = re.compile(
-        b'(?P<header_name>content-type|chunk-count|chunk-id)\\s*:\\s*(?P<header_value>[a-zA-Z0-9_/.-]+)\\s*;',
+        b'\\s*(?P<header_name>content-type|chunk-count|chunk-id)\\s*:\\s*(?P<header_value>[a-zA-Z0-9_/.-]+)\\s*;',
     )
 
     backend_type = attr.ib(validator=_valid_backend_type)  # type: six.text_type
@@ -396,9 +396,11 @@ class RedisTransportCore(object):
         while match:
             headers[match.group('header_name').decode('utf-8')] = match.group('header_value').decode('utf-8')
 
-            # Using lstrip() instead of strip() is important here. It's possible for the last bytes in a msgpack packet
-            # to be interpreted as whitespace, and removing it causes msgpack to fail.
-            serialized_message = serialized_message[match.end():].lstrip()
+            # We used to strip whitespace, here, from the serialized message after slicing it, but that caused
+            # https://github.com/eventbrite/pysoa/issues/240, so we do not strip whitespace there anymore. It was never
+            # really necessary, anyway. There should never be whitespace after the final semicolon, and the regex takes
+            # care of whitespace within the headers themselves.
+            serialized_message = serialized_message[match.end():]
             match = cls.SUPPORTED_HEADERS_RE.match(serialized_message)
 
         return headers, serialized_message
