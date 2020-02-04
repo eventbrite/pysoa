@@ -24,7 +24,7 @@ install_requires = [
     'conformity~=1.26',
     'currint>=1.6,<3',
     'enum34;python_version<"3.4"',
-    'msgpack-python~=0.5,>=0.5.2',
+    'msgpack~=0.6,>=0.6.2',
     'pymetrics~=1.0',
     'pytz>=2019.1',
     'redis~=2.10',

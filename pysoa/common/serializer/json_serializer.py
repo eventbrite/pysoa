@@ -41,12 +41,18 @@ class JSONSerializer(BaseSerializer):
         try:
             return json.dumps(data_dict).encode('utf-8')
         except TypeError as e:
-            raise InvalidField(*e.args)
+            raise InvalidField(
+                "Can't serialize message due to {}: {}".format(str(type(e).__name__), str(e)),
+                *e.args
+            )
 
     def blob_to_dict(self, blob):  # type: (six.binary_type) -> Dict
         try:
             if six.PY3 and isinstance(blob, six.binary_type):
                 return json.loads(blob.decode('utf-8'))
             return json.loads(blob)
-        except (ValueError, UnicodeDecodeError) as e:
-            raise InvalidMessage(*e.args)
+        except (ValueError, TypeError) as e:
+            raise InvalidMessage(
+                "Can't deserialize message due to {}: {}".format(str(type(e).__name__), str(e)),
+                *e.args
+            )
