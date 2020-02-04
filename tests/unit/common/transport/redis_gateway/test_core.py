@@ -699,7 +699,7 @@ class TestRedisTransportCore(object):
         mock_standard.return_value.get_connection.return_value.blpop.return_value = [
             True,
             (
-                b'content-type : application/json ; ' +
+                b'content-type : application/json ;' +
                 JSONSerializer().dict_to_blob({'request_id': 43, 'meta': {}, 'body': {'foo': 'bar'}})
             ),
         ]
@@ -742,7 +742,7 @@ class TestRedisTransportCore(object):
         mock_standard.return_value.get_connection.return_value.blpop.return_value = [
             True,
             (
-                    b'pysoa-redis/3//content-type : application/json ; ' +
+                    b'pysoa-redis/3//content-type : application/json ;' +
                     JSONSerializer().dict_to_blob({'request_id': 44, 'meta': {}, 'body': {'foo': 'bar'}})
             ),
         ]
@@ -1190,6 +1190,36 @@ class TestRedisTransportCore(object):
         )
 
         assert request_id == 103
+        assert received_body == body
+
+    @mock.patch('pysoa.common.transport.redis_gateway.core.StandardRedisClient')
+    def test_send_chunking_works_round_trip_edge_case_1(self, mock_standard):
+        server_core = self._get_server_core(
+            chunk_messages_larger_than_bytes=102400,
+            maximum_message_size_in_bytes=102400 * 6,
+        )
+        client_core = self._get_client_core()
+
+        meta = {}  # type: Dict[six.text_type, Any]
+        body = {'test': [
+            '        h  e  l  l  o ,  w  o  r  l  d  #  {}        '.format(i)
+            for i in range(10000, 18000)
+        ]}
+
+        server_core.send_message('test_send_chunking_works_round_trip_edge_case_1', 911461, meta, body)
+
+        assert mock_standard.return_value.send_message_to_queue.call_count == 5
+
+        mock_standard.return_value.get_connection.return_value.blpop.side_effect = [
+            [True, item[1]['message']]
+            for item in mock_standard.return_value.send_message_to_queue.call_args_list
+        ]
+
+        request_id, _, received_body = client_core.receive_message(
+            'test_send_chunking_works_round_trip_edge_case_1',
+        )
+
+        assert request_id == 911461
         assert received_body == body
 
     @pytest.mark.parametrize(
