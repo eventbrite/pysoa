@@ -96,13 +96,19 @@ class MsgpackSerializer(BaseSerializer):
         try:
             return msgpack.packb(data_dict, default=self._default, use_bin_type=True)
         except TypeError as e:
-            raise InvalidField(*e.args)
+            raise InvalidField(
+                "Can't serialize message due to {}: {}".format(str(type(e).__name__), str(e)),
+                *e.args
+            )
 
     def blob_to_dict(self, blob):  # type: (six.binary_type) -> Dict
         try:
             return msgpack.unpackb(blob, raw=False, ext_hook=self._ext_hook)
-        except (TypeError, msgpack.UnpackValueError, msgpack.ExtraData) as e:
-            raise InvalidMessage(*e.args)
+        except (ValueError, TypeError, msgpack.UnpackValueError, msgpack.ExtraData) as e:
+            raise InvalidMessage(
+                "Can't deserialize message due to {}: {}".format(str(type(e).__name__), str(e)),
+                *e.args
+            )
 
     def _default(self, obj):  # type: (Any) -> msgpack.ExtType
         """
