@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.1.2 (2020-02-04)
+------------------
+- [PATCH] Fix #240 - Do not strip whitespace from serialized messages
+
 1.1.1 (2020-02-04)
 ------------------
 - [PATCH] Improve error messages and use correct msgpack dependency
