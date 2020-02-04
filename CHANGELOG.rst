@@ -1,6 +1,11 @@
 Changelog
 =========
 
+1.1.1 (2020-02-04)
+------------------
+- [PATCH] Improve error messages and use correct msgpack dependency
+- [PATCH] Fix #239: stub_action side_effect now supports mix of types
+
 1.1.0 (2020-01-27)
 ------------------
 - [PATCH] Explicitly test for `-m` invocation in all Python versions
