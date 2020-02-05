@@ -287,6 +287,22 @@ class _StubActionRequestCounter(object):
 
 _global_stub_action_request_counter = _StubActionRequestCounter()
 
+
+class _StubActionContractRegistry(object):
+    def __init__(self):  # type: () -> None
+        self.contracts = []
+
+    def add(self, service, action, body):  # type: (six.text_type, six.text_type, Body) -> None
+        self.contracts.append({
+            'service': service,
+            'action': action,
+            'body': body,
+        })
+
+
+_global_stub_action_response_registry = _StubActionContractRegistry()
+_global_stub_action_request_registry = _StubActionContractRegistry()
+
 _CT = TypeVar('_CT', Type[Any], Callable)
 _CT_T = TypeVar('_CT_T', bound=Type[Any])
 _CT_C = TypeVar('_CT_C', bound=Callable)
@@ -408,7 +424,9 @@ class stub_action(object):
         action,  # type: six.text_type
         body=None,  # type: Optional[Body]
         errors=None,  # type: Optional[Errors]
-        side_effect=None,  # type: _StubActionSideEffect
+        side_effect=None,  # type: _StubActionSideEffect,
+        register_response_schema_contract=True,  # type: bool
+        register_request_schema_contract=True,  # type: bool
     ):  # type: (...) -> None
         assert isinstance(service, six.text_type), 'Stubbed service name "{}" must be unicode'.format(service)
         assert isinstance(action, six.text_type), 'Stubbed action name "{}" must be unicode'.format(action)
@@ -418,6 +436,8 @@ class stub_action(object):
         self.body = body or {}
         self.errors = errors or []
         self.side_effect = side_effect
+        self.register_response_schema_contract = register_response_schema_contract
+        self.register_request_schema_contract = register_request_schema_contract
         self.enabled = False
 
         # Play nice with @mock.patch
@@ -526,9 +546,14 @@ class stub_action(object):
                 except (MessageReceiveError, MessageReceiveTimeout) as e:
                     job_response_transport_exception = e
 
+                if self.register_request_schema_contract:
+                    _global_stub_action_request_registry.add(self.service, self.action, action_request_obj.body)
+
                 if mock_response:
                     ordered_actions_for_merging[i] = mock_response
                     job_response.actions.append(mock_response)
+                    if self.register_response_schema_contract and mock_response.body:
+                        _global_stub_action_response_registry.add(self.service, self.action, mock_response.body)
                     if not continue_on_error and mock_response.errors:
                         break
 
@@ -703,3 +728,11 @@ class stub_action(object):
 
     def stop(self):  # type: () -> None
         self.__exit__()
+
+
+def get_stubbed_responses():  # type: () -> List[Dict[six.text_type, Union[six.text_type, Body]]]
+    return _global_stub_action_response_registry.contracts
+
+
+def get_stubbed_requests():  # type: () -> List[Dict[six.text_type, Union[six.text_type, Body]]]
+    return _global_stub_action_request_registry.contracts
