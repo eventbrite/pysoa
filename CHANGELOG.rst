@@ -1,6 +1,15 @@
 Changelog
 =========
 
+1.0.4 (2020-02-25)
+------------------
+- [PATCH] Fix two bugs regarding client expansions
+- [PATCH] Update documentation
+- [PATCH] Fix #240 - Do not strip whitespace from serialized messages
+- [PATCH] Improve error messages and use correct msgpack dependency
+- [PATCH] Try to make Travis builds faster
+- [PATCH] Fix #239: stub_action side_effect now supports mix of types
+
 1.0.3 (2020-01-08)
 ------------------
 - [PATCH] Skip Django database connection cleanup in PyTest fixtures
