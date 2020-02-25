@@ -14,39 +14,6 @@ install:
 matrix:
   include:
     - stage: build
-      name: "Unit Tests: Python 2.7 with Attrs 18 and 19"
-      python: "2.7"
-      script:
-        - tox -e py27-attrs18,py27-attrs19,py27-flake8,py27-coverage
-    - stage: build
-      name: "Unit Tests: Python 3.5 with and without PyInotify"
-      python: "3.5"
-      script:
-        - tox -e py35,py35-pyinotify,coverage
-    - stage: build
-      name: "Unit Tests: Python 3.6 with Currint 1.6 and 2.0"
-      python: "3.6"
-      script:
-        - tox -e py36-currint16,py36-currint20,coverage
-    - stage: build
-      name: "Unit Tests: Python 3.7 with Attrs 18 and 19"
-      python: "3.7"
-      script:
-        - tox -e py37-attrs18,py37-attrs19,py37-flake8,coverage
-      dist: xenial
-    - stage: build
-      name: "Unit Tests: Python 3.7 with PyTest 4.6 and 5.1"
-      python: "3.7"
-      script:
-        - tox -e py37-pytest46,py37-pytest51,py37-flake8,coverage,py37-mypy
-      dist: xenial
-    - stage: build
-      name: "Unit Tests: Python 3.8"
-      python: "3.8"
-      script:
-        - tox -e py38,coverage,py38-mypy
-      dist: xenial
-    - stage: build
       name: "Functional Tests"
       language: shell
       dist: xenial
@@ -64,8 +31,30 @@ matrix:
         - docker-compose --version
       script:
         - ./functional.sh verbose
+    - stage: build
+      name: "Unit Tests: Python 2.7 with Attrs 18 and 19"
+      python: "2.7"
+      script:
+        - tox -e py27-attrs18,py27-flake8,py27-coverage
+    - stage: build
+      name: "Unit Tests: Python 3.5 with and without PyInotify; Pytest 5.1 and 5.3"
+      python: "3.5"
+      script:
+        - tox -e py35,py35-pyinotify,py35-pytest51,py35-pytest53,coverage
+    - stage: build
+      name: "Unit Tests: Python 3.7 with Attrs 18 and 19; PyTest 4.6 and 5.3"
+      python: "3.7"
+      script:
+        - tox -e py37-attrs18,py37-pytest46,py37-flake8,coverage,py37-mypy
+      dist: xenial
+    - stage: build
+      name: "Unit Tests: Python 3.8 with Currint 1.6 and 2.0"
+      python: "3.8"
+      script:
+        - tox -e py38,py38-currint16,coverage,py38-mypy
+      dist: xenial
     - stage: deploy
-      python: "3.6"
+      python: "3.7"
       script: skip
       install:
         - pip install -U pip setuptools pyopenssl
