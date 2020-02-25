@@ -720,6 +720,8 @@ class AnyOrderEqualsList(list):
 
 
 class TestComplexCompanyHierarchyExpansions(TestCase):
+    maxDiff = 6000
+
     def setUp(self):
         expansion_config = {
             'type_routes': {
@@ -797,7 +799,7 @@ class TestComplexCompanyHierarchyExpansions(TestCase):
     @stub_action('image_service', 'get_images_by_ids')
     @stub_action('employee_service', 'get_employees_by_ids')
     @stub_action('company_service', 'get_all_companies')
-    def test_expand_company_ceo_and_logo(self, mock_get_companies, mock_get_employees, mock_get_images):
+    def test_expand_company_ceo_and_logo_nested_approach(self, mock_get_companies, mock_get_employees, mock_get_images):
         mock_get_companies.return_value = {
             'companies': [
                 {'_type': 'company_type', 'company_id': '9183', 'name': 'Acme', 'ceo_id': '5791'},
@@ -869,10 +871,84 @@ class TestComplexCompanyHierarchyExpansions(TestCase):
         self.assertEqual(expected_response, response.body)
 
     @stub_action('image_service', 'get_images_by_ids')
+    @stub_action('employee_service', 'get_employees_by_ids')
+    @stub_action('company_service', 'get_all_companies')
+    def test_expand_company_ceo_and_logo_global_approach(self, mock_get_companies, mock_get_employees, mock_get_images):
+        mock_get_companies.return_value = {
+            'companies': [
+                {'_type': 'company_type', 'company_id': '9183', 'name': 'Acme', 'ceo_id': '5791'},
+                {'_type': 'company_type', 'company_id': '7261', 'name': 'Logo Makers', 'ceo_id': '51', 'logo_id': '65'},
+            ],
+        }
+
+        mock_get_employees.return_value = {
+            'employees': {
+                '5791': {'_type': 'employee_type', 'employee_id': '5791', 'name': 'Julia', 'photo_id': '37'},
+                '51': {'_type': 'employee_type', 'employee_id': '51', 'name': 'Nathan', 'photo_id': '79'},
+            },
+        }
+
+        mock_get_images.side_effect = (
+            {'images': {'65': {'image_id': '65', 'uri': '65.jpg'}}},
+            {'images': {'37': {'image_id': '37', 'uri': '37.jpg'}, '79': {'image_id': '79', 'uri': '79.jpg'}}},
+        )
+
+        response = self.client.call_action(
+            'company_service',
+            'get_all_companies',
+            body={},
+            expansions={'company_type': ['ceo', 'logo'], 'employee_type': ['photo']},
+        )
+
+        mock_get_companies.assert_called_once_with({})
+        mock_get_employees.assert_called_once_with({'employee_ids': AnyOrderEqualsList(['5791', '51'])})
+        mock_get_images.assert_has_calls(
+            [
+                mock.call({'image_ids': ['65']}),
+                mock.call({'image_ids': AnyOrderEqualsList(['37', '79'])}),
+            ],
+        )
+
+        expected_response = {
+            'companies': [
+                {
+                    '_type': 'company_type',
+                    'company_id': '9183',
+                    'name': 'Acme',
+                    'ceo_id': '5791',
+                    'ceo': {
+                        '_type': 'employee_type',
+                        'employee_id': '5791',
+                        'name': 'Julia',
+                        'photo_id': '37',
+                        'photo': {'image_id': '37', 'uri': '37.jpg'},
+                    },
+                },
+                {
+                    '_type': 'company_type',
+                    'company_id': '7261',
+                    'name': 'Logo Makers',
+                    'ceo_id': '51',
+                    'ceo': {
+                        '_type': 'employee_type',
+                        'employee_id': '51',
+                        'name': 'Nathan',
+                        'photo_id': '79',
+                        'photo': {'image_id': '79', 'uri': '79.jpg'},
+                    },
+                    'logo_id': '65',
+                    'logo': {'image_id': '65', 'uri': '65.jpg'},
+                },
+            ],
+        }
+
+        self.assertEqual(expected_response, response.body)
+
+    @stub_action('image_service', 'get_images_by_ids')
     @stub_action('employee_service', 'get_employees_reports_by_manager_ids')
     @stub_action('employee_service', 'get_employees_by_ids')
     @stub_action('company_service', 'get_all_companies')
-    def test_expand_company_ceo_and_reports(
+    def test_expand_company_ceo_and_reports_nested_approach(
         self,
         mock_get_companies,
         mock_get_employees,
@@ -930,6 +1006,143 @@ class TestComplexCompanyHierarchyExpansions(TestCase):
         mock_get_companies.assert_called_once_with({})
         mock_get_employees.assert_called_once_with({'employee_ids': AnyOrderEqualsList(['5791', '51'])})
         mock_get_reports.assert_called_once_with({'manager_ids': AnyOrderEqualsList(['5791', '51'])})
+        mock_get_images.assert_has_calls(
+            [
+                mock.call({'image_ids': AnyOrderEqualsList(['37', '79'])}),
+                mock.call({'image_ids': AnyOrderEqualsList(['41', '16', '98'])}),
+            ],
+        )
+
+        expected_response = {
+            'companies': [
+                {
+                    '_type': 'company_type',
+                    'company_id': '9183',
+                    'name': 'Acme',
+                    'ceo_id': '5791',
+                    'ceo': {
+                        '_type': 'employee_type',
+                        'employee_id': '5791',
+                        'name': 'Julia',
+                        'photo_id': '37',
+                        'photo': {'image_id': '37', 'uri': '37.jpg'},
+                        'reports': [
+                            {'_type': 'employee_type', 'employee_id': '1039', 'name': 'Scott'},
+                            {
+                                '_type': 'employee_type',
+                                'employee_id': '1047',
+                                'name': 'Whitney',
+                                'photo_id': '41',
+                                'photo': {'image_id': '41', 'uri': '41.jpg'},
+                            },
+                            {'_type': 'employee_type', 'employee_id': '1983', 'name': 'Matt', 'photo_id': None},
+                        ],
+                    },
+                },
+                {
+                    '_type': 'company_type',
+                    'company_id': '7261',
+                    'name': 'Logo Makers',
+                    'ceo_id': '51',
+                    'ceo': {
+                        '_type': 'employee_type',
+                        'employee_id': '51',
+                        'name': 'Nathan',
+                        'photo_id': '79',
+                        'photo': {'image_id': '79', 'uri': '79.jpg'},
+                        'reports': [
+                            {'_type': 'employee_type', 'employee_id': '79', 'name': 'Jamie', 'photo_id': None},
+                            {
+                                '_type': 'employee_type',
+                                'employee_id': '68',
+                                'name': 'Greg',
+                                'photo_id': '16',
+                                'photo': {'image_id': '16', 'uri': '16.jpg'},
+                            },
+                            {
+                                '_type': 'employee_type',
+                                'employee_id': '413',
+                                'name': 'Ralph',
+                                'photo_id': '98',
+                                'photo': {'image_id': '98', 'uri': '98.jpg'},
+                            },
+                            {'_type': 'employee_type', 'employee_id': '2706', 'name': 'Melanie'},
+                        ],
+                    },
+                    'logo_id': '65',
+                },
+            ],
+        }
+
+        self.assertEqual(expected_response, response.body)
+
+    @stub_action('image_service', 'get_images_by_ids')
+    @stub_action('employee_service', 'get_employees_reports_by_manager_ids')
+    @stub_action('employee_service', 'get_employees_by_ids')
+    @stub_action('company_service', 'get_all_companies')
+    def test_expand_company_ceo_and_reports_global_approach(
+        self,
+        mock_get_companies,
+        mock_get_employees,
+        mock_get_reports,
+        mock_get_images,
+    ):
+        mock_get_companies.return_value = {
+            'companies': [
+                {'_type': 'company_type', 'company_id': '9183', 'name': 'Acme', 'ceo_id': '5791'},
+                {'_type': 'company_type', 'company_id': '7261', 'name': 'Logo Makers', 'ceo_id': '51', 'logo_id': '65'},
+            ],
+        }
+
+        mock_get_employees.return_value = {
+            'employees': {
+                '5791': {'_type': 'employee_type', 'employee_id': '5791', 'name': 'Julia', 'photo_id': '37'},
+                '51': {'_type': 'employee_type', 'employee_id': '51', 'name': 'Nathan', 'photo_id': '79'},
+            },
+        }
+
+        mock_get_reports.return_value = {
+            'reports': {
+                '5791': [
+                    {'_type': 'employee_type', 'employee_id': '1039', 'name': 'Scott'},
+                    {'_type': 'employee_type', 'employee_id': '1047', 'name': 'Whitney', 'photo_id': '41'},
+                    {'_type': 'employee_type', 'employee_id': '1983', 'name': 'Matt', 'photo_id': None},
+                ],
+                '51': [
+                    {'_type': 'employee_type', 'employee_id': '79', 'name': 'Jamie', 'photo_id': None},
+                    {'_type': 'employee_type', 'employee_id': '68', 'name': 'Greg', 'photo_id': '16'},
+                    {'_type': 'employee_type', 'employee_id': '413', 'name': 'Ralph', 'photo_id': '98'},
+                    {'_type': 'employee_type', 'employee_id': '2706', 'name': 'Melanie'},
+                ],
+            },
+        }
+
+        mock_get_images.side_effect = (
+            {'images': {'37': {'image_id': '37', 'uri': '37.jpg'}, '79': {'image_id': '79', 'uri': '79.jpg'}}},
+            {
+                'images': {
+                    '41': {'image_id': '41', 'uri': '41.jpg'},
+                    '16': {'image_id': '16', 'uri': '16.jpg'},
+                    '98': {'image_id': '98', 'uri': '98.jpg'},
+                },
+            },
+        )
+
+        response = self.client.call_action(
+            'company_service',
+            'get_all_companies',
+            body={},
+            expansions={'company_type': ['ceo'], 'employee_type': ['photo', 'reports']},
+        )
+
+        mock_get_companies.assert_called_once_with({})
+        mock_get_employees.assert_called_once_with({'employee_ids': AnyOrderEqualsList(['5791', '51'])})
+        mock_get_reports.assert_has_calls(
+            [
+                mock.call({'manager_ids': AnyOrderEqualsList(['5791', '51'])}),
+                mock.call({'manager_ids': AnyOrderEqualsList(['1039', '1047', '1983', '79', '68', '413', '2706'])}),
+            ],
+        )
         mock_get_images.assert_has_calls(
             [
                 mock.call({'image_ids': AnyOrderEqualsList(['37', '79'])}),
@@ -1101,7 +1314,6 @@ class TestComplexCompanyHierarchyExpansions(TestCase):
         mock_get_images.assert_has_calls(
             [
                 mock.call({'image_ids': AnyOrderEqualsList(['37', '41', '79', '16', '98'])}),
-                mock.call({'image_ids': AnyOrderEqualsList(['37', '79'])}),
             ],
         )
 
@@ -1130,7 +1342,6 @@ class TestComplexCompanyHierarchyExpansions(TestCase):
                                 'employee_id': '5791',
                                 'name': 'Julia',
                                 'photo_id': '37',
-                                'photo': {'image_id': '37', 'uri': '37.jpg'},
                             },
                         },
                         {
@@ -1145,7 +1356,6 @@ class TestComplexCompanyHierarchyExpansions(TestCase):
                                 'employee_id': '5791',
                                 'name': 'Julia',
                                 'photo_id': '37',
-                                'photo': {'image_id': '37', 'uri': '37.jpg'},
                             },
                         },
                         {
@@ -1159,7 +1369,6 @@ class TestComplexCompanyHierarchyExpansions(TestCase):
                                 'employee_id': '5791',
                                 'name': 'Julia',
                                 'photo_id': '37',
-                                'photo': {'image_id': '37', 'uri': '37.jpg'},
                             },
                         },
                     ],
@@ -1189,7 +1398,6 @@ class TestComplexCompanyHierarchyExpansions(TestCase):
                                 'employee_id': '51',
                                 'name': 'Nathan',
                                 'photo_id': '79',
-                                'photo': {'image_id': '79', 'uri': '79.jpg'},
                             },
                         },
                         {
@@ -1204,7 +1412,6 @@ class TestComplexCompanyHierarchyExpansions(TestCase):
                                 'employee_id': '51',
                                 'name': 'Nathan',
                                 'photo_id': '79',
-                                'photo': {'image_id': '79', 'uri': '79.jpg'},
                             },
                         },
                         {
@@ -1219,7 +1426,6 @@ class TestComplexCompanyHierarchyExpansions(TestCase):
                                 'employee_id': '51',
                                 'name': 'Nathan',
                                 'photo_id': '79',
-                                'photo': {'image_id': '79', 'uri': '79.jpg'},
                             },
                         },
                         {
@@ -1232,7 +1438,6 @@ class TestComplexCompanyHierarchyExpansions(TestCase):
                                 'employee_id': '51',
                                 'name': 'Nathan',
                                 'photo_id': '79',
-                                'photo': {'image_id': '79', 'uri': '79.jpg'},
                             },
                         },
                     ],
