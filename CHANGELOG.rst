@@ -1,6 +1,12 @@
 Changelog
 =========
 
+1.1.3 (2020-02-25)
+------------------
+- [PATCH] Try to make Travis builds faster
+- [PATCH] Update documentation
+- [PATCH] Fix two bugs regarding client expansions
+
 1.0.4 (2020-02-25)
 ------------------
 - [PATCH] Fix two bugs regarding client expansions
