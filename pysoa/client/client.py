@@ -4,6 +4,7 @@ from __future__ import (
 )
 
 import collections
+import logging
 import random
 import sys
 from types import TracebackType
@@ -46,6 +47,7 @@ from pysoa.client.expander import (
     Expansions,
     ExpansionSettings,
     TypeExpansions,
+    TypeNode,
     TypeRoutes,
 )
 from pysoa.client.middleware import (
@@ -80,6 +82,8 @@ __all__ = (
 
 
 _MT = TypeVar('_MT', ClientRequestMiddlewareTask, ClientResponseMiddlewareTask)
+
+_logger = logging.getLogger(__name__)
 
 
 class ServiceHandler(object):
@@ -925,11 +929,11 @@ class Client(object):
                         if catch_transport_errors:
                             # We don't need the set to be reduced unless we're catching errors
                             request_ids.remove(request_id)
-                except PySOATransportError as e:
+                except PySOATransportError as t_e:
                     if not catch_transport_errors:
                         raise
                     for request_id in request_ids:
-                        transport_errors[(service_name, request_id)] = e
+                        transport_errors[(service_name, request_id)] = t_e
 
             responses = []  # type: List[JobResponse]
             actions_to_expand = []  # type: List[ActionResponse]
@@ -1064,37 +1068,49 @@ class Client(object):
         # Perform expansions
         if expansions and getattr(self, 'expansion_converter', None):
             try:
-                objects_to_expand = self._extract_candidate_objects(actions, expansions)
+                trees = self.expansion_converter.dict_to_trees(expansions)
+                objects_to_expand = self._extract_candidate_objects(actions, trees)
             except KeyError as e:
                 raise self.InvalidExpansionKey('Invalid key in expansion request: {}'.format(e.args[0]))
             else:
-                self._expand_objects(objects_to_expand, **kwargs)
+                self._expand_objects(objects_to_expand, trees, **kwargs)
 
+    @classmethod
     def _extract_candidate_objects(
-        self,
+        cls,
         actions,  # type: Iterable[ActionResponse]
-        expansions,  # type: Expansions
+        expansion_trees,  # type: List[TypeNode]
     ):
         # type: (...) -> List[Tuple[Dict[Any, Any], List[ExpansionNode]]]
         # Build initial list of objects to expand
         objects_to_expand = []  # type: List[Tuple[Dict[Any, Any], List[ExpansionNode]]]
-        for type_node in self.expansion_converter.dict_to_trees(expansions):
+        for type_node in expansion_trees:
             for action in actions:
-                expansion_objects = type_node.find_objects(action.body)
-                objects_to_expand.extend(
-                    (expansion_object, type_node.expansions)
-                    for expansion_object in expansion_objects
-                )
+                cls._extend_expansion_objects(objects_to_expand, type_node, action.body)
         return objects_to_expand
+
+    @staticmethod
+    def _extend_expansion_objects(
+        objects_to_expand,  # type: List[Tuple[Dict[Any, Any], List[ExpansionNode]]]
+        type_node,  # type: TypeNode
+        body,  # type: Body
+    ):
+        objects_to_expand.extend(
+            (expansion_object, type_node.expansions)
+            for expansion_object in type_node.find_objects(body)
+        )
 
     def _expand_objects(
         self,
         objects_to_expand,  # type: List[Tuple[Dict[Any, Any], List[ExpansionNode]]]
+        expansion_trees,  # type: List[TypeNode]
         **kwargs  # type: Any
     ):
         # Keep track of expansion action errors that need to be raised
         expansion_job_errors_to_raise = []  # type: List[Error]
         expansion_action_errors_to_raise = []  # type: List[ActionResponse]
+        # Keep track of values that have been expanded already to prevent infinite recursion
+        expansion_requests_made = {}  # type: Dict[six.text_type, Set[Any]]
         # Loop until we have no outstanding objects to expand
         while objects_to_expand:
             # Form a collection of optimized bulk requests that need to be made, a map of service name to a map of
@@ -1131,10 +1147,23 @@ class Client(object):
             # Make expansion requests
             for service_name, actions in six.iteritems(pending_expansion_requests):
                 for action_name, instructions in six.iteritems(actions):
+                    key = '{}.{}.{}'.format(service_name, action_name, instructions['field'])
+                    values = instructions['values']
+                    if expansion_requests_made.setdefault(key, set()):  # we've called this expansion action already
+                        values = values - expansion_requests_made[key]  # exclude all values we've previously expanded
+                        if not values:
+                            # all values were excluded, so log a note
+                            _logger.info('Avoiding infinite recursion by skipping duplicate expansion: {} = {}'.format(
+                                key,
+                                instructions['values'],
+                            ))
+                            continue
+                    expansion_requests_made[key].update(values)  # record that we have now expanded these values
+
                     request_id = self.send_request(
                         service_name,
                         actions=[
-                            {'action': action_name, 'body': {instructions['field']: list(instructions['values'])}},
+                            {'action': action_name, 'body': {instructions['field']: list(values)}},
                         ],
                         **kwargs
                     )
@@ -1151,6 +1180,7 @@ class Client(object):
                         service_name,
                         receive_timeout_in_seconds=kwargs.get('message_expiry_in_seconds'),
                     ):
+                        action_response = None  # type: Optional[ActionResponse]
                         # Pop the request mapping off the list of pending requests and get the value of the expansion
                         # from the response.
                         for object_node in request_ids_to_objects.pop(request_id):
@@ -1174,12 +1204,18 @@ class Client(object):
                                     # It's okay if there isn't a matching value for this expansion; just means no match
                                     object_to_expand[expansion_node.destination_field] = values[response_key]
 
-                                # Potentially add additional pending expansion requests.
+                                # Potentially add additional pending expansion requests (nested approach).
                                 if expansion_node.expansions:
-                                    objects_to_expand.extend(
-                                        (exp_object, expansion_node.expansions)
-                                        for exp_object in expansion_node.find_objects(values)
+                                    self._extend_expansion_objects(
+                                        objects_to_expand,
+                                        expansion_node,
+                                        action_response.body,
                                     )
+
+                        if action_response and not action_response.errors and action_response.body:
+                            # Potentially add additional pending expansion requests (global approach).
+                            for type_node in expansion_trees:
+                                self._extend_expansion_objects(objects_to_expand, type_node, action_response.body)
 
             if expansion_action_errors_to_raise:
                 raise self.CallActionError(expansion_action_errors_to_raise)
