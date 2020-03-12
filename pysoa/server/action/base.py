@@ -104,17 +104,7 @@ class Action(ActionInterface):
         """
         # Validate the request
         if self.request_schema:
-            errors = [
-                Error(
-                    code=error.code,
-                    message=error.message,
-                    field=error.pointer,
-                    is_caller_error=True,
-                )
-                for error in (self.request_schema.errors(action_request.body) or [])
-            ]
-            if errors:
-                raise ActionError(errors=errors, set_is_caller_error_to=None)
+            Action.validate_schema(self.request_schema, action_request.body)
         # Run any custom validation
         self.validate(action_request)
         # Run the body of the action
@@ -134,3 +124,17 @@ class Action(ActionInterface):
             )
         else:
             return ActionResponse(action=action_request.action)
+
+    @staticmethod
+    def validate_schema(request_schema, passed_in_parameters):
+        errors = [
+            Error(
+                code=error.code,
+                message=error.message,
+                field=error.pointer,
+                is_caller_error=True,
+            )
+            for error in (request_schema.errors(passed_in_parameters) or [])
+        ]
+        if errors:
+            raise ActionError(errors=errors, set_is_caller_error_to=None)
