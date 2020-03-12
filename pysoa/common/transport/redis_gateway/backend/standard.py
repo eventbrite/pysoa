@@ -3,6 +3,7 @@ from __future__ import (
     unicode_literals,
 )
 
+import re
 from typing import (
     Any,
     Dict,
@@ -12,6 +13,7 @@ from typing import (
     Tuple,
     Union,
 )
+import warnings
 
 import redis
 import six
@@ -20,6 +22,9 @@ from pysoa.common.transport.redis_gateway.backend.base import BaseRedisClient
 
 
 class StandardRedisClient(BaseRedisClient):
+    DEFAULT_PORT = 6379
+    URL_SYNTAX = re.compile(r'^(unix|rediss?)://')
+
     def __init__(
         self,
         hosts=None,  # type: Optional[Iterable[Union[six.text_type, Tuple[six.text_type, int]]]]
@@ -32,31 +37,47 @@ class StandardRedisClient(BaseRedisClient):
         if 'socket_keepalive' not in connection_kwargs:
             connection_kwargs['socket_keepalive'] = True
 
-        self._hosts = self._setup_hosts(hosts)
-        self._connection_list = [
-            redis.Redis.from_url(host, **connection_kwargs) for host in self._hosts
-        ]  # type: List[redis.Redis]
+        self._connection_list = self._get_connection_list(hosts, **connection_kwargs)
 
-        super(StandardRedisClient, self).__init__(ring_size=len(self._hosts))
+        super(StandardRedisClient, self).__init__(ring_size=len(self._connection_list))
 
-    @staticmethod
-    def _setup_hosts(
+    @classmethod
+    def _get_connection_list(
+        cls,
         hosts,  # type: Optional[Iterable[Union[six.text_type, Tuple[six.text_type, int]]]]
+        **connection_kwargs  # type: Any
     ):
-        # type: (...) -> List[six.text_type]
+        # type: (...) -> List[redis.Redis]
         if not hosts:
-            hosts = [('localhost', 6379)]
+            return [redis.Redis(host='localhost', port=cls.DEFAULT_PORT, **connection_kwargs)]
 
         if isinstance(hosts, six.string_types):
-            raise ValueError('Redis hosts must be specified as an iterable list of hosts.')
+            raise ValueError('Redis hosts must be specified as an iterable of hosts.')
 
-        final_hosts = list()
+        connections = []  # type: List[redis.Redis]
         for entry in hosts:
             if isinstance(entry, six.string_types):
-                final_hosts.append(entry)
+                if cls.URL_SYNTAX.match(entry):
+                    warnings.warn(
+                        'Support for redis://, rediss://, and unix:// Redis host syntax is deprecated and will be '
+                        'removed in PySOA 2.0. Please use a string hostname or two-tuple (string, int) host and port.',
+                        DeprecationWarning,
+                    )
+                    connections.append(redis.Redis.from_url(entry, **connection_kwargs))
+                else:
+                    connections.append(redis.Redis(host=entry, port=cls.DEFAULT_PORT, **connection_kwargs))
+            elif (
+                isinstance(entry, tuple) and len(entry) == 2 and isinstance(entry[0], six.string_types) and
+                isinstance(entry[1], int)
+            ):
+                connections.append(redis.Redis(host=entry[0], port=entry[1], **connection_kwargs))
             else:
-                final_hosts.append('redis://{name}:{port:d}/0'.format(name=entry[0], port=entry[1]))
-        return final_hosts
+                raise ValueError(
+                    'Each Redis `hosts` entries must be specified as either a string host name (which will default to '
+                    'port {}), string Redis URI, or a two-tuple of (string, int) host and port. `{}` did not fit this '
+                    'requirement.'.format(cls.DEFAULT_PORT, repr(entry)),
+                )
+        return connections
 
     def _get_connection(self, index):  # type: (int) -> redis.StrictRedis
         # Catch bad indexes

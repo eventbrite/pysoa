@@ -9,6 +9,7 @@ Python 3 and ``str`` in Python 2). It is an error to interchange these, and will
 possibly even client-side exceptions.
 
 .. contents:: Contents
+   :local:
    :depth: 3
    :backlinks: none
 
@@ -619,7 +620,7 @@ field  (``destination_field``) to each object that has a source field (``bar_id`
             ],
         },
     }
-    
+
 
 Client exceptions
 *****************
@@ -767,7 +768,16 @@ Redis Gateway Transport
 
 The ``transport.redis_gateway`` module provides a transport implementation that uses Redis (in standard or Sentinel
 mode) for sending and receiving messages. This is the recommended transport for use with PySOA, as it provides a
-convenient and performant backend for asynchronous service requests.
+convenient and performant backend for asynchronous service requests. A single Redis server running on a ``c5.xlarge``
+EC2 instance has been tested to handle about 10,000 PySOA requests and responses per second at about 50% CPU usage
+and about 16,000 PySOA requests and responses per second at about 80% CPU usage. A cluster of three masters of that
+size can easily handle about 45,000 requests and responses per second.
+
+The PySOA Redis Gateway Transport is tested and certified against Redis 5 and Redis 6 and is commonly known to work
+with Redis 3 and 4 (though those versions are no longer supported). PySOA 2.0 will require Redis 6. Currently, the
+transport supports the `Redis Python library <https://pypi.org/project/redis/>`_ versions 2.10+ and 3.4+ and does not
+support versions older than 2.10 or any of the 3.0.x-3.3.x versions. PySOA 2.0 will require at least version 3.5 and
+may require an even-newer version (this has not been decided yet).
 
 
 Standard and Sentinel modes
@@ -786,6 +796,7 @@ multiple masters, operations will proceed as follow:
 4. Once the server has processed a request and is ready to receive a response, it uses the same hashing algorithm to
    pick a master to which to send the response, based on the queue name to which it is supposed to send that response,
    such that it will always send to the same master on which the client is "listening."
+
 
 Configuration
 -------------
@@ -833,6 +844,195 @@ The Redis Gateway transport takes the following extra keyword arguments for conf
   configured to be at least 5 times larger (because maximum message sizes can still be enforced, above which not even
   chunking is allowed). You will probably also want to increase ``log_messages_larger_than_bytes`` to avoid verbose
   response logging.
+
+
+Redis Authentication Support
+----------------------------
+
+Both the Standard and Sentinel modes of the Redis Gateway transport support Redis authentication, and both traditional
+password-only authentication and the new ACL user-password authentication added to Redis 6 are supported. ACL
+user-password authentication requires at least Redis 6 and at least version 3.4.1 of the
+`Redis Python library <https://pypi.org/project/redis/>`_. Password-only authentication works with Redis 5 and at least
+version 2.10.0 of the Redis Python library.
+
+Before proceeding with password-only authentication, be sure you have read and understand the
+`Redis "Authentication feature" documentation <https://redis.io/topics/security#authentication-feature>`_. For ACLs,
+be sure you have read and understand the `Redis "ACL" documentation <https://redis.io/topics/acl>`_.
+
+To configure password-only authentication, specify it in a ``connection_kwargs`` item within the
+``backend_layer_kwargs`` argument (above) of either the standard or Sentinel transports:
+
+.. code-block:: python
+
+    ...
+    'backend_layer_kwargs': {
+        ...
+        'connection_kwargs': {
+            ...
+            'password': 'the_super_secret_redis_password',
+            ...
+        },
+        ...
+    },
+    ...
+
+Configuring ACL user-password authentication is nearly identical, supplementing ``password`` with ``username``:
+
+.. code-block:: python
+
+    ...
+    'backend_layer_kwargs': {
+        ...
+        'connection_kwargs': {
+            ...
+            'username': 'service_transport_user',
+            'password': 'the_service_transport_user_password',
+            ...
+        },
+        ...
+    },
+    ...
+
+
+Redis TLS Support
+-----------------
+
+The Standard mode of the Redis Gateway Transport supports TLS when communicating with the Redis server, and the
+Sentinel mode supports TLS when communicating with the Redis server only, with the Sentinel server only, or both,
+depending on your setup.
+
+Before proceeding with TLS, be sure you have read and understand the
+`Redis "TLS Support" documentation <https://redis.io/topics/encryption>`_.
+
+Using TLS on Standard mode is straightforward and can be demonstrated with following example ``connection_kwargs``:
+
+.. code-block:: python
+
+    ...
+    'backend_layer_kwargs': {
+        ...
+        'connection_kwargs': {
+            ...
+            'ssl': True,
+            'ssl_ca_certs': '/path/to/ca.crt',
+            'ssl_certfile': '/path/to/redis.crt',
+            'ssl_keyfile': '/path/to/redis.key',
+            ...
+        },
+        ...
+    },
+    ...
+
+In this example, the client is supporting TLS on the server and also proving a client certificate, the default
+Redis TLS configuration. ``ssl_ca_certs`` is the PEM-encoded file containing the Certificate Authority certificates
+used to sign both the server certificate and the client certificate. ``ssl_certfile`` is the PEM-encoded file
+containing the client certificate, and ``ssl_keyfile`` is the TLS key used to generate the client certificate. If you
+have configured Redis with ``tls-auth-clients no`` to disable client certificates, you do not need the ``ssl_certfile``
+and ``ssl_keyfile`` arguments, but you still need the ``ssl_ca_certs`` arguments.
+
+TLS authentication when Sentinel is involved is considerably more involved:
+
+* If TLS is enabled on your master and replicas but Sentinel does not talk to those servers using TLS, your service and
+  clients will also not be able to talk to Redis using TLS. The Redis Gateway Transport asks Sentinel to give it the
+  address for the current Redis master. If Sentinel is talking to the Redis master on a non-TLS address, it will give
+  the transport that non-TLS address.
+* If TLS is enabled on your master and replicas and Sentinel talks to those servers using TLS (``sentinel.conf``
+  contains ``tls-replication yes`` and ``sentinel monitor`` specifies the TLS port), but Sentinel itself is not
+  listening on a TLS port (``tls-port`` is not in ``sentinel.conf``), your service and clients will be able to talk to
+  Redis over TLS but will not be able to talk to Sentinel over TLS. This configuration is actually fine—sensitive data
+  that your services transact is not transmitted over the Sentinel connection; it is transmitted only over the Redis
+  connection.
+* If TLS is enabled on your master and replicas and Sentinel talks to those servers using TLS (``sentinel.conf``
+  contains ``tls-replication yes`` and ``sentinel monitor`` specifies the TLS port) and Sentinel itself is also
+  configured to listen on a TLS port (``sentinel.conf`` contains ``tls-port`` and related config options), your service
+  and clients can talk to both Redis and Sentinel over TLS. This is the most-secure configuration (it prevents a MitM
+  attack from redirecting your services and clients to a malicious Redis server).
+
+The example below demonstrates the third condition, where the transport can use TLS to talk to both Redis and Sentinel:
+
+.. code-block:: python
+
+    ...
+    'backend_layer_kwargs': {
+        ...
+        'connection_kwargs': {
+            ...
+            'ssl': True,
+            'ssl_ca_certs': '/path/to/ca.crt',
+            'ssl_certfile': '/path/to/redis.crt',
+            'ssl_keyfile': '/path/to/redis.key',
+            ...
+        },
+        'sentinel_kwargs': {
+            ...
+            'ssl': True,
+            'ssl_ca_certs': '/path/to/ca.crt',
+            'ssl_certfile': '/path/to/redis.crt',
+            'ssl_keyfile': '/path/to/redis.key',
+            ...
+        },
+        ...
+    },
+    ...
+
+As above, this example demonstrates both TLS and client authentication certificates. You can omit ``ssl_certfile`` and
+``ssl_keyfile`` if Redis is configured with ``tls-auth-clients no``. If you want to talk only to Redis over TLS and
+not Sentinel, you can omit all of the ``ssl*`` arguments from ``sentinel_kwargs``.
+
+Note that TLSv1.2 is supported basically universally, but TLSv1.3 requires your Python services and clients to be
+running on a system with at lest OpenSSL 1.1.0 installed. Python running on systems with older versions of OpenSSL will
+not be able to connect to Redis servers with TLSv1.3. As such, take care when configuring the ``tls-protocols`` option
+in your Redis configuration.
+
+
+Timeouts and Keep-Alive
+-----------------------
+
+The Standard and Sentinel modes of the Redis Gateway Transport automatically configure sane defaults for timeouts to
+ensure proper operation of your transports. However, you may wish to override those. The following demonstrates the
+*default* values for the Standard mode:
+
+.. code-block:: python
+
+    ...
+    'backend_layer_kwargs': {
+        ...
+        'connection_kwargs': {
+            ...
+            'socket_connect_timeout': 5.0,  # seconds
+            'socket_keepalive': True,
+            ...
+        },
+        ...
+    },
+    ...
+
+Specify those keys with your own values in your configuration to override those defaults. The following demonstrates
+the *default* values for the Sentinel mode:
+
+.. code-block:: python
+
+    ...
+    'backend_layer_kwargs': {
+        ...
+        'connection_kwargs': {
+            ...
+            'socket_connect_timeout': 5.0,  # seconds
+            'socket_keepalive': True,
+            ...
+        },
+        'sentinel_kwargs': {
+            ...
+            'socket_connect_timeout': 5.0,  # seconds
+            'socket_timeout': 5.0,  # seconds
+            'socket_keepalive': True,
+            ...
+        },
+        ...
+    },
+    ...
+
+Specify those keys with your own values in your configuration to override those defaults.
 
 
 Middleware

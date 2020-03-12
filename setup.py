@@ -27,7 +27,7 @@ install_requires = [
     'msgpack~=0.6,>=0.6.2',
     'pymetrics~=1.0',
     'pytz>=2019.1',
-    'redis~=2.10',
+    'redis>=2.10,<4.0,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*',  # shortest way to say 2.10+ or 3.4+ but not older versions
     'six~=1.10',
     'typing~=3.7.4;python_version<"3.5"',
     'typing-extensions~=3.7.4;python_version<"3.8"',
@@ -45,7 +45,7 @@ test_helper_requirements = [
 
 test_plan_requirements = test_helper_requirements + [
     'pyparsing~=2.2',
-    'pytest>4.2,<6',
+    'pytest>4.2,<5.4',
     'pytest-asyncio;python_version>"3.4"',
 ]
 

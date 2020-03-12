@@ -1,0 +1,7 @@
+user default +@all on >C6JnRwmGem9BfdRwLKAT8areHmhPtqBs
+user replica +@all on >uRfg7p25ThjvBX79FDLqW7vvcNcVSd2g
+user healthcheck +ROLE +INFO +SHUTDOWN on >KUbMBRRnWxCxLfU4qTaBASCZs467uzxB
+user echo_service +RPUSH +BLPOP +LLEN +EXPIRE +EVALSHA +SCRIPT ~pysoa:service.echo ~pysoa:service.echo.* on >yYnzMBRDZrzPMv5ZFBhXSaLEbeD7FMc3
+user user_service +RPUSH +BLPOP +LLEN +EXPIRE +EVALSHA +SCRIPT ~pysoa:service.user ~pysoa:service.user.* on >rnE8W86nr8y362pQF2nc7RKS4UkBL8Yt
+user echo_service_client +RPUSH +BLPOP +LLEN +EXPIRE +EVALSHA +SCRIPT ~pysoa:service.echo ~pysoa:service.echo.* on >cc7DtArVneMJpeHrvHgNqVHq775TxXPV
+user user_service_client +RPUSH +BLPOP +LLEN +EXPIRE +EVALSHA +SCRIPT ~pysoa:service.user ~pysoa:service.user.* on >VfPF3YQ4BLwhAWF7tjvntn76dwxJsJzK

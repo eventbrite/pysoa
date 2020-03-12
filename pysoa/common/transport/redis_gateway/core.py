@@ -71,6 +71,7 @@ __all__ = (
 )
 
 
+_logger = logging.getLogger(__name__)
 _oversized_message_logger = logging.getLogger('pysoa.transport.oversized_message')
 
 
@@ -373,6 +374,7 @@ class RedisTransportCore(object):
                     if isinstance(self.backend_layer, SentinelRedisClient):
                         self.backend_layer.reset_clients()
                     self._get_counter('send.error.unknown').increment()
+                    _logger.exception('Unknown error sending message in Redis transport core')
                     raise MessageSendError(
                         'Unknown error sending message for service {}'.format(self.service_name),
                         six.text_type(type(e).__name__),

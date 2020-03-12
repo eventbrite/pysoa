@@ -29,9 +29,9 @@ fi
 set -e
 
 mkdir -p tests/functional/run/redis
-for r in 4 5
+for r in 5 6
 do
-    cp -f "tests/functional/docker/redis/redis${r}-master.conf" "tests/functional/run/redis/redis${r}-standalone.conf"
+    cp -f "tests/functional/docker/redis/redis${r}-standalone.conf" "tests/functional/run/redis/redis${r}-standalone.conf"
     cp -f "tests/functional/docker/redis/redis${r}-master.conf" "tests/functional/run/redis/redis${r}-master.conf"
     for i in 1 2 3
     do
@@ -40,6 +40,32 @@ do
     done
     chmod -v 0666 tests/functional/run/redis/*
 done
+
+if [[ ! -f tests/functional/run/tls/ca.crt ]] || [[ ! -f tests/functional/run/tls/redis.key ]] || [[ ! -f tests/functional/run/tls/redis.crt ]]
+then
+    rm -rf tests/functional/run/tls
+    mkdir -p tests/functional/run/tls
+    openssl genrsa -out tests/functional/run/tls/ca.key 4096
+    openssl req \
+        -x509 -new -nodes -sha256 \
+        -key tests/functional/run/tls/ca.key \
+        -days 3650 \
+        -subj '/O=Redis Test/CN=Certificate Authority' \
+        -out tests/functional/run/tls/ca.crt
+    openssl genrsa -out tests/functional/run/tls/redis.key 2048
+    openssl req \
+        -new -sha256 \
+        -key tests/functional/run/tls/redis.key \
+        -subj '/O=Redis Test/CN=Server' | \
+        openssl x509 \
+            -req -sha256 \
+            -CA tests/functional/run/tls/ca.crt \
+            -CAkey tests/functional/run/tls/ca.key \
+            -CAserial tests/functional/run/tls/ca.txt \
+            -CAcreateserial \
+            -days 365 \
+            -out tests/functional/run/tls/redis.crt
+fi
 
 set -x
 

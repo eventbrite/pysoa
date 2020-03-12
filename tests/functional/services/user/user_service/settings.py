@@ -38,11 +38,20 @@ SOA_SERVER_SETTINGS = {
     'transport': {
         'path': 'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
         'kwargs': {
-            'backend_layer_kwargs': {'hosts': [
-                ('sentinel1.redis5.pysoa', 26379),
-                ('sentinel2.redis5.pysoa', 26379),
-                ('sentinel3.redis5.pysoa', 26379),
-            ]},
+            'backend_layer_kwargs': {
+                'hosts': [
+                    ('sentinel1.redis6.pysoa', 26379),
+                    ('sentinel2.redis6.pysoa', 26379),
+                    ('sentinel3.redis6.pysoa', 26379),
+                ],
+                'connection_kwargs': {
+                    'username': 'user_service',
+                    'password': 'rnE8W86nr8y362pQF2nc7RKS4UkBL8Yt',
+                    'ssl_ca_certs': '/srv/run/tls/ca.crt',
+                    'ssl_certfile': '/srv/run/tls/redis.crt',
+                    'ssl_keyfile': '/srv/run/tls/redis.key',
+                },
+            },
             'backend_type': REDIS_BACKEND_TYPE_SENTINEL,
         },
     },

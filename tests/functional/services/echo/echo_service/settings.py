@@ -6,10 +6,12 @@ SOA_SERVER_SETTINGS = {
     'transport': {
         'path': 'pysoa.common.transport.redis_gateway.server:RedisServerTransport',
         'kwargs': {
-            'backend_layer_kwargs': {'hosts': [
-                ('standalone.redis4.pysoa', 6379),
-                ('standalone.redis5.pysoa', 6379),
-            ]},
+            'backend_layer_kwargs': {
+                'hosts': [
+                    ('standalone.redis5.pysoa', 6379),
+                    ('standalone.redis6.pysoa', 6379),
+                ],
+            },
             'backend_type': REDIS_BACKEND_TYPE_STANDARD,
         },
     },

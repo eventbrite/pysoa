@@ -24,8 +24,8 @@ _base_config = {
             'kwargs': {
                 'backend_layer_kwargs': {
                     'hosts': [
-                        ('standalone.redis4.pysoa', 6379),
                         ('standalone.redis5.pysoa', 6379),
+                        ('standalone.redis6.pysoa', 6379),
                     ],
                 },
                 'backend_type': REDIS_BACKEND_TYPE_STANDARD,
@@ -38,9 +38,9 @@ _base_config = {
             'kwargs': {
                 'backend_layer_kwargs': {
                     'hosts': [
-                        ('sentinel1.redis4.pysoa', 26379),
-                        ('sentinel2.redis4.pysoa', 26379),
-                        ('sentinel3.redis4.pysoa', 26379),
+                        ('sentinel1.redis5.pysoa', 26379),
+                        ('sentinel2.redis5.pysoa', 26379),
+                        ('sentinel3.redis5.pysoa', 26379),
                     ],
                     'sentinel_failover_retries': 7,
                 },
@@ -54,11 +54,25 @@ _base_config = {
             'kwargs': {
                 'backend_layer_kwargs': {
                     'hosts': [
-                        ('sentinel1.redis5.pysoa', 26379),
-                        ('sentinel2.redis5.pysoa', 26379),
-                        ('sentinel3.redis5.pysoa', 26379),
+                        ('sentinel1.redis6.pysoa', 56379),
+                        ('sentinel2.redis6.pysoa', 56379),
+                        ('sentinel3.redis6.pysoa', 56379),
                     ],
+                    'connection_kwargs': {
+                        'username': 'user_service_client',
+                        'password': 'VfPF3YQ4BLwhAWF7tjvntn76dwxJsJzK',
+                        'ssl': True,
+                        'ssl_ca_certs': '/srv/run/tls/ca.crt',
+                        'ssl_certfile': '/srv/run/tls/redis.crt',
+                        'ssl_keyfile': '/srv/run/tls/redis.key',
+                    },
                     'sentinel_failover_retries': 7,
+                    'sentinel_kwargs': {
+                        'ssl': True,
+                        'ssl_ca_certs': '/srv/run/tls/ca.crt',
+                        'ssl_certfile': '/srv/run/tls/redis.crt',
+                        'ssl_keyfile': '/srv/run/tls/redis.key',
+                    },
                 },
                 'backend_type': REDIS_BACKEND_TYPE_SENTINEL,
             },
