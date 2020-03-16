@@ -102,11 +102,19 @@ def _get_master_ip(sentinel_container: str) -> str:
     raise AssertionError('Failed parsing master output:\n{}'.format(output))
 
 
-def _get_redis_role(redis_container: str) -> str:
-    output = call_command_in_container(
-        redis_container,
-        ['redis-cli', '-p', '6379', 'ROLE'],
-    )
+def _get_redis_role(redis_container: str, authenticate: bool = False, tls: bool = False) -> str:
+    args = ['redis-cli', '-p']
+    if tls:
+        args.extend([
+            '46379', '--tls', '--cert', '/usr/local/etc/redis/tls/redis.crt',
+            '--key', '/usr/local/etc/redis/tls/redis.key', '--cacert', '/usr/local/etc/redis/tls/ca.crt',
+        ])
+    else:
+        args.append('6379')
+    if authenticate:
+        args.extend(['--user', 'healthcheck', '--pass', 'KUbMBRRnWxCxLfU4qTaBASCZs467uzxB', '--no-auth-warning'])
+    args.append('ROLE')
+    output = call_command_in_container(redis_container, args)
     return output.split('\n')[0].strip()
 
 
@@ -128,10 +136,10 @@ def _kill_master(master_container: str) -> None:
         assert 'Call to docker-compose failed with exit code 137' in e.args[0]
 
 
-def test_redis4_master_failed_sentinel_failover(pysoa_client: Client) -> None:
+def test_redis5_master_failed_sentinel_failover(pysoa_client: Client) -> None:
     context = _new_context()
 
-    thread = threading.Thread(target=_work, name='test_redis4_planned_demotion', args=(pysoa_client, 'meta', context))
+    thread = threading.Thread(target=_work, name='test_redis5_planned_demotion', args=(pysoa_client, 'meta', context))
     thread.start()
 
     try:
@@ -142,29 +150,29 @@ def test_redis4_master_failed_sentinel_failover(pysoa_client: Client) -> None:
         assert all(r is True for r in context['results_before_failover']), context['results_before_failover']
         assert context['unexpected_errors_before_failover'] == []
 
-        original_master = _get_master_ip('redis4-sentinel1')
+        original_master = _get_master_ip('redis5-sentinel1')
 
         context['failover_initiated'] = True
-        _kill_master('redis4-master')
+        _kill_master('redis5-master')
         _progress('/')
 
         time.sleep(1)
         tries = 0
-        new_master = _get_master_ip('redis4-sentinel1')
+        new_master = _get_master_ip('redis5-sentinel1')
         while new_master == original_master and tries < 5:
             time.sleep(1)
             tries += 1
-            new_master = _get_master_ip('redis4-sentinel1')
+            new_master = _get_master_ip('redis5-sentinel1')
         assert new_master != original_master
 
         tries = 0
-        replica1_role = _get_redis_role('redis4-replica1')
-        replica2_role = _get_redis_role('redis4-replica2')
+        replica1_role = _get_redis_role('redis5-replica1')
+        replica2_role = _get_redis_role('redis5-replica2')
         while 'master' not in (replica1_role, replica2_role) and tries < 10:
             time.sleep(1)
             tries += 1
-            replica1_role = _get_redis_role('redis4-replica1')
-            replica2_role = _get_redis_role('redis4-replica2')
+            replica1_role = _get_redis_role('redis5-replica1')
+            replica2_role = _get_redis_role('redis5-replica2')
         assert 'master' in (replica1_role, replica2_role)
         context['failover_completed'] = True
         _progress('/')
@@ -189,10 +197,10 @@ def test_redis4_master_failed_sentinel_failover(pysoa_client: Client) -> None:
         thread.join(6)
 
 
-def test_redis5_planned_demotion_sentinel_failover(pysoa_client: Client) -> None:
+def test_redis6_planned_demotion_sentinel_failover(pysoa_client: Client) -> None:
     context = _new_context()
 
-    thread = threading.Thread(target=_work, name='test_redis5_planned_demotion', args=(pysoa_client, 'user', context))
+    thread = threading.Thread(target=_work, name='test_redis6_planned_demotion', args=(pysoa_client, 'user', context))
     thread.start()
 
     try:
@@ -203,28 +211,28 @@ def test_redis5_planned_demotion_sentinel_failover(pysoa_client: Client) -> None
         assert all(r is True for r in context['results_before_failover']), context['results_before_failover']
         assert context['unexpected_errors_before_failover'] == []
 
-        original_master = _get_master_ip('redis5-sentinel1')
-        assert _get_redis_role('redis5-master') == 'master'
+        original_master = _get_master_ip('redis6-sentinel1')
+        assert _get_redis_role('redis6-master', authenticate=True, tls=True) == 'master'
 
         context['failover_initiated'] = True
-        _initiate_master_failover('redis5-sentinel1')
+        _initiate_master_failover('redis6-sentinel1')
         _progress('/')
 
         time.sleep(1)
         tries = 0
-        new_master = _get_master_ip('redis5-sentinel1')
+        new_master = _get_master_ip('redis6-sentinel1')
         while new_master == original_master and tries < 5:
             time.sleep(1)
             tries += 1
-            new_master = _get_master_ip('redis5-sentinel1')
+            new_master = _get_master_ip('redis6-sentinel1')
         assert new_master != original_master
 
         tries = 0
-        new_role = _get_redis_role('redis5-master')
+        new_role = _get_redis_role('redis6-master', authenticate=True, tls=True)
         while new_role == 'master' and tries < 10:
             time.sleep(1)
             tries += 1
-            new_role = _get_redis_role('redis5-master')
+            new_role = _get_redis_role('redis6-master', authenticate=True, tls=True)
         assert new_role == 'slave'
         context['failover_completed'] = True
         _progress('/')

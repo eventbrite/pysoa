@@ -51,7 +51,7 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
     @staticmethod
     def _set_up_client(**kwargs):
         return SentinelRedisClient(
-            hosts=[('169.254.7.12', 26379), ('169.254.8.12', 26379), ('169.254.9.12', 26379)],
+            hosts=[('169.254.7.12', 26379), ('169.254.8.12', 26379), '169.254.9.12'],
             **kwargs
         )
 
@@ -61,7 +61,10 @@ class TestSentinelRedisChannelClient(unittest.TestCase):
             SentinelRedisClient(hosts='redis://localhost:1234/0')  # type: ignore
 
         with self.assertRaises(ValueError):
-            SentinelRedisClient(hosts=['redis://localhost:1234/0'])  # type: ignore
+            SentinelRedisClient(hosts=[1234])  # type: ignore
+
+        with self.assertRaises(ValueError):
+            SentinelRedisClient(hosts=[('host_name', 'not_an_int')])  # type: ignore
 
     @mock.patch('redis.sentinel.Sentinel', new=MockSentinel)
     def test_invalid_services(self):

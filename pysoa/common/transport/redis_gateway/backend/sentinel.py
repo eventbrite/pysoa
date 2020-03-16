@@ -13,6 +13,7 @@ from typing import (
     List,
     Optional,
     Tuple,
+    Union,
 )
 
 import redis
@@ -26,6 +27,13 @@ from pysoa.common.transport.redis_gateway.backend.base import (
 
 
 _logger = logging.getLogger(__name__)
+
+
+class _SSLSentinelManagedConnection(redis.sentinel.SentinelManagedConnection, redis.SSLConnection):
+    # TODO: Remove this when https://github.com/andymccurdy/redis-py/issues/1306 is released
+    def __init__(self, **kwargs):
+        self.connection_pool = kwargs.pop('connection_pool')  # replicate the init code from SentinelManagedConnection
+        redis.SSLConnection.__init__(self, **kwargs)  # we cannot use super() here because it is not first in the MRO
 
 
 class SentinelRedisClient(BaseRedisClient):
@@ -44,13 +52,15 @@ class SentinelRedisClient(BaseRedisClient):
     "services" is the list of Redis services monitored by the sentinel system that Redis keys will be distributed
      across. If services is empty, this will fetch all services from Sentinel at initialization.
     """
+    DEFAULT_PORT = 26379
 
     def __init__(
         self,
-        hosts=None,  # type: Optional[Iterable[Tuple[six.text_type, int]]]
+        hosts=None,  # type: Optional[Iterable[Union[six.text_type, Tuple[six.text_type, int]]]]
         connection_kwargs=None,  # type: Dict[six.text_type, Any]
         sentinel_services=None,  # type: Iterable[six.text_type]
         sentinel_failover_retries=0,  # type: int
+        sentinel_kwargs=None,  # type: Dict[six.text_type, Any]
     ):
         # type: (...) -> None
         # Master client caching
@@ -66,10 +76,23 @@ class SentinelRedisClient(BaseRedisClient):
             connection_kwargs['socket_connect_timeout'] = 5.0  # so that we don't wait indefinitely during failover
         if 'socket_keepalive' not in connection_kwargs:
             connection_kwargs['socket_keepalive'] = True
+        if (
+            connection_kwargs.pop('ssl', False) or 'ssl_certfile' in connection_kwargs
+        ) and 'connection_class' not in connection_kwargs:
+            # TODO: Remove this when https://github.com/andymccurdy/redis-py/issues/1306 is released
+            connection_kwargs['connection_class'] = _SSLSentinelManagedConnection
+
+        sentinel_kwargs = dict(sentinel_kwargs) if sentinel_kwargs else {}
+        if 'socket_connect_timeout' not in sentinel_kwargs:
+            sentinel_kwargs['socket_connect_timeout'] = 5.0  # so that we don't wait indefinitely connecting to Sentinel
+        if 'socket_timeout' not in sentinel_kwargs:
+            sentinel_kwargs['socket_timeout'] = 5.0  # so that we don't wait indefinitely if a Sentinel goes down
+        if 'socket_keepalive' not in sentinel_kwargs:
+            sentinel_kwargs['socket_keepalive'] = True
 
         self._sentinel = redis.sentinel.Sentinel(
-            self._setup_hosts(hosts),
-            sentinel_kwargs={'socket_connect_timeout': 5.0, 'socket_timeout': 5.0, 'socket_keepalive': True},
+            self._convert_hosts(hosts),
+            sentinel_kwargs=sentinel_kwargs,
             **connection_kwargs
         )
         if sentinel_services:
@@ -83,26 +106,32 @@ class SentinelRedisClient(BaseRedisClient):
     def reset_clients(self):  # type: () -> None
         self._master_clients = {}
 
-    @staticmethod
-    def _setup_hosts(
-        hosts,  # type: Optional[Iterable[Tuple[six.text_type, int]]]
+    @classmethod
+    def _convert_hosts(
+        cls,
+        hosts,  # type: Optional[Iterable[Union[six.text_type, Tuple[six.text_type, int]]]]
     ):
         # type: (...) -> List[Tuple[six.text_type, int]]
         if not hosts:
-            hosts = [('localhost', 26379)]
+            hosts = [('localhost', cls.DEFAULT_PORT)]
 
         if isinstance(hosts, six.string_types):
-            raise ValueError('Redis hosts must be specified as an iterable list of hosts.')
+            raise ValueError('Redis hosts must be specified as an iterable of hosts.')
 
-        final_hosts = list()
+        final_hosts = []  # type: List[Tuple[six.text_type, int]]
         for entry in hosts:
             if isinstance(entry, six.string_types):
-                raise ValueError('Sentinel Redis host entries must be specified as tuples, not strings.')
-            elif isinstance(entry, tuple):
+                final_hosts.append((entry, cls.DEFAULT_PORT))
+            elif (
+                isinstance(entry, tuple) and len(entry) == 2 and isinstance(entry[0], six.string_types) and
+                isinstance(entry[1], int)
+            ):
                 final_hosts.append(entry)
             else:
                 raise ValueError(
-                    'Sentinel Redis hosts entries must be specified as tuples, not {}.'.format(type(entry)),
+                    'Each Sentinel Redis `hosts` entries must be specified as either a string host name (which will '
+                    'default to port {}) or a two-tuple of (string, int) host and port. `{}` did not fit this '
+                    'requirement.'.format(cls.DEFAULT_PORT, repr(entry)),
                 )
         return final_hosts
 

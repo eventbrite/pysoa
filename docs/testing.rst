@@ -6,6 +6,7 @@ with PySOA services. This document describes these libraries and techniques. As 
 are unicode strings (the default in Python 3; use ``from __future__ import unicode_literals`` for Python 2).
 
 .. contents:: Contents
+   :local:
    :depth: 3
    :backlinks: none
 

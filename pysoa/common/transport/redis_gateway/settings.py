@@ -35,6 +35,12 @@ class RedisTransportSchema(fields.Dictionary):
                                 'when a master cannot be found (cluster is in the middle of a failover); '
                                 'should only be used for Sentinel backend type'
                 ),
+                'sentinel_kwargs': fields.SchemalessDictionary(
+                    description='The arguments used when creating all Sentinel connections (see Redis-Py docs); '
+                                'should only be used for Sentinel backend type; similar to `connection_kwargs`, but '
+                                'you may need to specify both (one for Sentinel connections, one for Redis '
+                                'connections)',
+                ),
                 'sentinel_services': fields.List(
                     fields.UnicodeString(),
                     description='A list of Sentinel services (will be discovered by default); should only be '
@@ -47,6 +53,7 @@ class RedisTransportSchema(fields.Dictionary):
                 'redis_db',
                 'redis_port',
                 'sentinel_failover_retries',
+                'sentinel_kwargs',
                 'sentinel_services',
             ),
             allow_extra_keys=False,

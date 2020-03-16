@@ -4,6 +4,7 @@ from __future__ import (
 )
 
 import unittest
+import warnings
 
 from mockredis import client as mockredis
 from mockredis.exceptions import ResponseError
@@ -21,7 +22,8 @@ from pysoa.test.compatibility import mock
 #####
 
 # Patch MockRedis because we don't need CJSON loaded
-mockredis.mock_redis_client.from_url = lambda *_, **k: mockredis.MockRedis(load_lua_dependencies=False)
+mockredis.mock_redis_client = lambda *_, **k: mockredis.MockRedis(load_lua_dependencies=False)
+mockredis.mock_redis_client.from_url = lambda *_, **k: mockredis.MockRedis(load_lua_dependencies=False)  # type: ignore
 
 
 def _execute_lua(self, keys, args, client):
@@ -255,7 +257,12 @@ class TestStandardRedisClient(unittest.TestCase):
         self.assertEqual(payload, msgpack.unpackb(message, raw=False))
 
     def test_string_host_yields_single_host(self):
-        client = StandardRedisClient(hosts=['redis://localhost:1234/0'])
+        with warnings.catch_warnings(record=True) as w:
+            client = StandardRedisClient(hosts=['redis://localhost:1234/0'])
+
+        assert len(w) == 1
+        issubclass(w[0].category, DeprecationWarning)
+        assert 'Redis host syntax is deprecated' in str(w[0].message)
 
         payload = {'test': 'test_string_host_yields_single_host'}
 

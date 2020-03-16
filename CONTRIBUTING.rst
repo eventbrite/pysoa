@@ -52,12 +52,20 @@ Get Started
 
 Ready to contribute? Here's how to set up PySOA for local development.
 
-1. Fork the ``pysoa`` repository on GitHub.
-2. Clone your fork locally::
+1. Ensure that Lua 5.2 or newer and its development headers are installed on your local system using one of the
+   following techniques (or equivalent) based on your system. PySOA does not use Lua in your services, but PySOA's own
+   tests use Lua when mocking Redis::
+
+        $ brew install lua                          # macOS (see https://brew.sh/)
+        $ apt-get install lua5.2 liblua5.2-dev      # Ubuntu
+        $ yum install lua lua-devel                 # CentOS
+
+2. Fork the ``pysoa`` repository on GitHub.
+3. Clone your fork locally::
 
        $ git clone git@github.com:your_name_here/pysoa.git
 
-3. Create Python 2.7 and 3.7 virtualenvs (you should ``pip install virtualenvwrapper`` on your system if you have not
+4. Create Python 2.7 and 3.7 virtualenvs (you should ``pip install virtualenvwrapper`` on your system if you have not
    already) for installing PySOA dependencies::
 
        $ mkvirtualenv2 pysoa2
@@ -67,18 +75,18 @@ Ready to contribute? Here's how to set up PySOA for local development.
        (pysoa3) $ pip install -e .[testing]
        (pysoa3) $ deactivate
 
-4. Make sure the tests pass on master before making any changes; otherwise, you might have an environment issue::
+5. Make sure the tests pass on master before making any changes; otherwise, you might have an environment issue::
 
        (pysoa2) $ ./test.sh
        (pysoa3) $ ./test.sh
 
-5. Create a branch for local development::
+6. Create a branch for local development::
 
        $ git checkout -b name-of-your-bugfix-or-feature
 
    Now you can make your changes locally.
 
-5. As you make changes, and when you are done making changes, regularly check that Flake8 and MyPy analysis and all of
+7. As you make changes, and when you are done making changes, regularly check that Flake8 and MyPy analysis and all of
    the tests pass. You should also include new tests or assertions to validate your new or changed code::
 
        # this command runs unit and integration tests, Flake8 analysis, and MyPy analysis
@@ -102,11 +110,11 @@ Ready to contribute? Here's how to set up PySOA for local development.
 
        $ ./tox.sh
 
-6. When you think you're ready to commit, run ``isort`` to organize your imports::
+8. When you think you're ready to commit, run ``isort`` to organize your imports::
 
        $ isort
 
-7. Commit your changes and push your branch to GitHub::
+9. Commit your changes and push your branch to GitHub::
 
        $ git add -A
        $ git commit -m "[PATCH] Your detailed description of your changes"
@@ -119,7 +127,7 @@ Ready to contribute? Here's how to set up PySOA for local development.
    ``[MAJOR]`` changes, as they will not be released until the next major milestone, which could be as much as a year
    away.
 
-8. Submit a pull request through the GitHub website.
+10. Submit a pull request through the GitHub website.
 
 Pull Request Guidelines
 -----------------------

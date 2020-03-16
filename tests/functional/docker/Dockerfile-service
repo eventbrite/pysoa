@@ -9,9 +9,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY LICENSE NOTICE README.rst setup.cfg setup.py /srv/pysoa/
-COPY pysoa /srv/pysoa/pysoa/
+COPY pysoa/__init__.py pysoa/version.py /srv/pysoa/pysoa/
 RUN pip install -e /srv/pysoa
 RUN pip install coverage
+COPY pysoa /srv/pysoa/pysoa/
+RUN pip install -e /srv/pysoa
 
 RUN mkdir -p /srv/run
 WORKDIR /srv/run
