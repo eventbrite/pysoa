@@ -65,6 +65,10 @@ from pysoa.common.types import (
     UnicodeKeysDict,
 )
 from pysoa.server import middleware
+from pysoa.server.django.database import (
+    django_close_old_database_connections,
+    django_reset_database_queries,
+)
 from pysoa.server.errors import (
     ActionError,
     JobError,
@@ -88,21 +92,9 @@ except (ImportError, SyntaxError):
 try:
     from django.conf import settings as django_settings
     from django.core.cache import caches as django_caches
-    from django.db import (
-        close_old_connections as django_close_old_connections,
-        reset_queries as django_reset_queries,
-    )
-    from django.db.transaction import get_autocommit as django_get_autocommit
-    from django.db.utils import DatabaseError
 except ImportError:
     django_settings = None  # type: ignore
     django_caches = None  # type: ignore
-    django_close_old_connections = None  # type: ignore
-    django_reset_queries = None  # type: ignore
-    django_get_autocommit = None  # type: ignore
-
-    class DatabaseError(Exception):  # type: ignore
-        pass
 
 
 __all__ = (
@@ -766,31 +758,7 @@ class Server(object):
 
     def _close_old_django_connections(self):  # type: () -> None
         if self.use_django and not self._skip_django_database_cleanup:
-            if not getattr(django_settings, 'DATABASES'):
-                # No database connections are configured, so we have nothing to do
-                return
-
-            try:
-                # noinspection PyCallingNonCallable
-                if django_get_autocommit():
-                    self.logger.debug('Cleaning Django connections')
-                    # noinspection PyCallingNonCallable
-                    django_close_old_connections()
-            except DatabaseError:
-                # Sometimes old connections won't close because they have already been interrupted (timed out, server
-                # moved, etc.). There's no reason to interrupt server processes for this problem. We can continue on
-                # without issue.
-                pass
-            except BaseException as e:
-                # `get_autocommit` fails under PyTest without `pytest.mark.django_db`, so ignore that specific error.
-                try:
-                    # noinspection PyPackageRequirements
-                    from _pytest.outcomes import Failed
-                    if not isinstance(e, Failed):
-                        raise e
-                except ImportError:
-                    # But if we can't import PyTest, then it can't be that error, so raise
-                    raise e
+            django_close_old_database_connections()
 
     def _close_django_caches(self, shutdown=False):  # type: (bool) -> None
         if self.use_django and django_caches:
@@ -853,10 +821,7 @@ class Server(object):
         self.metrics.publish_all()
 
         if self.use_django:
-            if getattr(django_settings, 'DATABASES'):
-                self.logger.debug('Resetting Django query log')
-                # noinspection PyCallingNonCallable
-                django_reset_queries()
+            django_reset_database_queries()
 
         self._close_old_django_connections()
 
