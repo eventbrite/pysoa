@@ -45,7 +45,7 @@ test_helper_requirements = [
 
 test_plan_requirements = test_helper_requirements + [
     'pyparsing~=2.2',
-    'pytest>4.2,<6',
+    'pytest>4.2,<5.4',
     'pytest-asyncio;python_version>"3.4"',
 ]
 
