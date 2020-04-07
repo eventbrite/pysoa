@@ -1,6 +1,11 @@
 Changelog
 =========
 
+1.1.5 (2020-04-07)
+------------------
+- [PATCH] Fix #251: Replace use of Django's close_old_connections
+- [PATCH] Pin PyTest because 5.4 breaks plugin tests
+
 1.1.4 (2020-04-07)
 ------------------
 - [PATCH] Fix #251: Replace use of Django's close_old_connections
