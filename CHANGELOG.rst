@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.1.4 (2020-04-07)
+------------------
+- [PATCH] Fix #251: Replace use of Django's close_old_connections
+
 1.1.3 (2020-02-25)
 ------------------
 - [PATCH] Try to make Travis builds faster
