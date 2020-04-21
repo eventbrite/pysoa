@@ -104,3 +104,20 @@ class RedisTransportSchema(fields.Dictionary):
     )
 
     description = 'The constructor kwargs for the Redis client and server transports.'
+
+
+RedisServerTransportSchema = RedisTransportSchema().extend(
+    contents={
+        'chunk_messages_larger_than_bytes': fields.Integer(
+            description='If set, responses larger than this setting will be chunked and sent back to the client in '
+                        'pieces, to prevent blocking single-threaded Redis for long periods of time to handle large '
+                        'responses. When set, this value must be greater than or equal to 102400, and '
+                        '`maximum_message_size_in_bytes` must also be set and must be at least 5 times greater than '
+                        'this value (because `maximum_message_size_in_bytes` is still enforced).',
+        ),
+    },
+
+    optional_keys=('chunk_messages_larger_than_bytes',),
+
+    description='The constructor kwargs for the Redis server transport.',
+)
