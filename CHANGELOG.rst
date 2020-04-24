@@ -1,6 +1,13 @@
 Changelog
 =========
 
+1.2.0 (2020-04-24)
+------------------
+- Fix lint error and pytest-asyncio version.
+- Move Redis server transport setting to a separate object.
+- [PATCH] Fix #251: Replace use of Django's close_old_connections
+- [MINOR] Ensure support for Redis 6 with ACLs and TLS
+
 1.1.3 (2020-02-25)
 ------------------
 - [PATCH] Try to make Travis builds faster
