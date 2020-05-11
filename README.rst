@@ -76,23 +76,23 @@ or ``Pipfile``:
 
 .. code-block:: bash
 
-    pip install 'pysoa~=0.73'
+    pip install 'pysoa~=1.2'
 
 .. code-block:: python
 
     install_requires=[
         ...
-        'pysoa~=0.73',
+        'pysoa~=1.2',
         ...
     ]
 
 .. code-block:: text
 
-    pysoa~=0.73
+    pysoa~=1.2
 
 .. code-block:: text
 
-    pysoa = {version="~=0.73"}
+    pysoa = {version="~=1.2"}
 
 
 Documentation
