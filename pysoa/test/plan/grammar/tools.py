@@ -121,7 +121,11 @@ def path_get(data, path):
 
 def get_all_paths(data, current_path=''):
     # type: (Union[Mapping, List, Tuple, AbstractSet], six.text_type) -> List[six.text_type]
+    if current_path and not data:
+        return [current_path]  # explicit path to empty structure
+
     paths = []
+
     if isinstance(data, Mapping):
         for k, v in six.iteritems(data):
             if isinstance(k, six.string_types) and (k.isdigit() or '.' in k):

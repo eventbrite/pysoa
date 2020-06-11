@@ -25,6 +25,7 @@ stubbed_out: expect: no errors
 echo: input: drink: oceans
 echo: input: username: [[STUBBED_OUT.user.username]]
 echo: job context input str: locale: en_US
+echo: job context input int: switches.0: 5
 echo: job context input int: switches.1: 8
 echo: job context input int: switches.2: 15
 echo: job control input str: remote_control: pause
