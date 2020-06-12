@@ -153,6 +153,9 @@ class Server(object):
     service_name = None  # type: Optional[six.text_type]
     action_class_map = {}  # type: Mapping[six.text_type, ActionType]
 
+    # Allow a server to specify a custom introspection action
+    introspection_action = None  # type: ActionType
+
     def __init__(self, settings, forked_process_id=None):
         # type: (ServerSettings, Optional[int]) -> None
         """
@@ -558,9 +561,11 @@ class Server(object):
                     action = self.action_class_map[action_request.action](self.settings)
                 elif action_request.action == 'introspect':
                     # If set, use custom introspection action. Use default otherwise.
-                    # This is implemented this way to avoid a messy import loop.
-                    from pysoa.server.action.introspection import IntrospectionAction
-                    action = getattr(self, 'introspection_action', IntrospectionAction)(server=self)
+                    if self.introspection_action is not None:
+                        action = self.introspection_action(server=self)
+                    else:
+                        from pysoa.server.action.introspection import IntrospectionAction
+                        action = IntrospectionAction(server=self)
                 else:
                     if not self._default_status_action_class:
                         from pysoa.server.action.status import make_default_status_action_class
