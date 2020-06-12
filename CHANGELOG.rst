@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.3.0 (2020-06-12)
+------------------
+- [MINOR] Allow Server subclasses to set a custom introspection action (#257)
+
 1.2.1 (2020-06-12)
 ------------------
 - [PATCH] Fix handling of empty structures in `get_all_paths`
