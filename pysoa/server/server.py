@@ -682,7 +682,7 @@ class Server(object):
             threads.setdefault(thread_id, {'name': thread_id})['traceback'] = stack
 
         extra = {'data': {'thread_status': {
-            t['name']: [l.rstrip() for l in t['traceback']] for t in threads.values()
+            t['name']: [l.rstrip() for l in t['traceback']] for t in threads.values()  # noqa: E741
         }}}
         details = 'Current thread status at harakiri trigger:\n{}'.format('\n'.join((
             'Thread {}:\n{}'.format(t['name'], '\n'.join(t['traceback'])) for t in threads.values()

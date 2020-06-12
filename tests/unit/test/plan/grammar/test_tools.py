@@ -130,7 +130,7 @@ class TestPathAccessors(unittest.TestCase):
         self.assertEqual(path_get(out, 'transaction.metadata.references.0.reference_type'), 'FOO')
         self.assertEqual(path_get(out, 'transaction.metadata.references.0.reference_ids.0'), '1234')
 
-    def test_018_get_all_paths(self):
+    def test_018_complex_path_list(self):
         path_list = [
             'foo.bar',
             'foo.{bar.baz}',
@@ -138,6 +138,8 @@ class TestPathAccessors(unittest.TestCase):
             'foo.aba_bar.0',
             'foo.sba_bar.0.baz',
             'foo.nu_bar.0.0.baz',
+            'foo.ba_bar.0.baz',
+            'foo.ba_bar.1.baz',
             'foo.ba_bar.2.baz',
             'foo.re_bar.{2}.baz',
             '{record_transaction.0}.inputs.foo',
@@ -151,12 +153,69 @@ class TestPathAccessors(unittest.TestCase):
 
         self.assertEqual(sorted(path_list), sorted(get_all_paths(out)))
 
-    def test_020_nested_brackets(self):
+    def test_019_nested_brackets(self):
         out = {}  # type: Dict[six.text_type, Any]
         path_put(out, 'charge.cost_components.{{item.gross}}', {'MISSING'})
 
         self.assertEqual(out, {'charge': {'cost_components': {'{item.gross}': {'MISSING'}}}})
         self.assertEqual(path_get(out, 'charge.cost_components.{{item.gross}}'), {'MISSING'})
+
+    def test_020_path_listing_for_complex_dict(self):
+        data = {
+            'foo': {
+                'aba_bar': ['test'],
+                'ba_bar': [{}, {'baz': 'test'}, {}],
+                'bar': 'test',
+                'bar.baz': 'test',
+                'nu_bar': [[{'baz': 'test'}]],
+                're_bar': {'2': {'baz': 'test'}},
+                'sba_bar': [{'baz': 'test'}, [], {}],
+                'yea_bar.baz': {'gar': 'test'},
+            },
+            'record_transaction.0': {
+                'inputs': {
+                    'bar': [],
+                    'foo': 'test',
+                    're_bar': {},
+                },
+            },
+            'transaction': {
+                'metadata': {
+                    'references': [
+                        {'reference_ids': ['blah_blah'], 'reference_type': 'blah_blah'},
+                        {},
+                    ],
+                },
+            },
+        }
+
+        actual = get_all_paths(data)
+
+        expected = [
+            'foo.aba_bar.0',
+            'foo.ba_bar.0',
+            'foo.ba_bar.1.baz',
+            'foo.ba_bar.2',
+            'foo.bar',
+            'foo.nu_bar.0.0.baz',
+            'foo.re_bar.{2}.baz',
+            'foo.sba_bar.0.baz',
+            'foo.sba_bar.1',
+            'foo.sba_bar.2',
+            'foo.{bar.baz}',
+            'foo.{yea_bar.baz}.gar',
+            'transaction.metadata.references.0.reference_ids.0',
+            'transaction.metadata.references.0.reference_type',
+            'transaction.metadata.references.1',
+            '{record_transaction.0}.inputs.bar',
+            '{record_transaction.0}.inputs.foo',
+            '{record_transaction.0}.inputs.re_bar',
+        ]
+        self.assertEqual(sorted(actual), sorted(expected))
+
+    def test_021_path_listing_for_empty_structures(self):
+        self.assertEqual(get_all_paths({}), [])
+        self.assertEqual(get_all_paths([]), [])
 
 
 class TestSubstituteValues(unittest.TestCase):
