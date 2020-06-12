@@ -154,7 +154,7 @@ class Server(object):
     action_class_map = {}  # type: Mapping[six.text_type, ActionType]
 
     # Allow a server to specify a custom introspection action
-    introspection_action = None  # type: ActionType
+    introspection_action = None  # type: Callable[['Server'], Callable[[EnrichedActionRequest], ActionResponse]]
 
     def __init__(self, settings, forked_process_id=None):
         # type: (ServerSettings, Optional[int]) -> None
