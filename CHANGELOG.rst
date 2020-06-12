@@ -1,6 +1,11 @@
 Changelog
 =========
 
+1.2.1 (2020-06-12)
+------------------
+- [PATCH] Fix handling of empty structures in `get_all_paths`
+- [PATCH] Update README to install latest version
+
 1.2.0 (2020-04-24)
 ------------------
 - Fix lint error and pytest-asyncio version.
