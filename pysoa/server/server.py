@@ -80,6 +80,7 @@ from pysoa.server.types import (
     ActionType,
     EnrichedActionRequest,
     EnrichedJobRequest,
+    IntrospectionActionType,
 )
 import pysoa.version
 
@@ -154,7 +155,7 @@ class Server(object):
     action_class_map = {}  # type: Mapping[six.text_type, ActionType]
 
     # Allow a server to specify a custom introspection action
-    introspection_action = None  # type: Callable[['Server'], Callable[[EnrichedActionRequest], ActionResponse]]
+    introspection_action = None  # type: Optional[IntrospectionActionType]
 
     def __init__(self, settings, forked_process_id=None):
         # type: (ServerSettings, Optional[int]) -> None

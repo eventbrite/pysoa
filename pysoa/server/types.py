@@ -227,3 +227,10 @@ ActionType = Union[
     Callable[[Optional[ServerSettings]], Callable[[EnrichedActionRequest], ActionResponse]],
 ]
 """A type used for annotating attributes and arguments that represent any valid action class or callable."""
+
+
+IntrospectionActionType = Callable[['Server'], Callable[[EnrichedActionRequest], ActionResponse]]
+"""
+A type used for annotating attributes and arguments that represent any valid
+introspection action class or callable.
+"""
