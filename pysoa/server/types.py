@@ -10,6 +10,7 @@ from typing import (
     Iterable,
     Optional,
     SupportsInt,
+    TYPE_CHECKING,
     Type,
     Union,
 )
@@ -47,6 +48,12 @@ try:
     RunCoroutineType = Callable[[pysoa.server.coroutine.Coroutine], concurrent.futures.Future]
 except (ImportError, SyntaxError):
     RunCoroutineType = None  # type: ignore
+
+if TYPE_CHECKING:
+    from pysoa.server.server import Server
+else:
+    class Server:
+        pass
 
 
 __all__ = (
@@ -229,7 +236,7 @@ ActionType = Union[
 """A type used for annotating attributes and arguments that represent any valid action class or callable."""
 
 
-IntrospectionActionType = Callable[['Server'], Callable[[EnrichedActionRequest], ActionResponse]]
+IntrospectionActionType = Callable[[Server], Callable[[EnrichedActionRequest], ActionResponse]]
 """
 A type used for annotating attributes and arguments that represent any valid
 introspection action class or callable.
