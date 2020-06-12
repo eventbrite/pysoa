@@ -18,7 +18,6 @@ from typing import (
 from conformity import fields
 import six
 
-from pysoa import server
 from pysoa.common.constants import ERROR_CODE_INVALID
 from pysoa.common.errors import Error
 from pysoa.server.action.base import Action
@@ -26,6 +25,7 @@ from pysoa.server.action.status import BaseStatusAction
 from pysoa.server.action.switched import SwitchedAction
 from pysoa.server.errors import ActionError
 from pysoa.server.internal.types import get_switch
+from pysoa.server.server import Server
 from pysoa.server.types import (
     ActionType,
     EnrichedActionRequest,
@@ -113,7 +113,7 @@ class IntrospectionAction(Action):
         optional_keys=('documentation', ),
     )
 
-    def __init__(self, server):  # type: (server.server.Server) -> None
+    def __init__(self, server):  # type: (Server) -> None
         """
         Construct a new introspection action. Unlike its base class, which accepts a server settings object, this
         must be passed a `Server` object, from which it will obtain a settings object. The `Server` code that calls
@@ -121,7 +121,7 @@ class IntrospectionAction(Action):
 
         :param server: A PySOA server instance
         """
-        if not isinstance(server, server.server.Server):
+        if not isinstance(server, Server):
             raise TypeError('First argument (server) must be a Server instance')
 
         super(IntrospectionAction, self).__init__(server.settings)
