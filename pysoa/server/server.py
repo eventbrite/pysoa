@@ -563,7 +563,7 @@ class Server(object):
                 elif action_request.action == 'introspect':
                     # If set, use custom introspection action. Use default otherwise.
                     if self.introspection_action is not None:
-                        action = self.introspection_action(server=self)
+                        action = self.introspection_action(self)
                     else:
                         from pysoa.server.action.introspection import IntrospectionAction
                         action = IntrospectionAction(server=self)
