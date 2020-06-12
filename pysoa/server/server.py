@@ -65,6 +65,7 @@ from pysoa.common.types import (
     UnicodeKeysDict,
 )
 from pysoa.server import middleware
+from pysoa.server.action.introspection import IntrospectionAction
 from pysoa.server.django.database import (
     django_close_old_database_connections,
     django_reset_database_queries,
@@ -148,6 +149,8 @@ class Server(object):
     settings_class = ServerSettings  # type: Type[ServerSettings]
     request_class = EnrichedActionRequest  # type: Type[EnrichedActionRequest]
     client_class = Client  # type: Type[Client]
+
+    introspection_action = IntrospectionAction  # type: ActionType
 
     use_django = False  # type: bool
     service_name = None  # type: Optional[six.text_type]
@@ -557,8 +560,7 @@ class Server(object):
                 if action_in_class_map:
                     action = self.action_class_map[action_request.action](self.settings)
                 elif action_request.action == 'introspect':
-                    from pysoa.server.action.introspection import IntrospectionAction
-                    action = IntrospectionAction(server=self)
+                    action = self.introspection_action(server=self)
                 else:
                     if not self._default_status_action_class:
                         from pysoa.server.action.status import make_default_status_action_class
