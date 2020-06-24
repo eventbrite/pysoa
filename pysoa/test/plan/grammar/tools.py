@@ -119,9 +119,9 @@ def path_get(data, path):
     return path_get(new_data, path_rest)
 
 
-def get_all_paths(data, current_path=''):
-    # type: (Union[Mapping, List, Tuple, AbstractSet], six.text_type) -> List[six.text_type]
-    if current_path and not data:
+def get_all_paths(data, current_path='', allow_blank=False):
+    # type: (Union[Mapping, List, Tuple, AbstractSet], six.text_type, bool) -> List[six.text_type]
+    if allow_blank and current_path and not data:
         return [current_path]  # explicit path to empty structure
 
     paths = []
@@ -130,12 +130,12 @@ def get_all_paths(data, current_path=''):
         for k, v in six.iteritems(data):
             if isinstance(k, six.string_types) and (k.isdigit() or '.' in k):
                 k = '{{{}}}'.format(k)
-            paths.extend(get_all_paths(v, _dot_join(current_path, k)))
+            paths.extend(get_all_paths(v, _dot_join(current_path, k), allow_blank=allow_blank))
     elif isinstance(data, (list, tuple, AbstractSet)):  # do not use Sequence, definitely causes infinite recursion
         if isinstance(data, AbstractSet):
             data = sorted(list(data))
         for i, v in enumerate(data):
-            paths.extend(get_all_paths(v, _dot_join(current_path, i)))
+            paths.extend(get_all_paths(v, _dot_join(current_path, i), allow_blank=allow_blank))
     else:
         return [current_path]
     return paths

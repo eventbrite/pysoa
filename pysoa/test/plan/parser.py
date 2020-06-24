@@ -274,16 +274,17 @@ class ServiceTestPlanFixtureParser(object):
             # merge, but make sure current overlays global where there is conflict
             test_case = {}  # type: TestCase
 
-            for path in get_all_paths(self._global_directives):
+            for path in get_all_paths(self._global_directives, allow_blank=True):
                 try:
-                    path_put(test_case, path, path_get(self._global_directives, path))
+                    value = path_get(self._global_directives, path)
+                    path_put(test_case, path, copy.copy(value))
                 except (KeyError, IndexError):
                     raise FixtureSyntaxError(
                         'Invalid path: `{}`'.format(path),
                         file_name=self._fixture_file_name,
                         line_number=line_number,
                     )
-            for path in get_all_paths(self._working_test_case):
+            for path in get_all_paths(self._working_test_case, allow_blank=True):
                 try:
                     path_put(test_case, path, path_get(self._working_test_case, path))
                 except (KeyError, IndexError):
