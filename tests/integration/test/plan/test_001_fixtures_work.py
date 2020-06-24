@@ -52,6 +52,13 @@ class LoginAction(Action):
         return {'session': {'session_id': six.text_type(uuid.uuid4().hex), 'user': request.body['username']}}
 
 
+class MirrorAction(Action):
+    def run(self, request):
+        pass
+
+    request_schema = fields.SchemalessDictionary()
+
+
 class EchoAction(Action):
     request_schema = fields.SchemalessDictionary()
 
@@ -208,6 +215,7 @@ class FirstStubServer(Server):
         'types_echo': TypesEchoAction,
         'get_tiny_image': GetTinyImageAction,
         'get_current_datetime': GetDatetimeAction,
+        'mirror': MirrorAction,
     }
 
 

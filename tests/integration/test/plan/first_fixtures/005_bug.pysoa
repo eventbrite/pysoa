@@ -1,0 +1,11 @@
+echo:   global input: event: 0
+
+test name: case1
+test description: test
+echo:   expect:     no errors
+mirror: input:      event: 1
+mirror: expect:     no errors
+
+test name: case2
+test description:   test
+echo:   expect:     no errors
