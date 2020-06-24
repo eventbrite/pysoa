@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.3.1 (2020-06-24)
+------------------
+- [PATCH] Prevent creation of empty sequences when global structures are parsed
+
 1.3.0 (2020-06-12)
 ------------------
 - [MINOR] Allow Server subclasses to set a custom introspection action (#257)
