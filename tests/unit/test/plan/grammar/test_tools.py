@@ -189,7 +189,7 @@ class TestPathAccessors(unittest.TestCase):
             },
         }
 
-        actual = get_all_paths(data)
+        actual = get_all_paths(data, allow_blank=True)
 
         expected = [
             'foo.aba_bar.0',
