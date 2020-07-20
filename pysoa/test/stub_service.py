@@ -552,7 +552,7 @@ class stub_action(object):
                 if mock_response:
                     ordered_actions_for_merging[i] = mock_response
                     job_response.actions.append(mock_response)
-                    if self.register_response_schema_contract and mock_response.body:
+                    if self.register_response_schema_contract and hasattr(mock_response, 'body'):
                         _global_stub_action_response_registry.add(self.service, self.action, mock_response.body)
                     if not continue_on_error and mock_response.errors:
                         break
