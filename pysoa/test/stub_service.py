@@ -290,7 +290,7 @@ _global_stub_action_request_counter = _StubActionRequestCounter()
 
 class _StubActionContractRegistry(object):
     def __init__(self):  # type: () -> None
-        self.contracts = []
+        self.contracts = []  # type: List[dict]
 
     def add(self, service, action, body):  # type: (six.text_type, six.text_type, Body) -> None
         self.contracts.append({
@@ -424,7 +424,7 @@ class stub_action(object):
         action,  # type: six.text_type
         body=None,  # type: Optional[Body]
         errors=None,  # type: Optional[Errors]
-        side_effect=None,  # type: _StubActionSideEffect,
+        side_effect=None,  # type: _StubActionSideEffect
         register_response_schema_contract=True,  # type: bool
         register_request_schema_contract=True,  # type: bool
     ):  # type: (...) -> None
