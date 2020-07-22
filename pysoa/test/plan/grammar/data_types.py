@@ -73,6 +73,9 @@ def get_all_data_type_names():  # type: () -> List[six.text_type]
 
 DataTypeGrammar = oneOf(get_all_data_type_names())('data_type')
 
+DATETIME_RE = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z')
+DATE_RE = re.compile(r'\d{4}-\d{2}-\d{2}')
+
 
 class AnyValue(object):
     def __init__(self, data_type, permit_none=False):  # type: (six.text_type, bool) -> None
@@ -97,6 +100,32 @@ class AnyValue(object):
         if self.data_type == 'int':
             # For Python 2+3 compatibility, any int OR long value is permitted to satisfy an int AnyValue
             return isinstance(other, six.integer_types)
+
+        if (
+                self.data_type == 'datetime' and
+                type(other) == datetime.datetime
+        ):
+            return True
+
+        if (
+                self.data_type == 'datetime' and
+                isinstance(other, six.string_types) and
+                DATETIME_RE.match(other)
+        ):
+            return True
+
+        if (
+                self.data_type == 'date' and
+                type(other) == datetime.date
+        ):
+            return True
+
+        if (
+                self.data_type == 'date' and
+                isinstance(other, six.string_types) and
+                DATE_RE.match(other)
+        ):
+            return True
 
         if self.data_type == type(other).__name__:
             return True
