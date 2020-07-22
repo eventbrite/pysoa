@@ -51,6 +51,11 @@ class TestAnyValue(unittest.TestCase):
         self.assertNotEqual(data_types.AnyValue('datetime'), 'Hello')
         self.assertNotEqual(data_types.AnyValue('datetime'), 15)
 
+    def test_date(self):
+        self.assertEqual(data_types.AnyValue('date'), '2018-09-01')
+        self.assertNotEqual(data_types.AnyValue('date'), 'Bye')
+        self.assertNotEqual(data_types.AnyValue('date'), 51)
+
 
 class TestRegexValue(unittest.TestCase):
     def test_not_string(self):
