@@ -46,6 +46,16 @@ class TestAnyValue(unittest.TestCase):
         self.assertEqual(copy.copy(data_types.AnyValue('str')), 'Hello')
         self.assertEqual(copy.deepcopy(data_types.AnyValue('str')), 'Hello')
 
+    def test_datetime(self):
+        self.assertEqual(data_types.AnyValue('datetime'), '2018-09-01T00:00:00Z')
+        self.assertNotEqual(data_types.AnyValue('datetime'), 'Hello')
+        self.assertNotEqual(data_types.AnyValue('datetime'), 15)
+
+    def test_date(self):
+        self.assertEqual(data_types.AnyValue('date'), '2018-09-01')
+        self.assertNotEqual(data_types.AnyValue('date'), 'Bye')
+        self.assertNotEqual(data_types.AnyValue('date'), 51)
+
 
 class TestRegexValue(unittest.TestCase):
     def test_not_string(self):
