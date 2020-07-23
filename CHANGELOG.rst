@@ -1,6 +1,11 @@
 Changelog
 =========
 
+1.4.0 (2020-07-23)
+------------------
+- [MINOR] Treat UTC datetime strings as datetimes in test plans (#262)
+- Capture stubs to autogenerate schemas for contract testing (#261)
+
 1.3.1 (2020-06-24)
 ------------------
 - [PATCH] Prevent creation of empty sequences when global structures are parsed
