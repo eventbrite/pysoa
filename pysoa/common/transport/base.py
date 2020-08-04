@@ -125,7 +125,7 @@ class ServerTransport(Transport):
     :param metrics: The optional metrics recorder
     """
 
-    def __init__(self, service_name, instance_index, metrics=noop_metrics):
+    def __init__(self, service_name, instance_index=1, metrics=noop_metrics):
         # type: (six.text_type, int, MetricsRecorder) -> None
         super(ServerTransport, self).__init__(service_name, metrics)
 
