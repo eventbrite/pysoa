@@ -49,17 +49,18 @@ from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
 ))
 class RedisClientTransport(ClientTransport):
 
-    def __init__(self, service_name, metrics, **kwargs):
+    def __init__(self, service_name, instance_index, metrics, **kwargs):
         # type: (six.text_type, MetricsRecorder, **Any) -> None
         """
-        In addition to the two named positional arguments, this constructor expects keyword arguments abiding by the
+        In addition to the named positional arguments, this constructor expects keyword arguments abiding by the
         Redis transport settings schema.
 
         :param service_name: The name of the service to which this transport will send requests (and from which it will
                              receive responses)
+        :param instance_index: The 1-based index of this process among multiple forks
         :param metrics: The optional metrics recorder
         """
-        super(RedisClientTransport, self).__init__(service_name, metrics)
+        super(RedisClientTransport, self).__init__(service_name, instance_index, metrics)
 
         self.client_id = uuid.uuid4().hex
         self._send_queue_name = make_redis_queue_name(service_name)

@@ -77,6 +77,7 @@ class LocalClientTransport(ClientTransport, ServerTransport):
     def __init__(
         self,
         service_name,  # type: six.text_type
+        instance_index,  # type: int
         metrics,  # type: MetricsRecorder
         server_class,  # type: Union[six.text_type, Type[Server]]
         server_settings  # type: Union[six.text_type, Dict[six.text_type, Any]]
@@ -88,7 +89,7 @@ class LocalClientTransport(ClientTransport, ServerTransport):
         :param server_class: The server class for which this transport will serve as a client
         :param server_settings: The server settings that will be passed to the server class on instantiation
         """
-        super(LocalClientTransport, self).__init__(service_name, metrics)
+        super(LocalClientTransport, self).__init__(service_name, instance_index, metrics)
 
         # If the server is specified as a path, resolve it to a class
         if isinstance(server_class, six.string_types):

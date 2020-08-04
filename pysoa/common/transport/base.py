@@ -63,11 +63,12 @@ class Transport(object):
     attributes.
     """
 
-    def __init__(self, service_name, metrics=noop_metrics):
-        # type: (six.text_type, MetricsRecorder) -> None
+    def __init__(self, service_name, instance_index, metrics=noop_metrics):
+        # type: (six.text_type, int, MetricsRecorder) -> None
         """
         :param service_name: The name of the service to which this transport will send requests (and from which it will
                              receive responses)
+        :param instance_index: The 1-based index of this process, identifying it among multiple forked processes
         :param metrics: The optional metrics recorder
         """
         if not isinstance(service_name, six.text_type):
@@ -76,6 +77,7 @@ class Transport(object):
             raise ValueError('metrics must be a MetricsRecorder')
 
         self.service_name = service_name
+        self.instance_index = instance_index
         self.metrics = metrics
 
 

@@ -182,12 +182,15 @@ class Server(object):
                 elif publisher.get('kwargs', {}):
                     _replace_fid(publisher['kwargs'], fid)
 
+        instance_index = forked_process_id or 1
+
         # Create the metrics recorder and transport
         self.metrics = self.settings['metrics']['object'](
             **self.settings['metrics'].get('kwargs', {})
         )  # type: MetricsRecorder
         self.transport = self.settings['transport']['object'](
             self.service_name,
+            instance_index,
             self.metrics,
             **self.settings['transport'].get('kwargs', {})
         )  # type: ServerTransport

@@ -219,6 +219,7 @@ class StubClientTransport(LocalClientTransport):
     def __init__(
         self,
         service_name='test',  # type: six.text_type
+        instance_index=1,  # type: int
         metrics=None,  # type: Optional[MetricsRecorder]
         action_map=None,  # type: Optional[Mapping[six.text_type, Mapping[six.text_type, Any]]]
     ):
@@ -228,6 +229,7 @@ class StubClientTransport(LocalClientTransport):
         action mapping provided.
 
         :param service_name: The service name.
+        :param instance_index: The 1-based index of this process among multiple forks
         :param metrics: You can omit this, but if you really want, override the default `NoOpMetricsRecorder`.
         :param action_map: Dictionary of `{action_name: {'body': action_body, 'errors': action_errors}}` where
                            `action_body` is a dictionary and `action_errors` is a list.
@@ -244,7 +246,8 @@ class StubClientTransport(LocalClientTransport):
             (StubServer,),
             dict(service_name=service_name, action_class_map=action_class_map),
         ))
-        super(StubClientTransport, self).__init__(service_name, metrics or noop_metrics, server_class, {})
+        super(StubClientTransport, self).__init__(service_name, instance_index,
+                                                  metrics or noop_metrics, server_class, {})
 
     def stub_action(self, action, body=None, errors=None):
         # type: (six.text_type, Optional[Body], Optional[Errors]) -> None

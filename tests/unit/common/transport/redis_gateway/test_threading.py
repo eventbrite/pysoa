@@ -106,6 +106,7 @@ class TestThreadSafety(unittest.TestCase):
 
         server_transport = RedisServerTransport(
             'threaded',
+            1,  # instance index
             noop_metrics,
             backend_type=REDIS_BACKEND_TYPE_STANDARD,
         )
@@ -113,6 +114,7 @@ class TestThreadSafety(unittest.TestCase):
 
         client_transport = RedisClientTransport(
             'threaded',
+            1,  # instance index
             noop_metrics,
             backend_type=REDIS_BACKEND_TYPE_STANDARD,
         )
