@@ -126,7 +126,7 @@ class ServerTransport(Transport):
     """
 
     def __init__(self, service_name, metrics=noop_metrics, instance_index=1):
-        # type: (six.text_type, int, MetricsRecorder) -> None
+        # type: (six.text_type, MetricsRecorder, int) -> None
         super(ServerTransport, self).__init__(service_name, metrics)
 
         self.instance_index = instance_index
