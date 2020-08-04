@@ -88,7 +88,7 @@ class LocalClientTransport(ClientTransport, ServerTransport):
         :param server_class: The server class for which this transport will serve as a client
         :param server_settings: The server settings that will be passed to the server class on instantiation
         """
-        super(LocalClientTransport, self).__init__(service_name, metrics)
+        super(LocalClientTransport, self).__init__(service_name, metrics)  # type: ignore
 
         # If the server is specified as a path, resolve it to a class
         if isinstance(server_class, six.string_types):
