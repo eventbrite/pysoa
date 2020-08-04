@@ -119,7 +119,17 @@ class ClientTransport(Transport):
 class ServerTransport(Transport):
     """
     The base server transport defining the interface for transacting PySOA payloads on the server side.
+
+    :param service_name: The name of the service for which this transport will receive requests and send responses
+    :param instance_index: The 1-based index of this process among multiple forks
+    :param metrics: The optional metrics recorder
     """
+
+    def __init__(self, service_name, instance_index, metrics=noop_metrics):
+        # type: (six.text_type, int, MetricsRecorder) -> None
+        super(ServerTransport, self).__init__(service_name, metrics)
+
+        self.instance_index = instance_index
 
     @abc.abstractmethod
     def receive_request_message(self):
