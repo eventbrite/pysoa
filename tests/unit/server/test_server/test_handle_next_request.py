@@ -45,7 +45,7 @@ class TestProcessNextRequests(TestCase):
         """
         settings = factories.ServerSettingsFactory()
         server = HandleNextRequestServer(settings=settings)
-        server.transport = SimplePassthroughServerTransport(server.service_name)
+        server.transport = SimplePassthroughServerTransport(server.service_name, instance_index=1)
 
         server.transport.set_request({})
         server.handle_next_request()
