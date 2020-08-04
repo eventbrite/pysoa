@@ -30,7 +30,7 @@ from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
 class RedisServerTransport(ServerTransport):
 
     def __init__(self, service_name, metrics, instance_index, **kwargs):
-        # type: (six.text_type, int, MetricsRecorder, **Any) -> None
+        # type: (six.text_type, MetricsRecorder, int, **Any) -> None
         """
         In addition to the named positional arguments, this constructor expects keyword arguments abiding by the
         Redis transport settings schema.
