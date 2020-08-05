@@ -17,7 +17,7 @@ from pysoa.test.compatibility import mock
 class TestServerTransport(unittest.TestCase):
     @staticmethod
     def _get_transport(service='my_service', **kwargs):
-        return RedisServerTransport(service, noop_metrics, **kwargs)
+        return RedisServerTransport(service, noop_metrics, 1, **kwargs)
 
     def test_core_args(self, mock_core):
         transport = self._get_transport(hello='world', goodbye='earth')

@@ -189,6 +189,7 @@ class Server(object):
         self.transport = self.settings['transport']['object'](
             self.service_name,
             self.metrics,
+            forked_process_id or 1,  # If no forking, there's only 1 instance
             **self.settings['transport'].get('kwargs', {})
         )  # type: ServerTransport
 

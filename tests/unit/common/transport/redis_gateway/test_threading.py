@@ -107,6 +107,7 @@ class TestThreadSafety(unittest.TestCase):
         server_transport = RedisServerTransport(
             'threaded',
             noop_metrics,
+            1,
             backend_type=REDIS_BACKEND_TYPE_STANDARD,
         )
         server_transport.core._backend_layer = backend  # type: ignore

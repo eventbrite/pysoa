@@ -29,16 +29,17 @@ from pysoa.common.transport.redis_gateway.utils import make_redis_queue_name
 @fields.ClassConfigurationSchema.provider(RedisServerTransportSchema)
 class RedisServerTransport(ServerTransport):
 
-    def __init__(self, service_name, metrics, **kwargs):
-        # type: (six.text_type, MetricsRecorder, **Any) -> None
+    def __init__(self, service_name, metrics, instance_index, **kwargs):
+        # type: (six.text_type, MetricsRecorder, int, **Any) -> None
         """
-        In addition to the two named positional arguments, this constructor expects keyword arguments abiding by the
+        In addition to the named positional arguments, this constructor expects keyword arguments abiding by the
         Redis transport settings schema.
 
         :param service_name: The name of the service for which this transport will receive requests and send responses
         :param metrics: The optional metrics recorder
+        :param instance_index: The 1-based index of this process among multiple forks
         """
-        super(RedisServerTransport, self).__init__(service_name, metrics)
+        super(RedisServerTransport, self).__init__(service_name, metrics, instance_index)
 
         self._receive_queue_name = make_redis_queue_name(service_name)
         # noinspection PyArgumentList
