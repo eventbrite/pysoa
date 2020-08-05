@@ -1,6 +1,16 @@
 Changelog
 =========
 
+1.4.1 (2020-08-05)
+------------------
+- Fix another mypy annotation.
+- Fix mypy annotation.
+- Switch argument order.
+- Make instance_index optional.
+- Disable mypy warning.
+- Add missing parameter.
+- [MINOR] Pass instance index into transport.
+
 1.4.0 (2020-07-23)
 ------------------
 - [MINOR] Treat UTC datetime strings as datetimes in test plans (#262)
