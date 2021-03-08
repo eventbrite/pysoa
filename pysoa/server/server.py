@@ -584,7 +584,7 @@ class Server(object):
                 try:
                     PySOALogContextFilter.set_logging_action_name(action_request.action)
                     action_response = wrapper(action_request)
-                except HarakiriInterrupt:
+                except HarakiriInterrupt as e:
                     self.metrics.counter('server.error.harakiri', harakiri_level='action')
                     action_response = ActionResponse(
                         action=action_request.action,
@@ -593,6 +593,7 @@ class Server(object):
                             message='The action "{}" ran for too long and had to be interrupted.'.format(
                                 action_request.action,
                             ),
+                            traceback=getattr(e, 'traceback'),
                             is_caller_error=False,
                         )],
                     )
