@@ -594,7 +594,7 @@ class Server(object):
                             message='The action "{}" ran for too long and had to be interrupted.'.format(
                                 action_request.action,
                             ),
-                            traceback=getattr(e, 'traceback'),
+                            traceback=getattr(e, 'traceback', None),
                             is_caller_error=False,
                         )],
                     )
