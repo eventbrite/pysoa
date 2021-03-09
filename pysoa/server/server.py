@@ -584,10 +584,7 @@ class Server(object):
                 try:
                     PySOALogContextFilter.set_logging_action_name(action_request.action)
                     action_response = wrapper(action_request)
-                except HarakiriInterrupt as e:
-                    print(e.__str__())
-                    print('\n Status: \n')
-                    print(sys.exc_info())
+                except HarakiriInterrupt:
                     self.metrics.counter('server.error.harakiri', harakiri_level='action')
                     action_response = ActionResponse(
                         action=action_request.action,
@@ -596,12 +593,10 @@ class Server(object):
                             message='The action "{}" ran for too long and had to be interrupted.'.format(
                                 action_request.action,
                             ),
-                            traceback=getattr(e, 'traceback', None),
                             is_caller_error=False,
                         )],
                     )
                     harakiri = True
-                    import ipdb; ipdb.set_trace(context=10)
                 except ActionError as e:
                     # An action error was thrown while running the action (or its middleware)
                     action_response = ActionResponse(
@@ -713,7 +708,7 @@ class Server(object):
                     ),
                     extra=extra,
                 )
-                self.logger.info(details)
+                self.logger.warning(details)
 
                 try:
                     self.metrics.counter('server.error.harakiri', harakiri_level='emergency')
@@ -743,7 +738,7 @@ class Server(object):
                     ),
                     extra=extra,
                 )
-                self.logger.info(details)
+                self.logger.warning(details)
 
                 # We re-set the alarm so that if the graceful shutdown we're attempting here doesn't work, harakiri
                 # will be triggered again to force a non-graceful shutdown.
