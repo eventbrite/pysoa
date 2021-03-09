@@ -599,6 +599,7 @@ class Server(object):
                         )],
                     )
                     harakiri = True
+                    import ipdb; ipdb.set_trace(context=10)
                 except ActionError as e:
                     # An action error was thrown while running the action (or its middleware)
                     action_response = ActionResponse(
