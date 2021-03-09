@@ -585,6 +585,7 @@ class Server(object):
                     PySOALogContextFilter.set_logging_action_name(action_request.action)
                     action_response = wrapper(action_request)
                 except HarakiriInterrupt as e:
+                    print(e)
                     self.metrics.counter('server.error.harakiri', harakiri_level='action')
                     action_response = ActionResponse(
                         action=action_request.action,
