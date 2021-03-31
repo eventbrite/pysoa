@@ -188,6 +188,7 @@ class RecursivelyCensoredDictWrapper(object):
         'personal_id_numbers', 'personal-id-numbers', 'personalIdNumbers',
         'personal_identification_number', 'personal-identification-number', 'personalIdentificationNumber',
         'personal_identification_numbers', 'personal-identification-numbers', 'personalIdentificationNumbers',
+        'tin_number', 'tin-number', 'tinNumber',
     })
 
     CENSOR_TYPES = cast(Tuple[Type, ...], six.string_types) + cast(Tuple[Type, ...], six.integer_types)
