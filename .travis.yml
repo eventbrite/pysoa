@@ -8,9 +8,6 @@ addons:
       - liblua5.2-dev
 cache: pip
 install:
-  - export PKG_CONFIG_PATH="$(python-config --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
-  - echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
-  # The above two statements can be removed when/if https://github.com/travis-ci/travis-ci/issues/8217 is fixed
   - pip install -U pip tox
 matrix:
   include:
