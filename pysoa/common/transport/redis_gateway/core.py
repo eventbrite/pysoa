@@ -347,7 +347,22 @@ class RedisTransportCore(object):
             # Try at least once, up to queue_full_retries times, then error
             for i in range(-1, self.queue_full_retries):
                 if i >= 0:
-                    time.sleep((2 ** i + random.random()) / self.EXPONENTIAL_BACK_OFF_FACTOR)
+                    backoff_time_in_seconds = (2 ** i + random.random()) / self.EXPONENTIAL_BACK_OFF_FACTOR
+
+                    if (time.time() + backoff_time_in_seconds) >= message_expiry:
+                        # The message would expire before the end of the backoff time.
+                        self._get_counter('send.error.redis_queue_full').increment()
+                        raise MessageSendError(
+                            (
+                                'Redis queue {queue_name} was full after {retries} retries.',
+                                'No more retries left before hitting a message timeout.'
+                             ).format(
+                                queue_name=queue_name,
+                                retries=self.queue_full_retries,
+                            )
+                        )
+                    # Otherwise just backoff for the calculated time.
+                    time.sleep(backoff_time_in_seconds)
                     self._get_counter('send.queue_full_retry').increment()
                     self._get_counter('send.queue_full_retry.retry_{}'.format(i + 1)).increment()
                 try:
