@@ -247,7 +247,7 @@ nature of the Redis transport and distributed workers, only responses can be chu
 it is not even possible to configure chunking in the client transport.)
 
 +--------------------------------------------------------------------+
-|**Warning: Chunking and parallel actions**                          |
+|Warning: Chunking and parallel action's calls                       |
 +====================================================================+
 |If you know that the server response is potentially going to be     |
 |chunked, do not use ``call_actions_parallel`` or                    |

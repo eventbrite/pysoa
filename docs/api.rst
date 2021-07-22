@@ -345,7 +345,7 @@ Methods
     retrieve the expected responses.
 
 +--------------------------------------------------------------------+
-|**Warning: Chunking and parallel actions**                          |
+|Warning: Chunking and parallel action's call                        |
 +====================================================================+
 |If you know that the server response is potentially going to be     |
 |chunked, do not use ``call_actions_parallel`` or                    |
