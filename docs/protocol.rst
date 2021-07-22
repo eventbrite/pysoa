@@ -246,14 +246,14 @@ The serialized envelope pieces from each chunk will be reassembled in order and 
 nature of the Redis transport and distributed workers, only responses can be chunked. Requests cannot be chunked, and
 it is not even possible to configure chunking in the client transport.)
 
-==============================
-**Chunking and parallel actions**
-==============================
-If you know that the server response is potentially going to be
-chunked, do not use ``call_actions_parallel`` or
-``call_jobs_parallel`` (or any ``future`` variant) as there is a bug
-that is going to make the request fail due to a race condition.
-==============================
++--------------------------------------------------------------------+
+|**Chunking and parallel actions**                                   |
++====================================================================+
+|If you know that the server response is potentially going to be     |
+|chunked, do not use ``call_actions_parallel`` or                    |
+|``call_jobs_parallel`` (or any ``future`` variant) as there is a bug|
+|that is going to make the request fail due to a race condition.     |
++--------------------------------------------------------------------+
 
 The response envelope is very similar to the request envelope::
 
