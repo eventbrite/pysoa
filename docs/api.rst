@@ -344,11 +344,14 @@ Methods
     responses, allowing you to send requests asynchronously, perform other work, and then use the future object to
     retrieve the expected responses.
 
-.. DANGER:: If you know that the server response is potentially going
-   to be chunked, do not use ``call_actions_parallel`` or
-   ``call_jobs_parallel`` (or any ``future`` variant) as there is a
-   bug that is going to make the request fail under due to a race
-   condition.
++--------------------------------------------------------------------+
+|**Warning: Chunking and parallel actions**                          |
++====================================================================+
+|If you know that the server response is potentially going to be     |
+|chunked, do not use ``call_actions_parallel`` or                    |
+|``call_jobs_parallel`` (or any ``future`` variant) as there is a bug|
+|that is going to make the request fail due to a race condition.     |
++--------------------------------------------------------------------+
 
 Client configuration
 ********************
