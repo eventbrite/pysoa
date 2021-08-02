@@ -56,6 +56,7 @@ tests_require = [
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
     'mypy~=0.740;python_version>"3.4"',
+    'types-six~=0.1.7;python_version>"3.4"',  # needed for mypy
     'parameterized~=0.7',
 ] + test_plan_requirements
 
