@@ -51,7 +51,7 @@ matrix:
       name: "Unit Tests: Python 3.8 with Currint 1.6 and 2.0"
       python: "3.8"
       script:
-        - tox -e py38,py38-currint16,coverage,py38-mypy
+        - tox -e py38,py38-currint16,coverage #,py38-mypy
       dist: xenial
     - stage: deploy
       python: "3.7"
