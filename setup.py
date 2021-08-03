@@ -56,6 +56,7 @@ mypy_require = [
     'types-mock~=0.1.3;python_version>"3.4"'
 ]
 
+# testing
 tests_require = [
     'coverage~=4.5',
     'factory_boy~=2.11.1',
