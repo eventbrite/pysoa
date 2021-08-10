@@ -334,13 +334,19 @@ def test_expected_second_fixtures_ooo():
     assert fixtures_test_module.TestSecondFixtures.get_order_of_operations() == [
         'setup_class',
         'setup_method',
+    #-- [Start] Python 2.7 needs but doesn't work on 3.7
+    #    'teardown_method',
+    #    'setup_method',
+    #-- [End] Python 2.7 needs but doesn't work on 3.7
         'test_a_regular_case',
         'teardown_method',
         'setup_method',
         'test_another_regular_case',
         'teardown_method',
+    #-- [Start] Python 3.7 needs but doesn't work on 2.7
         'setup_method',  # TODO PyTest calling setup for test_a_unittest_skipped_case; can we even fix this?
         'teardown_method',  # TODO PyTest calling teardown for test_a_unittest_skipped_case; can we even fix this?
+    #-- [End] Python 3.7 needs but doesn't work on 2.7
         'set_up_test_fixture',
         'setup_method',
         'set_up_test_case.walk_and_run.walking_and_running',
