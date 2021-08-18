@@ -331,22 +331,21 @@ def test_expected_second_fixtures_ooo():
     """
     Test that the order of operations for the second group of fixtures was correct.
     """
+    # Warning: In Python 2.7 the methods decorated with 'unittest.skip' seem to be
+    # placed at the start of the order of operations.
+    # In Python 3.7 their location depends on their location in the class.
+    # If this test method fails check the order of the methods in TestSecondFixtures.
+
     assert fixtures_test_module.TestSecondFixtures.get_order_of_operations() == [
         'setup_class',
+        'setup_method',     # TODO PyTest calling setup for test_a_unittest_skipped_case; can we even fix this?
+        'teardown_method',  # TODO PyTest calling setup for test_a_unittest_skipped_case; can we even fix this?
         'setup_method',
-    #-- [Start] Python 2.7 needs but doesn't work on 3.7
-    #    'teardown_method',
-    #    'setup_method',
-    #-- [End] Python 2.7 needs but doesn't work on 3.7
         'test_a_regular_case',
         'teardown_method',
         'setup_method',
         'test_another_regular_case',
         'teardown_method',
-    #-- [Start] Python 3.7 needs but doesn't work on 2.7
-        'setup_method',  # TODO PyTest calling setup for test_a_unittest_skipped_case; can we even fix this?
-        'teardown_method',  # TODO PyTest calling teardown for test_a_unittest_skipped_case; can we even fix this?
-    #-- [End] Python 3.7 needs but doesn't work on 2.7
         'set_up_test_fixture',
         'setup_method',
         'set_up_test_case.walk_and_run.walking_and_running',
@@ -365,7 +364,6 @@ def test_expected_second_fixtures_ooo():
         'tear_down_test_fixture',
         'teardown_class',
     ]
-
 
 def test_expected_mocking_and_stubbing_fixtures_ooo():
     """

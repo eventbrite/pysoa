@@ -357,6 +357,14 @@ class TestSecondFixtures(PluginTestingOrderOfOperationsTestCase):
     server_settings = {}  # type: SettingsData
     fixture_path = os.path.dirname(__file__) + '/second_fixtures'
 
+    @unittest.skip(reason='Making sure skipping still works (unittest)')
+    def test_a_unittest_skipped_case(self):
+        """
+        Test that a regular skipped test case works properly
+        """
+        self.get_order_of_operations().append('test_a_unittest_skipped_case')
+        self.fail('If this is not skipped, it should fail')
+
     def test_a_regular_case(self):
         """
         Test that a regular test case works properly
@@ -376,14 +384,6 @@ class TestSecondFixtures(PluginTestingOrderOfOperationsTestCase):
         Test that another regular test case works properly
         """
         self.get_order_of_operations().append('test_another_regular_case')
-
-    @unittest.skip(reason='Making sure skipping still works (unittest)')
-    def test_a_unittest_skipped_case(self):
-        """
-        Test that a regular skipped test case works properly
-        """
-        self.get_order_of_operations().append('test_a_unittest_skipped_case')
-        self.fail('If this is not skipped, it should fail')
 
 
 @pytest.mark.skipif(sys.version_info < (2, 7), reason='These tests should all run because argument evaluates to False')
