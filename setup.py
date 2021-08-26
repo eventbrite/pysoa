@@ -53,7 +53,8 @@ mypy_require = [
     'mypy~=0.740;python_version>"3.4"',
     'types-six~=0.1.7;python_version>"3.4"',
     'types-setuptools~=57.0.0;python_version>"3.4"',
-    'types-mock~=0.1.3;python_version>"3.4"'
+    'types-mock~=0.1.3;python_version>"3.4"',
+    'types-requests~=2.25.6;python_version>"3.4"',
 ]
 
 # testing

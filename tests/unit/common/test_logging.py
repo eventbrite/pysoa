@@ -760,15 +760,15 @@ class TestSyslogHandler(object):
         finally:
             mock.patch.stopall()
 
-        m = mock_sends['first_mock_send']
-        assert m is not None
-        m.assert_has_calls([
+        m1 = mock_sends['first_mock_send']
+        assert m1 is not None
+        m1.assert_has_calls([
             mock.call('this is the first part'),
             mock.call('here is another part'),
         ])
-        m = mock_sends['second_mock_send']
-        assert m is not None
-        m.assert_has_calls([
+        m2 = mock_sends['second_mock_send']
+        assert m2 is not None
+        m2.assert_has_calls([
             mock.call('here is another part'),
             mock.call('one more part'),
         ])

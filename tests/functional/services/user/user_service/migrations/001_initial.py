@@ -1,12 +1,12 @@
 from django.db import migrations
+from typing import List, Tuple
 
 
 class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []  # type: List[Tuple[str, str]]
 
     # noinspection SqlNoDataSourceInspection
     operations = [
