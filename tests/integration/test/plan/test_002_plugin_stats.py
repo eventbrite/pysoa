@@ -365,6 +365,7 @@ def test_expected_second_fixtures_ooo():
         'teardown_class',
     ]
 
+
 def test_expected_mocking_and_stubbing_fixtures_ooo():
     """
     Test that the order of operations for the mocking and stubbing fixtures was correct.
