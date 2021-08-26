@@ -3,8 +3,9 @@ from __future__ import (
     unicode_literals,
 )
 
+import sys
 from pysoa.test.plugins.pytest.plans import PLUGIN_STATISTICS
-
+import pytest
 from tests.integration.test.plan import test_001_fixtures_work as fixtures_test_module
 
 
@@ -326,7 +327,7 @@ def test_intermediate_things():
     assert fixtures_test_module.IntermediateTestCase.test_anything_method_was_run
     assert fixtures_test_module.IntermediateTestCase.following_test_function_was_run
 
-
+@pytest.mark.skipif(sys.version_info < (3, 7), reason='The order of operations varies in python 2.7')
 def test_expected_second_fixtures_ooo():
     """
     Test that the order of operations for the second group of fixtures was correct.
