@@ -18,7 +18,6 @@ from tests.functional import (
 )
 
 
-# If suppressed, Travis functional test pass
 def test_double_import_trap_killed_intended_service():
     with pytest.raises(AssertionError):
         read_file_from_container('echo_service_double_import_trap', '/srv/echo_service-1.heartbeat')
@@ -111,7 +110,6 @@ def test_reload_no_forking(pysoa_client):
     assert response.body['version'] == '7.1.2'
 
 
-# If suppressed, Travis functional test pass
 def test_reload_with_forking(pysoa_client):
     print(get_container_process_list('echo_service'))
 
