@@ -47,12 +47,13 @@ matrix:
       script:
         - tox -e py37-attrs18,py37-pytest46,py37-flake8,coverage,py37-mypy
       dist: xenial
-    - stage: build
-      name: "Unit Tests: Python 3.8 with Currint 1.6 and 2.0"
-      python: "3.8"
-      script:
-        - tox -e py38,py38-currint16,coverage,py38-mypy
-      dist: xenial
+    # Lunatic-python-universal seems incompatible with Python 3.8
+    # - stage: build
+    #   name: "Unit Tests: Python 3.8 with Currint 1.6 and 2.0"
+    #   python: "3.8"
+    #   script:
+    #     - tox -e py38,py38-currint16,coverage,py38-mypy
+    #   dist: xenial
     - stage: deploy
       python: "3.7"
       script: skip

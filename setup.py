@@ -49,15 +49,23 @@ test_plan_requirements = test_helper_requirements + [
     'pytest-asyncio~=0.10.0;python_version>"3.4"',
 ]
 
+mypy_require = [
+    'mypy~=0.740;python_version>"3.4"',
+    'types-six~=0.1.7;python_version>"3.4"',
+    'types-setuptools~=57.0.0;python_version>"3.4"',
+    'types-mock~=0.1.3;python_version>"3.4"',
+    'types-requests~=2.25.6;python_version>"3.4"',
+]
+
+# testing
 tests_require = [
     'coverage~=4.5',
     'factory_boy~=2.11.1',
     'freezegun~=0.3',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
-    'mypy~=0.740;python_version>"3.4"',
     'parameterized~=0.7',
-] + test_plan_requirements
+] + mypy_require + test_plan_requirements
 
 
 setup(

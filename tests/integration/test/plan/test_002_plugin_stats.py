@@ -3,8 +3,9 @@ from __future__ import (
     unicode_literals,
 )
 
+import sys
 from pysoa.test.plugins.pytest.plans import PLUGIN_STATISTICS
-
+import pytest
 from tests.integration.test.plan import test_001_fixtures_work as fixtures_test_module
 
 
@@ -327,20 +328,26 @@ def test_intermediate_things():
     assert fixtures_test_module.IntermediateTestCase.following_test_function_was_run
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason='The order of operations varies in python 2.7')
 def test_expected_second_fixtures_ooo():
     """
     Test that the order of operations for the second group of fixtures was correct.
     """
+    # Warning: In Python 2.7 the methods decorated with 'unittest.skip' seem to be
+    # placed at the start of the order of operations.
+    # In Python 3.7 their location depends on their location in the class.
+    # If this test method fails check the order of the methods in TestSecondFixtures.
+
     assert fixtures_test_module.TestSecondFixtures.get_order_of_operations() == [
         'setup_class',
+        'setup_method',     # TODO PyTest calling setup for test_a_unittest_skipped_case; can we even fix this?
+        'teardown_method',  # TODO PyTest calling setup for test_a_unittest_skipped_case; can we even fix this?
         'setup_method',
         'test_a_regular_case',
         'teardown_method',
         'setup_method',
         'test_another_regular_case',
         'teardown_method',
-        'setup_method',  # TODO PyTest calling setup for test_a_unittest_skipped_case; can we even fix this?
-        'teardown_method',  # TODO PyTest calling teardown for test_a_unittest_skipped_case; can we even fix this?
         'set_up_test_fixture',
         'setup_method',
         'set_up_test_case.walk_and_run.walking_and_running',

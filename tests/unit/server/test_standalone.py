@@ -192,11 +192,15 @@ class TestSimpleMain(unittest.TestCase):
             self.assertFalse(server_getter.return_value.main.called)
 
             self.assertEqual(10, mock_process.call_count)
+
+            found_ids = [0 for _ in range(0, 11)]
             i = 1
             for call in mock_process.call_args_list:
+                id = call[1]['args'][0]
                 self.assertEqual(server_getter.return_value.main, call[1]['target'])
-                self.assertEqual('pysoa-worker-{}'.format(i), call[1]['name'])
-                self.assertEqual((i, ), call[1]['args'])
+                self.assertEqual('pysoa-worker-{}'.format(id), call[1]['name'])
+                assert found_ids[id] == 0, "Already seen process id"
+                found_ids[id] = i
                 i += 1
 
             for i, process in enumerate(processes):
@@ -238,11 +242,14 @@ class TestSimpleMain(unittest.TestCase):
             self.assertFalse(server_getter.return_value.main.called)
 
             self.assertEqual(5, mock_process.call_count)
+            found_ids = [0 for _ in range(0, 6)]
             i = 1
             for call in mock_process.call_args_list:
+                id = call[1]['args'][0]
                 self.assertEqual(server_getter.return_value.main, call[1]['target'])
-                self.assertEqual('pysoa-worker-{}'.format(i), call[1]['name'])
-                self.assertEqual((i, ), call[1]['args'])
+                self.assertEqual('pysoa-worker-{}'.format(id), call[1]['name'])
+                assert found_ids[id] == 0, "Already seen process id"
+                found_ids[id] = i
                 i += 1
 
             for i, process in enumerate(processes):

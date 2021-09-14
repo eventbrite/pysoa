@@ -19,10 +19,8 @@ from tests.functional import (
 
 
 def test_double_import_trap_killed_intended_service():
-    with pytest.raises(AssertionError) as error_context:
+    with pytest.raises(AssertionError):
         read_file_from_container('echo_service_double_import_trap', '/srv/echo_service-1.heartbeat')
-
-    assert 'No container found for echo_service_double_import_trap_1' in error_context.value.args[0]
 
     assert 'ERROR: You have triggered a double-import trap' in get_container_logs('echo_service_double_import_trap')
 

@@ -314,7 +314,7 @@ class SyslogHandler(logging.handlers.SysLogHandler):
         # This is a hack, but necessary due to https://github.com/python/typeshed/issues/3244, which is causing errors
         self.address = getattr(self, 'address')  # type: Tuple[six.text_type, int]
         self.socket = getattr(self, 'socket')  # type: socket.socket
-        self.socktype = getattr(self, 'socktype')  # type: int
+        self.socktype = getattr(self, 'socktype')  # type: socket.SocketKind
         self.unixsocket = getattr(self, 'unixsocket')  # type: bool
 
         if not self.unixsocket and self.socktype == socket.SOCK_DGRAM:
