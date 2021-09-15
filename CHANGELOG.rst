@@ -1,6 +1,14 @@
 Changelog
 =========
 
+1.4.2 (2021-09-15)
+------------------
+- Fix mypy annotations
+- Disable mypy errors
+- Fix Six issues
+- Fix unit tests
+- Removed Python 3.8 testing from Travis 
+
 1.4.1 (2020-08-05)
 ------------------
 - Fix another mypy annotation.
