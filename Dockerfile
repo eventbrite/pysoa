@@ -1,4 +1,6 @@
-FROM ubuntu:16.04
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install -y \
@@ -17,18 +19,21 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
         python3.5-dev \
         python3.6 \
         python3.6-dev \
+        python3.6-distutils \
         python3.7 \
         python3.7-dev \
+        python3.7-distutils \
         python3.8 \
         python3.8-distutils \
         python3.8-dev
 
+RUN wget https://bootstrap.pypa.io/pip/3.6/get-pip.py -O /tmp/get-pip-36.py
 RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
 # RUN python2.7 /tmp/get-pip.py --disable-pip-version-check --disable-pip-version-check "pip==19.3.1" && \
 #     mv -v "$(which pip)" "$(which pip)2.7"
 # RUN python3.5 /tmp/get-pip.py --disable-pip-version-check --disable-pip-version-check "pip==19.3.1" && \
 #     mv -v "$(which pip)" "$(which pip)3.5"
-RUN python3.6 /tmp/get-pip.py --disable-pip-version-check --disable-pip-version-check "pip==19.3.1" && \
+RUN python3.6 /tmp/get-pip-36.py --disable-pip-version-check --disable-pip-version-check "pip==19.3.1" && \
     mv -v "$(which pip)" "$(which pip)3.6"
 RUN python3.7 /tmp/get-pip.py --disable-pip-version-check --disable-pip-version-check "pip==19.3.1" && \
     mv -v "$(which pip)" "$(which pip)3.7"
