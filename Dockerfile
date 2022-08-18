@@ -1,8 +1,6 @@
 FROM ubuntu:20.04
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     apt-get install -y \
         git \
         liblua5.1-0-dev \
