@@ -5,6 +5,7 @@ networks:
 
 services:
   mysql:
+    build: .
     image: "pysoa-test-mysql"
     networks:
       pysoa:
@@ -351,6 +352,7 @@ services:
 
   # Services and test container
   echo_service:
+    build: .
     image: "pysoa-test-service-echo"
     init: true
     stop_grace_period: 15s
@@ -366,6 +368,7 @@ services:
       redis6-standalone:
         condition: service_healthy
   echo_service_double_import_trap:
+    build: .
     image: "pysoa-test-service-echo-double-import-trap"
     init: true
     stop_grace_period: 15s
@@ -381,6 +384,7 @@ services:
       redis6-standalone:
         condition: service_healthy
   meta_service:
+    build: .
     image: "pysoa-test-service-meta"
     init: true
     stop_grace_period: 15s
@@ -394,6 +398,7 @@ services:
       redis5-sentinel1:
         condition: service_healthy
   user_service:
+    build: .
     image: "pysoa-test-service-user"
     init: true
     stop_grace_period: 15s
@@ -411,6 +416,7 @@ services:
       meta_service:
         condition: service_started
   test:
+    build: .
     image: "pysoa-test-test"
     init: true
     networks:
