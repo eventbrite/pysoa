@@ -5,7 +5,9 @@ networks:
 
 services:
   mysql:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile-mysql
     image: "pysoa-test-mysql"
     networks:
       pysoa:
@@ -352,7 +354,9 @@ services:
 
   # Services and test container
   echo_service:
-    build: .
+    build:
+      context: .
+      dockerfile: ../services/echo/Dockerfile
     image: "pysoa-test-service-echo"
     init: true
     stop_grace_period: 15s
@@ -368,7 +372,9 @@ services:
       redis6-standalone:
         condition: service_healthy
   echo_service_double_import_trap:
-    build: .
+    build:
+      context: .
+      dockerfile: ../services/echo/Dockerfile-double-import-trap
     image: "pysoa-test-service-echo-double-import-trap"
     init: true
     stop_grace_period: 15s
@@ -384,7 +390,9 @@ services:
       redis6-standalone:
         condition: service_healthy
   meta_service:
-    build: .
+    build:
+      context: .
+      dockerfile: ../services/meta/Dockerfile
     image: "pysoa-test-service-meta"
     init: true
     stop_grace_period: 15s
@@ -398,7 +406,9 @@ services:
       redis5-sentinel1:
         condition: service_healthy
   user_service:
-    build: .
+    build:
+      context: .
+      dockerfile: ../services/user/Dockerfile
     image: "pysoa-test-service-user"
     init: true
     stop_grace_period: 15s
@@ -416,7 +426,9 @@ services:
       meta_service:
         condition: service_started
   test:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile-test
     image: "pysoa-test-test"
     init: true
     networks:
