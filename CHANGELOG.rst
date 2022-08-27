@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.4.3 (2022-08-28)
+------------------
+- Use Ubuntu 20.04 in Dockerfile
+
 1.4.2 (2021-09-15)
 ------------------
 - Fix mypy annotations
