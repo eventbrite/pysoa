@@ -1,6 +1,10 @@
 Changelog
 =========
 
+1.4.4 (2022-08-29)
+------------------
+- Make PySOA compatible with newer versions of attrs (#272)
+
 1.4.3 (2022-08-28)
 ------------------
 - Use Ubuntu 20.04 in Dockerfile
