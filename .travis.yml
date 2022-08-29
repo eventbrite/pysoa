@@ -42,7 +42,7 @@ matrix:
       script:
         - tox -e py35,py35-pyinotify,py35-pytest51,py35-pytest53,coverage
     - stage: build
-      name: "Unit Tests: Python 3.7 with Attrs 18 and 19; PyTest 4.6 and 5.3"
+      name: "Unit Tests: Python 3.7 with Attrs 18 to 21; PyTest 4.6 and 5.3"
       python: "3.7"
       script:
         - tox -e py37-attrs18,py37-attrs19,py37-attrs20,py37-attrs21,py37-pytest46,py37-flake8,coverage,py37-mypy
