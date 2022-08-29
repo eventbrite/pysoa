@@ -20,7 +20,7 @@ def readme():
 
 
 install_requires = [
-    'attrs>=18.2,<21.4',
+    'attrs>=18.2,<22',
     'conformity~=1.26',
     'currint>=1.6,<3',
     'enum34;python_version<"3.4"',
