@@ -1124,6 +1124,8 @@ These are all the metrics recorded in PySOA:
   ``sentinel_failover_retries`` is enabled)
 - ``server.transport.redis_gateway.send``: A timer indicating how long it takes the Redis Gateway server transport to
   send a response
+- ``server.transport.redis_gateway.send_context``: A counter with fields ``from`` and ``to`` detailing origin and
+  destination of the response, for usage instrumentation.
 - ``server.transport.redis_gateway.send.message_size``: A histogram indicating the total size of the response sent
   back to the client.
 - ``server.transport.redis_gateway.send.error.missing_reply_queue``: A counter incremented each time the Redis Gateway
@@ -1152,6 +1154,8 @@ These are all the metrics recorded in PySOA:
   encounters an unknown error (logged) sending a message
 - ``server.transport.redis_gateway.receive``: A timer indicating how long it takes the Redis Gateway server transport
   to receive a response (however, this includes time waiting for an incoming request, so it may not be meaningful)
+- ``server.transport.redis_gateway.receive_context``: A counter with fields ``from`` and ``to`` indicating the origin
+  and destination of it, for usage instrumentation.
 - ``server.transport.redis_gateway.receive.get_redis_connection``: A timer indicating how long it takes the Redis
   Gateway transport to get a connection to the Redis cluster or sentinel
 - ``server.transport.redis_gateway.receive.pop_from_redis_queue``: A timer indicating how long it takes the Redis
