@@ -201,3 +201,10 @@ class TestMsgpackSerializer(object):
     def test_currint(self, value):
         serializer = MsgpackSerializer()
         assert serializer.blob_to_dict(serializer.dict_to_blob({'v': value}))['v'] == value
+
+    def test_invalid_utf8(self):
+        serializer = MsgpackSerializer()
+        input_value =  u'value \ud83d'
+        expected_value = 'value ?'
+
+        assert serializer.blob_to_dict(serializer.dict_to_blob({'v': input_value}))['v'] == expected_value
