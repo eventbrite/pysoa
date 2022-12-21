@@ -94,7 +94,7 @@ class MsgpackSerializer(BaseSerializer):
         if not isinstance(data_dict, dict):
             raise ValueError('Input must be a dict')
         try:
-            return msgpack.packb(data_dict, default=self._default, use_bin_type=True, unicode_errors='replace')
+            return msgpack.packb(data_dict, default=self._default, use_bin_type=True, unicode_errors='surrogatepass')
         except TypeError as e:
             raise InvalidField(
                 "Can't serialize message due to {}: {}".format(str(type(e).__name__), str(e)),

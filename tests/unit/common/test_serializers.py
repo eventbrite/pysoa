@@ -204,7 +204,7 @@ class TestMsgpackSerializer(object):
 
     def test_invalid_utf8(self):
         serializer = MsgpackSerializer()
-        input_value =  u'value \ud83d'
-        expected_value = 'value ?'
+        input_value =  {'v': u'value \ud83d'}
+        expected_bytes = b'\x81\xa1v\xa9value \xed\xa0\xbd'
 
-        assert serializer.blob_to_dict(serializer.dict_to_blob({'v': input_value}))['v'] == expected_value
+        assert serializer.dict_to_blob(input_value) == expected_bytes
