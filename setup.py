@@ -47,7 +47,7 @@ test_plan_requirements = test_helper_requirements + [
     'pyparsing~=2.2',
     'pytest>4.2,<5.4',
     'Faker>15.3.4;python_version>"3.6"'
-    'pytest-asyncio~=0.20.0;python_version>"3.4"',
+    'pytest-asyncio~=0.10.0;python_version>"3.4"',
 ]
 
 mypy_require = [
