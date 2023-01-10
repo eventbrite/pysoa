@@ -58,6 +58,7 @@ mypy_require = [
     'types-setuptools~=57.0.0;python_version>"3.4"',
     'types-mock~=0.1.3;python_version>"3.4"',
     'types-requests~=2.25.6;python_version>"3.4"',
+    'types-pytz;python_version>"3.4"',
 ]
 
 # testing
