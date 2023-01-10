@@ -51,7 +51,7 @@ test_plan_requirements = test_helper_requirements + [
 ]
 
 mypy_require = [
-    'mypy~=0.740,<=0.910;python_version>"3.4"',
+    'mypy~=0.740,<=0.910;python_version>"3.4" and python_version<"3.7"',
     'mypy~=0.991;python_version>="3.7"',
     'types-six~=0.1.7;python_version>"3.4"',
     'types-setuptools~=57.0.0;python_version>"3.4"',
