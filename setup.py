@@ -25,7 +25,7 @@ install_requires = [
     'currint>=1.6,<3',
     'enum34;python_version<"3.4"',
     'msgpack~=0.6,>=0.6.2',
-    'pymetrics~=1.0.6',
+    'pymetrics~=1.0.7',
     'pytz>=2019.1',
     'redis>=2.10,<4.0,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*',  # shortest way to say 2.10+ or 3.4+ but not older versions
     'six~=1.10',
