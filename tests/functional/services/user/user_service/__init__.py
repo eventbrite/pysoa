@@ -1,4 +1,4 @@
-from user_service.version import __version__  # type: ignore
+from user_service.version import __version__
 
 
 __all__ = (

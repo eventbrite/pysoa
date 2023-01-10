@@ -146,7 +146,7 @@ class BaseServerTestCase(object):
         ).server._skip_django_database_cleanup = True
 
     def call_action(self, action, body=None, service_name=None, **kwargs):
-        # type: (six.text_type, Optional[Body], Optional[six.text_type], **Any) -> ActionResponse
+        # type: (six.text_type, Body, Optional[six.text_type], **Any) -> ActionResponse
         """
         A convenience method alternative to calling `self.client.call_action` that allows you to omit the service name.
 
@@ -604,7 +604,7 @@ class PyTestServerTestCase(BaseServerTestCase):
     def assertRaises(
         self,
         exception,  # type: Union[Type[BaseException], Tuple[Type[BaseException], ...]]
-        callable=None,  # type: Optional[Callable]
+        callable=None,  # type: Callable
         *args,  # type: Any
         **kwargs  # type: Any
     ):
@@ -625,7 +625,7 @@ class PyTestServerTestCase(BaseServerTestCase):
         self,
         exception,  # type: Union[Type[BaseException], Tuple[Type[BaseException], ...]]
         regex,  # type: Union[Pattern[AnyStr], AnyStr]
-        callable=None,  # type: Optional[Callable]
+        callable=None,  # type: Callable
         *args,  # type: Any
         **kwargs  # type: Any
     ):
@@ -646,7 +646,7 @@ class PyTestServerTestCase(BaseServerTestCase):
     def assertWarns(
         self,
         exception,  # type: Union[Type[Warning], Tuple[Type[Warning], ...]]
-        callable=None,  # type: Optional[Callable]
+        callable=None,  # type: Callable
         *args,  # type: Any
         **kwargs  # type: Any
     ):
@@ -664,7 +664,7 @@ class PyTestServerTestCase(BaseServerTestCase):
         self,
         exception,  # type: Union[Type[Warning], Tuple[Type[Warning], ...]]
         regex,  # type: Union[Pattern[AnyStr], AnyStr]
-        callable=None,  # type: Optional[Callable]
+        callable=None,  # type: Callable
         *args,  # type: Any
         **kwargs  # type: Any
     ):

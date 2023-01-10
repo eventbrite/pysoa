@@ -106,7 +106,7 @@ class _StubAction(Action):
 def _make_stub_action(
     action_name,  # type: six.text_type
     body=None,  # type: Optional[Body]
-    errors=None,  # type: Optional[Errors]
+    errors=None,  # type: Errors
 ):  # type: (...) -> Type[_StubAction]
     body = body or {}
     errors = errors or []
@@ -424,7 +424,7 @@ class stub_action(object):
         action,  # type: six.text_type
         body=None,  # type: Optional[Body]
         errors=None,  # type: Optional[Errors]
-        side_effect=None,  # type: Optional[_StubActionSideEffect]
+        side_effect=None,  # type: _StubActionSideEffect
         register_response_schema_contract=True,  # type: bool
         register_request_schema_contract=True,  # type: bool
     ):  # type: (...) -> None

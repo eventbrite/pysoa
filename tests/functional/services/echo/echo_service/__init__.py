@@ -1,4 +1,4 @@
-from echo_service.version import __version__  # type: ignore
+from echo_service.version import __version__
 
 
 __all__ = (

@@ -750,7 +750,7 @@ class ServicePlanTestCase(PyTestServerTestCase):
 
     class _WrapperContextManager(object):
         def __init__(self, stub_action_context=None, mock_action_side_effect=None):
-            # type: (Optional[stub_action], Any) -> None
+            # type: (stub_action, Any) -> None
             self._stub_action_context = stub_action_context
             self._mock_action_side_effect = mock_action_side_effect
 

@@ -115,8 +115,8 @@ class ServiceHandler(object):
                 [m.request for m in self._middleware],
                 self._base_send_request,
             )
-            self._middleware_get_response_wrapper = self._make_middleware_stack(  # type: ignore
-                [m.response for m in self._middleware],  # type: ignore
+            self._middleware_get_response_wrapper = self._make_middleware_stack(
+                [m.response for m in self._middleware],
                 self._base_get_response,
             )
 
@@ -171,7 +171,7 @@ class ServiceHandler(object):
             self.metrics.publish_all()
 
     def _base_get_response(self, receive_timeout_in_seconds=None):
-        # type: (Optional[int]) -> Tuple[Optional[int], Optional[JobResponse]]
+        # type: (int) -> Tuple[Optional[int], Optional[JobResponse]]
         with self.metrics.timer('client.receive.excluding_middleware', resolution=TimerResolution.MICROSECONDS):
             request_id, meta, message = self.transport.receive_response_message(receive_timeout_in_seconds)
             if message is None:
@@ -290,7 +290,7 @@ class FutureSOAResponse(Generic[_FR]):
             self._raise = self.DelayedException(t, e, tb)
             raise
 
-    def exception(self, timeout=None):  # type: (Optional[int]) -> Optional[BaseException]
+    def exception(self, timeout=None):  # type: (int) -> Optional[BaseException]
         """
         Obtain the exception raised by the call, blocking if necessary, per the rules specified in the
         documentation for :meth:`result`. If the call completed without raising an exception, `None` is returned.
@@ -406,8 +406,8 @@ class Client(object):
         self,
         service_name,  # type: six.text_type
         action,  # type: six.text_type
-        body=None,  # type: Optional[Body]
-        expansions=None,  # type: Optional[Expansions]
+        body=None,  # type: Body
+        expansions=None,  # type: Expansions
         raise_job_errors=True,  # type: bool
         raise_action_errors=True,  # type: bool
         timeout=None,  # type: Optional[int]
@@ -465,7 +465,7 @@ class Client(object):
         self,
         service_name,  # type: six.text_type
         actions,  # type: ActionRequestArgumentList
-        expansions=None,  # type: Optional[Expansions]
+        expansions=None,  # type: Expansions
         raise_job_errors=True,  # type: bool
         raise_action_errors=True,  # type: bool
         timeout=None,  # type: Optional[int]
@@ -526,7 +526,7 @@ class Client(object):
         self,
         service_name,  # type: six.text_type
         actions,  # type: ActionRequestArgumentIterable
-        expansions=None,  # type: Optional[Expansions]
+        expansions=None,  # type: Expansions
         raise_job_errors=True,  # type: bool
         raise_action_errors=True,  # type: bool
         catch_transport_errors=False,  # type: bool
@@ -593,7 +593,7 @@ class Client(object):
     def call_jobs_parallel(
         self,
         jobs,  # type: Iterable[JobRequestArgument]
-        expansions=None,  # type: Optional[Expansions]
+        expansions=None,  # type: Expansions
         raise_job_errors=True,  # type: bool
         raise_action_errors=True,  # type: bool
         catch_transport_errors=False,  # type: bool
@@ -667,7 +667,7 @@ class Client(object):
         service_name,  # type: six.text_type
         action,  # type: six.text_type
         body=None,  # type: Optional[Body]
-        expansions=None,  # type: Optional[Expansions]
+        expansions=None,  # type: Expansions
         raise_job_errors=True,  # type: bool
         raise_action_errors=True,  # type: bool
         timeout=None,  # type: Optional[int]
@@ -719,7 +719,7 @@ class Client(object):
         self,
         service_name,  # type: six.text_type
         actions,  # type: ActionRequestArgumentList
-        expansions=None,  # type: Optional[Expansions]
+        expansions=None,  # type: Expansions
         raise_job_errors=True,  # type: bool
         raise_action_errors=True,  # type: bool
         timeout=None,  # type: Optional[int]
@@ -802,7 +802,7 @@ class Client(object):
         self,
         service_name,  # type: six.text_type
         actions,  # type: ActionRequestArgumentIterable
-        expansions=None,  # type: Optional[Expansions]
+        expansions=None,  # type: Expansions
         raise_job_errors=True,  # type: bool
         raise_action_errors=True,  # type: bool
         catch_transport_errors=False,  # type: bool
@@ -864,7 +864,7 @@ class Client(object):
     def call_jobs_parallel_future(
         self,
         jobs,  # type: Iterable[JobRequestArgument]
-        expansions=None,  # type: Optional[Expansions]
+        expansions=None,  # type: Expansions
         raise_job_errors=True,  # type: bool
         raise_action_errors=True,  # type: bool
         catch_transport_errors=False,  # type: bool

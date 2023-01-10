@@ -194,7 +194,7 @@ class Server(object):
         )  # type: ServerTransport
 
         self._async_event_loop_thread = None  # type: Optional[AsyncEventLoopThread]
-        if AsyncEventLoopThread:  # type: ignore
+        if AsyncEventLoopThread:
             self._async_event_loop_thread = AsyncEventLoopThread([
                 m['object'](**m.get('kwargs', {}))
                 for m in self.settings['coroutine_middleware']
@@ -885,9 +885,9 @@ class Server(object):
 
         self._create_heartbeat_file()
 
-        signal.signal(signal.SIGINT, self.handle_shutdown_signal)  # type: ignore
-        signal.signal(signal.SIGTERM, self.handle_shutdown_signal)  # type: ignore
-        signal.signal(signal.SIGALRM, self.harakiri)  # type: ignore
+        signal.signal(signal.SIGINT, self.handle_shutdown_signal)
+        signal.signal(signal.SIGTERM, self.handle_shutdown_signal)
+        signal.signal(signal.SIGALRM, self.harakiri)
 
         transient_failures = 0
 

@@ -4,7 +4,7 @@ from pysoa.server.standalone import django_main
 
 def main():
     def gs():
-        from user_service.server import Server  # type: ignore
+        from user_service.server import Server
         return Server
     django_main(gs)
 
