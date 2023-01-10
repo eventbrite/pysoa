@@ -28,7 +28,7 @@ class StandardRedisClient(BaseRedisClient):
     def __init__(
         self,
         hosts=None,  # type: Optional[Iterable[Union[six.text_type, Tuple[six.text_type, int]]]]
-        connection_kwargs=None,  # type: Dict[six.text_type, Any]
+        connection_kwargs=None,  # type: Optional[Dict[six.text_type, Any]]
     ):
         # type: (...) -> None
         connection_kwargs = dict(connection_kwargs) if connection_kwargs else {}

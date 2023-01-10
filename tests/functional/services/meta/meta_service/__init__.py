@@ -1,4 +1,4 @@
-from meta_service.version import __version__
+from meta_service.version import __version__  # type: ignore
 
 
 __all__ = (

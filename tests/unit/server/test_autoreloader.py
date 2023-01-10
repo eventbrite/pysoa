@@ -196,7 +196,7 @@ class TestAbstractReloader(unittest.TestCase):
 
         self.assertEqual(
             {
-                test_amount.__file__.replace('.pyc', '.py'),
+                test_amount.__file__.replace('.pyc', '.py'),  # type: ignore
             },
             set(reloader.get_watch_file_names(only_new=True))
         )
