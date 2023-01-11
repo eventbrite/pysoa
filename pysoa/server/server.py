@@ -194,7 +194,7 @@ class Server(object):
         )  # type: ServerTransport
 
         self._async_event_loop_thread = None  # type: Optional[AsyncEventLoopThread]
-        if AsyncEventLoopThread: # type: ignore
+        if AsyncEventLoopThread:  # type: ignore
             self._async_event_loop_thread = AsyncEventLoopThread([
                 m['object'](**m.get('kwargs', {}))
                 for m in self.settings['coroutine_middleware']
