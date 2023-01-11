@@ -21,16 +21,17 @@ def readme():
 
 install_requires = [
     'attrs>=18.2,<22',
-    'conformity~=1.26',
+    'conformity~=1.28',
     'currint>=1.6,<3',
     'enum34;python_version<"3.4"',
     'msgpack~=0.6,>=0.6.2',
-    'pymetrics~=1.0',
+    'pymetrics~=1.0.7',
     'pytz>=2019.1',
     'redis>=2.10,<4.0,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*',  # shortest way to say 2.10+ or 3.4+ but not older versions
     'six~=1.10',
     'typing~=3.7.4;python_version<"3.5"',
-    'typing-extensions~=3.7.4;python_version<"3.8"',
+    'typing-extensions~=3.7.4;python_version<"3.7"',
+    'typing-extensions~=3.10;python_version>="3.7"',
 
     # For context, see the comment in pysoa.common.compatibility. Due to the peculiarities of the patching detailed
     # there, we pin these dependencies to hard versions, or else things might break when they update. When new versions
@@ -47,14 +48,18 @@ test_plan_requirements = test_helper_requirements + [
     'pyparsing~=2.2',
     'pytest>4.2,<5.4',
     'pytest-asyncio~=0.10.0;python_version>"3.4"',
+    'Faker~=5.0.0;python_version>"3.4"'
 ]
 
 mypy_require = [
-    'mypy~=0.740,<=0.910;python_version>"3.4"',
+    'mypy~=0.740,<=0.910;python_version>"3.4" and python_version<"3.7"',
+    'mypy~=0.991;python_version>="3.7"',
     'types-six~=0.1.7;python_version>"3.4"',
     'types-setuptools~=57.0.0;python_version>"3.4"',
     'types-mock~=0.1.3;python_version>"3.4"',
     'types-requests~=2.25.6;python_version>"3.4"',
+    'types-pytz;python_version>"3.6"',
+    'types-redis;python_version>"3.6"',
 ]
 
 # testing
