@@ -30,8 +30,6 @@ install_requires = [
     'redis>=2.10,<4.0,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*',  # shortest way to say 2.10+ or 3.4+ but not older versions
     'six~=1.10',
     'typing~=3.7.4;python_version<"3.5"',
-    'typing-extensions~=3.7.4;python_version<"3.7"',
-    'typing-extensions~=3.10;python_version>="3.7"',
 
     # For context, see the comment in pysoa.common.compatibility. Due to the peculiarities of the patching detailed
     # there, we pin these dependencies to hard versions, or else things might break when they update. When new versions
@@ -60,6 +58,8 @@ mypy_require = [
     'types-requests~=2.25.6;python_version>"3.4"',
     'types-pytz;python_version>"3.6"',
     'types-redis;python_version>"3.6"',
+    'typing-extensions~=3.7.4;python_version<"3.7"',
+    'typing-extensions~=3.10;python_version>="3.7"',
 ]
 
 # testing
