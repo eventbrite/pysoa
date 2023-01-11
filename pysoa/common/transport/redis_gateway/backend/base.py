@@ -38,7 +38,7 @@ class LuaRedisCommand(object):
 
         :param redis_connection: The connection for registering this script
         """
-        self._redis_script = redis_connection.register_script(self._script.strip())  # type: redis.client.Script
+        self._redis_script = redis_connection.register_script(self._script.strip())  # type: ignore
 
     def _call(self, keys, args, connection):  # type: (List[six.text_type], List[Any], redis.StrictRedis) -> Any
         return self._redis_script(keys=keys, args=args, client=connection)
