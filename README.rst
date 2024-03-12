@@ -1,5 +1,5 @@
-PySOA - Fast Python (micro)Services
-===================================
+PySOA (Deprecated)
+==================
 
 .. image:: https://readthedocs.org/projects/pysoa/badge/
     :target: https://pysoa.readthedocs.io
@@ -23,17 +23,8 @@ PySOA - Fast Python (micro)Services
     :target: https://pypi.python.org/pypi/pysoa
 
 
-**PySOA** is a general-purpose library for writing fast Python (micro)services and their clients, based on an RPC
-(remote procedure call) calling style. It provides both a client and a server, which can be used directly by themselves
-or, as we do, extended with extra functionality (our authentication, database routing, and other code is written as
-private middleware and runs on top of this library).
+**PySOA is deprecated, and is not a recommended solution. Please use another RPC protocol.**
 
-PySOA uses the concept of pluggable "transports" to define a layer for sending requests and responses (messages)
-between clients and servers. The default, production-ready included transport is a `Redis <https://redis.io/>`_ pub-sub
-layer, which we use in combination with Redis Sentinel in clusters. A single Redis cluster is capable of handling tens
-of thousands of PySOA messages per second with extremely efficient and desirable load-balancing properties. There is
-also a local transport implementation primarily used for testing and demonstration but capable of being used in
-production where appropriate.
 
 
 Basic Tenets
