@@ -65,9 +65,14 @@ class SimpleLoopThread(threading.Thread):
             self.loop.run_forever()
         finally:
             try:
-                self.loop.run_until_complete(asyncio.gather(
-                    *(getattr(asyncio, 'all_tasks', None) or getattr(asyncio.Task, 'all_tasks'))(self.loop)
-                ))
+                # Handle Python 3.12+ which requires passing loop to all_tasks
+                if sys.version_info >= (3, 12) and hasattr(asyncio, 'all_tasks'):
+                    pending_tasks = asyncio.all_tasks(self.loop)
+                elif hasattr(asyncio, 'all_tasks'):
+                    pending_tasks = asyncio.all_tasks()
+                else:
+                    pending_tasks = asyncio.Task.all_tasks(self.loop)
+                self.loop.run_until_complete(asyncio.gather(*pending_tasks))
             finally:
                 self.loop.close()
                 # noinspection PyTypeChecker

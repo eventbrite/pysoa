@@ -54,6 +54,12 @@ matrix:
     #   script:
     #     - tox -e py38,py38-currint16,coverage,py38-mypy
     #   dist: xenial
+    - stage: build
+      name: "Unit Tests: Python 3.12 with Attrs 21; PyTest 7.4"
+      python: "3.12"
+      script:
+        - tox -e py312-attrs21,py312-pytest74,py312-flake8,coverage,py312-mypy
+      dist: jammy
     - stage: deploy
       python: "3.7"
       script: skip

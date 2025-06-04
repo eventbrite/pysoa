@@ -14,3 +14,5 @@ collect_ignore = []  # type: List[six.text_type]
 if sys.version_info < (3, 5):
     collect_ignore.append('tests/unit/server/internal/test_event_loop.py')
     collect_ignore.append('tests/unit/common/test_compatibility_async.py')
+    
+# Python 3.12 specific test adjustments can be added here if needed in the future

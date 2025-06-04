@@ -33,7 +33,7 @@ def set_running_loop(loop):  # noqa
     pass
 
 
-if (3, 4) < sys.version_info < (3, 7):  # pragma: no cover
+if (3, 4) < sys.version_info < (3, 7) and sys.version_info < (3, 12):  # pragma: no cover
     # Some context is necessary here. ContextVars were added in Python 3.7, but we need them in Python 3.5+. The
     # contextvars PyPi library is an API-compatible backport, but it has two drawbacks: It uses thread locals under the
     # hood (not safe in asyncio contexts) and it doesn't copy the context when a new task is created (like Python 3.7
@@ -129,7 +129,8 @@ class ContextVar(Generic[VT]):
         self._has_default = default is not _NO_DEFAULT
         self._default = default
 
-        self._cv_variable = None  # type: Optional[contextvars.ContextVar[VT]]
+        # Using Any instead of contextvars.ContextVar[VT] for Python 3.12 compatibility
+        self._cv_variable = None  # type: Optional[Any]  # noqa: F821
         self._tl_variable = None  # type: Optional[threading.local]
         if contextvars:
             if self._has_default:
@@ -198,8 +199,8 @@ class Token(object):
 
 
 class _ContextVarToken(Token):
-    def __init__(self, context_var, token):  # type: (ContextVar, contextvars.Token) -> None
-        super(_ContextVarToken, self).__init__(context_var)
+    def __init__(self, context_var, token):  # type: (ContextVar, Any) -> None
+        super(_ContextVarToken, self).__init__(context_var)  # type: ignore
         self.token = token
 
 

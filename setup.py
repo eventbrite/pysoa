@@ -20,15 +20,15 @@ def readme():
 
 
 install_requires = [
-    'attrs>=18.2,<22',
+    'attrs>=18.2,<24',  # Updated attrs version cap
     'conformity~=1.28',
     'currint>=1.6,<3',
     'enum34;python_version<"3.4"',
-    'msgpack~=0.6,>=0.6.2',
+    'msgpack>=0.6.2',  # Removed upper bound constraint for Python 3.12 compatibility
     'pymetrics~=1.0.7',
     'pytz>=2019.1',
-    'redis>=2.10,<4.0,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*',  # shortest way to say 2.10+ or 3.4+ but not older versions
-    'six~=1.10',
+    'redis>=2.10,<5.0',  # Updated Redis version cap for newer Python compatibility
+    'six>=1.10.0',  # Removed upper bound for compatibility with Python 3.12
     'typing~=3.7.4;python_version<"3.5"',
 
     # For context, see the comment in pysoa.common.compatibility. Due to the peculiarities of the patching detailed
@@ -43,15 +43,21 @@ test_helper_requirements = [
 ]
 
 test_plan_requirements = test_helper_requirements + [
-    'pyparsing~=2.2',
-    'pytest>4.2,<5.4',
-    'pytest-asyncio~=0.10.0;python_version>"3.4"',
-    'Faker~=5.0.0;python_version>"3.4"'
+    'pyparsing>=2.2.0',
+    'pytest>=4.2;python_version<"3.9"',
+    'pytest>=7.0.0;python_version>="3.9" and python_version<"3.12"',  # Use newer pytest for Python 3.9+
+    'pytest>=7.4.0;python_version>="3.12"',  # Use newest pytest for Python 3.12+
+    'pytest-asyncio>=0.10.0;python_version>"3.4" and python_version<"3.9"',
+    'pytest-asyncio>=0.20.0;python_version>="3.9" and python_version<"3.12"',  # Use newer pytest-asyncio for Python 3.9+
+    'pytest-asyncio>=0.21.0;python_version>="3.12"',  # Use newest pytest-asyncio for Python 3.12+
+    'Faker>=5.0.0;python_version>"3.4"'
 ]
 
 mypy_require = [
     'mypy~=0.740,<=0.910;python_version>"3.4" and python_version<"3.7"',
-    'mypy~=0.991;python_version>="3.7"',
+    'mypy~=0.991;python_version>="3.7" and python_version<"3.11"',
+    'mypy~=1.4.0;python_version>="3.11" and python_version<"3.12"',
+    'mypy~=1.6.0;python_version>="3.12"',
     'types-six~=0.1.7;python_version>"3.4"',
     'types-setuptools~=57.0.0;python_version>"3.4"',
     'types-mock~=0.1.3;python_version>"3.4"',
@@ -59,7 +65,8 @@ mypy_require = [
     'types-pytz;python_version>"3.6"',
     'types-redis;python_version>"3.6"',
     'typing-extensions~=3.7.4;python_version<"3.7"',
-    'typing-extensions~=3.10;python_version>="3.7"',
+    'typing-extensions~=4.6.0;python_version>="3.7" and python_version<"3.12"',
+    'typing-extensions~=4.8.0;python_version>="3.12"',
 ]
 
 # testing
@@ -95,7 +102,9 @@ setup(
         'docs': [
             'conformity[docs]~=1.26,>=1.26.4',
             'django~=1.11',
-            'sphinx~=2.2;python_version>="3.6"',
+            'sphinx~=2.2;python_version>="3.6" and python_version<"3.10"',
+    'sphinx~=4.0;python_version>="3.10" and python_version<="3.12"',
+    'sphinx~=7.0;python_version>"3.12"',
         ] + test_plan_requirements,
         'testing': tests_require,
         'test_helpers': test_helper_requirements,
@@ -121,6 +130,10 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',  # Full support for Python 3.12
         'Topic :: Software Development',
     ],
     project_urls={

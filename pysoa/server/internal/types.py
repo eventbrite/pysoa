@@ -15,19 +15,23 @@ from typing import (
 
 
 try:
-    from typing import Protocol
-    try:
-        # Py3.8, Py2.7 backport
-        from typing import runtime_checkable
-    except ImportError:
-        # Some Py3.7
-        from typing import runtime as runtime_checkable  # type: ignore
+    # Python 3.8+ and Python 3.12+
+    from typing import Protocol, runtime_checkable
 except ImportError:
-    # Some Py3.7, all Py3<3.7
-    from typing_extensions import (  # type: ignore
-        Protocol,
-        runtime_checkable,
-    )
+    try:
+        from typing import Protocol
+        try:
+            # Py3.8, Py2.7 backport
+            from typing import runtime_checkable
+        except ImportError:
+            # Some Py3.7
+            from typing import runtime as runtime_checkable  # type: ignore
+    except ImportError:
+        # Some Py3.7, all Py3<3.7
+        from typing_extensions import (  # type: ignore
+            Protocol,
+            runtime_checkable,
+        )
 
 
 __all__ = (

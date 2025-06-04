@@ -23,13 +23,20 @@ from pysoa.server.coroutine import (
 __all__ = (
     'AsyncEventLoopThread',
     'coroutine_middleware_config',
+    'get_all_tasks',
 )
 
 
-if sys.version_info >= (3, 7):
-    all_tasks = asyncio.all_tasks
-else:
-    all_tasks = asyncio.Task.all_tasks
+# In Python 3.12+, all_tasks requires a loop argument
+# In Python 3.7-3.11, all_tasks is directly in asyncio module
+# In Python < 3.7, all_tasks is in asyncio.Task
+def get_all_tasks(loop=None):
+    if sys.version_info >= (3, 12):
+        return asyncio.all_tasks(loop)
+    elif sys.version_info >= (3, 7):
+        return asyncio.all_tasks()
+    else:
+        return asyncio.Task.all_tasks(loop)
 
 
 class AsyncEventLoopThread(threading.Thread):
@@ -55,7 +62,8 @@ class AsyncEventLoopThread(threading.Thread):
             self.loop.run_forever()
         finally:
             try:
-                pending_tasks = all_tasks(self.loop)
+                pending_tasks = get_all_tasks(self.loop)
+                
                 if pending_tasks:
                     self._logger.info('Completing uncompleted async tasks')
                 self.loop.run_until_complete(asyncio.gather(*pending_tasks))

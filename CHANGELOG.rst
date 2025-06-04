@@ -1,6 +1,14 @@
 Changelog
 =========
 
+1.5.0 (2023-06-04)
+-----------------
+- Add full Python 3.12 compatibility
+- Update asyncio.all_tasks usage for Python 3.12 compatibility
+- Update typing annotations for Python 3.12
+- Update test infrastructure for Python 3.12
+- Update dependency pins for Python 3.12 support
+
 1.4.4 (2022-08-29)
 ------------------
 - Make PySOA compatible with newer versions of attrs (#272)
