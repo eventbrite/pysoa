@@ -16,12 +16,12 @@ matrix:
     - stage: build
       name: "Functional Tests"
       language: shell
-      dist: xenial
+      dist: jammy
       addons:
         apt:
           # Upgrade Docker to the latest (see https://docs.travis-ci.com/user/docker/)
           sources:
-            - docker-xenial
+            - docker-jammy
           packages:
             - docker-ce
       services:
@@ -32,30 +32,32 @@ matrix:
       script:
         - ./functional.sh verbose
     - stage: build
-      name: "Unit Tests: Python 2.7 with Attrs 18 to 21"
-      python: "2.7"
+      name: "Unit Tests: Python 3.8 with Attrs 18 to 22"
+      python: "3.8"
       script:
-        - tox -e py27-attrs18,py27-attrs19,py27-attrs20,py27-attrs21,py27-flake8,py27-coverage
+        - tox -e py38-attrs18,py38-attrs19,py38-attrs20,py38-attrs21,py38-attrs22,py38-flake8,py38-mypy
     - stage: build
-      name: "Unit Tests: Python 3.5 with and without PyInotify; Pytest 5.1 and 5.3"
-      python: "3.5"
+      name: "Unit Tests: Python 3.9 with Pytest 5.1 and 8.0"
+      python: "3.9"
       script:
-        - tox -e py35,py35-pyinotify,py35-pytest51,py35-pytest53,coverage
+        - tox -e py39-pytest51,py39-pytest80,py39-flake8,py39-mypy
     - stage: build
-      name: "Unit Tests: Python 3.7 with Attrs 18 to 21; PyTest 4.6 and 5.3"
-      python: "3.7"
+      name: "Unit Tests: Python 3.10 with Currint 1.6 and 2.0"
+      python: "3.10"
       script:
-        - tox -e py37-attrs18,py37-attrs19,py37-attrs20,py37-attrs21,py37-pytest46,py37-flake8,coverage,py37-mypy
-      dist: xenial
-    # Lunatic-python-universal seems incompatible with Python 3.8
-    # - stage: build
-    #   name: "Unit Tests: Python 3.8 with Currint 1.6 and 2.0"
-    #   python: "3.8"
-    #   script:
-    #     - tox -e py38,py38-currint16,coverage,py38-mypy
-    #   dist: xenial
+        - tox -e py310-currint16,py310-currint20,py310-flake8,py310-mypy
+    - stage: build
+      name: "Unit Tests: Python 3.11"
+      python: "3.11"
+      script:
+        - tox -e py311-flake8,py311-mypy
+    - stage: build
+      name: "Unit Tests: Python 3.12"
+      python: "3.12"
+      script:
+        - tox -e py312-flake8,py312-mypy
     - stage: deploy
-      python: "3.7"
+      python: "3.12"
       script: skip
       install:
         - pip install -U pip setuptools pyopenssl

@@ -3,24 +3,8 @@
 if [[ "$1" != "--no-flake" ]] && [[ "$2" != "--no-flake" ]]
 then
     echo "Running Flake8..."
-    if python -c 'import sys; exit(0 if sys.version_info > (3, ) else 1)'
-    then
-        if which flake8-python3 > /dev/null
-        then
-            flake8-python3
-            RET=$?
-        elif which flake8-3 > /dev/null
-        then
-            flake8-3
-            RET=$?
-        else
-            flake8
-            RET=$?
-        fi
-    else
-        flake8
-        RET=$?
-    fi
+    flake8
+    RET=$?
 else
     RET=0
 fi
@@ -58,16 +42,12 @@ done
 
 if [[ "$1" != "--no-mypy" ]] && [[ "$2" != "--no-mypy" ]]
 then
-    py_ver=$(python --version 2>&1 | cut -f 2 -d ' ' | cut -f 1 -d '.')
-    if [[ "$py_ver" != "2" ]]
+    echo "Running MyPy..."
+    mypy .
+    ret_sub=$?
+    if [[ $ret_sub -gt 0 ]] && [[ $RET -eq 0 ]]
     then
-        echo "Running MyPy..."
-        mypy .
-        ret_sub=$?
-        if [[ $ret_sub -gt 0 ]] && [[ $RET -eq 0 ]]
-        then
-            RET=$ret_sub
-        fi
+        RET=$ret_sub
     fi
 fi
 

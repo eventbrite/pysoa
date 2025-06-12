@@ -20,53 +20,41 @@ def readme():
 
 
 install_requires = [
-    'attrs>=18.2,<22',
+    'attrs>=18.2,<23',
     'conformity~=1.28',
     'currint>=1.6,<3',
-    'enum34;python_version<"3.4"',
     'msgpack~=0.6,>=0.6.2',
     'pymetrics~=1.0.7',
     'pytz>=2019.1',
     'redis>=2.10,<4.0,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*',  # shortest way to say 2.10+ or 3.4+ but not older versions
     'six~=1.10',
-    'typing~=3.7.4;python_version<"3.5"',
-
-    # For context, see the comment in pysoa.common.compatibility. Due to the peculiarities of the patching detailed
-    # there, we pin these dependencies to hard versions, or else things might break when they update. When new versions
-    # come out, we'll bump and adjust our patching or, hopefully, relax and remove our patching.
-    'contextvars==2.4;python_version>"3.4" and python_version<"3.7"',
-    'aiocontextvars==0.2.2;python_version>"3.4" and python_version<"3.7"',
 ]
 
-test_helper_requirements = [
-    'mock>=2.0;python_version<"3.3"',
-]
+test_helper_requirements = []
 
 test_plan_requirements = test_helper_requirements + [
     'pyparsing~=2.2',
-    'pytest>4.2,<5.4',
-    'pytest-asyncio~=0.10.0;python_version>"3.4"',
-    'Faker~=5.0.0;python_version>"3.4"'
+    'pytest>4.2,<8.0',
+    'pytest-asyncio~=0.23.0',
+    'Faker~=20.0.0'
 ]
 
 mypy_require = [
-    'mypy~=0.740,<=0.910;python_version>"3.4" and python_version<"3.7"',
-    'mypy~=0.991;python_version>="3.7"',
-    'types-six~=0.1.7;python_version>"3.4"',
-    'types-setuptools~=57.0.0;python_version>"3.4"',
-    'types-mock~=0.1.3;python_version>"3.4"',
-    'types-requests~=2.25.6;python_version>"3.4"',
-    'types-pytz;python_version>"3.6"',
-    'types-redis;python_version>"3.6"',
-    'typing-extensions~=3.7.4;python_version<"3.7"',
-    'typing-extensions~=3.10;python_version>="3.7"',
+    'mypy~=1.8.0',
+    'types-six~=0.1.7',
+    'types-setuptools~=57.0.0',
+    'types-mock~=0.1.3',
+    'types-requests~=2.25.6',
+    'types-pytz',
+    'types-redis',
+    'typing-extensions~=4.9.0',
 ]
 
 # testing
 tests_require = [
-    'coverage~=4.5',
-    'factory_boy~=2.11.1',
-    'freezegun~=0.3',
+    'coverage~=7.4.0',
+    'factory_boy~=3.3.0',
+    'freezegun~=1.4.0',
     'lunatic-python-universal~=2.1',
     'mockredispy~=2.9',
     'parameterized~=0.7',
@@ -95,7 +83,7 @@ setup(
         'docs': [
             'conformity[docs]~=1.26,>=1.26.4',
             'django~=1.11',
-            'sphinx~=2.2;python_version>="3.6"',
+            'sphinx~=7.0.0',
         ] + test_plan_requirements,
         'testing': tests_require,
         'test_helpers': test_helper_requirements,
@@ -114,13 +102,12 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
         'Topic :: Software Development',
     ],
     project_urls={
