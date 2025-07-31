@@ -43,7 +43,7 @@ class TestProcessNextRequests(TestCase):
         """
         Test that server can handle an emtpy job missing top level elements without throwing exceptions
         """
-        settings = factories.ServerSettingsFactory()
+        settings = factories.ServerSettingsFactory.build()
         server = HandleNextRequestServer(settings=settings)
         server.transport = SimplePassthroughServerTransport(server.service_name)
 

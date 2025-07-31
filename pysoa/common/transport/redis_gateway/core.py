@@ -31,7 +31,7 @@ from pymetrics.instruments import (
     TimerResolution,
 )
 from pymetrics.recorders.base import MetricsRecorder
-from pymetrics.recorders.noop import noop_metrics
+from pysoa.common.transport.base import noop_metrics
 import redis
 import six
 
@@ -511,8 +511,8 @@ class RedisTransportCore(object):
         return ReceivedMessage(request_id, message.get('meta', {}), message.get('body'))
 
     @staticmethod
-    def _is_message_expired(message):  # type: (Dict[six.text_type, Any]) -> bool
-        return message.get('meta', {}).get('__expiry__') and message['meta']['__expiry__'] < time.time()
+    def _is_message_expired(message: dict[str, Any]) -> bool:
+        return bool(message.get('meta', {}).get('__expiry__')) and message['meta']['__expiry__'] < time.time()
 
     @abc.abstractmethod
     def _get_metric_name(self, name):  # type: (six.text_type) -> six.text_type

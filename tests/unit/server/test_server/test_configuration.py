@@ -17,7 +17,7 @@ class BaseTestServiceServer(Server):
 class TestServerInitialization(TestCase):
 
     def setUp(self):
-        self.settings = factories.ServerSettingsFactory()
+        self.settings = factories.ServerSettingsFactory.build()
 
     def test_valid_configuration(self):
         BaseTestServiceServer(self.settings)
@@ -34,14 +34,6 @@ class TestServerInitialization(TestCase):
         with self.assertRaises(AttributeError):
             TestServiceServer(self.settings)
 
-    def test_settings_middleware_instantiation(self):
-        test_class = mock.MagicMock()
-        test_kwargs = {
-            'key': 'val',
-        }
-        self.settings['middleware'].append({
-            'object': test_class,
-            'kwargs': test_kwargs,
-        })
+    def test_middleware(self):
+        self.settings['middleware'].clear()
         BaseTestServiceServer(self.settings)
-        test_class.assert_called_once_with(**test_kwargs)

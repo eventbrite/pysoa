@@ -6,7 +6,7 @@ from __future__ import (
 import random
 import unittest
 
-from pymetrics.recorders.noop import noop_metrics
+from pysoa.common.transport.base import noop_metrics
 
 from pysoa.common.transport.errors import InvalidMessageError
 from pysoa.common.transport.redis_gateway.server import RedisServerTransport

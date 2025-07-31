@@ -7,6 +7,7 @@ import sys
 from typing import List
 
 import six
+import pytest
 
 
 # Skip event loop tests for Python versions less than 3.5

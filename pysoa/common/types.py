@@ -12,6 +12,7 @@ from typing import (
     Optional,
     TypeVar,
     Union,
+    cast,
 )
 
 import attr
@@ -47,7 +48,10 @@ class UnicodeKeysDict(dict):
         super(UnicodeKeysDict, self).__setitem__(six.text_type(key), value)
 
     def setdefault(self, key, default=None):  # type: (six.text_type, Optional[_VT]) -> _VT
-        return super(UnicodeKeysDict, self).setdefault(six.text_type(key), default)
+        result = super(UnicodeKeysDict, self).setdefault(six.text_type(key), default)
+        if result is None:
+            raise ValueError('setdefault returned None, which is not allowed')
+        return cast(_VT, result)
 
 
 Body = Dict[six.text_type, Any]

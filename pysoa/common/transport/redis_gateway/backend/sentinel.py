@@ -57,10 +57,10 @@ class SentinelRedisClient(BaseRedisClient):
     def __init__(
         self,
         hosts=None,  # type: Optional[Iterable[Union[six.text_type, Tuple[six.text_type, int]]]]
-        connection_kwargs=None,  # type: Dict[six.text_type, Any]
-        sentinel_services=None,  # type: Iterable[six.text_type]
+        connection_kwargs: Optional[Dict[six.text_type, Any]] = None,
+        sentinel_services: Optional[Iterable[six.text_type]] = None,
         sentinel_failover_retries=0,  # type: int
-        sentinel_kwargs=None,  # type: Dict[six.text_type, Any]
+        sentinel_kwargs: Optional[Dict[six.text_type, Any]] = None,
     ):
         # type: (...) -> None
         # Master client caching

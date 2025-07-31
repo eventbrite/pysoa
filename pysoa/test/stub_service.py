@@ -30,7 +30,7 @@ from typing import (
 from conformity import fields
 from conformity.settings import SettingsData
 from pymetrics.recorders.base import MetricsRecorder
-from pymetrics.recorders.noop import noop_metrics
+from pysoa.common.transport.base import noop_metrics
 import six
 
 from pysoa.client.client import (
@@ -80,7 +80,7 @@ __all__ = (
 )
 
 
-Errors = Union[Iterable[Mapping[six.text_type, Any]], Iterable[Error]]
+Errors = Union[Iterable[Mapping[str, Any]], Iterable[Error]]
 
 
 class _StubAction(Action):
@@ -104,10 +104,10 @@ class _StubAction(Action):
 
 
 def _make_stub_action(
-    action_name,  # type: six.text_type
-    body=None,  # type: Optional[Body]
-    errors=None,  # type: Errors
-):  # type: (...) -> Type[_StubAction]
+    action_name: str,
+    body: Optional[Body] = None,
+    errors: Optional[Errors] = None,
+) -> Type[_StubAction]:
     body = body or {}
     errors = errors or []
     action_class_name = ''.join([part.capitalize() for part in re.split(r'[^a-zA-Z0-9]+', action_name)])
@@ -138,7 +138,7 @@ class StubClient(Client):
     settings_class = StubClientSettings
 
     def __init__(self, service_action_map=None, **_):
-        # type: (Optional[Mapping[six.text_type, Mapping[six.text_type, Mapping[six.text_type, Any]]]], **Any) -> None
+        # type: (Optional[Mapping[str, Mapping[str, Mapping[str, Any]]]], **Any) -> None
         """
         Generate settings based on a mapping of service names to actions.
 
@@ -157,7 +157,7 @@ class StubClient(Client):
         super(StubClient, self).__init__(config)
 
     def stub_action(self, service_name, action, body=None, errors=None):
-        # type: (six.text_type, six.text_type, Optional[Body], Optional[Errors]) -> None
+        # type: (str, str, Optional[Body], Optional[Errors]) -> None
         """
         Stub the given action for the given service, configuring a handler and transport for that service if necessary.
 
@@ -218,9 +218,9 @@ class StubClientTransport(LocalClientTransport):
 
     def __init__(
         self,
-        service_name='test',  # type: six.text_type
+        service_name='test',  # type: str
         metrics=None,  # type: Optional[MetricsRecorder]
-        action_map=None,  # type: Optional[Mapping[six.text_type, Mapping[six.text_type, Any]]]
+        action_map=None,  # type: Optional[Mapping[str, Mapping[str, Any]]]
     ):
         # type: (...) -> None
         """
@@ -247,7 +247,7 @@ class StubClientTransport(LocalClientTransport):
         super(StubClientTransport, self).__init__(service_name, metrics or noop_metrics, server_class, {})
 
     def stub_action(self, action, body=None, errors=None):
-        # type: (six.text_type, Optional[Body], Optional[Errors]) -> None
+        # type: (str, Optional[Body], Optional[Errors]) -> None
         """
         Stub the given action with the configured server.
 
@@ -272,7 +272,7 @@ class StubServer(Server):
         :param body: The optional body to return
         :param errors: The optional errors to raise
         """
-        cast(Dict[six.text_type, ActionType], self.action_class_map)[action] = _make_stub_action(action, body, errors)
+        cast(Dict[str, ActionType], self.action_class_map)[action] = _make_stub_action(action, body, errors)
 
 
 class _StubActionRequestCounter(object):
@@ -292,7 +292,7 @@ class _StubActionContractRegistry(object):
     def __init__(self):  # type: () -> None
         self.contracts = []  # type: List[dict]
 
-    def add(self, service, action, body):  # type: (six.text_type, six.text_type, Body) -> None
+    def add(self, service, action, body):  # type: (str, str, Body) -> None
         self.contracts.append({
             'service': service,
             'action': action,
@@ -420,16 +420,16 @@ class stub_action(object):
 
     def __init__(
         self,
-        service,  # type: six.text_type
-        action,  # type: six.text_type
-        body=None,  # type: Optional[Body]
-        errors=None,  # type: Optional[Errors]
-        side_effect=None,  # type: _StubActionSideEffect
-        register_response_schema_contract=True,  # type: bool
-        register_request_schema_contract=True,  # type: bool
-    ):  # type: (...) -> None
-        assert isinstance(service, six.text_type), 'Stubbed service name "{}" must be unicode'.format(service)
-        assert isinstance(action, six.text_type), 'Stubbed action name "{}" must be unicode'.format(action)
+        service: str,
+        action: str,
+        body: Optional[Body] = None,
+        errors: Optional[Errors] = None,
+        side_effect: Optional[Union[_StubActionSideEffectSimple, Iterable[_StubActionSideEffectSimple]]] = None,
+        register_response_schema_contract: bool = True,
+        register_request_schema_contract: bool = True,
+    ) -> None:
+        assert isinstance(service, str), 'Stubbed service name "{}" must be string'.format(service)
+        assert isinstance(action, str), 'Stubbed action name "{}" must be string'.format(action)
 
         self.service = service
         self.action = action
@@ -441,19 +441,19 @@ class stub_action(object):
         self.enabled = False
 
         # Play nice with @mock.patch
-        self.attribute_name = None  # type: Optional[six.text_type]
+        self.attribute_name = None  # type: Optional[str]
         self.new = mock.DEFAULT
 
         # noinspection PyProtectedMember
         self._current_mock_action = None  # type: Optional[stub_action._MockAction]
         self._stub_action_responses_outstanding = defaultdict(
             dict,
-        )  # type: Dict[six.text_type, Dict[int, Union[Exception, JobResponse]]]
+        )  # type: Dict[str, Dict[int, Union[Exception, JobResponse]]]
         self._stub_action_responses_to_merge = defaultdict(
             dict,
-        )  # type: Dict[six.text_type, Dict[int, Tuple[int, bool]]]
+        )  # type: Dict[str, Dict[int, Tuple[int, bool]]]
 
-    def __enter__(self):  # type: () -> stub_action._MockAction
+    def __enter__(self) -> '_MockAction':
         if self.enabled:
             assert self._current_mock_action is not None, (
                 'Enabled stub_action with no current mock is in an inconsistent state'
@@ -464,7 +464,7 @@ class stub_action(object):
 
         self._wrapped_client_send_request = Client.send_request
         self._wrapped_client_get_all_responses = Client.get_all_responses
-        self._services_with_calls_sent_to_wrapped_client = set()  # type: Set[six.text_type]
+        self._services_with_calls_sent_to_wrapped_client = set()  # type: Set[str]
 
         if self.body or self.errors:
             self._current_mock_action.return_value = ActionResponse(self.action, errors=self.errors, body=self.body)
@@ -474,7 +474,7 @@ class stub_action(object):
 
         @wraps(Client.send_request)
         def wrapped_send_request(client, service_name, actions, *args, **kwargs):
-            assert isinstance(service_name, six.text_type), 'Called service name "{}" must be unicode'.format(
+            assert isinstance(service_name, str), 'Called service name "{}" must be string'.format(
                 service_name,
             )
 
@@ -482,7 +482,7 @@ class stub_action(object):
             actions_to_send_to_wrapped_client = []  # type: List[ActionRequest]
             for i, action_request in enumerate(actions):
                 action_name = getattr(action_request, 'action', None) or action_request['action']
-                assert isinstance(action_name, six.text_type), 'Called action name "{}" must be unicode'.format(
+                assert isinstance(action_name, str), 'Called action name "{}" must be string'.format(
                     action_name,
                 )
 
@@ -690,7 +690,7 @@ class stub_action(object):
             patching = None
             extra_args = []
             entered_patchers = []
-            exc_info = ()  # type: Union[Tuple[()], _ExcInfo]
+            exc_info: tuple[type[BaseException], BaseException, TracebackType] | tuple[None, None, None] = (None, None, None)  # Always provide a valid exc_info tuple
             try:
                 for patching in getattr(wrapped, 'patchings'):
                     arg = patching.__enter__()
@@ -702,19 +702,14 @@ class stub_action(object):
 
                 args += tuple(extra_args)
                 return func(*args, **kwargs)
-            except:  # noqa: E722
+            except Exception:
                 if patching not in entered_patchers:
-                    # the patcher may have been started, but an exception
-                    # raised whilst entering one of its additional_patchers
                     entered_patchers.append(patching)
-                # Pass the exception to __exit__
                 exc_info = sys.exc_info()
-                # re-raise the exception
                 raise
             finally:
                 for patching in reversed(entered_patchers):
                     patching.__exit__(*exc_info)
-
         setattr(wrapped, 'patchings', [self])
         return cast(_CT_C, wrapped)
 
@@ -723,16 +718,16 @@ class stub_action(object):
         # Play nice with @mock.patch
         return self.enabled
 
-    def start(self):  # type: () -> stub_action._MockAction
+    def start(self) -> '_MockAction':
         return self.__enter__()
 
     def stop(self):  # type: () -> None
         self.__exit__()
 
 
-def get_stubbed_responses():  # type: () -> List[Dict[six.text_type, Union[six.text_type, Body]]]
+def get_stubbed_responses():  # type: () -> List[Dict[str, Union[str, Body]]]
     return _global_stub_action_response_registry.contracts
 
 
-def get_stubbed_requests():  # type: () -> List[Dict[six.text_type, Union[six.text_type, Body]]]
+def get_stubbed_requests():  # type: () -> List[Dict[str, Union[str, Body]]]
     return _global_stub_action_request_registry.contracts

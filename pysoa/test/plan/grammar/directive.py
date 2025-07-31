@@ -54,7 +54,10 @@ from typing import (
     Type,
 )
 
-import pkg_resources
+try:
+    import pkg_resources
+except ImportError:
+    from importlib import metadata as pkg_resources
 from pyparsing import (
     Literal,
     Optional,
@@ -98,9 +101,17 @@ VarValueGrammar = restOfLine('value').setParseAction(lambda s, l, t: t[0].strip(
 
 def get_all_directives():  # type: () -> List[Type[Directive]]
     if not ENTRY_POINT_DIRECTIVES:
-        for entry_point in pkg_resources.iter_entry_points('pysoa.test.plan.grammar.directives'):
+        try:
+            # Try modern importlib.metadata first
+            from importlib.metadata import entry_points
+            entry_points_iter = entry_points(group='pysoa.test.plan.grammar.directives')
+        except ImportError:
+            # Fall back to pkg_resources for older Python versions
+            entry_points_iter = pkg_resources.iter_entry_points('pysoa.test.plan.grammar.directives')
+        
+        for entry_point in entry_points_iter:
             try:
-                directive_class = entry_point.resolve()
+                directive_class = entry_point.load()
                 assert issubclass(directive_class, Directive)
                 ENTRY_POINT_DIRECTIVES.append(directive_class)
             except ImportError:

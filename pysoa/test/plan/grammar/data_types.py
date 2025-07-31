@@ -287,14 +287,14 @@ def get_typed_value(type_name, value):
                 if datetime_value == 'now':
                     datetime_value_dt = datetime.datetime.now()
                 elif datetime_value == 'utc_now':
-                    datetime_value_dt = datetime.datetime.utcnow().replace(tzinfo=pytz.utc)
+                    datetime_value_dt = datetime.datetime.now(pytz.UTC)
                 elif datetime_value == 'midnight':
                     datetime_value_dt = datetime.datetime.combine(datetime.date.today(), datetime.time())
                 else:
                     datetime_value_dt = datetime.datetime.combine(
-                        datetime.datetime.utcnow().date(),
+                        datetime.datetime.now(pytz.UTC).date(),
                         datetime.time(),
-                    ).replace(tzinfo=pytz.utc)
+                    )
 
                 assert isinstance(datetime_value_dt, datetime.datetime), 'Parse error, value is not a `datetime`'
 
@@ -319,7 +319,7 @@ def get_typed_value(type_name, value):
             if value == 'today':
                 return datetime.date.today()
             elif value == 'utc_today':
-                return datetime.datetime.utcnow().date()
+                return datetime.datetime.now(pytz.UTC).date()
 
             return datetime.date(*_parse_datetime_args(value))
 
@@ -340,7 +340,7 @@ def get_typed_value(type_name, value):
                 if time_value == 'now':
                     datetime_value_dt = datetime.datetime.now()
                 elif time_value == 'utc_now':
-                    datetime_value_dt = datetime.datetime.utcnow()
+                    datetime_value_dt = datetime.datetime.now()
                 else:
                     datetime_value_dt = datetime.datetime(2000, 1, 1, 0, 0, 0, 0)
 

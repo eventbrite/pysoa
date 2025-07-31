@@ -14,6 +14,7 @@ from typing import (
     Union,
 )
 import warnings
+from warnings import warn  # type: ignore
 
 import redis
 import six
@@ -28,7 +29,7 @@ class StandardRedisClient(BaseRedisClient):
     def __init__(
         self,
         hosts=None,  # type: Optional[Iterable[Union[six.text_type, Tuple[six.text_type, int]]]]
-        connection_kwargs=None,  # type: Dict[six.text_type, Any]
+        connection_kwargs=None,  # type: Optional[Dict[six.text_type, Any]]
     ):
         # type: (...) -> None
         connection_kwargs = dict(connection_kwargs) if connection_kwargs else {}
@@ -58,7 +59,7 @@ class StandardRedisClient(BaseRedisClient):
         for entry in hosts:
             if isinstance(entry, six.string_types):
                 if cls.URL_SYNTAX.match(entry):
-                    warnings.warn(
+                    warn(
                         'Support for redis://, rediss://, and unix:// Redis host syntax is deprecated and will be '
                         'removed in PySOA 2.0. Please use a string hostname or two-tuple (string, int) host and port.',
                         DeprecationWarning,

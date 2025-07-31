@@ -117,7 +117,11 @@ class LocalClientTransport(ClientTransport, ServerTransport):
             if not isinstance(settings_dict, dict):
                 raise TypeError('Imported settings path {} is not a dictionary.'.format(server_settings))
         else:
-            settings_dict = server_settings
+            # Ensure settings_dict is always a dict
+            if isinstance(server_settings, dict):
+                settings_dict = server_settings
+            else:
+                raise TypeError('server_settings must be a dict or a string path to a dict')
 
         # Patch settings_dict to use LocalServerTransport, temporarily, to prevent recursive construction (actual
         # transport will be set to `self` below).

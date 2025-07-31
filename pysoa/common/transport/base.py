@@ -27,7 +27,102 @@ from typing import (
 )
 
 from pymetrics.recorders.base import MetricsRecorder
-from pymetrics.recorders.noop import noop_metrics
+from pymetrics.recorders.noop import NoopMetricsRecorder
+from conformity.fields import ClassConfigurationSchema, Dictionary
+
+@ClassConfigurationSchema.provider(Dictionary({}))
+class NoopMetricsRecorderCompat(NoopMetricsRecorder):
+    """Compatibility wrapper for NoopMetricsRecorder to provide the old API."""
+    
+    def timer(self, name, resolution=None):
+        """Return a timer context manager for compatibility."""
+        return TimerContextManager(self, name, resolution)
+    
+    def counter(self, name):
+        """Return a counter object for compatibility."""
+        return CounterObject(self, name)
+    
+    def histogram(self, name):
+        """Return a histogram object for compatibility."""
+        return HistogramObject(self, name)
+    
+    def gauge(self, name):
+        """Return a gauge object for compatibility."""
+        return GaugeObject(self, name)
+    
+    def publish_all(self):
+        """Publish all metrics (no-op for compatibility)."""
+        pass
+
+class TimerContextManager:
+    """Context manager for timer compatibility."""
+    
+    def __init__(self, recorder, name, resolution):
+        self.recorder = recorder
+        self.name = name
+        self.resolution = resolution
+        self.start_time = None
+    
+    def start(self):
+        """Start the timer manually."""
+        import time
+        self.start_time = time.time()
+        return self
+    
+    def stop(self):
+        """Stop the timer manually."""
+        import time
+        if self.start_time is not None:
+            duration = (time.time() - self.start_time) * 1000000  # Convert to microseconds
+            self.recorder.record_timer(self.name, duration, self.resolution)
+            self.start_time = None
+    
+    def __enter__(self):
+        import time
+        self.start_time = time.time()
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        import time
+        if self.start_time is not None:
+            duration = (time.time() - self.start_time) * 1000000  # Convert to microseconds
+            self.recorder.record_timer(self.name, duration, self.resolution)
+
+class CounterObject:
+    """Counter object for compatibility."""
+    
+    def __init__(self, recorder, name):
+        self.recorder = recorder
+        self.name = name
+    
+    def increment(self, value=1):
+        """Increment the counter."""
+        self.recorder.record_counter(self.name, value)
+
+class HistogramObject:
+    """Histogram object for compatibility."""
+    
+    def __init__(self, recorder, name):
+        self.recorder = recorder
+        self.name = name
+    
+    def set(self, value):
+        """Set the histogram value."""
+        self.recorder.record_histogram(self.name, value)
+
+class GaugeObject:
+    """Gauge object for compatibility."""
+    
+    def __init__(self, recorder, name):
+        self.recorder = recorder
+        self.name = name
+    
+    def set(self, value):
+        """Set the gauge value."""
+        # For compatibility, we'll use record_histogram as a no-op
+        pass
+
+noop_metrics = NoopMetricsRecorderCompat()
 import six
 
 

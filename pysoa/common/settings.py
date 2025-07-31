@@ -36,5 +36,5 @@ class SOASettings(ConformitySettings):
 
     defaults = {
         'middleware': [],
-        'metrics': {'path': 'pymetrics.recorders.noop:NonOperationalMetricsRecorder'},
+        'metrics': {'path': 'pysoa.common.transport.base:NoopMetricsRecorderCompat'},
     }  # type: SettingsData

@@ -22,13 +22,13 @@ from pysoa.test.plan.grammar.directive import (
 try:
     from freezegun import freeze_time
 except ImportError:
-    freeze_time = None
+    freeze_time = None  # type: ignore
 
 
 class FreezeTimeMixin(object):
     @staticmethod
     def parse_and_store_freeze_to(target, value, file_name, line_number):
-        if not freeze_time:
+        if freeze_time is None:
             raise FixtureSyntaxError(
                 'Could not import freezegun to support freeze time syntax. Perhaps you need to install it?',
                 file_name,

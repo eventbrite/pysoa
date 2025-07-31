@@ -59,7 +59,7 @@ class Action(ActionInterface):
 
         :param settings: The server settings object
         """
-        super(Action, self).__init__(settings)
+        # Do not call super().__init__() if the parent is an abstract base class with an abstract __init__
         self.settings = settings
 
     @abc.abstractmethod

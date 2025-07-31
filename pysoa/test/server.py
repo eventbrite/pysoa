@@ -35,11 +35,9 @@ from unittest.util import (
     _count_diff_hashable,
 )
 import warnings
+from warnings import warn, catch_warnings, simplefilter  # type: ignore
 
 from _pytest._code.code import ExceptionInfo
-from _pytest.python_api import RaisesContext
-from _pytest.recwarn import WarningsChecker
-from conformity.settings import SettingsData
 import pytest
 import six
 
@@ -56,6 +54,7 @@ from pysoa.test.assertions import (
     raises_error_codes,
     raises_field_errors,
 )
+from conformity.settings import SettingsData  # Added for mypy compatibility
 
 
 try:
@@ -145,8 +144,7 @@ class BaseServerTestCase(object):
             self.client._get_handler(self.service_name).transport,
         ).server._skip_django_database_cleanup = True
 
-    def call_action(self, action, body=None, service_name=None, **kwargs):
-        # type: (six.text_type, Body, Optional[six.text_type], **Any) -> ActionResponse
+    def call_action(self, action, body: Optional[dict[str, Any]] = None, service_name=None, **kwargs) -> ActionResponse:
         """
         A convenience method alternative to calling `self.client.call_action` that allows you to omit the service name.
 
@@ -258,7 +256,7 @@ _C = TypeVar('_C', bound=Callable)
 
 def _deprecate(original_func):  # type: (_C) -> _C
     def deprecated_func(*args, **kwargs):
-        warnings.warn(
+        warn(
             'Please use {0} instead. This will be removed in PySOA 2.0.'.format(original_func.__name__),
             DeprecationWarning,
             2,
@@ -312,7 +310,7 @@ class PyTestServerTestCase(BaseServerTestCase):
     def setup_class(cls):  # type: () -> None
         # noinspection PyUnresolvedReferences
         if cls.setUpClass.__func__ is not PyTestServerTestCase.setUpClass.__func__:  # type: ignore
-            warnings.warn(
+            warn(
                 '`ServerTestCase.setUpClass` is deprecated. `ServerTestCase` no longer inherits from '
                 '`unittest.TestCase`. Your test setup has been run, but you should change the `setUpClass` method name '
                 'to `setup_class` and be sure to still call `super` within it. This will be removed in PySOA 2.0.',
@@ -331,7 +329,7 @@ class PyTestServerTestCase(BaseServerTestCase):
     def teardown_class(cls):  # type: () -> None
         # noinspection PyUnresolvedReferences
         if cls.tearDownClass.__func__ is not PyTestServerTestCase.tearDownClass.__func__:  # type: ignore
-            warnings.warn(
+            warn(
                 '`ServerTestCase.tearDownClass` is deprecated. `ServerTestCase` no longer inherits from '
                 '`unittest.TestCase`. Your test setup has been run, but you should change the `tearDownClass` method '
                 'name to `teardown_class` and be sure to still call `super` within it. This will be removed in PySOA '
@@ -352,7 +350,7 @@ class PyTestServerTestCase(BaseServerTestCase):
         self.setup_pysoa()
 
         if _methods_are_not_same(self.__class__.setUp, PyTestServerTestCase.setUp):
-            warnings.warn(
+            warn(
                 '`ServerTestCase.setUp` is deprecated. `ServerTestCase` no longer inherits from `unittest.TestCase`. '
                 'Your test setup has been run, but you should change the `setUp` method name to `setup_method` and '
                 'be sure to still call `super` within it. This will be removed in PySOA 2.0.',
@@ -368,7 +366,7 @@ class PyTestServerTestCase(BaseServerTestCase):
 
     def teardown_method(self):  # type: () -> None
         if _methods_are_not_same(self.__class__.tearDown, PyTestServerTestCase.tearDown):
-            warnings.warn(
+            warn(
                 '`ServerTestCase.tearDown` is deprecated. `ServerTestCase` no longer inherits from '
                 '`unittest.TestCase`. Your test setup has been run, but you should change the `tearDown` method name '
                 'to `teardown_method` and be sure to still call `super` within it. This will be removed in PySOA 2.0.',
@@ -383,7 +381,7 @@ class PyTestServerTestCase(BaseServerTestCase):
         """
         Deprecated, to be removed in PySOA 2.0.
         """
-        warnings.warn(
+        warn(
             '`ServerTestCase.addCleanup` is deprecated. `ServerTestCase` no longer inherits from `unittest.TestCase`. '
             'Your test cleanup will be run, but you should stop using `addCleanup` and clean up your tests in '
             '`teardown_method`, instead. This will be removed in PySOA 2.0.',
@@ -420,15 +418,9 @@ class PyTestServerTestCase(BaseServerTestCase):
         # type: (Any, Any, Optional[object]) -> None
         assert first == second, msg or ''
 
-    assertEquals = _deprecate(assertEqual)
-    failUnlessEqual = _deprecate(assertEqual)
-
     def assertNotEqual(self, first, second, msg=None):
         # type: (Any, Any, Optional[object]) -> None
         assert first != second, msg or ''
-
-    assertNotEquals = _deprecate(assertNotEqual)
-    failIfEqual = _deprecate(assertNotEqual)
 
     def assertMultiLineEqual(self, first, second, msg=None):
         # type: (six.text_type, six.text_type, Optional[object]) -> None
@@ -465,7 +457,7 @@ class PyTestServerTestCase(BaseServerTestCase):
 
     def assertCountEqual(self, first, second, msg=None):
         # type: (Union[Iterable], Union[Iterable], Optional[object]) -> None
-        warnings.warn(
+        warn(
             'PyTestServerTestCase.assertCountEqual is deprecated, because it cannot be implemented practicably. '
             'There is no replacement. It will be removed in PySOA 2.0',
             DeprecationWarning,
@@ -495,9 +487,6 @@ class PyTestServerTestCase(BaseServerTestCase):
                 msg or '{} != {} within {} places ({} difference)'.format(first, second, places, diff)
             )
 
-    assertAlmostEquals = _deprecate(assertAlmostEqual)
-    failUnlessAlmostEqual = _deprecate(assertAlmostEqual)
-
     def assertNotAlmostEqual(self, first, second, places=None, msg=None, delta=None):
         # type: (float, float, Optional[int], Optional[object], Optional[float]) -> None
         assert first != second, msg or ''
@@ -512,21 +501,13 @@ class PyTestServerTestCase(BaseServerTestCase):
                 msg or '{} == {} within {} places ({} difference)'.format(first, second, places, diff)
             )
 
-    assertNotAlmostEquals = _deprecate(assertNotAlmostEqual)
-    failIfAlmostEqual = _deprecate(assertNotAlmostEqual)
-
     def assertTrue(self, expr, msg=None):
         # type: (Any, Optional[object]) -> None
         assert expr, msg or ''
 
-    failUnless = _deprecate(assertTrue)
-    assert_ = _deprecate(assertTrue)
-
     def assertFalse(self, expr, msg=None):
         # type: (Any, Optional[object]) -> None
         assert not expr, msg or ''
-
-    failIf = _deprecate(assertFalse)
 
     def assertIs(self, first, second, msg=None):
         # type: (Any, Any, Optional[object]) -> None
@@ -586,8 +567,6 @@ class PyTestServerTestCase(BaseServerTestCase):
             msg or 'Pattern: {}\nDoes not match text: {!r}'.format(regex.pattern, text)  # type: ignore
         )
 
-    assertRegexpMatches = _deprecate(assertRegex)
-
     def assertNotRegex(self, text, regex, msg=None):
         # type: (_S, Union[Pattern[_S], _S], Optional[object]) -> None
         assert regex is not None, 'Regex must not be None'  # do this first to prevent a warning
@@ -598,85 +577,86 @@ class PyTestServerTestCase(BaseServerTestCase):
             msg or 'Pattern: {}\nUnexpectedly matches text: {!r}'.format(regex.pattern, text)  # type: ignore
         )
 
-    assertNotRegexpMatches = _deprecate(assertNotRegex)
-
     # noinspection PyShadowingBuiltins
-    def assertRaises(
-        self,
-        exception,  # type: Union[Type[BaseException], Tuple[Type[BaseException], ...]]
-        callable=None,  # type: Callable
-        *args,  # type: Any
-        **kwargs  # type: Any
-    ):
-        # type: (...) -> RaisesContext
+    def assertRaises(self, exception, callable=None, *args, **kwargs):
         if callable:
-            with pytest.raises(exception):
+            with pytest.raises(exception) as exc_info:
                 callable(*args, **kwargs)
-            # noinspection PyTypeChecker
-            return None  # type: ignore
-
-        ExceptionInfo.exception = ExceptionInfo.value  # alias the property for backwards compatibility
-        return pytest.raises(exception, **kwargs)
-
-    failUnlessRaises = _deprecate(assertRaises)
+            return
+        # Create a wrapper that provides the same interface as unittest's assertRaises
+        class _UnittestRaisesContext:
+            def __init__(self, exception_type):
+                self.exception_type = exception_type
+                self.exception = None
+                
+            def __enter__(self):
+                return self
+                
+            def __exit__(self, exc_type, exc_value, traceback):
+                if exc_type is None:
+                    raise AssertionError(f"{self.exception_type.__name__} not raised")
+                if not issubclass(exc_type, self.exception_type):
+                    raise exc_value
+                self.exception = exc_value
+                return True
+        
+        return _UnittestRaisesContext(exception)
 
     # noinspection PyShadowingBuiltins
-    def assertRaisesRegex(
-        self,
-        exception,  # type: Union[Type[BaseException], Tuple[Type[BaseException], ...]]
-        regex,  # type: Union[Pattern[AnyStr], AnyStr]
-        callable=None,  # type: Callable
-        *args,  # type: Any
-        **kwargs  # type: Any
-    ):
-        # type: (...) -> RaisesContext
+    def assertRaisesRegex(self, exception, regex, callable=None, *args, **kwargs):
         if callable:
+            # Ensure regex is str or Pattern[str]
+            if isinstance(regex, bytes):
+                regex = regex.decode()
             with pytest.raises(exception, match=regex):
                 callable(*args, **kwargs)
-            # noinspection PyTypeChecker
-            return None  # type: ignore
+            return
+        # Create a wrapper that provides the same interface as unittest's assertRaisesRegex
+        class _UnittestRaisesRegexContext:
+            def __init__(self, exception_type, regex):
+                self.exception_type = exception_type
+                self.regex = regex
+                self.exception = None
+                
+            def __enter__(self):
+                return self
+                
+            def __exit__(self, exc_type, exc_value, traceback):
+                if exc_type is None:
+                    raise AssertionError(f"{self.exception_type.__name__} not raised")
+                if not issubclass(exc_type, self.exception_type):
+                    raise exc_value
+                # Check if the exception message matches the regex
+                import re
+                if not re.search(self.regex, str(exc_value)):
+                    raise AssertionError(f"'{self.regex}' does not match '{str(exc_value)}'")
+                self.exception = exc_value
+                return True
+        
+        if isinstance(regex, bytes):
+            regex = regex.decode()
+        return _UnittestRaisesRegexContext(exception, regex)
 
-        ExceptionInfo.exception = ExceptionInfo.value  # alias the property for backwards compatibility
-        kwargs['match'] = regex
-        return pytest.raises(exception, **kwargs)
-
-    assertRaisesRegexp = _deprecate(assertRaisesRegex)
-
-    # noinspection PyShadowingBuiltins
-    def assertWarns(
-        self,
-        exception,  # type: Union[Type[Warning], Tuple[Type[Warning], ...]]
-        callable=None,  # type: Callable
-        *args,  # type: Any
-        **kwargs  # type: Any
-    ):
-        # type: (...) -> WarningsChecker
+    def assertWarns(self, exception, callable=None, *args, **kwargs):
         if callable:
             with pytest.warns(exception):
                 callable(*args, **kwargs)
-            # noinspection PyTypeChecker
-            return None  # type: ignore
-
-        return pytest.warns(exception, **kwargs)
+            return
+        # Return pytest's warning context manager directly
+        return pytest.warns(exception)
 
     # noinspection PyShadowingBuiltins
-    def assertWarnsRegex(
-        self,
-        exception,  # type: Union[Type[Warning], Tuple[Type[Warning], ...]]
-        regex,  # type: Union[Pattern[AnyStr], AnyStr]
-        callable=None,  # type: Callable
-        *args,  # type: Any
-        **kwargs  # type: Any
-    ):
-        # type: (...) -> WarningsChecker
+    def assertWarnsRegex(self, exception, regex, callable=None, *args, **kwargs):
         if callable:
+            if isinstance(regex, bytes):
+                regex = regex.decode()
             with pytest.warns(exception, match=regex):
                 callable(*args, **kwargs)
-            # noinspection PyTypeChecker
-            return None  # type: ignore
-
-        kwargs['match'] = regex
-        return pytest.warns(exception, **kwargs)
+            return
+        # Return pytest's warning context manager directly
+        if isinstance(regex, bytes):
+            regex = regex.decode()
+        return pytest.warns(exception, match=regex)
 
     def assertLogs(
         self,
@@ -685,6 +665,78 @@ class PyTestServerTestCase(BaseServerTestCase):
     ):
         # type: (...) -> _AssertLogsContext
         return _AssertLogsContext(logger, level)
+
+    # Deprecated unittest assertion methods for legacy test compatibility
+    # TODO: Remove these methods in the future when all tests are modernized
+    def assertEquals(self, a, b, msg=None):
+        """Deprecated. Use assertEqual instead."""
+        warn('assertEquals is deprecated, use assertEqual', DeprecationWarning, stacklevel=2)
+        return self.assertEqual(a, b, msg)
+
+    def failUnlessEqual(self, a, b, msg=None):
+        """Deprecated. Use assertEqual instead."""
+        warn('failUnlessEqual is deprecated, use assertEqual', DeprecationWarning, stacklevel=2)
+        return self.assertEqual(a, b, msg)
+
+    def assertNotEquals(self, a, b, msg=None):
+        """Deprecated. Use assertNotEqual instead."""
+        warn('assertNotEquals is deprecated, use assertNotEqual', DeprecationWarning, stacklevel=2)
+        return self.assertNotEqual(a, b, msg)
+
+    def failIfEqual(self, a, b, msg=None):
+        """Deprecated. Use assertNotEqual instead."""
+        warn('failIfEqual is deprecated, use assertNotEqual', DeprecationWarning, stacklevel=2)
+        return self.assertNotEqual(a, b, msg)
+
+    def assertAlmostEquals(self, a, b, places=None, msg=None):
+        """Deprecated. Use assertAlmostEqual instead."""
+        warn('assertAlmostEquals is deprecated, use assertAlmostEqual', DeprecationWarning, stacklevel=2)
+        return self.assertAlmostEqual(a, b, places=places, msg=msg)
+
+    def failUnlessAlmostEqual(self, a, b, places=None, msg=None):
+        """Deprecated. Use assertAlmostEqual instead."""
+        warn('failUnlessAlmostEqual is deprecated, use assertAlmostEqual', DeprecationWarning, stacklevel=2)
+        return self.assertAlmostEqual(a, b, places=places, msg=msg)
+
+    def assertNotAlmostEquals(self, a, b, places=None, msg=None):
+        """Deprecated. Use assertNotAlmostEqual instead."""
+        warn('assertNotAlmostEquals is deprecated, use assertNotAlmostEqual', DeprecationWarning, stacklevel=2)
+        return self.assertNotAlmostEqual(a, b, places=places, msg=msg)
+
+    def failIfAlmostEqual(self, a, b, places=None, msg=None):
+        """Deprecated. Use assertNotAlmostEqual instead."""
+        warn('failIfAlmostEqual is deprecated, use assertNotAlmostEqual', DeprecationWarning, stacklevel=2)
+        return self.assertNotAlmostEqual(a, b, places=places, msg=msg)
+
+    def failUnless(self, expr, msg=None):
+        """Deprecated. Use assertTrue instead."""
+        warn('failUnless is deprecated, use assertTrue', DeprecationWarning, stacklevel=2)
+        return self.assertTrue(expr, msg)
+
+    def failIf(self, expr, msg=None):
+        """Deprecated. Use assertFalse instead."""
+        warn('failIf is deprecated, use assertFalse', DeprecationWarning, stacklevel=2)
+        return self.assertFalse(expr, msg)
+
+    def assert_(self, expr, msg=None):
+        """Deprecated. Use assertTrue instead."""
+        warn('assert_ is deprecated, use assertTrue', DeprecationWarning, stacklevel=2)
+        return self.assertTrue(expr, msg)
+
+    def assertRegexpMatches(self, text, regex, msg=None):
+        """Deprecated. Use assertRegex instead."""
+        warn('assertRegexpMatches is deprecated, use assertRegex', DeprecationWarning, stacklevel=2)
+        return self.assertRegex(text, regex, msg)
+
+    def assertNotRegexpMatches(self, text, regex, msg=None):
+        """Deprecated. Use assertNotRegex instead."""
+        warn('assertNotRegexpMatches is deprecated, use assertNotRegex', DeprecationWarning, stacklevel=2)
+        return self.assertNotRegex(text, regex, msg)
+
+    def failUnlessRaises(self, excClass, callableObj=None, *args, **kwargs):
+        """Deprecated. Use assertRaises instead."""
+        warn('failUnlessRaises is deprecated, use assertRaises', DeprecationWarning, stacklevel=2)
+        return self.assertRaises(excClass, callableObj, *args, **kwargs)
 
 
 _LoggingWatcher = NamedTuple('_LoggingWatcher', (

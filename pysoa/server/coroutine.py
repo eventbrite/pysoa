@@ -5,19 +5,12 @@ from __future__ import (
 )
 
 import logging
-from typing import TypeVar
+from typing import TypeVar, Coroutine, cast
 
 from conformity import fields
 
 # noinspection PyUnresolvedReferences
 import pysoa.common.compatibility  # noqa To make sure patching happens
-
-
-try:
-    from typing import Coroutine  # python 3.5.3+
-except ImportError:
-    # noinspection PyCompatibility
-    from collections.abc import Coroutine  # python 3.5.1-2 (Ubuntu 16.04, unfortunately)
 
 
 __all__ = (
@@ -114,4 +107,4 @@ class DefaultCoroutineMiddleware(CoroutineMiddleware):
                 # Re-raise in case the caller IS awaiting the result of this coroutine, so they know it failed
                 raise
 
-        return handler()
+        return cast(MiddlewareCoroutine, handler())

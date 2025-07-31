@@ -1,8 +1,3 @@
-from __future__ import (
-    absolute_import,
-    unicode_literals,
-)
-
 import argparse
 import atexit
 import codecs
@@ -16,7 +11,6 @@ import sys
 import threading
 import time
 import traceback
-from types import FrameType
 from typing import (
     Any,
     Callable,
@@ -35,7 +29,6 @@ from pymetrics.instruments import (
     TimerResolution,
 )
 from pymetrics.recorders.base import MetricsRecorder
-import six
 
 from pysoa.client.client import Client
 from pysoa.common.constants import (
@@ -115,9 +108,9 @@ _MT = TypeVar('_MT', ServerMiddlewareActionTask, ServerMiddlewareJobTask)
 _RT = TypeVar('_RT', JobResponse, ActionResponse)
 
 
-def _replace_fid(d, fid):  # type: (Dict[Any, Any], six.text_type) -> None
-    for k, v in six.iteritems(d):
-        if isinstance(v, six.text_type):
+def _replace_fid(d, fid):  # type: (Dict[Any, Any], str) -> None
+    for k, v in d.items():
+        if isinstance(v, str):
             d[k] = v.replace('{{fid}}', fid).replace('[[fid]]', fid).replace('%%fid%%', fid)
         elif isinstance(v, dict):
             _replace_fid(v, fid)
@@ -151,8 +144,8 @@ class Server(object):
     client_class = Client  # type: Type[Client]
 
     use_django = False  # type: bool
-    service_name = None  # type: Optional[six.text_type]
-    action_class_map = {}  # type: Mapping[six.text_type, ActionType]
+    service_name = None  # type: Optional[str]
+    action_class_map = {}  # type: Mapping[str, ActionType]
 
     # Allow a server to specify a custom introspection action
     introspection_action = None  # type: Optional[IntrospectionActionType]
@@ -175,7 +168,7 @@ class Server(object):
         self.settings = settings
         if self.settings['metrics'].get('kwargs', {}).get('config', {}).get('publishers', {}):
             # Check if the metrics publisher config needs the FID anywhere and, if it does, replace it with the FID
-            fid = 'main' if forked_process_id is None else six.text_type(forked_process_id)
+            fid = 'main' if forked_process_id is None else str(forked_process_id)
             for publisher in self.settings['metrics']['kwargs']['config']['publishers']:
                 if self.settings['metrics']['kwargs']['config']['version'] == 1:
                     _replace_fid(publisher, fid)
@@ -234,7 +227,7 @@ class Server(object):
         self._idle_timer = None  # type: Optional[Timer]
 
         self._heartbeat_file = None  # type: Optional[codecs.StreamReaderWriter]
-        self._heartbeat_file_path = None  # type: Optional[six.text_type]
+        self._heartbeat_file_path = None  # type: Optional[str]
         self._heartbeat_file_last_update = 0.0
         self._forked_process_id = forked_process_id
 
@@ -278,7 +271,7 @@ class Server(object):
             # Try to recover by coercing the keys to unicode.
             PySOALogContextFilter.set_logging_request_context(
                 request_id=request_id,
-                **{six.text_type(k): v for k, v in six.iteritems(job_request['context'])}
+                **{str(k): v for k, v in job_request['context'].items()}
             )
 
         request_for_logging = self.logging_dict_wrapper_class(job_request)
@@ -398,7 +391,7 @@ class Server(object):
             base = ware(base)
         return base
 
-    def process_job(self, job_request):  # type: (Dict[six.text_type, Any]) -> JobResponse
+    def process_job(self, job_request):  # type: (Dict[str, Any]) -> JobResponse
         """
         Validate, execute, and run the job request, wrapping it with any applicable job middleware.
 
@@ -454,7 +447,7 @@ class Server(object):
         return job_response
 
     def handle_unhandled_exception(self, exception, response_type, variables=None, **kwargs):
-        # type: (Exception, Type[_RT], Optional[Dict[six.text_type, Any]], **Any) -> _RT
+        # type: (Exception, Type[_RT], Optional[Dict[str, Any]], **Any) -> _RT
         """
         Makes and returns a last-ditch error response based on an unknown, unexpected error.
 
@@ -469,14 +462,14 @@ class Server(object):
         # noinspection PyBroadException
         try:
             # Get the error and traceback if we can
-            error_str, traceback_str = six.text_type(exception), traceback.format_exc()
+            error_str, traceback_str = str(exception), traceback.format_exc()
         except Exception:
             self.metrics.counter('server.error.error_formatting_failure').increment()
             error_str, traceback_str = 'Error formatting error', traceback.format_exc()
 
         # Log what happened
         self.logger.exception(exception)
-        if not isinstance(traceback_str, six.text_type):
+        if not isinstance(traceback_str, str):
             try:
                 traceback_str = traceback_str.decode('utf-8')
             except UnicodeDecodeError:
@@ -487,7 +480,7 @@ class Server(object):
             'message': 'Internal server error: %s' % error_str,
             'traceback': traceback_str,
             'is_caller_error': False,
-        }  # type: Dict[six.text_type, Any]
+        }  # type: Dict[str, Any]
 
         if variables is not None:
             # noinspection PyBroadException
@@ -501,11 +494,11 @@ class Server(object):
 
     def handle_job_error_code(
         self,
-        code,  # type: six.text_type
-        message,  # type: six.text_type
+        code,  # type: str
+        message,  # type: str
         request_for_logging,  # type: RecursivelyCensoredDictWrapper
         response_for_logging,  # type: RecursivelyCensoredDictWrapper
-        extra=None,  # type: Optional[Dict[six.text_type, Any]]
+        extra=None,  # type: Optional[Dict[str, Any]]
     ):
         # type: (...) -> JobResponse
         """
@@ -636,7 +629,7 @@ class Server(object):
 
         return job_response
 
-    def handle_shutdown_signal(self, signal_number, _stack_frame):  # type: (int, FrameType) -> None
+    def handle_shutdown_signal(self, signal_number, _stack_frame):  # type: (int, Any) -> None
         """
         Handles the reception of a shutdown signal.
         """
@@ -665,7 +658,7 @@ class Server(object):
         finally:
             self._shutdown_lock.release()
 
-    def harakiri(self, signal_number, _stack_frame):  # type: (int, FrameType) -> None
+    def harakiri(self, signal_number, _stack_frame):  # type: (int, Any) -> None
         """
         Handles the reception of a timeout signal indicating that a request has been processing for too long, as
         defined by the harakiri settings. This method makes use of two "private" Python functions,
@@ -679,7 +672,7 @@ class Server(object):
         threads = {
             cast(int, t.ident): {'name': t.name, 'traceback': ['Unknown']}
             for t in threading.enumerate()
-        }  # type: Dict[int, Dict[six.text_type, Any]]
+        }  # type: Dict[int, Dict[str, Any]]
         # noinspection PyProtectedMember
         for thread_id, frame in sys._current_frames().items():
             stack = []
@@ -779,9 +772,9 @@ class Server(object):
 
     def _create_heartbeat_file(self):  # type: () -> None
         if self.settings['heartbeat_file']:
-            heartbeat_file_path = self.settings['heartbeat_file'].replace('{{pid}}', six.text_type(os.getpid()))
+            heartbeat_file_path = self.settings['heartbeat_file'].replace('{{pid}}', str(os.getpid()))
             if '{{fid}}' in heartbeat_file_path and self._forked_process_id is not None:
-                heartbeat_file_path = heartbeat_file_path.replace('{{fid}}', six.text_type(self._forked_process_id))
+                heartbeat_file_path = heartbeat_file_path.replace('{{fid}}', str(self._forked_process_id))
 
             self.logger.info('Creating heartbeat file {}'.format(heartbeat_file_path))
 
@@ -817,7 +810,7 @@ class Server(object):
             # Only update the heartbeat file if one is configured and it has been at least 2.5 seconds since the last
             # update. This prevents us from dragging down service performance by constantly updating the file system.
             self._heartbeat_file.seek(0)
-            self._heartbeat_file.write(six.text_type(time.time()))
+            self._heartbeat_file.write(str(time.time()))
             self._heartbeat_file.flush()
             self._heartbeat_file_last_update = time.time()
 

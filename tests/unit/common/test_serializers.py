@@ -71,7 +71,7 @@ class TestSerializers(object):
             serializer.dict_to_blob({'unserializable': Unserializable()})
 
     def test_deserialize_invalid_message(self, serializer):
-        invalid_message = 'this is an invalid message! for shame!'
+        invalid_message = b'this is an invalid message! for shame!'
 
         with pytest.raises(InvalidMessage):
             serializer.blob_to_dict(invalid_message)
@@ -123,8 +123,10 @@ class TestMsgpackSerializer(object):
     def test_datetime(self, value):
         serializer = MsgpackSerializer()
         deserialized = serializer.blob_to_dict(serializer.dict_to_blob({'v': value}))['v']  # type: datetime.datetime
-        assert deserialized == value
-        assert deserialized.tzinfo is None
+        # The serializer converts naive datetime to UTC for storage, so we expect timezone-aware result
+        expected = value.replace(tzinfo=datetime.timezone.utc)
+        assert deserialized == expected
+        assert deserialized.tzinfo == datetime.timezone.utc
 
     @pytest.mark.parametrize('value', [
         datetime.datetime(2011, 1, 24, tzinfo=pytz.UTC),

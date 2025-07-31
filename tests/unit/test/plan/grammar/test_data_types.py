@@ -265,10 +265,10 @@ class TestGetTypedValue(unittest.TestCase):
             )
 
             utc_now = datetime.datetime.utcnow()
-            self.assertEqual(
-                datetime.datetime(utc_now.year, utc_now.month, utc_now.day, 0, 0, 0).replace(tzinfo=pytz.utc),
-                data_types.get_typed_value('datetime', 'utc_midnight'),
-            )
+            # Ensure both expected and actual are timezone-naive for consistency
+            expected = datetime.datetime(utc_now.year, utc_now.month, utc_now.day, 0, 0, 0)
+            actual = data_types.get_typed_value('datetime', 'utc_midnight')
+            self.assertEqual(expected, actual)
 
     def test_date(self):
         with self.assertRaises(DataTypeConversionError):
@@ -281,7 +281,10 @@ class TestGetTypedValue(unittest.TestCase):
         self.assertEqual(datetime.date(1986, 11, 5), data_types.get_typed_value('date', '1986,11,5'))
         self.assertEqual(datetime.date(2000, 1, 1), data_types.get_typed_value('date', '2000,1,1'))
         self.assertEqual(datetime.date.today(), data_types.get_typed_value('date', 'today'))
-        self.assertEqual(datetime.datetime.utcnow().date(), data_types.get_typed_value('date', 'utc_today'))
+        # Ensure both expected and actual are timezone-aware for UTC
+        expected = datetime.datetime.now(datetime.UTC).date()
+        actual = data_types.get_typed_value('date', 'utc_today')
+        self.assertEqual(expected, actual)
 
     def test_time(self):
         with self.assertRaises(DataTypeConversionError):

@@ -1,0 +1,197 @@
+[build-system]
+requires = ["setuptools>=65", "wheel", "setuptools_scm>=7.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pysoa"
+dynamic = ["version"]
+description = "A Python library for writing (micro)services and their clients"
+readme = "README.rst"
+license = {text = "Apache 2.0"}
+authors = [
+    {name = "Eventbrite, Inc.", email = "opensource@eventbrite.com"}
+]
+maintainers = [
+    {name = "Eventbrite, Inc.", email = "opensource@eventbrite.com"}
+]
+keywords = ["microservices", "soa", "service-oriented-architecture", "rpc"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "attrs>=18.2,<22",
+    "conformity>=2.0.0,<3.0.0",
+    "currint>=3.0.1,<4.0.0",
+    "msgpack>=1.0.7",
+    "pymetrics~=2.0.3",
+    "pytz>=2024.1",
+    "redis>=5.0.4",
+    "six>=1.16.0",
+]
+
+[project.optional-dependencies]
+docs = [
+    "conformity[docs]>=2.0.0,<3.0.0",
+    "django>=3.2",
+    "sphinx>=7.0.0",
+    "pyparsing>=3.1.2",
+    "pytest>=7.2,<8.0",
+    "pytest-asyncio",
+    "Faker>=25.2.0",
+]
+testing = [
+    "coverage>=7.5.1",
+    "factory_boy>=3.3.0",
+    "freezegun>=1.4.0",
+    "mockredispy>=2.0.0",
+    "parameterized>=0.9.0",
+    "mypy>=1.10.0",
+    "types-six",
+    "types-setuptools",
+    "types-mock",
+    "types-requests",
+    "types-pytz",
+    "types-redis",
+    "typing-extensions>=4.12.0",
+    "pyparsing>=3.1.2",
+    "pytest>=7.2,<8.0",
+    "pytest-asyncio",
+    "Faker>=25.2.0",
+]
+test_helpers = []
+test_plans = [
+    "pyparsing>=3.1.2",
+    "pytest>=7.2,<8.0",
+    "pytest-asyncio",
+    "Faker>=25.2.0",
+]
+
+[project.urls]
+Homepage = "http://github.com/eventbrite/pysoa"
+Documentation = "https://pysoa.readthedocs.io"
+Repository = "https://github.com/eventbrite/pysoa"
+Issues = "https://github.com/eventbrite/pysoa/issues"
+
+[project.scripts]
+# Add any command-line scripts here if needed
+
+[project.entry-points."pytest11"]
+pysoa_test_plan = "pysoa.test.plugins.pytest.plans"
+pysoa_test_fixtures = "pysoa.test.plugins.pytest.fixtures"
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+include = ["pysoa", "pysoa.*"]
+
+[tool.setuptools.package-data]
+pysoa = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = {attr = "pysoa.__version__"}
+
+# Flake8 configuration
+[tool.flake8]
+exclude = [".git", ".env/*", "docs/*", "build/*", ".eggs/*", "*.egg-info/*", ".tox"]
+max-line-length = 120
+
+# isort configuration
+[tool.isort]
+# Vertical Hanging Indent
+multi_line_output = 3
+# Formatting settings
+line_length = 120
+include_trailing_comma = true
+combine_as_imports = true
+force_grid_wrap = 2
+use_parentheses = true
+force_sort_within_sections = true
+lines_after_imports = 2
+skip_glob = ["*.git/*", "*.env/*", "*/docs/*", "*/build/*", "*/.eggs/*", "*.egg-info/*", ".tox", "*/tests/functional/services/*"]
+not_skip = ["__init__.py"]
+add_imports = ["__future__.absolute_import", "__future__.unicode_literals"]
+# Section ordering
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "CURRENT_PROJECT", "LOCALFOLDER", "TESTS"]
+no_lines_before = ["LOCALFOLDER"]
+# Section for third party packages
+known_third_party = [
+    "attr", "conformity", "currint", "dateutil", "ddtrace", "django", "factory", "faker", 
+    "freezegun", "mockredis", "msgpack", "py", "pymetrics", "pyparsing", "pytest", 
+    "pytest_django", "pytz", "redis", "requests", "six", "_pytest"
+]
+# Section for specific project imports
+known_current_project = ["pysoa"]
+known_tests = ["tests"]
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+ignore_missing_imports = true
+
+# Coverage configuration
+[tool.coverage.run]
+branch = true
+source = ["pysoa"]
+
+[tool.coverage.report]
+fail_under = 86
+precision = 1
+show_missing = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+addopts = "-s"
+filterwarnings = [
+    "error:.*Coroutine functions are not natively supported.*",
+    "ignore:.*PY_SSIZE_T_CLEAN will be required.*"
+]
+# The PY_SSIZE_T_CLEAN warning is coming from our test Lua library that is only used in tests and is safe to
+#   ignore until Python 3.10. The test Lua library will need to be fixed by that time.
+
+# Tox configuration (if needed)
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist =
+    py312
+    coverage
+
+[testenv]
+usedevelop=True
+deps =
+    .[testing]
+    setuptools>=65,<70
+    setuptools_scm>=7.1,<8
+    pytest>=7.2,<8.0
+    pytest-asyncio>=0.21.0,<0.24
+    attrs18: attrs~=18.2
+    attrs19: attrs~=19.1
+    attrs20: attrs~=20.3
+    attrs21: attrs~=21.3
+    pyinotify: pyinotify~=0.9
+    currint16: currint~=1.6
+    currint20: currint~=2.0
+    pytest46: pytest~=4.6.9
+    pytest51: pytest~=5.1.3
+    pytest53: pytest~=5.3.5
+commands =
+    coverage run --parallel-mode -m pytest tests/unit tests/integration
+
+[testenv:coverage]
+deps =
+    .[testing]
+commands =
+    coverage run -m pytest tests/unit tests/integration
+    coverage report --show-missing
+""" 

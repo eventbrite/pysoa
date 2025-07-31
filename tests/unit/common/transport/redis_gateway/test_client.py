@@ -11,7 +11,7 @@ from typing import (
 )
 import unittest
 
-from pymetrics.recorders.noop import noop_metrics
+from pysoa.common.transport.base import noop_metrics
 import six
 
 from pysoa.common.transport.base import get_hex_thread_id

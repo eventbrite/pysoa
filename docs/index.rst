@@ -9,9 +9,6 @@ Release: |version|
 .. image:: https://img.shields.io/pypi/l/pysoa.svg
     :target: https://pypi.python.org/pypi/pysoa
 
-.. image:: https://api.travis-ci.org/eventbrite/pysoa.svg
-    :target: https://travis-ci.org/eventbrite/pysoa
-
 .. image:: https://img.shields.io/pypi/v/pysoa.svg
     :target: https://pypi.python.org/pypi/pysoa
 

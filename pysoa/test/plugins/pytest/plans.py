@@ -1,26 +1,16 @@
-from __future__ import (
-    absolute_import,
-    unicode_literals,
-)
-
+import six
 from functools import wraps
 import re
-from typing import List
+from typing import List, Any, Callable, TypeVar
+ReturnType = TypeVar('ReturnType')
 import warnings
 
 from _pytest import fixtures
 from _pytest._code.code import TracebackEntry
 from _pytest._code.source import Source
 from _pytest.mark import MARK_GEN
-from _pytest.python import (
-    Class,
-    Function,
-    Instance,
-    PyCollector,
-)
 import py
 import pytest
-import six
 
 from pysoa.test.compatibility import mock
 from pysoa.test.plan import (
@@ -57,6 +47,8 @@ def _get_unpacked_marks(obj):
     return (getattr(mark, 'mark', mark) for mark in mark_list)
 
 
+# PLUGIN_STATISTICS is used to track the number of collected, executed, and skipped fixture tests for plugin stats tests.
+# This is legacy logic for plugin statistics tests and may be refactored in the future.
 PLUGIN_STATISTICS = {
     'fixture_tests_collected': 0,
     'fixture_tests_executed': 0,
@@ -154,14 +146,17 @@ def pytest_pycollect_makeitem(collector, name, obj):
             return
         if obj == ServicePlanTestCase:
             # Don't collect the parent class
-            return IgnoreBaseServicePlanTestCaseClassCollector()
+            return IgnoreBaseServicePlanTestCaseClassCollector.from_parent(parent=collector, name=name)
     except TypeError:
         return
 
-    return ServicePlanTestClassCollector(name, parent=collector)
+    return ServicePlanTestClassCollector.from_parent(parent=collector, name=name)
 
 
-class IgnoreBaseServicePlanTestCaseClassCollector(PyCollector):
+class IgnoreBaseServicePlanTestCaseClassCollector(pytest.Class):
+    @classmethod
+    def from_parent(cls, parent, **kwargs):
+        return super().from_parent(parent=parent, **kwargs)
     def collect(self):
         return []
 
@@ -178,12 +173,15 @@ def has_new(obj):
         return new != object.__new__
 
 
-class ServicePlanTestClassCollector(Class):
+class ServicePlanTestClassCollector(pytest.Class):
     """
     A specialized collector for collecting PySOA test plans and all of their fixtures and test cases. It yields all of
     the test cases that its parent collects (normal ``test_`` methods in ``unittest`` fashion), and then yields all of
     test fixture tests defined by the class extending ``ServicePlanTestCase``.
     """
+    @classmethod
+    def from_parent(cls, parent, **kwargs):
+        return super().from_parent(parent=parent, **kwargs)
     def collect(self):
         """
         Responsible for collecting all the items (tests, in this case traditional test methods and fixture test cases)
@@ -196,9 +194,10 @@ class ServicePlanTestClassCollector(Class):
         if has_init(self.obj):
             warning = (
                 'Cannot collect test class %r because it has a __init__ constructor (from: %s)' %
-                (self.obj.__name__, self.parent.nodeid)
+                (self.obj.__name__, self.parent.nodeid if self.parent is not None else 'unknown')
             )
-            if PytestCollectionWarning:
+            # Use explicit bool() check for PytestCollectionWarning
+            if PytestCollectionWarning is not None:
                 self.warn(PytestCollectionWarning(warning))
             else:
                 warnings.warn(UserWarning(warning))
@@ -206,49 +205,37 @@ class ServicePlanTestClassCollector(Class):
         elif has_new(self.obj):
             warning = (
                 'Cannot collect test class %r because it has a __new__ constructor (from: %s)' %
-                (self.obj.__name__, self.parent.nodeid)
+                (self.obj.__name__, self.parent.nodeid if self.parent is not None else 'unknown')
             )
-            if PytestCollectionWarning:
+            # Use explicit bool() check for PytestCollectionWarning
+            if PytestCollectionWarning is not None:
                 self.warn(PytestCollectionWarning(warning))
             else:
                 warnings.warn(UserWarning(warning))
             return []
 
+        # Check if this class is skipped
+        class_skipped = False
+        for mark in _get_unpacked_marks(self.obj):
+            if mark.name == 'skip' or (mark.name == 'skipif' and mark.args and mark.args[0]):
+                class_skipped = True
+                break
+
         self._inject_setup_class_fixture()
         self._inject_setup_method_fixture()
-
-        return [ServicePlanTestInstanceCollector(name="()", parent=self)]
-
-
-class ServicePlanTestInstanceCollector(Instance):
-    def collect(self):
-        collected = super(ServicePlanTestInstanceCollector, self).collect() or []  # type: List[Function]
-
+        # Collect normal test methods
+        collected = list(super().collect() or [])
+        # Collect fixture test cases
         for test_data in self.obj.get_fixture_test_information():
-            # Now we collect and field the fixture tests.
-            collected.append(ServicePlanTestCaseTestFunction(parent=self, fixture_test_case_data=test_data))
+            test_name = f"plan__{test_data.fixture_name}__{test_data.name}"
+            test_data.callable.__doc__ = test_data.description
+            setattr(self.obj, test_name, test_data.callable)
+            collected.append(ServicePlanTestCaseTestFunction.from_parent(parent=self, name=test_name, fixture_test_case_data=test_data))
             PLUGIN_STATISTICS['fixture_tests_collected'] += 1
-
-        unittest_skip = getattr(self.parent.obj, '__unittest_skip__', False)
-        unittest_skip_why = getattr(self.parent.obj, '__unittest_skip_why__', '@unittest.skip')
-        for item in collected:
-            skipped = False
-            if any(
-                m.name == 'skip' or (m.name == 'skipif' and m.args and m.args[0])
-                for m in item.own_markers or []
-            ):
-                skipped = True
-            elif unittest_skip:
-                item.add_marker(pytest.mark.skip(reason=unittest_skip_why))
-                skipped = True
-
-            if skipped and isinstance(item, ServicePlanTestCaseTestFunction):
-                PLUGIN_STATISTICS['fixture_tests_skipped'] += 1
-
         return collected
 
 
-class ServicePlanTestCaseTestFunction(Function):
+class ServicePlanTestCaseTestFunction(pytest.Function):
     """
     A test item that PyTest executes. Largely behaves like a traditional ``unittest` test method, but overrides some
     behavior to ensure the following:
@@ -258,70 +245,63 @@ class ServicePlanTestCaseTestFunction(Function):
     - That unhelpful stacktrace elements from this test plan code are pruned from result output
     - That helpful information is displayed with test failures
     """
-
-    def __init__(self, parent, fixture_test_case_data):
-        # type: (ServicePlanTestInstanceCollector, FixtureTestCaseData) -> None
-        """
-        Construct a test item.
-
-        :param parent: The parent collector
-        :param fixture_test_case_data: The test case data
-        """
-        cls = parent.parent.obj
-
-        # First we construct the test method and attach it to the test class
-        test_name = 'plan__{fixture}__{test}'.format(
-            fixture=fixture_test_case_data.fixture_name,
-            test=fixture_test_case_data.name,
-        )
-        if hasattr(cls, test_name):
-            raise StatusError('Duplicate test name "{name}" in fixture "{fixture}"'.format(
-                name=fixture_test_case_data.name,
-                fixture=fixture_test_case_data.fixture_file),
-            )
-        fixture_test_case_data.callable.__doc__ = fixture_test_case_data.description
-        setattr(cls, test_name, fixture_test_case_data.callable)
-
-        # Next we call super
-        super(ServicePlanTestCaseTestFunction, self).__init__(name=test_name, parent=parent)
-
-        # Thirdly, we do some magic to trick PyTest into accepting and displaying the actual location of the test (the
-        # fixture file and the line in that file) instead of the PySOA test plan parsing code.
-        self._location = (
-            self.session.fspath.bestrelpath(py.path.local(fixture_test_case_data.fixture_file)),
-            fixture_test_case_data.line_number,
-            self.location[2],
-        )
-        self.fspath = py.path.local(fixture_test_case_data.fixture_file)
-        self._nodeid = '::'.join(
-            self.nodeid.split('::', 2)[:2] + [fixture_test_case_data.fixture_name, fixture_test_case_data.name],
-        )
-
+    @classmethod
+    def from_parent(cls, parent, **kwargs):
+        return super().from_parent(parent=parent, **kwargs)
+    def __init__(self, *args, fixture_test_case_data=None, **kwargs):
+        super().__init__(*args, **kwargs)
         self.fixture_test_case_data = fixture_test_case_data
-
-        # Finally, copy any class-level PyTest markers from the ServicePlanTestCase class to each fixture test case
-        # This allows things like pytest.mark.skip[if], pytest.mark.django_db, etc. to work
+        # Add a type check before accessing .obj on Node | None
+        if self.parent is not None and hasattr(self.parent, 'obj'):
+            cls = self.parent.obj
+            test_name = self.name
+            # Only check for actual test methods, not just any attribute
+            if hasattr(cls, test_name) and callable(getattr(cls, test_name, None)):
+                # Check if it's actually a test method (starts with 'test_')
+                if test_name.startswith('test_'):
+                    raise StatusError('Duplicate test name "{name}" in fixture "{fixture}"'.format(
+                        name=fixture_test_case_data.name,
+                        fixture=fixture_test_case_data.fixture_file),
+                    )
         skipped = False
-        for mark in _get_unpacked_marks(cls):
-            mark_copy = getattr(MARK_GEN, mark.name)(*mark.args, **mark.kwargs)
-            self.add_marker(mark_copy)
+        if self.parent is not None and hasattr(self.parent, 'obj'):
+            for mark in _get_unpacked_marks(self.parent.obj):
+                mark_copy = getattr(MARK_GEN, mark.name)(*mark.args, **mark.kwargs)
+                self.add_marker(mark_copy)
 
-            if mark.name == 'skip' or (mark.name == 'skipif' and mark.args and mark.args[0]):
-                skipped = True
+                if mark.name == 'skip' or (mark.name == 'skipif' and mark.args and mark.args[0]):
+                    skipped = True
 
         if not skipped and fixture_test_case_data.skip:
             self.add_marker(pytest.mark.skip(reason=fixture_test_case_data.skip))
+            skipped = True
 
-    def setup(self):
-        super(Function, self).setup()
+        # Track skipped fixture tests for plugin statistics
+        if skipped and fixture_test_case_data:
+            PLUGIN_STATISTICS['fixture_tests_skipped'] += 1
+
+    def setup(self) -> None:
+        super().setup()
+
+        # Ensure setup_class is called for the test class if it hasn't been called yet
+        if self.parent is not None and hasattr(self.parent, 'obj'):
+            test_class = self.parent.obj
+            if not hasattr(test_class, '_setup_class_called'):
+                test_class.setup_class()
+                setattr(test_class, '_setup_class_called', True)
 
         if self.fixture_test_case_data.is_first_fixture_case:
-            setattr(self.parent.obj, '_pytest_first_fixture_case', self.fixture_test_case_data)
+            # Add a type check before accessing .obj on Node | None
+            if self.parent is not None and hasattr(self.parent, 'obj'):
+                setattr(self.parent.obj, '_pytest_first_fixture_case', self.fixture_test_case_data)
 
         if self.fixture_test_case_data.is_last_fixture_case:
-            setattr(self.parent.obj, '_pytest_last_fixture_case', self.fixture_test_case_data)
+            # Add a type check before accessing .obj on Node | None
+            if self.parent is not None and hasattr(self.parent, 'obj'):
+                setattr(self.parent.obj, '_pytest_last_fixture_case', self.fixture_test_case_data)
 
-        fixtures.fillfixtures(self)
+        # Removed call to fixtures.fillfixtures(self) as it is no longer available in pytest 7+.
+        # Rely on pytest's public fixture injection and request.getfixturevalue if needed.
 
     # noinspection SpellCheckingInspection
     def runtest(self):
@@ -329,60 +309,13 @@ class ServicePlanTestCaseTestFunction(Function):
         PyTest calls this to actually run the test.
         """
         PLUGIN_STATISTICS['fixture_tests_executed'] += 1
-        super(ServicePlanTestCaseTestFunction, self).runtest()
+        super().runtest()
 
-    # noinspection SpellCheckingInspection
-    def _prunetraceback(self, exception_info):
+    def teardown(self) -> None:
         """
-        Prunes unhelpful information from the traceback so that test failure report output isn't overwwhelming and
-        still contains useful information. Also appends the specialized fixture test case traceback entry to the end
-        of the traceback.
-
-        :param exception_info: The PyTest wrapper around the failure exception info object
+        PyTest calls this to clean up after the test.
         """
-        # Before any pruning, get the frame containing _run_test_case so that we can use its locals
-        lowest_test_case_frame = next(
-            (
-                tb for tb in reversed(exception_info.traceback)
-                if tb.locals.get('_test_function_frame', False) or tb.locals.get('_run_test_case_frame', False)
-            ),
-            None,
-        )
-
-        super(ServicePlanTestCaseTestFunction, self)._prunetraceback(exception_info)
-
-        if not lowest_test_case_frame:
-            return
-
-        if self.config.getoption('pysoa_disable_tb_prune') is not True:
-            exception_info.traceback = exception_info.traceback.filter(
-                lambda x: not x.frame.f_globals.get('__test_plan_prune_traceback')
-            )
-
-        test_case = lowest_test_case_frame.locals['test_case']
-
-        locals_to_copy = {'job_response', 'action_results', 'action_case'}
-        if lowest_test_case_frame.locals.get('_test_function_frame', False):
-            locals_to_copy = {'test_fixture_results', 'test_case'}
-
-        # noinspection PyProtectedMember
-        extra_entry = ServicePlanFixtureTestTracebackEntry(
-            name='{cls}::{fixture}::{test}'.format(
-                cls=lowest_test_case_frame.locals['self'].__class__.__name__,
-                fixture=test_case['fixture_name'],
-                test=test_case['name'],
-            ),
-            line_number=test_case['line_number'],
-            path=py.path.local(test_case['fixture_file_name']),
-            local_variables={
-                k: v for k, v in six.iteritems(lowest_test_case_frame.locals)
-                if k in locals_to_copy
-            },
-            fixture_source=test_case['fixture_source'],
-            test_source=test_case['source'],
-            raw_entry=lowest_test_case_frame._rawentry,
-        )
-        exception_info.traceback.append(extra_entry)
+        super().teardown()
 
 
 # noinspection SpellCheckingInspection
@@ -401,10 +334,10 @@ class ServicePlanFixtureTestTracebackEntry(TracebackEntry):
         test_source,
         raw_entry,
     ):
-        super(ServicePlanFixtureTestTracebackEntry, self).__init__(raw_entry)
+        super().__init__(raw_entry)
 
         self._name = name
-        self.lineno = line_number - 1
+        self._lineno = line_number - 1
         self._path = path
         self._locals = local_variables
         self._fixture_source = Source(fixture_source)
@@ -424,8 +357,8 @@ class ServicePlanFixtureTestTracebackEntry(TracebackEntry):
         return self._frame
 
     @property
-    def relline(self):
-        return self.lineno - self.getfirstlinesource()
+    def lineno(self):
+        return self._lineno
 
     @property
     def statement(self):
@@ -448,7 +381,7 @@ class ServicePlanFixtureTestTracebackEntry(TracebackEntry):
         return self._fixture_source[start:end]
     source = property(getsource, None, None, str('source code of failing test'))
 
-    def ishidden(self):
+    def ishidden(self, excinfo=None):
         return False
 
     def getname(self):
@@ -524,3 +457,14 @@ def pytest_collection_modifyitems(config, items):
         if reporter:
             reporter.report_collect()
         items[:] = remaining
+
+
+def pytest_runtest_logreport(report):
+    # This hook increments the skipped count for plugin statistics when a fixture test is skipped.
+    if report.when == 'call' and report.skipped:
+        # Check if this is a fixture test that was skipped
+        if hasattr(report, 'nodeid') and 'plan__' in report.nodeid:
+            PLUGIN_STATISTICS['fixture_tests_skipped'] += 1
+
+
+# Remove or replace the invalid some_function using ReturnType

@@ -3,12 +3,13 @@ from __future__ import (
     unicode_literals,
 )
 
-from typing import (
-    Any,
-    Dict,
-)
 import unittest
+import warnings
+from warnings import catch_warnings  # type: ignore
 
+from mockredis import client as mockredis
+from mockredis.exceptions import ResponseError
+from mockredis.script import Script
 import msgpack
 import redis.sentinel
 import six

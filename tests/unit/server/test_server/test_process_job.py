@@ -63,8 +63,7 @@ class TestProcessJob(TestCase):
     """
 
     def setUp(self):
-        # Make a new server instance each time
-        settings = factories.ServerSettingsFactory()
+        settings = factories.ServerSettingsFactory.build()
         settings['middleware'].append({'object': ProcessJobMiddleware})
         self.server = ProcessJobServer(settings=settings)
 

@@ -10,9 +10,6 @@ PySOA (Deprecated)
 .. image:: https://img.shields.io/pypi/l/pysoa.svg
     :target: https://pypi.python.org/pypi/pysoa
 
-.. image:: https://api.travis-ci.org/eventbrite/pysoa.svg
-    :target: https://travis-ci.org/eventbrite/pysoa
-
 .. image:: https://img.shields.io/pypi/v/pysoa.svg
     :target: https://pypi.python.org/pypi/pysoa
 
@@ -90,3 +87,32 @@ Documentation
 -------------
 
 The complete PySOA documentation is available on `Read the Docs <https://pysoa.readthedocs.io>`_!
+
+# Updated supported Python version
+# --------------------------------
+
+Supported Python Version
+-----------------------
+
+PySOA now only supports **Python 3.12+**. All development, testing, and usage should use Python 3.12 or newer.
+
+# Updated code quality section
+# ----------------------------
+
+Code Quality Checklist
+----------------------
+- Run `flake8 .` and ensure there are no linting errors.
+- Run `mypy .` and ensure there are no type errors.
+- All tests must pass (`pytest`, `tox`, or `./test.sh`).
+
+# Contributor Checklist
+# ---------------------
+
+Contributor Checklist
+---------------------
+- [ ] Code runs and passes all tests in Python 3.12+
+- [ ] No linting errors (`flake8 .`)
+- [ ] No type errors (`mypy .`)
+- [ ] Documentation updated if public API changed
+- [ ] Commit message uses correct prefix
+- [ ] Pull request includes tests for new/changed code

@@ -1,6 +1,12 @@
 # Compiled Python files
 *.pyc
 
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
 # Setuptools local dev stuff
 .eggs
 *.egg-info

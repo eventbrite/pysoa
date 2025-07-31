@@ -612,7 +612,7 @@ class TestStubAction(PyTestServerTestCase):
             stub_test_action_1.assert_called_once_with({})
             stub_test_action_2.assert_called_once_with({'input_attribute': False})
 
-    @pytest.mark.parametrize(('value2', ), ((-15, ), (-20, )))
+    @parameterized.expand(((-15,), (-20,)))
     def test_two_stubs_same_service_as_decorated_external_method(self, value2):
         response1, response2 = self._two_stubs_external_method_get_response(value2)
         self.assertEqual({'value': -10}, response1.body)
@@ -797,12 +797,12 @@ class TestStubAction(PyTestServerTestCase):
         {'code': 'BAD_FOO', 'field': 'foo', 'message': 'Nope'},
     ])
     def test_mock_action_with_error_raises_exception(self, stub_test_action_2):
-        with self.assertRaises(Client.CallActionError) as e:
+        with self.assertRaises(Client.CallActionError) as context:
             self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
 
-        self.assertEqual('BAD_FOO', e.exception.actions[0].errors[0].code)
-        self.assertEqual('foo', e.exception.actions[0].errors[0].field)
-        self.assertEqual('Nope', e.exception.actions[0].errors[0].message)
+        self.assertEqual('BAD_FOO', context.exception.actions[0].errors[0].code)
+        self.assertEqual('foo', context.exception.actions[0].errors[0].field)
+        self.assertEqual('Nope', context.exception.actions[0].errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
@@ -848,12 +848,12 @@ class TestStubAction(PyTestServerTestCase):
         side_effect=ActionError(errors=[Error(code='BAR_BAD', field='bar', message='Uh-uh')]),
     )
     def test_stub_action_with_error_side_effect_raises_exception(self, stub_test_action_2):
-        with self.assertRaises(Client.CallActionError) as e:
+        with self.assertRaises(Client.CallActionError) as context:
             self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
 
-        self.assertEqual('BAR_BAD', e.exception.actions[0].errors[0].code)
-        self.assertEqual('bar', e.exception.actions[0].errors[0].field)
-        self.assertEqual('Uh-uh', e.exception.actions[0].errors[0].message)
+        self.assertEqual('BAR_BAD', context.exception.actions[0].errors[0].code)
+        self.assertEqual('bar', context.exception.actions[0].errors[0].field)
+        self.assertEqual('Uh-uh', context.exception.actions[0].errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
@@ -865,12 +865,12 @@ class TestStubAction(PyTestServerTestCase):
         side_effect=JobError(errors=[Error(code='BAR_BAD_JOB', message='Uh-uh job')]),
     )
     def test_stub_action_with_job_error_side_effect_raises_job_error_exception(self, stub_test_action_2):
-        with self.assertRaises(Client.JobError) as e:
+        with self.assertRaises(Client.JobError) as context:
             self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
 
-        self.assertEqual('BAR_BAD_JOB', e.exception.errors[0].code)
-        self.assertIsNone(e.exception.errors[0].field)
-        self.assertEqual('Uh-uh job', e.exception.errors[0].message)
+        self.assertEqual('BAR_BAD_JOB', context.exception.errors[0].code)
+        self.assertIsNone(context.exception.errors[0].field)
+        self.assertEqual('Uh-uh job', context.exception.errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
@@ -880,12 +880,12 @@ class TestStubAction(PyTestServerTestCase):
     def test_mock_action_with_error_side_effect_raises_exception(self, stub_test_action_2):
         stub_test_action_2.side_effect = ActionError(errors=[Error(code='BAR_BAD', field='bar', message='Uh-uh')])
 
-        with self.assertRaises(Client.CallActionError) as e:
+        with self.assertRaises(Client.CallActionError) as context:
             self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
 
-        self.assertEqual('BAR_BAD', e.exception.actions[0].errors[0].code)
-        self.assertEqual('bar', e.exception.actions[0].errors[0].field)
-        self.assertEqual('Uh-uh', e.exception.actions[0].errors[0].message)
+        self.assertEqual('BAR_BAD', context.exception.actions[0].errors[0].code)
+        self.assertEqual('bar', context.exception.actions[0].errors[0].field)
+        self.assertEqual('Uh-uh', context.exception.actions[0].errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
@@ -895,12 +895,12 @@ class TestStubAction(PyTestServerTestCase):
     def test_mock_action_with_job_error_side_effect_raises_job_error_exception(self, stub_test_action_2):
         stub_test_action_2.side_effect = JobError(errors=[Error(code='BAR_BAD_JOB', message='Uh-uh job')])
 
-        with self.assertRaises(Client.JobError) as e:
+        with self.assertRaises(Client.JobError) as context:
             self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
 
-        self.assertEqual('BAR_BAD_JOB', e.exception.errors[0].code)
-        self.assertIsNone(e.exception.errors[0].field)
-        self.assertEqual('Uh-uh job', e.exception.errors[0].message)
+        self.assertEqual('BAR_BAD_JOB', context.exception.errors[0].code)
+        self.assertIsNone(context.exception.errors[0].field)
+        self.assertEqual('Uh-uh job', context.exception.errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
@@ -910,12 +910,12 @@ class TestStubAction(PyTestServerTestCase):
     def test_mock_action_with_job_error_response_raises_job_error_exception(self, stub_test_action_2):
         stub_test_action_2.return_value = JobResponse(errors=[Error(code='BAR_BAD_JOB', message='Uh-uh job')])
 
-        with self.assertRaises(Client.JobError) as e:
+        with self.assertRaises(Client.JobError) as context:
             self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
 
-        self.assertEqual('BAR_BAD_JOB', e.exception.errors[0].code)
-        self.assertIsNone(e.exception.errors[0].field)
-        self.assertEqual('Uh-uh job', e.exception.errors[0].message)
+        self.assertEqual('BAR_BAD_JOB', context.exception.errors[0].code)
+        self.assertIsNone(context.exception.errors[0].field)
+        self.assertEqual('Uh-uh job', context.exception.errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
@@ -1709,12 +1709,12 @@ class TestStubActionUnitTestCase(UnitTestServerTestCase):
         {'code': 'BAD_FOO', 'field': 'foo', 'message': 'Nope'},
     ])
     def test_mock_action_with_error_raises_exception(self, stub_test_action_2):
-        with self.assertRaises(Client.CallActionError) as e:
+        with self.assertRaises(Client.CallActionError) as context:
             self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
 
-        self.assertEqual('BAD_FOO', e.exception.actions[0].errors[0].code)
-        self.assertEqual('foo', e.exception.actions[0].errors[0].field)
-        self.assertEqual('Nope', e.exception.actions[0].errors[0].message)
+        self.assertEqual('BAD_FOO', context.exception.actions[0].errors[0].code)
+        self.assertEqual('foo', context.exception.actions[0].errors[0].field)
+        self.assertEqual('Nope', context.exception.actions[0].errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
@@ -1760,12 +1760,12 @@ class TestStubActionUnitTestCase(UnitTestServerTestCase):
         side_effect=ActionError(errors=[Error(code='BAR_BAD', field='bar', message='Uh-uh')]),
     )
     def test_stub_action_with_error_side_effect_raises_exception(self, stub_test_action_2):
-        with self.assertRaises(Client.CallActionError) as e:
+        with self.assertRaises(Client.CallActionError) as context:
             self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
 
-        self.assertEqual('BAR_BAD', e.exception.actions[0].errors[0].code)
-        self.assertEqual('bar', e.exception.actions[0].errors[0].field)
-        self.assertEqual('Uh-uh', e.exception.actions[0].errors[0].message)
+        self.assertEqual('BAR_BAD', context.exception.actions[0].errors[0].code)
+        self.assertEqual('bar', context.exception.actions[0].errors[0].field)
+        self.assertEqual('Uh-uh', context.exception.actions[0].errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
@@ -1777,12 +1777,12 @@ class TestStubActionUnitTestCase(UnitTestServerTestCase):
         side_effect=JobError(errors=[Error(code='BAR_BAD_JOB', message='Uh-uh job')]),
     )
     def test_stub_action_with_job_error_side_effect_raises_job_error_exception(self, stub_test_action_2):
-        with self.assertRaises(Client.JobError) as e:
+        with self.assertRaises(Client.JobError) as context:
             self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
 
-        self.assertEqual('BAR_BAD_JOB', e.exception.errors[0].code)
-        self.assertIsNone(e.exception.errors[0].field)
-        self.assertEqual('Uh-uh job', e.exception.errors[0].message)
+        self.assertEqual('BAR_BAD_JOB', context.exception.errors[0].code)
+        self.assertIsNone(context.exception.errors[0].field)
+        self.assertEqual('Uh-uh job', context.exception.errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
@@ -1792,12 +1792,12 @@ class TestStubActionUnitTestCase(UnitTestServerTestCase):
     def test_mock_action_with_error_side_effect_raises_exception(self, stub_test_action_2):
         stub_test_action_2.side_effect = ActionError(errors=[Error(code='BAR_BAD', field='bar', message='Uh-uh')])
 
-        with self.assertRaises(Client.CallActionError) as e:
+        with self.assertRaises(Client.CallActionError) as context:
             self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
 
-        self.assertEqual('BAR_BAD', e.exception.actions[0].errors[0].code)
-        self.assertEqual('bar', e.exception.actions[0].errors[0].field)
-        self.assertEqual('Uh-uh', e.exception.actions[0].errors[0].message)
+        self.assertEqual('BAR_BAD', context.exception.actions[0].errors[0].code)
+        self.assertEqual('bar', context.exception.actions[0].errors[0].field)
+        self.assertEqual('Uh-uh', context.exception.actions[0].errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
@@ -1807,12 +1807,12 @@ class TestStubActionUnitTestCase(UnitTestServerTestCase):
     def test_mock_action_with_job_error_side_effect_raises_job_error_exception(self, stub_test_action_2):
         stub_test_action_2.side_effect = JobError(errors=[Error(code='BAR_BAD_JOB', message='Uh-uh job')])
 
-        with self.assertRaises(Client.JobError) as e:
+        with self.assertRaises(Client.JobError) as context:
             self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
 
-        self.assertEqual('BAR_BAD_JOB', e.exception.errors[0].code)
-        self.assertIsNone(e.exception.errors[0].field)
-        self.assertEqual('Uh-uh job', e.exception.errors[0].message)
+        self.assertEqual('BAR_BAD_JOB', context.exception.errors[0].code)
+        self.assertIsNone(context.exception.errors[0].field)
+        self.assertEqual('Uh-uh job', context.exception.errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)
@@ -1822,12 +1822,12 @@ class TestStubActionUnitTestCase(UnitTestServerTestCase):
     def test_mock_action_with_job_error_response_raises_job_error_exception(self, stub_test_action_2):
         stub_test_action_2.return_value = JobResponse(errors=[Error(code='BAR_BAD_JOB', message='Uh-uh job')])
 
-        with self.assertRaises(Client.JobError) as e:
+        with self.assertRaises(Client.JobError) as context:
             self.client.call_action('test_service', 'test_action_2', {'a': 'body'})
 
-        self.assertEqual('BAR_BAD_JOB', e.exception.errors[0].code)
-        self.assertIsNone(e.exception.errors[0].field)
-        self.assertEqual('Uh-uh job', e.exception.errors[0].message)
+        self.assertEqual('BAR_BAD_JOB', context.exception.errors[0].code)
+        self.assertIsNone(context.exception.errors[0].field)
+        self.assertEqual('Uh-uh job', context.exception.errors[0].message)
 
         self.assertEqual(1, stub_test_action_2.call_count)
         self.assertEqual({'a': 'body'}, stub_test_action_2.call_body)

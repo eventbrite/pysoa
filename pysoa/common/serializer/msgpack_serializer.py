@@ -11,6 +11,7 @@ import struct
 from typing import (
     Any,
     Dict,
+    cast,
 )
 
 from conformity import fields
@@ -90,20 +91,24 @@ class MsgpackSerializer(BaseSerializer):
     EPOCH = datetime.datetime(1970, 1, 1)
     EPOCH_UTC = datetime.datetime(1970, 1, 1, tzinfo=pytz.UTC)
 
-    def dict_to_blob(self, data_dict):  # type: (Dict) -> six.binary_type
+    def dict_to_blob(self, data_dict: dict) -> bytes:
         if not isinstance(data_dict, dict):
             raise ValueError('Input must be a dict')
         try:
-            return msgpack.packb(data_dict, default=self._default, use_bin_type=True, unicode_errors='surrogatepass')
+            result = msgpack.packb(data_dict, default=self._default, use_bin_type=True, unicode_errors='surrogatepass')
+            return cast(bytes, result)
         except TypeError as e:
             raise InvalidField(
                 "Can't serialize message due to {}: {}".format(str(type(e).__name__), str(e)),
                 *e.args
             )
 
-    def blob_to_dict(self, blob):  # type: (six.binary_type) -> Dict
+    def blob_to_dict(self, blob: bytes) -> dict:
         try:
-            return msgpack.unpackb(blob, raw=False, ext_hook=self._ext_hook)
+            result = msgpack.unpackb(blob, raw=False, ext_hook=self._ext_hook)
+            if not isinstance(result, dict):
+                raise InvalidField('Deserialized blob is not a dict')
+            return result
         except (ValueError, TypeError, msgpack.UnpackValueError, msgpack.ExtraData) as e:
             raise InvalidMessage(
                 "Can't deserialize message due to {}: {}".format(str(type(e).__name__), str(e)),
@@ -174,7 +179,7 @@ class MsgpackSerializer(BaseSerializer):
         if code in (self.EXT_DATETIME, self.EXT_DATETIME_UTC):
             # Unpack datetime object from a big-endian signed 64-bit integer.
             microseconds = self.STRUCT_DATETIME.unpack(data)[0]
-            value = datetime.datetime.utcfromtimestamp(microseconds / 1000000.0)
+            value = datetime.datetime.fromtimestamp(microseconds / 1000000.0, datetime.UTC)
             if code == self.EXT_DATETIME_UTC:
                 value = value.replace(tzinfo=pytz.UTC)
             return value

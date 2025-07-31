@@ -4,7 +4,7 @@ from __future__ import (
 )
 
 import json
-from typing import Dict
+from typing import Dict, Any
 
 from conformity import fields
 import six
@@ -46,11 +46,15 @@ class JSONSerializer(BaseSerializer):
                 *e.args
             )
 
-    def blob_to_dict(self, blob):  # type: (six.binary_type) -> Dict
+    def blob_to_dict(self, blob: bytes) -> dict:
         try:
             if six.PY3 and isinstance(blob, six.binary_type):
-                return json.loads(blob.decode('utf-8'))
-            return json.loads(blob)
+                result = json.loads(blob.decode('utf-8'))
+            else:
+                result = json.loads(blob)
+            if not isinstance(result, dict):
+                raise InvalidMessage('Deserialized blob is not a dict')
+            return result
         except (ValueError, TypeError) as e:
             raise InvalidMessage(
                 "Can't deserialize message due to {}: {}".format(str(type(e).__name__), str(e)),

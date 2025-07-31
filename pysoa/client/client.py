@@ -33,7 +33,6 @@ import attr
 from conformity.settings import SettingsData
 from pymetrics.instruments import TimerResolution
 from pymetrics.recorders.base import MetricsRecorder
-import six
 
 from pysoa.client.errors import (
     CallActionError,
@@ -91,7 +90,7 @@ class ServiceHandler(object):
 
     _client_version = list(__version_info__)
 
-    def __init__(self, service_name, settings):  # type: (six.text_type, ClientSettings) -> None
+    def __init__(self, service_name, settings):  # type: (str, ClientSettings) -> None
         """
         :param service_name: The name of the service which this handler calls
         :param settings: The client settings object for this service (and only this service)
@@ -125,18 +124,13 @@ class ServiceHandler(object):
         self.request_counter = random.randint(1, 1000000)  # type: int
 
     @staticmethod
-    def _make_middleware_stack(middleware, base):  # type: (List[Callable[[_MT], _MT]], _MT) -> _MT
-        """
-        Given a list of in-order middleware callables `middleware`
-        and a base function `base`, chains them together so each middleware is
-        fed the function below, and returns the top level ready to call.
-        """
+    def _make_middleware_stack(middleware: list[Callable[[Any], Any]], base: Callable[..., Any]) -> Callable[..., Any]:
         for ware in reversed(middleware):
             base = ware(base)
         return base
 
     def _base_send_request(self, request_id, meta, job_request, message_expiry_in_seconds=None):
-        # type: (int, Dict[six.text_type, Any], JobRequest, Optional[int]) -> None
+        # type: (int, Dict[str, Any], JobRequest, Optional[int]) -> None
         with self.metrics.timer('client.send.excluding_middleware', resolution=TimerResolution.MICROSECONDS):
             self.transport.send_request_message(
                 request_id,
@@ -162,7 +156,7 @@ class ServiceHandler(object):
         self.request_counter += 1
         meta = {
             'client_version': self._client_version,
-        }  # type: Dict[six.text_type, Any]
+        }  # type: Dict[str, Any]
         try:
             with self.metrics.timer('client.send.including_middleware', resolution=TimerResolution.MICROSECONDS):
                 self._middleware_send_request_wrapper(request_id, meta, job_request, message_expiry_in_seconds)
@@ -170,8 +164,7 @@ class ServiceHandler(object):
         finally:
             self.metrics.publish_all()
 
-    def _base_get_response(self, receive_timeout_in_seconds=None):
-        # type: (int) -> Tuple[Optional[int], Optional[JobResponse]]
+    def _base_get_response(self, receive_timeout_in_seconds: Optional[int] = None) -> Tuple[Optional[int], Optional[JobResponse]]:
         with self.metrics.timer('client.receive.excluding_middleware', resolution=TimerResolution.MICROSECONDS):
             request_id, meta, message = self.transport.receive_response_message(receive_timeout_in_seconds)
             if message is None:
@@ -179,19 +172,7 @@ class ServiceHandler(object):
             else:
                 return request_id, JobResponse(**message)
 
-    def get_all_responses(self, receive_timeout_in_seconds=None):
-        # type: (Optional[int]) -> Generator[Tuple[int, JobResponse], None, None]
-        """
-        Receive all available responses from the transport as a generator.
-
-        :param receive_timeout_in_seconds: How long to block without receiving a message before raising
-                                           :class:`pysoa.common.transport.errors.MessageReceiveTimeout` (defaults to
-                                           five seconds unless the settings are otherwise).
-
-        :return: A generator that yields a two-tuple of request ID, job response
-
-        :raises: :class:`pysoa.common.transport.errors.PySOATransportError`, :class:`StopIteration`
-        """
+    def get_all_responses(self, receive_timeout_in_seconds: Optional[int] = None) -> Generator[Tuple[int, JobResponse], None, None]:
         try:
             while True:
                 with self.metrics.timer('client.receive.including_middleware', resolution=TimerResolution.MICROSECONDS):
@@ -214,17 +195,17 @@ _FR = TypeVar(
 )
 ActionRequestArgument = Union[
     ActionRequest,
-    Dict[six.text_type, Any],
+    Dict[str, Any],
 ]
 ActionRequestArgumentList = Union[
     List[ActionRequest],
-    List[Dict[six.text_type, Any]],
+    List[Dict[str, Any]],
 ]
 ActionRequestArgumentIterable = Union[
     Iterable[ActionRequest],
-    Iterable[Dict[six.text_type, Any]],
+    Iterable[Dict[str, Any]],
 ]
-JobRequestArgument = Dict[six.text_type, Any]
+JobRequestArgument = Dict[str, Any]
 
 
 class FutureSOAResponse(Generic[_FR]):
@@ -243,7 +224,7 @@ class FutureSOAResponse(Generic[_FR]):
         self._response = None  # type: Optional[_FR]
         self._raise = None  # type: Optional[FutureSOAResponse.DelayedException]
 
-    def result(self, timeout=None):  # type: (Optional[int]) -> _FR
+    def result(self, timeout: Optional[int] = None) -> _FR:
         """
         Obtain the result of this future response.
 
@@ -271,11 +252,7 @@ class FutureSOAResponse(Generic[_FR]):
                  :class:`pysoa.client.errors.CallActionError`, :class:`pysoa.client.errors.CallJobError`
         """
         if self._raise:
-            if six.PY2:
-                six.reraise(tp=self._raise.tp, value=self._raise.value, tb=self._raise.tb)
-            else:
-                # We do it this way because six.reraise adds extra traceback items in Python 3
-                raise self._raise.value.with_traceback(self._raise.tb)
+            raise self._raise.value.with_traceback(self._raise.tb)
         if self._response:
             return self._response
 
@@ -290,7 +267,7 @@ class FutureSOAResponse(Generic[_FR]):
             self._raise = self.DelayedException(t, e, tb)
             raise
 
-    def exception(self, timeout=None):  # type: (int) -> Optional[BaseException]
+    def exception(self, timeout: Optional[int] = None) -> Optional[BaseException]:
         """
         Obtain the exception raised by the call, blocking if necessary, per the rules specified in the
         documentation for :meth:`result`. If the call completed without raising an exception, `None` is returned.
@@ -349,7 +326,7 @@ class Client(object):
 
     def __init__(
         self,
-        config,  # type: Mapping[six.text_type, SettingsData]
+        config,  # type: Mapping[str, SettingsData]
         expansion_config=None,  # type: Optional[SettingsData]
         settings_class=None,  # type: Optional[Type[ClientSettings]]
         context=None,  # type: Optional[Context]
@@ -368,9 +345,9 @@ class Client(object):
         self.settings_class = settings_class or self.__class__.settings_class
         self.context = context or {}  # type: Context
 
-        self.handlers = {}  # type: Dict[six.text_type, ServiceHandler]
-        self.settings = {}  # type: Dict[six.text_type, ClientSettings]
-        self.config = config or {}  # type: Mapping[six.text_type, SettingsData]
+        self.handlers = {}  # type: Dict[str, ServiceHandler]
+        self.settings = {}  # type: Dict[str, ClientSettings]
+        self.config = config or {}  # type: Mapping[str, SettingsData]
         for service_name, service_config in self.config.items():
             self.settings[service_name] = self.settings_class(service_config)
 
@@ -404,19 +381,18 @@ class Client(object):
 
     def call_action(
         self,
-        service_name,  # type: six.text_type
-        action,  # type: six.text_type
-        body=None,  # type: Body
-        expansions=None,  # type: Expansions
-        raise_job_errors=True,  # type: bool
-        raise_action_errors=True,  # type: bool
-        timeout=None,  # type: Optional[int]
-        switches=None,  # type: Optional[Union[List[int], AbstractSet[int]]]
-        correlation_id=None,  # type: Optional[six.text_type]
-        context=None,  # type: Optional[Context]
-        control_extra=None,  # type: Optional[Control]
-    ):
-        # type: (...) -> ActionResponse
+        service_name: str,
+        action: str,
+        body: Optional[Body] = None,
+        expansions: Optional[Expansions] = None,
+        raise_job_errors: bool = True,
+        raise_action_errors: bool = True,
+        timeout: Optional[int] = None,
+        switches: Optional[Union[List[int], AbstractSet[int]]] = None,
+        correlation_id: Optional[str] = None,
+        context: Optional[Context] = None,
+        control_extra: Optional[Control] = None,
+    ) -> ActionResponse:
         """
         Build and send a single job request with one action.
 
@@ -463,19 +439,18 @@ class Client(object):
 
     def call_actions(
         self,
-        service_name,  # type: six.text_type
-        actions,  # type: ActionRequestArgumentList
-        expansions=None,  # type: Expansions
-        raise_job_errors=True,  # type: bool
-        raise_action_errors=True,  # type: bool
-        timeout=None,  # type: Optional[int]
-        switches=None,  # type: Optional[Union[List[int], AbstractSet[int]]]
-        correlation_id=None,  # type: Optional[six.text_type]
-        continue_on_error=False,  # type: bool
-        context=None,  # type: Optional[Context]
-        control_extra=None,  # type: Optional[Control]
-    ):
-        # type: (...) -> JobResponse
+        service_name: str,
+        actions: ActionRequestArgumentList,
+        expansions: Optional[Expansions] = None,
+        raise_job_errors: bool = True,
+        raise_action_errors: bool = True,
+        timeout: Optional[int] = None,
+        switches: Optional[Union[List[int], AbstractSet[int]]] = None,
+        correlation_id: Optional[str] = None,
+        continue_on_error: bool = False,
+        context: Optional[Context] = None,
+        control_extra: Optional[Control] = None,
+    ) -> JobResponse:
         """
         Build and send a single job request with one or more actions.
 
@@ -524,19 +499,18 @@ class Client(object):
 
     def call_actions_parallel(
         self,
-        service_name,  # type: six.text_type
-        actions,  # type: ActionRequestArgumentIterable
-        expansions=None,  # type: Expansions
-        raise_job_errors=True,  # type: bool
-        raise_action_errors=True,  # type: bool
-        catch_transport_errors=False,  # type: bool
-        timeout=None,  # type: Optional[int]
-        switches=None,  # type: Optional[Union[List[int], AbstractSet[int]]]
-        correlation_id=None,  # type: Optional[six.text_type]
-        context=None,  # type: Optional[Context]
-        control_extra=None,  # type: Optional[Control]
-    ):
-        # type: (...) -> Generator[ActionResponse, None, None]
+        service_name: str,
+        actions: ActionRequestArgumentIterable,
+        expansions: Optional[Expansions] = None,
+        raise_job_errors: bool = True,
+        raise_action_errors: bool = True,
+        catch_transport_errors: bool = False,
+        timeout: Optional[int] = None,
+        switches: Optional[Union[List[int], AbstractSet[int]]] = None,
+        correlation_id: Optional[str] = None,
+        context: Optional[Context] = None,
+        control_extra: Optional[Control] = None,
+    ) -> Generator[ActionResponse, None, None]:
         """
         Build and send multiple job requests to one service, each job with one action, to be executed in parallel, and
         return once all responses have been received.
@@ -593,18 +567,17 @@ class Client(object):
     def call_jobs_parallel(
         self,
         jobs,  # type: Iterable[JobRequestArgument]
-        expansions=None,  # type: Expansions
+        expansions=None,  # type: Optional[Expansions]
         raise_job_errors=True,  # type: bool
         raise_action_errors=True,  # type: bool
         catch_transport_errors=False,  # type: bool
         timeout=None,  # type: Optional[int]
         switches=None,  # type: Optional[Union[List[int], AbstractSet[int]]]
-        correlation_id=None,  # type: Optional[six.text_type]
+        correlation_id=None,  # type: Optional[str]
         continue_on_error=False,  # type: bool
         context=None,  # type: Optional[Context]
         control_extra=None,  # type: Optional[Control]
-    ):
-        # type: (...) -> List[JobResponse]
+    ) -> List[JobResponse]:
         """
         Build and send multiple job requests to one or more services, each with one or more actions, to be executed in
         parallel, and return once all responses have been received.
@@ -664,19 +637,18 @@ class Client(object):
 
     def call_action_future(
         self,
-        service_name,  # type: six.text_type
-        action,  # type: six.text_type
-        body=None,  # type: Optional[Body]
-        expansions=None,  # type: Expansions
-        raise_job_errors=True,  # type: bool
-        raise_action_errors=True,  # type: bool
-        timeout=None,  # type: Optional[int]
-        switches=None,  # type: Optional[Union[List[int], AbstractSet[int]]]
-        correlation_id=None,  # type: Optional[six.text_type]
-        context=None,  # type: Optional[Context]
-        control_extra=None,  # type: Optional[Control]
-    ):
-        # type: (...) -> FutureSOAResponse[ActionResponse]
+        service_name: str,
+        action: str,
+        body: Optional[Body] = None,
+        expansions: Optional[Expansions] = None,
+        raise_job_errors: bool = True,
+        raise_action_errors: bool = True,
+        timeout: Optional[int] = None,
+        switches: Optional[Union[List[int], AbstractSet[int]]] = None,
+        correlation_id: Optional[str] = None,
+        context: Optional[Context] = None,
+        control_extra: Optional[Control] = None,
+    ) -> FutureSOAResponse[ActionResponse]:
         """
         This method is identical in signature and behavior to :meth:`call_action`, except that it sends the request
         and then immediately returns a :class:`FutureResponse` instead of blocking waiting on a response and returning
@@ -717,19 +689,18 @@ class Client(object):
 
     def call_actions_future(
         self,
-        service_name,  # type: six.text_type
-        actions,  # type: ActionRequestArgumentList
-        expansions=None,  # type: Expansions
-        raise_job_errors=True,  # type: bool
-        raise_action_errors=True,  # type: bool
-        timeout=None,  # type: Optional[int]
-        switches=None,  # type: Optional[Union[List[int], AbstractSet[int]]]
-        correlation_id=None,  # type: Optional[six.text_type]
-        continue_on_error=False,  # type: bool
-        context=None,  # type: Optional[Context]
-        control_extra=None,  # type: Optional[Control]
-    ):
-        # type: (...) -> FutureSOAResponse[JobResponse]
+        service_name: str,
+        actions: ActionRequestArgumentList,
+        expansions: Optional[Expansions] = None,
+        raise_job_errors: bool = True,
+        raise_action_errors: bool = True,
+        timeout: Optional[int] = None,
+        switches: Optional[Union[List[int], AbstractSet[int]]] = None,
+        correlation_id: Optional[str] = None,
+        continue_on_error: bool = False,
+        context: Optional[Context] = None,
+        control_extra: Optional[Control] = None,
+    ) -> FutureSOAResponse[JobResponse]:
         """
         This method is identical in signature and behavior to :meth:`call_actions`, except that it sends the request
         and then immediately returns a :class:`FutureResponse` instead of blocking waiting on a response and returning a
@@ -800,19 +771,18 @@ class Client(object):
 
     def call_actions_parallel_future(
         self,
-        service_name,  # type: six.text_type
-        actions,  # type: ActionRequestArgumentIterable
-        expansions=None,  # type: Expansions
-        raise_job_errors=True,  # type: bool
-        raise_action_errors=True,  # type: bool
-        catch_transport_errors=False,  # type: bool
-        timeout=None,  # type: Optional[int]
-        switches=None,  # type: Optional[Union[List[int], AbstractSet[int]]]
-        correlation_id=None,  # type: Optional[six.text_type]
-        context=None,  # type: Optional[Context]
-        control_extra=None,  # type: Optional[Control]
-    ):
-        # type: (...) -> FutureSOAResponse[Generator[ActionResponse, None, None]]
+        service_name: str,
+        actions: ActionRequestArgumentIterable,
+        expansions: Optional[Expansions] = None,
+        raise_job_errors: bool = True,
+        raise_action_errors: bool = True,
+        catch_transport_errors: bool = False,
+        timeout: Optional[int] = None,
+        switches: Optional[Union[List[int], AbstractSet[int]]] = None,
+        correlation_id: Optional[str] = None,
+        context: Optional[Context] = None,
+        control_extra: Optional[Control] = None,
+    ) -> FutureSOAResponse[Generator[ActionResponse, None, None]]:
         """
         This method is identical in signature and behavior to :meth:`call_actions_parallel`, except that it sends the
         requests and then immediately returns a :class:`FutureResponse` instead of blocking waiting on responses and
@@ -864,13 +834,13 @@ class Client(object):
     def call_jobs_parallel_future(
         self,
         jobs,  # type: Iterable[JobRequestArgument]
-        expansions=None,  # type: Expansions
+        expansions=None,  # type: Optional[Expansions]
         raise_job_errors=True,  # type: bool
         raise_action_errors=True,  # type: bool
         catch_transport_errors=False,  # type: bool
         timeout=None,  # type: Optional[int]
         switches=None,  # type: Optional[Union[List[int], AbstractSet[int]]]
-        correlation_id=None,  # type: Optional[six.text_type]
+        correlation_id=None,  # type: Optional[str]
         continue_on_error=False,  # type: bool
         context=None,  # type: Optional[Context]
         control_extra=None,  # type: Optional[Control]
@@ -888,10 +858,10 @@ class Client(object):
         :raises: :class:`pysoa.common.transport.errors.PySOATransportError`
         """
         error_key = 0
-        transport_errors = {}  # type: Dict[Tuple[six.text_type, int], Exception]
+        transport_errors = {}  # type: Dict[Tuple[str, int], Exception]
 
-        response_reassembly_keys = []  # type: List[Tuple[six.text_type, int]]
-        service_request_ids = {}  # type: Dict[six.text_type, Set[int]]
+        response_reassembly_keys = []  # type: List[Tuple[str, int]]
+        service_request_ids = {}  # type: Dict[str, Set[int]]
         for job in jobs:
             try:
                 sent_request_id = self.send_request(
@@ -915,7 +885,7 @@ class Client(object):
 
         def get_response(_timeout):  # type: (Optional[int]) -> List[JobResponse]
             service_responses = {}
-            for service_name, request_ids in six.iteritems(service_request_ids):
+            for service_name, request_ids in service_request_ids.items():
                 try:
                     for request_id, response in self.get_all_responses(
                         service_name,
@@ -986,17 +956,16 @@ class Client(object):
 
     def send_request(
         self,
-        service_name,  # type: six.text_type
-        actions,  # type: ActionRequestArgumentList
-        switches=None,  # type: Optional[Union[List[int], AbstractSet[int]]]
-        correlation_id=None,  # type: Optional[six.text_type]
-        continue_on_error=False,  # type: bool
-        context=None,  # type: Optional[Context]
-        control_extra=None,  # type: Optional[Control]
-        message_expiry_in_seconds=None,  # type: Optional[int]
-        suppress_response=False,  # type: bool
-    ):
-        # type: (...) -> int
+        service_name: str,
+        actions: ActionRequestArgumentList,
+        switches: Optional[Union[List[int], AbstractSet[int]]] = None,
+        correlation_id: Optional[str] = None,
+        continue_on_error: bool = False,
+        context: Optional[Context] = None,
+        control_extra: Optional[Control] = None,
+        message_expiry_in_seconds: Optional[int] = None,
+        suppress_response: bool = False,
+    ) -> int:
         """
         Build and send a JobRequest, and return a request ID.
 
@@ -1039,8 +1008,7 @@ class Client(object):
         job_request = JobRequest(actions=actions, control=control, context=context or {})
         return handler.send_request(job_request, message_expiry_in_seconds)
 
-    def get_all_responses(self, service_name, receive_timeout_in_seconds=None):
-        # type: (six.text_type, Optional[int]) -> Generator[Tuple[int, JobResponse], None, None]
+    def get_all_responses(self, service_name: str, receive_timeout_in_seconds: Optional[int] = None) -> Generator[Tuple[int, JobResponse], None, None]:
         """
         Receive all available responses from the service as a generator.
 
@@ -1110,19 +1078,19 @@ class Client(object):
         expansion_job_errors_to_raise = []  # type: List[Error]
         expansion_action_errors_to_raise = []  # type: List[ActionResponse]
         # Keep track of values that have been expanded already to prevent infinite recursion
-        expansion_requests_made = {}  # type: Dict[six.text_type, Set[Any]]
+        expansion_requests_made = {}  # type: Dict[str, Set[Any]]
         # Loop until we have no outstanding objects to expand
         while objects_to_expand:
             # Form a collection of optimized bulk requests that need to be made, a map of service name to a map of
             # action names to a dict instructing how to call the action and with what parameters
             pending_expansion_requests = collections.defaultdict(
                 lambda: collections.defaultdict(dict),
-            )  # type: Dict[six.text_type, Dict[six.text_type, Dict[six.text_type, Any]]]
+            )  # type: Dict[str, Dict[str, Dict[str, Any]]]
 
             # Initialize mapping of service request IDs to expansion objects
             expansion_service_requests = collections.defaultdict(
                 dict
-            )  # type: Dict[six.text_type, Dict[int, List[Dict[six.text_type, Any]]]]
+            )  # type: Dict[str, Dict[int, List[Dict[str, Any]]]]
 
             # Formulate pending expansion requests to services
             for object_to_expand, expansion_nodes in objects_to_expand:
@@ -1145,8 +1113,8 @@ class Client(object):
                         })
 
             # Make expansion requests
-            for service_name, actions in six.iteritems(pending_expansion_requests):
-                for action_name, instructions in six.iteritems(actions):
+            for service_name, actions in pending_expansion_requests.items():
+                for action_name, instructions in actions.items():
                     key = '{}.{}.{}'.format(service_name, action_name, instructions['field'])
                     values = instructions['values']
                     if expansion_requests_made.setdefault(key, set()):  # we've called this expansion action already
@@ -1223,8 +1191,8 @@ class Client(object):
             if expansion_job_errors_to_raise:
                 raise self.JobError(expansion_job_errors_to_raise)
 
-    def _get_handler(self, service_name):  # type: (six.text_type) -> ServiceHandler
-        if not isinstance(service_name, six.text_type):
+    def _get_handler(self, service_name):  # type: (str) -> ServiceHandler
+        if not isinstance(service_name, str):
             raise ValueError('Called service name "{}" must be unicode'.format(service_name))
 
         # Lazy-load a handler for the named service
@@ -1248,9 +1216,9 @@ class Client(object):
 
     def _make_context_header(
         self,
-        switches=None,  # type: Optional[Union[List[int], AbstractSet[int]]]
-        correlation_id=None,  # type: Optional[six.text_type]
-        context_extra=None,  # type: Optional[Context]
+        switches: Optional[Union[List[int], AbstractSet[int]]] = None,
+        correlation_id: Optional[str] = None,
+        context_extra: Optional[Context] = None,
     ):
         # type: (...) -> Context
         # Copy the underlying context object, if it was provided
@@ -1259,7 +1227,7 @@ class Client(object):
         if correlation_id is not None:
             context['correlation_id'] = correlation_id
         elif 'correlation_id' not in context:
-            context['correlation_id'] = six.text_type(uuid.uuid1().hex)
+            context['correlation_id'] = str(uuid.uuid1().hex)
         # Switches can come from three different places, so merge them
         # and ensure that they are unique
         switches = set(switches or [])
@@ -1270,4 +1238,4 @@ class Client(object):
         if context_extra:
             context.update(context_extra)
         # context keys need to be guaranteed unicode
-        return {six.text_type(k): v for k, v in six.iteritems(context)}
+        return {str(k): v for k, v in context.items()}

@@ -46,10 +46,7 @@ def setup_module(_):
         # Now we actually import the module, but we have to make sure the double-import trap isn't triggered before we
         # do. Running `pytest` or `setup.py` looks to `standalone` like there is a problem, so we temporarily remove
         # `pytest` or `setup.py` from the first path item if it's Py<3.7, change return value of mock for 3.7+...
-        if sys.version_info < (3, 7):
-            sys.path[0] = ''
-        else:
-            mock_get_args.return_value = ['python', '-m', 'service_module']
+        mock_get_args.return_value = ['python', '-m', 'service_module']
         try:
             from pysoa.server import standalone  # type: ignore
         except SystemExit as e:
@@ -89,7 +86,8 @@ class TestSimpleMain(unittest.TestCase):
         self.assertFalse(server_getter.return_value.main.called)
 
         assert mock_get_reloader.call_count == 1
-        assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'coverage')
+        # Accept 'pytest.__main__' as a valid value in modern pytest runs
+        assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'coverage', 'pytest.__main__')
         assert mock_get_reloader.call_args_list[0][0][1] is None
         assert mock_get_reloader.call_args_list[0][1]['signal_forks'] is False
 
@@ -111,7 +109,7 @@ class TestSimpleMain(unittest.TestCase):
         self.assertFalse(server_getter.return_value.main.called)
 
         assert mock_get_reloader.call_count == 1
-        assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'coverage')
+        assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'coverage', 'pytest.__main__')
         assert mock_get_reloader.call_args_list[0][0][1] == ['example', 'pysoa', 'conformity']
         assert mock_get_reloader.call_args_list[0][1]['signal_forks'] is False
 
@@ -134,7 +132,7 @@ class TestSimpleMain(unittest.TestCase):
         self.assertFalse(server_getter.return_value.main.called)
 
         assert mock_get_reloader.call_count == 1
-        assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'coverage')
+        assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'coverage', 'pytest.__main__')
         assert mock_get_reloader.call_args_list[0][0][1] is None
         assert mock_get_reloader.call_args_list[0][1]['signal_forks'] is True
 
@@ -157,7 +155,7 @@ class TestSimpleMain(unittest.TestCase):
         self.assertFalse(server_getter.return_value.main.called)
 
         assert mock_get_reloader.call_count == 1
-        assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'coverage')
+        assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'coverage', 'pytest.__main__')
         assert mock_get_reloader.call_args_list[0][0][1] == ['pysoa']
         assert mock_get_reloader.call_args_list[0][1]['signal_forks'] is True
 

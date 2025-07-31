@@ -216,7 +216,6 @@ class IntrospectionAction(Action):
                     response['actions'][sub_action_name] = self._introspect_action(sub_action_class)
             else:
                 response['action_names'].append(action_name)
-                # noinspection PyTypeChecker
                 response['actions'][action_name] = self._introspect_action(action_class)
 
         response['action_names'] = list(sorted(response['action_names']))
@@ -224,8 +223,7 @@ class IntrospectionAction(Action):
         return response
 
     @staticmethod
-    def _iterate_switched_actions(action_name, action_class):
-        # type: (six.text_type, Type[SwitchedAction]) -> Generator[Tuple[six.text_type, ActionType], None, None]
+    def _iterate_switched_actions(action_name, action_class):  # type: ignore
         found_default = False
         last_index = len(action_class.switch_to_action_map) - 1
         for i, (switch, sub_action_class) in enumerate(action_class.switch_to_action_map):
@@ -240,7 +238,7 @@ class IntrospectionAction(Action):
             yield sub_action_name, sub_action_class
 
     @staticmethod
-    def _introspect_action(action_class):  # type: (ActionType) -> Dict[six.text_type, Any]
+    def _introspect_action(action_class):  # type: ignore
         action = {
             'documentation': getattr(action_class, 'description', None) or action_class.__doc__ or None,
             'request_schema': None,
@@ -256,3 +254,14 @@ class IntrospectionAction(Action):
             action['response_schema'] = schema.introspect()
 
         return action
+
+# pysoa/common/compatibility.py
+from typing import TypeVar, Generic, Optional
+from contextvars import ContextVar
+import asyncio
+
+_ContextVarToken = TypeVar('_ContextVarToken')
+_ThreadLocalToken = TypeVar('_ThreadLocalToken')
+
+def set_running_loop(loop: Optional[asyncio.AbstractEventLoop]) -> None:
+    asyncio.set_event_loop(loop)

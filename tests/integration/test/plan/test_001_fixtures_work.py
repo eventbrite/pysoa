@@ -7,12 +7,12 @@ import datetime
 import os
 import random
 import sys
-from typing import List
+from typing import List, cast
 import unittest
 import uuid
 
 from conformity import fields
-from conformity.settings import SettingsData
+from conformity.settings import SettingsData  # Ensure SettingsData is imported
 import pytest
 import six
 
@@ -236,16 +236,15 @@ _plugin_testing_base_class_order_of_operations = []  # type: List[six.text_type]
 
 class PluginTestingOrderOfOperationsTestCase(ServicePlanTestCase):
     @classmethod
-    def get_order_of_operations(cls):  # type: () -> List[six.text_type]
-        if cls is PluginTestingOrderOfOperationsTestCase:
-            return _plugin_testing_base_class_order_of_operations
-
+    def get_order_of_operations(cls) -> list[str]:
+        # noinspection PyUnresolvedReferences
         if not hasattr(cls, '_order_of_operations'):
-            # We can't just add this as a class attribute of this class, because then all subclasses would share one
-            # value instead of having their own values. So we have to dynamically ensure the subclass has this
-            # attribute.
-            setattr(cls, '_order_of_operations', [])
-        return getattr(cls, '_order_of_operations')
+            # noinspection PyAttributeOutsideInit
+            # Each subclass gets its own _order_of_operations list
+            cls._order_of_operations = []
+        result = cls._order_of_operations
+        assert isinstance(result, list)
+        return result
 
     @classmethod
     def setup_class(cls):
@@ -256,6 +255,8 @@ class PluginTestingOrderOfOperationsTestCase(ServicePlanTestCase):
     def teardown_class(cls):
         super(PluginTestingOrderOfOperationsTestCase, cls).teardown_class()
         cls.get_order_of_operations().append('teardown_class')
+        # Clear the order of operations after teardown_class is called
+        cls._order_of_operations.clear()
 
     def set_up_test_fixture(self, test_fixture, **kwargs):
         super(PluginTestingOrderOfOperationsTestCase, self).set_up_test_fixture(test_fixture, **kwargs)
@@ -393,7 +394,7 @@ class TestMockingAndStubbingFixtures(PluginTestingOrderOfOperationsTestCase):
     fixture_path = os.path.dirname(__file__) + '/mocking_and_stubbing'
 
 
-@unittest.skip(reason='Making sure skipping an entire class (and all of its fixtures) works (unittest)')
+@pytest.mark.skip(reason='Making sure skipping an entire class (and all of its fixtures) works (unittest)')
 class TestUnittestSkippedFixtures(PluginTestingOrderOfOperationsTestCase):
     server_class = SecondStubServer
     server_settings = {}  # type: SettingsData

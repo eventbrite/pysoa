@@ -272,7 +272,7 @@ def _discover_minimum_mtu_to_target(address, port):  # type: (six.text_type, int
             s.send(b'#' * (attempt - DATAGRAM_HEADER_LENGTH_IN_BYTES))
             return attempt
         except socket.error as e:
-            if 'too long' not in e.strerror:
+            if not e.strerror or 'too long' not in e.strerror:
                 # We can't rely on the error code, because it varies from platform to platform, but the message always
                 # contains "too long" if we're getting an "MTU exceeded" ICMP response. IF this isn't an "MTU exceeded"
                 # response, then something went wrong, and we can't determine the MTU, so fall back to worst case.

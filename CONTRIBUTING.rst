@@ -65,20 +65,16 @@ Ready to contribute? Here's how to set up PySOA for local development.
 
        $ git clone git@github.com:your_name_here/pysoa.git
 
-4. Create Python 2.7 and 3.7 virtualenvs (you should ``pip install virtualenvwrapper`` on your system if you have not
-   already) for installing PySOA dependencies::
+4. Create a Python 3.12 virtualenv for installing PySOA dependencies::
 
-       $ mkvirtualenv2 pysoa2
-       (pysoa2) $ pip install -e .[testing]
-       (pysoa2) $ deactivate
-       $ mkvirtualenv3 pysoa3
-       (pysoa3) $ pip install -e .[testing]
-       (pysoa3) $ deactivate
+       $ python3.12 -m venv venv
+       $ source venv/bin/activate
+       (venv) $ pip install --upgrade pip setuptools wheel
+       (venv) $ pip install -e '.[testing]'
 
 5. Make sure the tests pass on master before making any changes; otherwise, you might have an environment issue::
 
-       (pysoa2) $ ./test.sh
-       (pysoa3) $ ./test.sh
+       (venv) $ ./test.sh
 
 6. Create a branch for local development::
 
@@ -90,15 +86,14 @@ Ready to contribute? Here's how to set up PySOA for local development.
    the tests pass. You should also include new tests or assertions to validate your new or changed code::
 
        # this command runs unit and integration tests, Flake8 analysis, and MyPy analysis
-       (pysoa2) $ ./test.sh
-       (pysoa3) $ ./test.sh
+       (venv) $ ./test.sh
 
        # to run a subset of tests (either with PyTest directly or with ./test.sh, both shown here)
-       (pysoa3) $ pytest path/to/test/folder
-       (pysoa3) $ pytest path/to/test/module.py
-       (pysoa3) $ ./test.sh -k name_of_module.py
-       (pysoa3) $ ./test.sh -k NameOfTestClass
-       (pysoa3) $ ./test.sh -k name_of_test_function_or_method
+       (venv) $ pytest path/to/test/folder
+       (venv) $ pytest path/to/test/module.py
+       (venv) $ ./test.sh -k name_of_module.py
+       (venv) $ ./test.sh -k NameOfTestClass
+       (venv) $ ./test.sh -k name_of_test_function_or_method
 
        # to run functional tests (requires Docker >= 2.0.0 and Docker-Compose >= 1.23 [`pip install docker-compose`])
        # functional tests will actually spin up several different PySOA services and Redis Sentinel clusters and test
@@ -139,6 +134,4 @@ Before you submit a pull request, check that it meets these guidelines:
    class or function with a docstring, and add the feature to the appropriate location in ``docs/``. If you created a
    new module and it contains classes that should be publicly documented, add an autodoc config for that module to
    ``docs/reference.rst``.
-3. The pull request should work for Python 2.7, 3.5, 3.6, 3.7, and 3.8. Check
-   https://travis-ci.org/eventbrite/pysoa/pull_requests and make sure that the tests pass for all supported Python
-   versions.
+3. The pull request should work for Python 3.12+. Make sure that the tests pass for all supported Python versions.

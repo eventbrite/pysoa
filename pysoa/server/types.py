@@ -1,8 +1,3 @@
-from __future__ import (
-    absolute_import,
-    unicode_literals,
-)
-
 import abc
 import copy
 from typing import (
@@ -16,7 +11,6 @@ from typing import (
 )
 
 import attr
-import six
 
 from pysoa.client.client import Client
 from pysoa.common.constants import (
@@ -115,7 +109,7 @@ class EnrichedActionRequest(ActionRequest):
     _server = None
 
     def call_local_action(self, action, body, raise_action_errors=True, is_caller_error=False, context=None):
-        # type: (six.text_type, Body, bool, bool, Optional[Context]) -> ActionResponse
+        # type: (str, Body, bool, bool, Optional[Context]) -> ActionResponse
         """
         This helper calls another action, locally, that resides on the same service, using the provided action name
         and body. The called action will receive a copy of this request object with different action and body details.
@@ -200,7 +194,7 @@ class EnrichedActionRequest(ActionRequest):
         return response
 
 
-@six.add_metaclass(abc.ABCMeta)
+@abc.abstractmethod
 class ActionInterface(object):
     """
     Actions should either be callables that accept a ServerSettings object and return another callable that accepts an

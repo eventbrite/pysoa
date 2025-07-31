@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# For running functional tests locally or on Travis using Docker and Docker Compose.
+# For running functional tests locally using Docker and Docker Compose.
 # Requires at least Docker Compose version 1.23.0.
 
 DCF=tests/functional/docker/docker-compose.yaml
