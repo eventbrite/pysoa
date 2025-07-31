@@ -7,6 +7,9 @@ import unittest
 import warnings
 from warnings import catch_warnings  # type: ignore
 
+# Import Lua compatibility layer before other imports
+from .lua_compat import *
+
 from mockredis import client as mockredis
 from mockredis.exceptions import ResponseError
 from mockredis.script import Script

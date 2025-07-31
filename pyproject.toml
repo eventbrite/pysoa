@@ -30,6 +30,7 @@ dependencies = [
     "attrs>=18.2,<22",
     "conformity>=2.0.0,<3.0.0",
     "currint>=3.0.1,<4.0.0",
+    "lupa>=2.0",
     "msgpack>=1.0.7",
     "pymetrics~=2.0.3",
     "pytz>=2024.1",
@@ -51,6 +52,7 @@ testing = [
     "coverage>=7.5.1",
     "factory_boy>=3.3.0",
     "freezegun>=1.4.0",
+    "lupa>=2.0",
     "mockredispy>=2.0.0",
     "parameterized>=0.9.0",
     "mypy>=1.10.0",
@@ -189,8 +191,9 @@ commands =
     coverage run --parallel-mode -m pytest tests/unit tests/integration
 
 [testenv:coverage]
-deps =
+deps = 
     .[testing]
+    lupa>=2.0
 commands =
     coverage run -m pytest tests/unit tests/integration
     coverage report --show-missing
