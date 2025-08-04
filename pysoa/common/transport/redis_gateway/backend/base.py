@@ -28,23 +28,27 @@ class CannotGetConnectionError(Exception):
     pass
 
 
-class LuaRedisCommand(object):
-    _script = ''
+class LupaRedisCommand(object):
+    """
+    Base class for Redis commands that use lupa scripts.
+    """
 
-    def __init__(self, redis_connection):  # type: (redis.StrictRedis) -> None
+    def __init__(self, redis_connection):
+        # type: (redis.StrictRedis) -> None
         """
-        Registers this Lua script with the connections. The supplied redis connection is only used to create a
+        Registers this lupa script with the connections. The supplied redis connection is only used to create a
         registered script option; no connection is established or communicated over.
 
         :param redis_connection: The connection for registering this script
         """
         self._redis_script = redis_connection.register_script(self._script.strip())  # type: ignore
 
-    def _call(self, keys, args, connection):  # type: (List[six.text_type], List[Any], redis.StrictRedis) -> Any
+    def _call(self, keys, args, connection):
+        # type: (List[six.text_type], List[Any], redis.StrictRedis) -> Any
         return self._redis_script(keys=keys, args=args, client=connection)
 
 
-class SendMessageToQueueCommand(LuaRedisCommand):
+class SendMessageToQueueCommand(LupaRedisCommand):
     # KEYS[1] = queue key
     # ARGV[1] = expiry
     # ARGV[2] = queue capacity

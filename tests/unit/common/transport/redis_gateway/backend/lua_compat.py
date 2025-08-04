@@ -9,7 +9,7 @@ import redis
 try:
     import lupa
     
-    # Create a lua module that mimics the expected interface
+    # Create a lupa module that mimics the expected interface
     class LuaModule:
         def __init__(self):
             self.runtime = lupa.LuaRuntime(encoding=None)  # Don't encode/decode automatically
@@ -18,7 +18,7 @@ try:
             return self.runtime.globals()
         
         def eval(self, code):
-            # Handle common Lua patterns
+            # Handle common lupa patterns
             if code == '{}':
                 # Return an empty table
                 return self.runtime.execute('return {}')
@@ -32,14 +32,14 @@ try:
                 return self.runtime.execute(code)
         
         def execute(self, script, client=None):
-            # Execute a Lua script, handling binary data properly
+            # Execute a lupa script, handling binary data properly
             try:
                 # Check if script contains binary data
                 if isinstance(script, bytes):
-                    # Convert binary data to a Lua-compatible format
+                    # Convert binary data to a lupa-compatible format
                     script = script.decode('latin1')
                 
-                # Set up the redis table in the Lua environment
+                # Set up the redis table in the lupa environment
                 self.runtime.execute('redis = {}')
                 redis_table = self.runtime.globals().redis
                 
@@ -99,10 +99,9 @@ try:
                 self.runtime.globals()._redis_call = redis_call
                 self.runtime.execute('redis.call = _redis_call')
                 
-                # Set up status_reply and error_reply
                 def status_reply(status):
                     return {'ok': status}
-                
+
                 def error_reply(error):
                     # Raise a ResponseError instead of returning a table
                     from mockredis.exceptions import ResponseError
@@ -110,38 +109,37 @@ try:
                     if isinstance(error, bytes):
                         error = error.decode('utf-8')
                     raise ResponseError(error)
-                
+
                 self.runtime.globals()._status_reply = status_reply
                 self.runtime.globals()._error_reply = error_reply
                 self.runtime.execute('redis.status_reply = _status_reply')
                 self.runtime.execute('redis.error_reply = _error_reply')
-                
-                # Execute the script
+
                 return self.runtime.execute(script)
             except Exception as e:
                 # If it's a ResponseError, re-raise it directly
                 if isinstance(e, redis.exceptions.ResponseError):
                     raise
                 # If there's an error, raise a RuntimeError like the original
-                raise RuntimeError(f"Lua execution error: {e}")
-    
+                raise RuntimeError(f"Lupa execution error: {e}")
+
     # Replace the lua module with our compatibility layer
     sys.modules['lua'] = LuaModule()
-    
+
 except ImportError:
-    # If lupa is not available, create a dummy module that will cause tests to be skipped
+    # If lupa is not available, create a dummy module that raises errors
     class DummyLuaModule:
         def __init__(self):
             pass
         
         def globals(self):
-            raise RuntimeError("Lua not installed")
+            raise RuntimeError("Lupa not installed")
         
         def eval(self, code):
-            raise RuntimeError("Lua not installed")
+            raise RuntimeError("Lupa not installed")
         
         def execute(self, script):
-            raise RuntimeError("Lua not installed")
+            raise RuntimeError("Lupa not installed")
     
     # Replace the lua module with our dummy layer
     sys.modules['lua'] = DummyLuaModule() 

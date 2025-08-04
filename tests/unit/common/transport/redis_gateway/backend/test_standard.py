@@ -7,7 +7,7 @@ import unittest
 import warnings
 from warnings import catch_warnings  # type: ignore
 
-# Import Lua compatibility layer before other imports
+# Import lupa compatibility layer before other imports
 from .lua_compat import *
 
 from mockredis import client as mockredis
@@ -32,7 +32,7 @@ mockredis.mock_redis_client.from_url = lambda *_, **k: mockredis.MockRedis(load_
 
 def _execute_lua(self, keys, args, client):
     """
-    Patch MockRedis+Lua for error_reply
+    Patch MockRedis+lupa for error_reply
     """
     try:
         lua, lua_globals = Script._import_lua(self.load_dependencies)
@@ -63,22 +63,22 @@ def _execute_lua(self, keys, args, client):
         def _reply_table(field, message):
             return lua.eval("{{{field}='{message}'}}".format(field=field, message=message))
 
-        # Set up the redis table in the Lua environment using lupa's approach
+        # Set up the redis table in the lupa environment using lupa's approach
         lua.runtime.execute('redis = {}')
         redis_table = lua.runtime.globals().redis
         
-        # Create a Lua function that calls our Python _call function
+        # Create a lupa function that calls our Python _call function
         def lua_call_wrapper(*args):
             return _call(*args)
         
-        # Register the Python function with lupa so it can be called from Lua
+        # Register the Python function with lupa so it can be called from lupa
         lua.runtime.globals()._python_call = lua_call_wrapper
         lua.runtime.execute('redis.call = _python_call')
         
         redis_table.status_reply = lambda status: _reply_table('ok', status)
         redis_table.error_reply = lambda error: _reply_table('err', error)
         
-        # Set up KEYS and ARGV in the Lua environment
+        # Set up KEYS and ARGV in the lupa environment
         lua.runtime.execute('KEYS = {}')
         lua.runtime.execute('ARGV = {}')
         keys_table = lua.runtime.globals().KEYS
@@ -99,10 +99,10 @@ def _execute_lua(self, keys, args, client):
         
         return self._lua_to_python(lua.execute(self.script, client), return_status=True)
     except RuntimeError as e:
-        if "Lua not installed" in str(e):
-            # Skip tests that require Lua when it's not available
+        if "Lupa not installed" in str(e):
+            # Skip tests that require lupa when it's not available
             import pytest
-            pytest.skip("Lua not available - skipping Redis tests that require Lua")
+            pytest.skip("Lupa not available - skipping Redis tests that require lupa")
         raise
 
 
@@ -110,17 +110,17 @@ def _execute_lua(self, keys, args, client):
 @staticmethod  # type: ignore
 def _lua_to_python(lval, return_status=False):
     """
-    Patch MockRedis+Lua for Python 3 compatibility
+    Patch MockRedis+lupa for Python 3 compatibility
     """
     try:
         # noinspection PyUnresolvedReferences
         import lua
         lua_globals = lua.globals()
         if lval is None:
-            # Lua None --> Python None
+            # lupa None --> Python None
             return None
         if lua_globals.type(lval) == 'table':
-            # Lua table --> Python list
+            # lupa table --> Python list
             pval = []
             for i in lval:
                 if return_status:
@@ -131,26 +131,26 @@ def _lua_to_python(lval, return_status=False):
                 pval.append(Script._lua_to_python(lval[i]))
             return pval
         elif isinstance(lval, six.integer_types):
-            # Lua number --> Python long
+            # lupa number --> Python long
             return six.integer_types[-1](lval)
         elif isinstance(lval, float):
-            # Lua number --> Python float
+            # lupa number --> Python float
             return float(lval)
         elif lua_globals.type(lval) == 'userdata' or lua_globals.type(lval) == b'userdata':
-            # Lua userdata --> Python None (for now, as we don't need the actual value)
+            # lupa userdata --> Python None (for now, as we don't need the actual value)
             return None
         elif lua_globals.type(lval) == 'string' or lua_globals.type(lval) == b'string':
-            # Lua string --> Python string
+            # lupa string --> Python string
             return lval
         elif lua_globals.type(lval) == 'boolean' or lua_globals.type(lval) == b'boolean':
-            # Lua boolean --> Python bool
+            # lupa boolean --> Python bool
             return bool(lval)
-        raise RuntimeError('Invalid Lua type: ' + str(lua_globals.type(lval)))
+        raise RuntimeError('Invalid lupa type: ' + str(lua_globals.type(lval)))
     except RuntimeError as e:
-        if "Lua not installed" in str(e):
-            # Skip tests that require Lua when it's not available
+        if "Lupa not installed" in str(e):
+            # Skip tests that require lupa when it's not available
             import pytest
-            pytest.skip("Lua not available - skipping Redis tests that require Lua")
+            pytest.skip("Lupa not available - skipping Redis tests that require lupa")
         raise
 
 

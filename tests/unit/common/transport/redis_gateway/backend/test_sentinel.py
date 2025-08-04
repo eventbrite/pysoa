@@ -7,7 +7,7 @@ import unittest
 import warnings
 from warnings import catch_warnings  # type: ignore
 
-# Import Lua compatibility layer before other imports
+# Import lupa compatibility layer before other imports
 from .lua_compat import *
 
 from mockredis import client as mockredis

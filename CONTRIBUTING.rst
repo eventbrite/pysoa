@@ -52,13 +52,10 @@ Get Started
 
 Ready to contribute? Here's how to set up PySOA for local development.
 
-1. Ensure that Lua 5.2 or newer and its development headers are installed on your local system using one of the
-   following techniques (or equivalent) based on your system. PySOA does not use Lua in your services, but PySOA's own
-   tests use Lua when mocking Redis::
+1. Ensure that lupa 2.0 or newer is installed. PySOA does not use Lua directly in your services, but PySOA's own
+   tests use lupa when mocking Redis::
 
-        $ brew install lua                          # macOS (see https://brew.sh/)
-        $ apt-get install lua5.2 liblua5.2-dev      # Ubuntu
-        $ yum install lua lua-devel                 # CentOS
+   $ pip install lupa>=2.0
 
 2. Fork the ``pysoa`` repository on GitHub.
 3. Clone your fork locally::

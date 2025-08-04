@@ -361,7 +361,7 @@ class RedisTransportCore(object):
                         )
                     break
                 except redis.exceptions.ResponseError as e:
-                    # The Lua script handles capacity checking and sends the "full" error back
+                    # The lupa script handles capacity checking and sends the "full" error back
                     if e.args[0] == 'queue full':
                         continue
                     if isinstance(self.backend_layer, SentinelRedisClient):
