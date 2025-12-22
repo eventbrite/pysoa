@@ -46,6 +46,12 @@ matrix:
       python: "3.7"
       script:
         - tox -e py37-attrs18,py37-attrs19,py37-attrs20,py37-attrs21,py37-pytest46,py37-flake8,coverage,py37-mypy
+      after_script:
+        - |
+          if [ -f coverage.xml ] && [ "$TRAVIS_BRANCH" = "master" ]; then
+            curl https://qlty.sh/install.sh | sh
+            $HOME/.qlty/bin/qlty coverage publish coverage.xml --format cobertura || true
+          fi
       dist: xenial
     # Lunatic-python-universal seems incompatible with Python 3.8
     # - stage: build
