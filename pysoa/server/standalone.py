@@ -99,6 +99,15 @@ def _get_arg_parser():  # type: () -> argparse.ArgumentParser
         default=10,
     )
     parser.add_argument(
+        '--startup-timeout',
+        help='The number of seconds allowed for a worker process to start up and send its first ping before the '
+             'parent kills it with SIGKILL. This is separate from --ping-timeout, which governs per-request watchdog '
+             'checks after the first ping has been received (default: 60)',
+        required=False,
+        type=int,
+        default=60,
+    )
+    parser.add_argument(
         '--use-file-watcher',
         help='If specified, PySOA will watch service files for changes and restart the service automatically. If no '
              'arguments are provided with this option, it will watch all modules. Or, you can provide a '
@@ -135,6 +144,7 @@ class _ProcessMonitor(threading.Thread):
         respawn,  # type: bool
         shutdown_timeout,  # type: int
         ping_timeout,  # type: int
+        startup_timeout,  # type: int
         **kwargs  # type: Any
     ):  # type: (...) -> None
         self.index = index
@@ -142,15 +152,24 @@ class _ProcessMonitor(threading.Thread):
         self.respawn = respawn
         self.shutdown_timeout = shutdown_timeout
         self.ping_timeout = ping_timeout
+        self.startup_timeout = startup_timeout
 
         # Shared-memory timestamp written by the child on every meaningful event
         # (request received, request complete, idle timeout) and read by this thread
         # to detect workers that are hung mid-request.
         self._ping_timestamp = multiprocessing.Value('d', time.monotonic())
 
-        # Inject the timestamp into the positional args forwarded to server_class.main().
+        # Tracks when the current child process was last (re)started; used to distinguish
+        # the startup phase (before the first child ping) from normal operation.
+        # Initialised here and refreshed by _start_process() on each (re)spawn.
+        self._process_started_at = time.monotonic()
+
+        # Inject the timestamp and ping_timeout into the positional args forwarded to
+        # server_class.main().  Both are passed explicitly so that the values are available
+        # in the child process even on "spawn" start-mode platforms (Windows, macOS Python
+        # 3.13+) where the child does not inherit the parent's sys.argv.
         existing_args = kwargs.pop('args', ())
-        self.process_kwargs = dict(kwargs, args=existing_args + (self._ping_timestamp,))
+        self.process_kwargs = dict(kwargs, args=existing_args + (self._ping_timestamp, self.ping_timeout))
 
         self.process = None  # type: Optional[multiprocessing.Process]
         self.one_minute_restart_times = collections.deque(maxlen=8)  # type: Deque[float]
@@ -166,9 +185,15 @@ class _ProcessMonitor(threading.Thread):
             self.process.terminate()
 
     def _start_process(self):  # type: () -> None
-        # Refresh the ping timestamp before starting a new child so the replacement is
-        # not immediately killed due to a stale timestamp left by a crashed/killed worker.
-        self._ping_timestamp.value = time.monotonic()
+        # Record the start time and reset the ping timestamp to that same instant.
+        # Both are set atomically (same value) so that:
+        #   _ping_timestamp.value == _process_started_at  →  child has not yet pinged
+        #   _ping_timestamp.value  > _process_started_at  →  child has sent at least one ping
+        # This also prevents a stale timestamp left by a crashed/killed worker from causing
+        # the replacement child to be immediately SIGKILL-ed.
+        t = time.monotonic()
+        self._process_started_at = t
+        self._ping_timestamp.value = t
         self.process = multiprocessing.Process(**self.process_kwargs)
         self.process.start()
 
@@ -186,7 +211,12 @@ class _ProcessMonitor(threading.Thread):
             os.kill(self.process.pid, signal.SIGKILL)
         except OSError:
             pass  # process may have exited between the is_alive() check and the kill
-        self.process.join()
+        self.process.join(timeout=self.shutdown_timeout)
+        if self.process.is_alive():
+            sys.stdout.write(
+                'Server process #{} could not be killed with SIGKILL; giving up.\n'.format(self.index)
+            )
+            sys.stdout.flush()
 
     def run(self):  # type: () -> None
         self._start_process()
@@ -241,14 +271,29 @@ class _ProcessMonitor(threading.Thread):
                     self._kill_process()
                 break
 
-            # Check whether the child is hung. The child pings us (updates _ping_timestamp)
-            # on every meaningful event: request received, request complete, or idle timeout.
-            # If the timestamp is stale for longer than ping_timeout, the child is stuck.
-            if time.monotonic() - self._ping_timestamp.value > self.ping_timeout:
-                self._kill_process(
-                    'has not pinged in more than {} seconds'.format(self.ping_timeout)
-                )
-                # The process is now dead; loop back so is_alive() triggers the respawn logic above.
+            # Check whether the child is hung.
+            # _start_process sets both _ping_timestamp and _process_started_at to the same
+            # instant, so:
+            #   _ping_timestamp.value == _process_started_at  →  child has never pinged
+            #   _ping_timestamp.value  > _process_started_at  →  at least one ping received
+            # Before the first ping we apply startup_timeout (measured from process start)
+            # to give slow-starting services room to initialise.  After the first ping we
+            # apply ping_timeout (measured from the last ping) for per-request hang detection.
+            now = time.monotonic()
+            last_ping = self._ping_timestamp.value
+            has_pinged = last_ping > self._process_started_at
+            if has_pinged:
+                if now - last_ping > self.ping_timeout:
+                    self._kill_process(
+                        'has not pinged in more than {} seconds'.format(self.ping_timeout)
+                    )
+                    # The process is now dead; loop back so is_alive() triggers the respawn logic above.
+            else:
+                if now - self._process_started_at > self.startup_timeout:
+                    self._kill_process(
+                        'did not ping within startup timeout of {} seconds'.format(self.startup_timeout)
+                    )
+                    # The process is now dead; loop back so is_alive() triggers the respawn logic above.
 
         self.process = None
 
@@ -305,6 +350,7 @@ def _run_server(args, server_class):  # type: (argparse.Namespace, Type[Server])
                 respawn=not args.no_respawn,
                 shutdown_timeout=args.process_shutdown_timeout,
                 ping_timeout=args.ping_timeout,
+                startup_timeout=args.startup_timeout,
                 target=server_class.main,
                 name='pysoa-worker-{}'.format(i),
                 args=(i, ),
@@ -352,7 +398,7 @@ def _run_server_reloader_wrapper(args, server_class):  # type: (argparse.Namespa
         autoreload.get_reloader(
             module_name or '',
             args.use_file_watcher,
-            signal_forks=args.fork_processes > 1
+            signal_forks=args.fork_processes >= 1
         ).main(
             _run_server,
             (args, server_class),

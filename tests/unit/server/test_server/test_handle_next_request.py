@@ -247,3 +247,100 @@ class TestReceiveTimeoutValidation(TestCase):
             with mock.patch.dict('sys.modules', {'pysoa.common.transport.redis_gateway.core': None}):
                 # Should not raise even though ping_timeout=1 would normally flag any timeout > 0.5.
                 HandleNextRequestServer._validate_receive_timeout_vs_ping_timeout(settings, ping_timeout=1)
+
+
+# ---------------------------------------------------------------------------
+# Tests that verify the _ping_timeout parameter path in Server.main() works
+# correctly even when sys.argv does not contain --ping-timeout (spawn mode).
+# ---------------------------------------------------------------------------
+
+
+class TestMainPingTimeoutParameter(TestCase):
+    """
+    Verify that Server.main() uses the explicit _ping_timeout keyword argument
+    (not sys.argv) to drive the receive_timeout validation.  This exercises the
+    fix for the bug where spawn-mode child processes (Windows, macOS Python
+    3.13+) would silently skip the validation because their sys.argv doesn't
+    contain --ping-timeout.
+    """
+
+    def _run_main_stub(self, forked_process_id, _ping_timeout, extra_argv=None):
+        """
+        Invoke HandleNextRequestServer.main() with all heavy infrastructure
+        mocked so that only the validation-dispatch logic is exercised.
+
+        Returns the list of ping_timeout values that
+        _validate_receive_timeout_vs_ping_timeout was called with.
+
+        On spawn-mode platforms (Windows, macOS Python 3.13+) the child's
+        sys.argv is rebuilt without the parent's flags; we simulate that by
+        omitting --ping-timeout from the argv while still supplying -s so
+        that argparse is satisfied.  The explicit _ping_timeout kwarg must
+        carry the value instead.
+        """
+        called_with = []
+
+        def fake_validate(settings, ping_timeout):
+            called_with.append(ping_timeout)
+
+        # Minimal argv: -s is required by HandleNextRequestServer (no use_django).
+        # --ping-timeout is deliberately absent to simulate spawn-mode child argv.
+        argv = ['/path/to/standalone.py', '-s', 'fake.settings.module']
+        if extra_argv:
+            argv.extend(extra_argv)
+
+        import types
+        fake_settings_module = types.ModuleType('fake.settings.module')
+        fake_settings_module.SOA_SERVER_SETTINGS = {}  # irrelevant; settings_class is mocked
+
+        with mock.patch.object(HandleNextRequestServer, '_validate_receive_timeout_vs_ping_timeout',
+                               side_effect=fake_validate):
+            with mock.patch('sys.argv', argv):
+                with mock.patch('importlib.import_module', return_value=fake_settings_module):
+                    with mock.patch.object(HandleNextRequestServer, 'settings_class',
+                                           return_value=mock.MagicMock()):
+                        with mock.patch('logging.config.dictConfig'):
+                            with mock.patch.object(HandleNextRequestServer, 'initialize',
+                                                   return_value=HandleNextRequestServer):
+                                with mock.patch.object(HandleNextRequestServer, 'run'):
+                                    HandleNextRequestServer.main(
+                                        forked_process_id=forked_process_id,
+                                        _ping_timestamp=None,
+                                        _ping_timeout=_ping_timeout,
+                                    )
+        return called_with
+
+    def test_validation_fires_via_explicit_ping_timeout_arg(self):
+        """
+        When _ping_timeout is supplied as a keyword argument to main(), the
+        validation must run even if sys.argv has no --ping-timeout flag.
+        This simulates a spawn-mode child where sys.argv is reset.
+        """
+        called_with = self._run_main_stub(forked_process_id=1, _ping_timeout=10)
+        self.assertEqual([10], called_with,
+                         'Validation should have been called exactly once with ping_timeout=10')
+
+    def test_validation_skipped_when_both_sources_absent(self):
+        """
+        If neither _ping_timeout nor --ping-timeout in sys.argv is present, the
+        validation must be skipped (no spurious error for non-forked direct
+        invocations or pre-existing deployments that haven't updated yet).
+        """
+        called_with = self._run_main_stub(forked_process_id=1, _ping_timeout=None)
+        self.assertEqual([], called_with,
+                         'Validation should not be called when ping_timeout is absent from both sources')
+
+    def test_explicit_arg_takes_priority_over_sys_argv(self):
+        """
+        When _ping_timeout is given explicitly *and* --ping-timeout is also in
+        sys.argv (fork-mode on Unix), the explicit value wins so that the parent
+        is the single source of truth.
+        """
+        # sys.argv carries a different value (30) to demonstrate the priority.
+        called_with = self._run_main_stub(
+            forked_process_id=1,
+            _ping_timeout=10,  # explicit value — should win
+            extra_argv=['--ping-timeout', '30'],  # sys.argv value — should be ignored
+        )
+        self.assertEqual([10], called_with,
+                         'Explicit _ping_timeout=10 should take priority over sys.argv --ping-timeout 30')

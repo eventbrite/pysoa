@@ -95,7 +95,8 @@ class TestSimpleMain(unittest.TestCase):
         assert mock_get_reloader.call_count == 1
         assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'pytest.__main__', 'coverage')
         assert mock_get_reloader.call_args_list[0][0][1] is None
-        assert mock_get_reloader.call_args_list[0][1]['signal_forks'] is False
+        # Default fork_processes=1 means signal_forks is True (the reloader must signal the worker).
+        assert mock_get_reloader.call_args_list[0][1]['signal_forks'] is True
 
         self.assertEqual(1, mock_get_reloader.return_value.main.call_count)
         self.assertEqual(
@@ -117,7 +118,8 @@ class TestSimpleMain(unittest.TestCase):
         assert mock_get_reloader.call_count == 1
         assert mock_get_reloader.call_args_list[0][0][0] in ('', 'pytest', 'pytest.__main__', 'coverage')
         assert mock_get_reloader.call_args_list[0][0][1] == ['example', 'pysoa', 'conformity']
-        assert mock_get_reloader.call_args_list[0][1]['signal_forks'] is False
+        # Default fork_processes=1 means signal_forks is True (the reloader must signal the worker).
+        assert mock_get_reloader.call_args_list[0][1]['signal_forks'] is True
 
         self.assertEqual(1, mock_get_reloader.return_value.main.call_count)
         self.assertEqual(1, mock_get_reloader.return_value.main.call_args_list[0][0][1][0].fork_processes)
@@ -482,6 +484,11 @@ class TestDefaultForkCount(unittest.TestCase):
         args = parser.parse_args([])
         self.assertEqual(30, args.process_shutdown_timeout)
 
+    def test_startup_timeout_default_is_sixty_seconds(self):
+        parser = standalone._get_arg_parser()  # type: ignore
+        args = parser.parse_args([])
+        self.assertEqual(60, args.startup_timeout)
+
 
 # ---------------------------------------------------------------------------
 # Tests for _ProcessMonitor ping mechanism (parent-side watchdog)
@@ -515,7 +522,7 @@ class TestProcessMonitorPingMechanism(unittest.TestCase):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _make_monitor(self, ping_timeout=10, shutdown_timeout=30, respawn=False):
+    def _make_monitor(self, ping_timeout=10, shutdown_timeout=30, respawn=False, startup_timeout=60):
         """Create a _ProcessMonitor whose child process is controlled by the test."""
         signal_context = standalone._SignalContext()  # type: ignore
         monitor = standalone._ProcessMonitor(  # type: ignore
@@ -524,6 +531,7 @@ class TestProcessMonitorPingMechanism(unittest.TestCase):
             respawn=respawn,
             shutdown_timeout=shutdown_timeout,
             ping_timeout=ping_timeout,
+            startup_timeout=startup_timeout,
             target=mock.MagicMock(),
             name='test-worker',
             args=(1,),
@@ -535,12 +543,20 @@ class TestProcessMonitorPingMechanism(unittest.TestCase):
     # ------------------------------------------------------------------
 
     def test_ping_cells_injected_into_child_args(self):
-        """ping_timestamp is appended to the child args tuple."""
-        monitor, _ = self._make_monitor()
+        """ping_timestamp and ping_timeout are appended to the child args tuple."""
+        monitor, _ = self._make_monitor(ping_timeout=42)
         child_args = monitor.process_kwargs['args']
         self.assertEqual(1, child_args[0])                        # forked_process_id
         self.assertIs(child_args[1], monitor._ping_timestamp)     # shared Value('d')
-        self.assertEqual(2, len(child_args))
+        self.assertEqual(42, child_args[2])                       # ping_timeout explicit value
+        self.assertEqual(3, len(child_args))
+
+    def test_ping_timeout_injected_into_child_args(self):
+        """ping_timeout is passed explicitly so the child can validate without sys.argv."""
+        monitor, _ = self._make_monitor(ping_timeout=15)
+        child_args = monitor.process_kwargs['args']
+        # args[2] is the _ping_timeout parameter in server_class.main().
+        self.assertEqual(15, child_args[2])
 
     def test_ping_timestamp_is_shared_double(self):
         """_ping_timestamp is a multiprocessing.Value that can hold a monotonic float."""
@@ -559,13 +575,17 @@ class TestProcessMonitorPingMechanism(unittest.TestCase):
         """SIGKILL is sent whenever the ping timestamp is stale beyond ping_timeout."""
         monitor, _ = self._make_monitor(ping_timeout=5, respawn=False)
 
-        # Simulate: child has not pinged for 6 s (> 5 s timeout).
+        # Simulate: process started long ago, last ping was 6 s ago (> 5 s timeout).
+        # Setting _process_started_at to the past ensures has_pinged is True so that
+        # the per-request ping_timeout branch (not the startup branch) is exercised.
+        monitor._process_started_at = time.monotonic() - 100
         monitor._ping_timestamp.value = time.monotonic() - 6
 
         fake = mock.MagicMock()
         fake.pid = 9999
-        # First poll: alive (hung). After SIGKILL: dead.
-        fake.is_alive.side_effect = [True, False]
+        # Calls: (1) main-loop poll → alive/hung, (2) _kill_process is_alive check → dead,
+        # (3) main-loop poll on next iteration → still dead, triggering the "exited" branch.
+        fake.is_alive.side_effect = [True, False, False]
         monitor.process = fake
 
         sent = []
@@ -581,6 +601,9 @@ class TestProcessMonitorPingMechanism(unittest.TestCase):
         """A child with a fresh ping timestamp must not be killed."""
         monitor, _ = self._make_monitor(ping_timeout=5, respawn=False)
 
+        # Push _process_started_at into the past so has_pinged is True, then set a
+        # fresh ping to confirm the watchdog does not fire.
+        monitor._process_started_at = time.monotonic() - 100
         monitor._ping_timestamp.value = time.monotonic()  # fresh
 
         counter = [0]
@@ -683,8 +706,13 @@ class TestProcessMonitorPingMechanism(unittest.TestCase):
 
             if calls[0] == 1:
                 # First spawn: stuck — stale ping.
+                # Push _process_started_at into the past so has_pinged is True and the
+                # per-request ping_timeout branch fires (not the startup branch).
+                monitor._process_started_at = time.monotonic() - 100
                 monitor._ping_timestamp.value = time.monotonic() - 6
-                p.is_alive.side_effect = [True, False]   # True → stuck, False → after kill
+                # Calls: (1) main-loop → alive/hung, (2) _kill_process is_alive check → dead,
+                # (3) main-loop next iteration → still dead, triggering respawn.
+                p.is_alive.side_effect = [True, False, False]
             else:
                 # Second spawn: exits immediately and signals shutdown.
                 p.is_alive.return_value = False
@@ -703,15 +731,18 @@ class TestProcessMonitorPingMechanism(unittest.TestCase):
 
     def test_start_process_resets_ping_state(self):
         """
-        _start_process refreshes the ping timestamp before spawning a new child.
+        _start_process refreshes both the ping timestamp and _process_started_at before
+        spawning a new child, setting them to the same instant so the has_pinged check
+        starts in the 'not yet pinged' state.
 
         Without this reset, a stale _ping_timestamp left by a crashed/killed worker
         would cause its replacement to be immediately SIGKILL-ed.
         """
         monitor, _ = self._make_monitor()
 
-        # Simulate a stale timestamp left by a previously killed/crashed worker.
+        # Simulate stale state left by a previously killed/crashed worker.
         monitor._ping_timestamp.value = 0.0          # epoch — obviously stale
+        monitor._process_started_at = 0.0
 
         fake_process = mock.MagicMock()
         before = time.monotonic()
@@ -721,6 +752,11 @@ class TestProcessMonitorPingMechanism(unittest.TestCase):
 
         self.assertGreaterEqual(monitor._ping_timestamp.value, before,
                                 '_start_process must refresh the ping timestamp')
+        self.assertGreaterEqual(monitor._process_started_at, before,
+                                '_start_process must refresh _process_started_at')
+        self.assertEqual(monitor._ping_timestamp.value, monitor._process_started_at,
+                         '_ping_timestamp and _process_started_at must be equal after _start_process '
+                         'so the child starts in the startup phase')
         mock_mp.assert_called_once()
         fake_process.start.assert_called_once_with()
 
@@ -746,11 +782,15 @@ class TestProcessMonitorPingMechanism(unittest.TestCase):
             if n == 1:
                 # First child: simulate it writing a stale timestamp to shared memory
                 # (as a real child would when it started handling a request and then hung).
+                # Also push _process_started_at into the past so has_pinged is True and
+                # the per-request ping_timeout branch (not the startup branch) fires.
                 def _start_first():
+                    monitor._process_started_at = time.monotonic() - 100
                     monitor._ping_timestamp.value = time.monotonic() - 6
                 p.start.side_effect = _start_first
-                # Alive on first poll (stuck), dead on second (after SIGKILL).
-                p.is_alive.side_effect = [True, False]
+                # Calls: (1) main-loop → alive/hung, (2) _kill_process is_alive check → dead,
+                # (3) main-loop next iteration → still dead, triggering the respawn path.
+                p.is_alive.side_effect = [True, False, False]
             else:
                 # Replacement: by this point _start_process has reset the ping state.
                 # The replacement is alive for one poll (exercising the ping check) and
@@ -775,3 +815,82 @@ class TestProcessMonitorPingMechanism(unittest.TestCase):
         self.assertEqual(2, spawn_count[0], 'Expected initial spawn + one respawn')
         self.assertEqual(1, sigkills_per_spawn[1], 'Expected exactly one SIGKILL for the stuck child')
         self.assertEqual(0, sigkills_per_spawn[2], 'Replacement child must not be SIGKILL-ed')
+
+    # ------------------------------------------------------------------
+    # Startup timeout
+    # ------------------------------------------------------------------
+
+    def test_startup_timeout_kills_child_that_never_pings(self):
+        """A child that never sends its first ping is killed after startup_timeout."""
+        # startup_timeout=0 means any positive elapsed time exceeds the budget.
+        monitor, _ = self._make_monitor(ping_timeout=60, startup_timeout=0, respawn=False)
+
+        fake = mock.MagicMock()
+        fake.pid = 9999
+        # Child never pings: _ping_timestamp.value == _process_started_at throughout.
+        # Calls: (1) main-loop → alive/hung, (2) _kill_process is_alive check → dead,
+        # (3) main-loop next iteration → still dead, triggering the "exited" branch.
+        fake.is_alive.side_effect = [True, False, False]
+        monitor.process = fake
+
+        sent = []
+        with mock.patch.object(monitor, '_start_process', side_effect=lambda: None):
+            with mock.patch('os.kill', side_effect=lambda pid, sig: sent.append(sig)):
+                monitor.start()
+                monitor.join(timeout=5.0)
+
+        self.assertFalse(monitor.is_alive(), 'Monitor thread did not exit')
+        self.assertIn(signal.SIGKILL, sent, 'Expected SIGKILL for child that never pinged')
+
+    def test_startup_timeout_prevents_kill_within_startup_window(self):
+        """A child that has not yet pinged is not killed while still within startup_timeout."""
+        # ping_timeout=1 is very short, but startup_timeout=60 keeps the child alive
+        # until it exits naturally (before the startup window expires).
+        monitor, _ = self._make_monitor(ping_timeout=1, startup_timeout=60, respawn=False)
+
+        counter = [0]
+
+        def _is_alive():
+            counter[0] += 1
+            return counter[0] <= 4  # alive for 4 polls, then exits naturally
+
+        fake = mock.MagicMock()
+        fake.pid = 9999
+        fake.is_alive.side_effect = _is_alive
+        monitor.process = fake
+
+        sent = []
+        with mock.patch.object(monitor, '_start_process', side_effect=lambda: None):
+            with mock.patch('os.kill', side_effect=lambda pid, sig: sent.append(sig)):
+                monitor.start()
+                monitor.join(timeout=5.0)
+
+        self.assertNotIn(signal.SIGKILL, sent,
+                         'Child still within startup window must not be killed even if ping_timeout is short')
+
+    def test_ping_timeout_applies_after_first_ping(self):
+        """Once a child has pinged, ping_timeout governs hang detection (not startup_timeout)."""
+        # startup_timeout=60 (would protect a non-pinging child) but the child has already
+        # pinged once and is now 6 s stale, which exceeds ping_timeout=5.
+        monitor, _ = self._make_monitor(ping_timeout=5, startup_timeout=60, respawn=False)
+
+        # Simulate: child pinged once long ago (process started 100 s ago, last ping 6 s ago).
+        monitor._process_started_at = time.monotonic() - 100
+        monitor._ping_timestamp.value = time.monotonic() - 6
+
+        fake = mock.MagicMock()
+        fake.pid = 9999
+        # Calls: (1) main-loop → alive/hung, (2) _kill_process is_alive check → dead,
+        # (3) main-loop next iteration → still dead, triggering the "exited" branch.
+        fake.is_alive.side_effect = [True, False, False]
+        monitor.process = fake
+
+        sent = []
+        with mock.patch.object(monitor, '_start_process', side_effect=lambda: None):
+            with mock.patch('os.kill', side_effect=lambda pid, sig: sent.append(sig)):
+                monitor.start()
+                monitor.join(timeout=5.0)
+
+        self.assertFalse(monitor.is_alive(), 'Monitor thread did not exit')
+        self.assertIn(signal.SIGKILL, sent,
+                      'Expected SIGKILL once ping is stale beyond ping_timeout, even with long startup_timeout')

@@ -240,8 +240,8 @@ class Server(object):
 
         self._skip_django_database_cleanup = False
 
-        # Set by main() when the server is started as a forked child process. These are shared-memory
-        # cells written here and read by the parent _ProcessMonitor to detect hung workers.
+        # Set by main() when the server is started as a forked child process. This is a shared-memory
+        # cell written here and read by the parent _ProcessMonitor to detect hung workers.
         self._ping_timestamp = None  # type: Any
 
     def _ping_parent(self):
@@ -999,7 +999,8 @@ class Server(object):
                 receive_timeout = attr.fields(RedisTransportCore).receive_timeout_in_seconds.default
             except (ImportError, attr.exceptions.NotAnAttrsClassError):
                 return  # non-Redis transport; nothing to validate
-        if receive_timeout > ping_timeout / 2:
+        max_receive_timeout = ping_timeout / 2
+        if receive_timeout > max_receive_timeout:
             raise ValueError(
                 'transport.kwargs.receive_timeout_in_seconds ({rt}s) must be at most half the '
                 '--ping-timeout ({pt}s), otherwise the ping watchdog may not detect hung workers '
@@ -1007,14 +1008,14 @@ class Server(object):
                 'at least {min_pt}s.'.format(
                     rt=receive_timeout,
                     pt=ping_timeout,
-                    max=ping_timeout // 2,
+                    max=max_receive_timeout,
                     min_pt=receive_timeout * 2,
                 )
             )
 
     @classmethod
-    def main(cls, forked_process_id=None, _ping_timestamp=None):
-        # type: (Optional[int], Any) -> None
+    def main(cls, forked_process_id=None, _ping_timestamp=None, _ping_timeout=None):
+        # type: (Optional[int], Any, Optional[int]) -> None
         """
         Command-line entry point for running a PySOA server. The chain of method calls is as follows::
 
@@ -1047,6 +1048,10 @@ class Server(object):
                                   file, etc. For example, if the `--fork` argument is used with the value 5 (creating
                                   five child processes), this argument will have the values 1, 2, 3, 4, and 5 across
                                   the five respective child processes.
+        :param _ping_timeout: The watchdog timeout (in seconds) configured in the parent _ProcessMonitor, injected
+                              directly so that the validation works on multiprocessing spawn-mode platforms (Windows,
+                              macOS Python 3.13+) where the child process does not inherit the parent's sys.argv.
+                              When provided, it takes priority over the --ping-timeout value parsed from sys.argv.
         """
         parser = argparse.ArgumentParser(
             description='Server for the {} SOA service'.format(cls.service_name),
@@ -1108,8 +1113,14 @@ class Server(object):
 
         # When running as a forked child, validate that the transport's receive timeout is short enough
         # for the parent's ping watchdog to reliably detect hangs.
-        if forked_process_id is not None and cmd_options.ping_timeout is not None:
-            cls._validate_receive_timeout_vs_ping_timeout(settings, cmd_options.ping_timeout)
+        #
+        # Prefer the explicitly-injected _ping_timeout (passed as a positional arg by _ProcessMonitor)
+        # over the sys.argv-parsed value.  On multiprocessing "spawn" start-mode platforms (Windows,
+        # macOS Python 3.13+) child processes do not inherit the parent's sys.argv, so
+        # cmd_options.ping_timeout would be None and the check would be silently skipped.
+        effective_ping_timeout = _ping_timeout if _ping_timeout is not None else cmd_options.ping_timeout
+        if forked_process_id is not None and effective_ping_timeout is not None:
+            cls._validate_receive_timeout_vs_ping_timeout(settings, effective_ping_timeout)
 
         PySOALogContextFilter.set_service_name(cls.service_name)
 
