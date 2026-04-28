@@ -66,10 +66,11 @@ def _get_arg_parser():  # type: () -> argparse.ArgumentParser
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-f', '--fork-processes', '--fork',
-        help='The number of processes to fork (if 0, 1, or none, no process is forked; the server is run directly)',
+        help='The number of worker processes to fork (defaults to 1; use 0 to run the server directly in the current '
+             'process without forking, which is not recommended for production)',
         required=False,
         type=int,
-        default=0,
+        default=1,
     )
     parser.add_argument(
         '--no-respawn',
@@ -79,6 +80,23 @@ def _get_arg_parser():  # type: () -> argparse.ArgumentParser
         required=False,
         action='store_true',
         default=False,
+    )
+    parser.add_argument(
+        '--process-shutdown-timeout',
+        help='When shutting down, the number of seconds to wait for a worker process to exit after sending SIGTERM '
+             'before escalating to SIGKILL (default: 30)',
+        required=False,
+        type=int,
+        default=30,
+    )
+    parser.add_argument(
+        '--ping-timeout',
+        help='The number of seconds a worker process may spend processing a single request before the parent kills '
+             'it with SIGKILL. The child process pings the parent when it starts and finishes each request; if the '
+             'parent does not receive a ping within this timeout, it assumes the child is hung (default: 10)',
+        required=False,
+        type=int,
+        default=10,
     )
     parser.add_argument(
         '--use-file-watcher',
@@ -108,11 +126,32 @@ class _ProcessMonitor(threading.Thread):
     A helper thread that manages starting, monitoring, terminating and, upon premature termination, restarting of
     forked child server processes.
     """
-    def __init__(self, index, signal_context, respawn, **kwargs):  # type: (int, _SignalContext, bool, Any) -> None
+    _POLL_INTERVAL = 1.0  # seconds between join() polls during normal operation
+
+    def __init__(
+        self,
+        index,  # type: int
+        signal_context,  # type: _SignalContext
+        respawn,  # type: bool
+        shutdown_timeout,  # type: int
+        ping_timeout,  # type: int
+        **kwargs  # type: Any
+    ):  # type: (...) -> None
         self.index = index
         self.signal_context = signal_context
         self.respawn = respawn
-        self.process_kwargs = kwargs
+        self.shutdown_timeout = shutdown_timeout
+        self.ping_timeout = ping_timeout
+
+        # Shared-memory timestamp written by the child on every meaningful event
+        # (request received, request complete, idle timeout) and read by this thread
+        # to detect workers that are hung mid-request.
+        self._ping_timestamp = multiprocessing.Value('d', time.monotonic())
+
+        # Inject the timestamp into the positional args forwarded to server_class.main().
+        existing_args = kwargs.pop('args', ())
+        self.process_kwargs = dict(kwargs, args=existing_args + (self._ping_timestamp,))
+
         self.process = None  # type: Optional[multiprocessing.Process]
         self.one_minute_restart_times = collections.deque(maxlen=8)  # type: Deque[float]
         self.fifteen_second_restart_times = collections.deque(maxlen=3)  # type: Deque[float]
@@ -127,53 +166,95 @@ class _ProcessMonitor(threading.Thread):
             self.process.terminate()
 
     def _start_process(self):  # type: () -> None
+        # Refresh the ping timestamp before starting a new child so the replacement is
+        # not immediately killed due to a stale timestamp left by a crashed/killed worker.
+        self._ping_timestamp.value = time.monotonic()
         self.process = multiprocessing.Process(**self.process_kwargs)
         self.process.start()
+
+    def _kill_process(self, reason=None):  # type: (Optional[str]) -> None
+        """Forcefully kill the child process with SIGKILL and wait for it to exit."""
+        if not self.process:
+            return
+        if reason is None:
+            reason = 'did not exit within {} seconds of SIGTERM'.format(self.shutdown_timeout)
+        sys.stdout.write(
+            'Server process #{} {}; sending SIGKILL.\n'.format(self.index, reason)
+        )
+        sys.stdout.flush()
+        try:
+            os.kill(self.process.pid, signal.SIGKILL)
+        except OSError:
+            pass  # process may have exited between the is_alive() check and the kill
+        self.process.join()
 
     def run(self):  # type: () -> None
         self._start_process()
         assert self.process is not None
 
-        while not self.signal_context.signaled:
-            self.process.join()
-            time.sleep(0.01)
-            if self.signal_context.signaled or not self.respawn:
+        while True:
+            # Poll with a short timeout so we can react to shutdown signals promptly
+            # rather than blocking indefinitely in join().
+            self.process.join(timeout=self._POLL_INTERVAL)
+
+            if not self.process.is_alive():
+                # Child exited on its own (normal exit, harakiri os._exit, or crash).
+                if self.signal_context.signaled or not self.respawn:
+                    break
+
+                t = time.time()
+
+                if (
+                    len(self.one_minute_restart_times) == self.one_minute_restart_times.maxlen and
+                    t - self.one_minute_restart_times[0] < 60
+                ):
+                    sys.stdout.write(
+                        'Server process #{} has crashed too many times ({}) in the last minute; '
+                        'not respawning.\n'.format(self.index, self.one_minute_restart_times.maxlen),
+                    )
+                    sys.stdout.flush()
+                    break
+                elif (
+                    len(self.fifteen_second_restart_times) == self.fifteen_second_restart_times.maxlen and
+                    t - self.fifteen_second_restart_times[0] < 15
+                ):
+                    sys.stdout.write(
+                        'Server process #{} has crashed too many times ({}) in the last 15 seconds; '
+                        'not respawning.\n'.format(self.index, self.fifteen_second_restart_times.maxlen),
+                    )
+                    sys.stdout.flush()
+                    break
+                else:
+                    sys.stdout.write('Re-spawning failed server process #{}\n'.format(self.index))
+                    sys.stdout.flush()
+                    self.one_minute_restart_times.append(t)
+                    self.fifteen_second_restart_times.append(t)
+                    self._start_process()
+
+                continue
+
+            if self.signal_context.signaled:
+                # The parent received a shutdown signal and already sent SIGTERM via terminate().
+                # Give the child a grace period to exit cleanly, then escalate to SIGKILL.
+                self.process.join(timeout=self.shutdown_timeout)
+                if self.process.is_alive():
+                    self._kill_process()
                 break
 
-            t = time.time()
-
-            if (
-                len(self.one_minute_restart_times) == self.one_minute_restart_times.maxlen and
-                t - self.one_minute_restart_times[0] < 60
-            ):
-                sys.stdout.write(
-                    'Server process #{} has crashed too many times ({}) in the last minute; '
-                    'not respawning.\n'.format(self.index, self.one_minute_restart_times.maxlen),
+            # Check whether the child is hung. The child pings us (updates _ping_timestamp)
+            # on every meaningful event: request received, request complete, or idle timeout.
+            # If the timestamp is stale for longer than ping_timeout, the child is stuck.
+            if time.monotonic() - self._ping_timestamp.value > self.ping_timeout:
+                self._kill_process(
+                    'has not pinged in more than {} seconds'.format(self.ping_timeout)
                 )
-                sys.stdout.flush()
-                break
-            elif (
-                len(self.fifteen_second_restart_times) == self.fifteen_second_restart_times.maxlen and
-                t - self.fifteen_second_restart_times[0] < 15
-            ):
-                sys.stdout.write(
-                    'Server process #{} has crashed too many times ({}) in the last 15 seconds; '
-                    'not respawning.\n'.format(self.index, self.fifteen_second_restart_times.maxlen),
-                )
-                sys.stdout.flush()
-                break
-            else:
-                sys.stdout.write('Re-spawning failed server process #{}\n'.format(self.index))
-                sys.stdout.flush()
-                self.one_minute_restart_times.append(t)
-                self.fifteen_second_restart_times.append(t)
-                self._start_process()
+                # The process is now dead; loop back so is_alive() triggers the respawn logic above.
 
         self.process = None
 
 
 def _run_server(args, server_class):  # type: (argparse.Namespace, Type[Server]) -> None
-    if args.fork_processes > 1:
+    if args.fork_processes >= 1:
         cpu_count = multiprocessing.cpu_count()
         num_processes = args.fork_processes
         max_processes = cpu_count * 5
@@ -222,6 +303,8 @@ def _run_server(args, server_class):  # type: (argparse.Namespace, Type[Server])
                 index=i,
                 signal_context=signal_context,
                 respawn=not args.no_respawn,
+                shutdown_timeout=args.process_shutdown_timeout,
+                ping_timeout=args.ping_timeout,
                 target=server_class.main,
                 name='pysoa-worker-{}'.format(i),
                 args=(i, ),
