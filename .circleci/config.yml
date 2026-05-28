@@ -26,11 +26,15 @@ generate-codeartifact-token: &generate-codeartifact-token
 jobs:
   test:
     executor: ci-docker
+    environment:
+      DOCKER_BUILDKIT: 1
+      COMPOSE_DOCKER_CLI_BUILD: 1
     steps:
       - run:
           <<: *configure-aws
       - checkout
-      - setup_remote_docker
+      - setup_remote_docker:
+          version: 20.10.24
       - run:
           name: Login docker to ECR
           command: |
@@ -38,11 +42,19 @@ jobs:
       - run:
           <<: *generate-codeartifact-token
       - run:
-          name: Build images
-          command: docker-compose build
+          name: Build image and run tests
+          command: sh tox.sh
       - run:
-          name: Run tests
-          command: docker-compose run tox
+          name: Copy coverage.xml for publishing
+          command: |
+            if [ -f coverage.xml ]; then
+              cp coverage.xml /tmp/coverage.xml
+            else
+              echo "WARNING: coverage.xml not found"
+            fi
+          when: always
+      - store_test_results:
+          path: test-results
 
   publish:
     executor: ci-docker
