@@ -1,6 +1,11 @@
 Changelog
 =========
 
+1.4.10 (2026-05-28)
+-------------------
+- Reduce redis usage by 25%
+- Deprecate PySOA
+
 1.4.4 (2022-08-29)
 ------------------
 - Make PySOA compatible with newer versions of attrs (#272)
