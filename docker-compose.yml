@@ -1,0 +1,9 @@
+services:
+    tox:
+        platform: linux/amd64
+        build:
+            context: .
+        environment:
+            - PYTHONPATH=/pysoa
+            - PIP_INDEX_URL=https://aws:${CODEARTIFACT_AUTH_TOKEN}@eventbrite-shared-353605023268.d.codeartifact.us-east-1.amazonaws.com/pypi/python/simple/
+            - TOXENV=py38,py38-currint16,py38-currint20,py38-flake8,coverage,py38-mypy
