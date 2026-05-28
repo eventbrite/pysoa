@@ -46,15 +46,20 @@ class LuaRedisCommand(object):
 
 class SendMessageToQueueCommand(LuaRedisCommand):
     # KEYS[1] = queue key
-    # ARGV[1] = expiry
-    # ARGV[2] = queue capacity
+    # ARGV[1] = expiry (only applied to response queues, identified by '!' in key name)
+    # ARGV[2] = queue capacity (only enforced for request queues, i.e. no '!' in key name)
     # ARGV[3] = message
     _script = """
-if redis.call('llen', KEYS[1]) >= tonumber(ARGV[2]) then
-    return redis.error_reply("queue full")
+local is_response_queue = string.find(KEYS[1], '!', 1, true)
+if not is_response_queue then
+    if redis.call('llen', KEYS[1]) >= tonumber(ARGV[2]) then
+        return redis.error_reply("queue full")
+    end
 end
 redis.call('rpush', KEYS[1], ARGV[3])
-redis.call('expire', KEYS[1], ARGV[1])
+if is_response_queue then
+    redis.call('expire', KEYS[1], ARGV[1])
+end
 """
 
     def __call__(
