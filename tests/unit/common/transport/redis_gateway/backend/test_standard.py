@@ -280,3 +280,46 @@ class TestStandardRedisClient(unittest.TestCase):
 
         self.assertIsNotNone(message)
         self.assertEqual(payload, msgpack.unpackb(message, raw=False))
+
+    def test_request_queue_has_no_expire(self):
+        client = self._set_up_client()
+        connection = client.get_connection('test_request_queue_has_no_expire')
+
+        client.send_message_to_queue(
+            queue_key='test_request_queue_has_no_expire',
+            message=msgpack.packb({'test': 'value'}, use_bin_type=True),
+            expiry=10,
+            capacity=10,
+            connection=connection,
+        )
+
+        self.assertEqual(-1, connection.ttl('test_request_queue_has_no_expire'))
+
+    def test_response_queue_has_expire(self):
+        client = self._set_up_client()
+        connection = client.get_connection('test_response_queue_has_expire!')
+
+        client.send_message_to_queue(
+            queue_key='test_response_queue_has_expire!',
+            message=msgpack.packb({'test': 'value'}, use_bin_type=True),
+            expiry=30,
+            capacity=10,
+            connection=connection,
+        )
+
+        self.assertGreater(connection.ttl('test_response_queue_has_expire!'), 0)
+
+    def test_response_queue_ignores_capacity(self):
+        client = self._set_up_client()
+        connection = client.get_connection('test_response_queue_ignores_capacity!')
+
+        for i in range(5):
+            client.send_message_to_queue(
+                queue_key='test_response_queue_ignores_capacity!',
+                message=msgpack.packb({'index': i}, use_bin_type=True),
+                expiry=10,
+                capacity=3,
+                connection=connection,
+            )
+
+        self.assertEqual(5, connection.llen('test_response_queue_ignores_capacity!'))
