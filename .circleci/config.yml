@@ -1,0 +1,101 @@
+version: 2.1
+
+executors:
+  ci-docker:
+    docker:
+      - image: 353605023268.dkr.ecr.us-east-1.amazonaws.com/ci_cd:latest
+        aws_auth:
+          aws_access_key_id: $ECR35_AWS_ACCESS_KEY_ID
+          aws_secret_access_key: $ECR35_AWS_SECRET_ACCESS_KEY
+    resource_class: small
+
+configure-aws: &configure-aws
+  name: Configure prod and dev AWS profiles
+  command: /srv/ci_cd/configure_prod_dev_aws_profiles/main.sh
+
+generate-codeartifact-token: &generate-codeartifact-token
+  name: Generate temporary CodeArtifact token
+  command: |
+    CODEARTIFACT_AUTH_TOKEN=$(aws --profile=dev codeartifact get-authorization-token \
+      --domain eventbrite-shared \
+      --domain-owner 353605023268 \
+      --query authorizationToken \
+      --output text)
+    echo "export CODEARTIFACT_AUTH_TOKEN=$CODEARTIFACT_AUTH_TOKEN" >> $BASH_ENV
+
+jobs:
+  test:
+    executor: ci-docker
+    steps:
+      - run:
+          <<: *configure-aws
+      - checkout
+      - run:
+          <<: *generate-codeartifact-token
+      - run:
+          name: Install tox
+          command: pip install -U pip tox
+      - run:
+          name: Run unit tests
+          command: |
+            tox -e py37-attrs18,py37-attrs19,py37-attrs20,py37-attrs21,py37-flake8,coverage,py37-mypy
+
+  publish:
+    executor: ci-docker
+    steps:
+      - run:
+          <<: *configure-aws
+      - checkout
+      - run:
+          name: Install build tools
+          command: pip install -U pip setuptools wheel twine pyopenssl
+      - run:
+          name: Build sdist and wheel
+          command: python setup.py sdist bdist_wheel
+      - run:
+          name: Login twine to CodeArtifact
+          command: |
+            aws --profile=dev codeartifact login \
+              --tool twine \
+              --domain eventbrite-shared \
+              --domain-owner 353605023268 \
+              --repository python
+      - run:
+          name: Publish to CodeArtifact
+          command: twine upload --repository codeartifact dist/*
+
+workflows:
+  version: 2
+
+  pull-request:
+    jobs:
+      - test:
+          context:
+            - "DevTools ECR"
+            - "Prod AWS"
+          filters:
+            branches:
+              ignore:
+                - main
+
+  main:
+    jobs:
+      - test:
+          context:
+            - "DevTools ECR"
+            - "Prod AWS"
+          filters:
+            branches:
+              only: main
+
+  publish:
+    jobs:
+      - publish:
+          context:
+            - "DevTools ECR"
+            - "Prod AWS"
+          filters:
+            tags:
+              only: /^[0-9]+\.[0-9]+\.[0-9]+$/
+            branches:
+              ignore: /.*/
