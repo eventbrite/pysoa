@@ -38,7 +38,7 @@ jobs:
       - run:
           name: Run unit tests
           command: |
-            tox -e py37-attrs18,py37-attrs19,py37-attrs20,py37-attrs21,py37-flake8,coverage,py37-mypy
+            tox -e py38,py38-currint16,py38-currint20,coverage,py38-mypy
 
   publish:
     executor: ci-docker
