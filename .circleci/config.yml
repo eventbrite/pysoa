@@ -1,0 +1,117 @@
+version: 2.1
+
+executors:
+  ci-docker:
+    docker:
+      - image: 353605023268.dkr.ecr.us-east-1.amazonaws.com/ci_cd:latest
+        aws_auth:
+          aws_access_key_id: $ECR35_AWS_ACCESS_KEY_ID
+          aws_secret_access_key: $ECR35_AWS_SECRET_ACCESS_KEY
+    resource_class: small
+
+configure-aws: &configure-aws
+  name: Configure prod and dev AWS profiles
+  command: /srv/ci_cd/configure_prod_dev_aws_profiles/main.sh
+
+generate-codeartifact-token: &generate-codeartifact-token
+  name: Generate temporary CodeArtifact token
+  command: |
+    CODEARTIFACT_AUTH_TOKEN=$(aws --profile=dev codeartifact get-authorization-token \
+      --domain eventbrite-shared \
+      --domain-owner 353605023268 \
+      --query authorizationToken \
+      --output text)
+    echo "export CODEARTIFACT_AUTH_TOKEN=$CODEARTIFACT_AUTH_TOKEN" >> $BASH_ENV
+
+jobs:
+  test:
+    executor: ci-docker
+    environment:
+      DOCKER_BUILDKIT: 1
+      COMPOSE_DOCKER_CLI_BUILD: 1
+    steps:
+      - run:
+          <<: *configure-aws
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.24
+      - run:
+          name: Login docker to ECR
+          command: |
+            aws --profile=dev ecr get-login-password | docker login -u AWS --password-stdin https://353605023268.dkr.ecr.us-east-1.amazonaws.com
+      - run:
+          <<: *generate-codeartifact-token
+      - run:
+          name: Build image and run tests
+          command: sh tox.sh
+      - run:
+          name: Copy coverage.xml for publishing
+          command: |
+            if [ -f coverage.xml ]; then
+              cp coverage.xml /tmp/coverage.xml
+            else
+              echo "WARNING: coverage.xml not found"
+            fi
+          when: always
+      - store_test_results:
+          path: test-results
+
+  publish:
+    executor: ci-docker
+    steps:
+      - run:
+          <<: *configure-aws
+      - checkout
+      - run:
+          name: Install build tools
+          command: pip install -U pip setuptools wheel twine pyopenssl
+      - run:
+          name: Build sdist and wheel
+          command: python setup.py sdist bdist_wheel
+      - run:
+          name: Login twine to CodeArtifact
+          command: |
+            aws --profile=dev codeartifact login \
+              --tool twine \
+              --domain eventbrite-shared \
+              --domain-owner 353605023268 \
+              --repository python
+      - run:
+          name: Publish to CodeArtifact
+          command: twine upload --repository codeartifact dist/*
+
+workflows:
+  version: 2
+
+  pull-request:
+    jobs:
+      - test:
+          context:
+            - "DevTools ECR"
+            - "Prod AWS"
+          filters:
+            branches:
+              ignore:
+                - main
+
+  main:
+    jobs:
+      - test:
+          context:
+            - "DevTools ECR"
+            - "Prod AWS"
+          filters:
+            branches:
+              only: main
+
+  publish:
+    jobs:
+      - publish:
+          context:
+            - "DevTools ECR"
+            - "Prod AWS"
+          filters:
+            tags:
+              only: /^[0-9]+\.[0-9]+\.[0-9]+$/
+            branches:
+              ignore: /.*/
