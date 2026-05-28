@@ -30,15 +30,19 @@ jobs:
       - run:
           <<: *configure-aws
       - checkout
+      - setup_remote_docker
+      - run:
+          name: Login docker to ECR
+          command: |
+            aws --profile=dev ecr get-login-password | docker login -u AWS --password-stdin https://353605023268.dkr.ecr.us-east-1.amazonaws.com
       - run:
           <<: *generate-codeartifact-token
       - run:
-          name: Install tox
-          command: pip install -U pip tox
+          name: Build images
+          command: docker-compose build
       - run:
-          name: Run unit tests
-          command: |
-            tox -e py38,py38-currint16,py38-currint20,coverage,py38-mypy
+          name: Run tests
+          command: docker-compose run tox
 
   publish:
     executor: ci-docker
