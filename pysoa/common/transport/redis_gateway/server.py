@@ -50,14 +50,21 @@ class RedisServerTransport(ServerTransport):
         timer = self.metrics.timer('server.transport.redis_gateway.receive', resolution=TimerResolution.MICROSECONDS)
         timer.start()
         stop_timer = True
+        message = None
         try:
-            return self.core.receive_message(self._receive_queue_name)
+            message = self.core.receive_message(self._receive_queue_name)
         except MessageReceiveTimeout:
             stop_timer = False
             raise
         finally:
             if stop_timer:
                 timer.stop()
+            if message:
+                self.metrics.counter('server.transport.redis_gateway.receive_context', tags={
+                    'from': message.meta['reply_to'],
+                    'to': self.service_name,
+                }).increment()
+        return message
 
     def send_response_message(self, request_id, meta, body):
         # type: (int, Dict[six.text_type, Any], Dict[six.text_type, Any]) -> None
@@ -69,3 +76,8 @@ class RedisServerTransport(ServerTransport):
 
         with self.metrics.timer('server.transport.redis_gateway.send', resolution=TimerResolution.MICROSECONDS):
             self.core.send_message(queue_name, request_id, meta, body)
+
+        self.metrics.counter('server.transport.redis_gateway.send_context', tags={
+            'from': self.service_name,
+            'to': queue_name,
+        }).increment()
