@@ -690,7 +690,10 @@ class stub_action(object):
             patching = None
             extra_args = []
             entered_patchers = []
-            exc_info = ()  # type: Union[Tuple[()], _ExcInfo]
+            # Python 3.9's mock.patch.__exit__ forwards this tuple to
+            # contextlib.ExitStack, which reads exc_details[0]. An empty
+            # tuple raises IndexError, so pass the standard success tuple.
+            exc_info = (None, None, None)  # type: _ExcInfo
             try:
                 for patching in getattr(wrapped, 'patchings'):
                     arg = patching.__enter__()
