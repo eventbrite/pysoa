@@ -1,6 +1,18 @@
 Changelog
 =========
 
+1.4.11 (2026-11-09)
+------------------
+- Relax the ``attrs`` upper bound to ``<24`` so PySOA 1.x can run alongside
+  ``pymetrics`` 2.x.
+- Fix ``stub_action`` used as a decorator on Python 3.8+: pass a real
+  ``exc_info`` tuple to ``mock.patch.__exit__`` so it no longer raises
+  ``IndexError: tuple index out of range`` on the success path.
+- Prefer ``unittest.mock`` on Python 3. The standalone ``mock`` backport has a
+  different ``DEFAULT`` sentinel, so ``stub_action`` combined with
+  ``unittest.mock.patch`` failed to inject its stub argument.
+- Add attrs 22 and 23 to the tox matrix.
+
 1.4.10 (2026-05-28)
 -------------------
 - Reduce redis usage by 25%
